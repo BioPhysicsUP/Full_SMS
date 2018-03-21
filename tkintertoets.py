@@ -43,7 +43,8 @@ notebook.add(lifetime_frame, text='Lifetime Fitting')
 # testim=PhotoImage(file='fittedlevel.png')
 canvas1 = Canvas(resolve_frame, width=400, height=500)
 canvas1.pack(side='top', fill='both', expand=True)
-#canvas1.create_image(50, 50, image=testim, anchor='nw', tags=('piece'))
+# canvas1.create_image(50, 50, image=testim, anchor='nw', tags=('piece'))
+
 
 def draw_figure(canvas, figure, loc=(0, 0)):
     """ Draw a matplotlib figure onto a Tk canvas
@@ -66,6 +67,7 @@ def draw_figure(canvas, figure, loc=(0, 0)):
     # Return a handle which contains a reference to the photo object
     # which must be kept live or else the picture disappears
     return photo
+
 
 # Create a canvas
 
