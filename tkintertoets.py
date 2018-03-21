@@ -1,6 +1,6 @@
 
-from Tkinter import *
-from ttk import *
+from tkinter import *
+from tkinter.ttk import *
 import matplotlib as mpl
 import numpy as np
 import matplotlib.backends.tkagg as tkagg
@@ -40,7 +40,7 @@ lifetime_frame.pack(side='top', fill='both', expand=True)
 notebook.add(resolve_frame, text='Resolve Levels')
 notebook.add(lifetime_frame, text='Lifetime Fitting')
 
-testim=PhotoImage(file='fittedlevel.png')
+# testim=PhotoImage(file='fittedlevel.png')
 canvas1 = Canvas(resolve_frame, width=400, height=500)
 canvas1.pack(side='top', fill='both', expand=True)
 #canvas1.create_image(50, 50, image=testim, anchor='nw', tags=('piece'))
