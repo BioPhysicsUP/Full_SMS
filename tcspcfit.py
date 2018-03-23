@@ -9,7 +9,8 @@ from statistics import *
 import numpy as np
 from scipy.fftpack import fft, ifft
 
-bug = 'bug'
+# TODO: one dimensional inputs need to be numpy row vectors (np.array([[a, b, ...]]))
+# this should make those if..else's unnecessary.
 
 def convol(irf, x):
     """Performs a convolution of irf with x.
