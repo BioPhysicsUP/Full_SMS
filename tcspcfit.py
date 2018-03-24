@@ -5,12 +5,10 @@ https://www.uni-goettingen.de/en/513325.html
 """
 
 # from math import *
-from statistics import *
+# from statistics import *
 import numpy as np
 from scipy.fftpack import fft, ifft
 
-# TODO: one dimensional inputs need to be numpy row vectors (np.array([[a, b, ...]]))
-# this should make those if..else's unnecessary.
 
 def convol(irf, x):
     """Performs a convolution of irf with x.
@@ -18,24 +16,19 @@ def convol(irf, x):
     Periodicity (period = len(x)) is assumed.
     """
 
-    mm = mean(irf[-11:-1])
-    if x.ndim == 1:
-        # irf = irf.flatten()  # Needed in matlab, apparently not with numpy
-        # x = x.flatten()
-        p = np.size(x,0)
-    else:
-        p = np.size(x, 1)  # There should be a way to remove this if..else , maybe transpose the inputs
-    n = np.size(irf, 0)
+    mm = np.mean(irf[-11:-1])
+    try:
+        p = np.size(x, 1)
+        n = np.size(irf, 1)
+    except IndexError:
+        print('Input is not a row vector ([[a,b,..]]')
+        raise
+
     if p > n:
         irf = np.append(irf, mm * np.ones(p - n))
     else:
         irf = irf[0:p]
-    if x.ndim == 1:  # Again this if..else shouldn't be necessary
-        y = np.float_(ifft((fft(irf) * np.ones(p)) * fft(x)))
-    else:
-        print(fft(irf))
-        print(np.outer(fft(irf), np.ones(np.size(x, 0))))
-        y = np.float_(ifft(np.outer(np.ones(np.size(x, 0)), fft(irf)) * fft(x)))
+    y = np.float_(ifft(np.outer(np.ones(np.size(x, 0)), fft(irf)) * fft(x)))
 
     # t needs to have the same length as irf (n) in each case:
     if n <= p:
@@ -44,9 +37,5 @@ def convol(irf, x):
         t = np.concatenate((np.arange(0, p - 2), np.arange(0, n - p - 1)))
 
     # Either remove from y or add from start to end so that y has same length as irf.
-    if x.ndim == 1:  # This one should also go away.
-        y = y.take(t, 0)
-    else:
-        y = y.take(t, 1)
+    y = y.take(t, 1)
     return y
-
