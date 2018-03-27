@@ -10,6 +10,11 @@ import numpy as np
 from scipy.fftpack import fft, ifft
 
 
+class InputError(Exception):
+    """Custom exeption, raised when input is incompatible with a given function"""
+    pass
+
+
 def convol(irf, x):
     """Performs a convolution of irf with x.
 
@@ -21,8 +26,7 @@ def convol(irf, x):
         p = np.size(x, 1)
         n = np.size(irf, 1)
     except IndexError:
-        print('Input is not a row vector ([[a,b,..]]')
-        raise
+        raise InputError('Input is not a row vector ([[a,b,..]]')
 
     if p > n:
         irf = np.append(irf, mm * np.ones(p - n))
@@ -32,7 +36,7 @@ def convol(irf, x):
 
     # t needs to have the same length as irf (n) in each case:
     if n <= p:
-        t = np.arange(0, n - 2)
+        t = np.arange(0, n)
     else:
         t = np.concatenate((np.arange(0, p - 2), np.arange(0, n - p - 1)))
 
@@ -59,15 +63,23 @@ def lsfit(param, irf, y, p):
     n = np.size(irf, 1)
     t = np.arange(1, n)
     tp = np.arange(1, p).transpose()
-    c = param[1]
-    tau = param[2:]
-    tau = tau.flatten(1).transpose()
+    c = param[0, 1]
+    tau = param[0, 2:]
+    print(tau)
+    tau = tau.transpose()
     x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-p / tau)))))
-    irs = (1 - c + np.floor(c)) * irf[np.fmod(np.fmod(t - np.floor(c) - 1, n) + n, n) + 1]\
-        + (c - np.floor(c)) * irf[np.fmod(np.fmod(t - np.ceil(c) - 1, n) + n, n) + 1]
-    z = convol(irs, x)
-    z = np.append(np.ones(np.size(z, 1), 1), z)
-    A = np.linalg.solve(z, y)
-    z = np.matmul(z, A)
-    err = np.sum((z-y)**2/np.abs(z))/(n-np.size(tau, 1))
+    print(np.shape(irf), np.shape(x))
+    irs = [(1 - c + np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.floor(c) - 1, n) + n, n).astype(int)]\
+        + (c - np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.ceil(c) - 1, n) + n, n).astype(int)]]
+
+    print(np.shape(x), np.shape(irs))
+    z = convol(irs, x.transpose())
+    print(np.shape(np.ones((np.size(z, 0), 1))))
+    z = np.concatenate((np.ones((np.size(z, 0), 1)), z), axis=1)
+    print(np.shape(z), np.shape(y))
+    A, residuals, rank, s = np.linalg.lstsq(z.transpose(), y.transpose())
+    print(A)
+    z = np.matmul(z.transpose(), A)
+    y = y.transpose()
+    err = np.sum((z-y)**2/np.abs(z))/(n-np.size(tau, 0))
     return err, A, z
