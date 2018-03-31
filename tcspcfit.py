@@ -8,7 +8,7 @@ https://www.uni-goettingen.de/en/513325.html
 # from statistics import *
 import numpy as np
 from scipy.fftpack import fft, ifft
-
+# from matplotlib import pyplot as plt
 
 class InputError(Exception):
     """Custom exeption, raised when input is incompatible with a given function"""
@@ -65,20 +65,14 @@ def lsfit(param, irf, y, p):
     tp = np.arange(1, p).transpose()
     c = param[0, 1]
     tau = param[0, 2:]
-    print(tau)
     tau = tau.transpose()
     x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-p / tau)))))
-    print(np.shape(irf), np.shape(x))
     irs = [(1 - c + np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.floor(c) - 1, n) + n, n).astype(int)]\
         + (c - np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.ceil(c) - 1, n) + n, n).astype(int)]]
 
-    print(np.shape(x), np.shape(irs))
     z = convol(irs, x.transpose())
-    print(np.shape(np.ones((np.size(z, 0), 1))))
     z = np.concatenate((np.ones((np.size(z, 0), 1)), z), axis=1)
-    print(np.shape(z), np.shape(y))
     A, residuals, rank, s = np.linalg.lstsq(z.transpose(), y.transpose())
-    print(A)
     z = np.matmul(z.transpose(), A)
     y = y.transpose()
     err = np.sum((z-y)**2/np.abs(z))/(n-np.size(tau, 0))

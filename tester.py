@@ -23,7 +23,6 @@ fData1 = np.array([A1 * np.exp(-t / tau1_ns)])
 fData2 = np.array([A2 * np.exp(-t / tau2_ns)])
 Airf = np.max(fData)
 
-
 delay_pts = delay_ns / (window_ns / numPoints)
 
 IRF = np.exp(-t / tauIRF_ns) / (1 + np.exp(-delay_ns * (t - delay_ns)))
@@ -55,9 +54,9 @@ if addNoise:
         IRF = IRF - backLevel
         TCSPCdata = TCSPCdata - backLevel
 
-# plt.plot(TCSPCdata)
-# plt.show()
-print(np.shape(IRF))
-
 err, A, z = lsfit(np.array([[1000, 0.0004, 8, 30]]), IRF, TCSPCdata, 200)
-print(A)
+
+plt.plot(z.transpose()[0])
+plt.plot(TCSPCdata[0])
+plt.show()
+
