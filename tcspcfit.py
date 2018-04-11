@@ -80,7 +80,7 @@ def lsfit(param, irf, y, p):
     return err, A, z
 
 
-def fluofit(irf, y, p, dt, tau, lim, init, ploton):
+def fluofit(irf, y, p, dt, tau, lim=0, init=0, ploton=False):
 # The function FLUOFIT performs a fit of a multi-exponential decay curve.
 # It is called by:
 # [c, offset, A, tau, dc, doffset, dtau, irs, z, t, chi] = fluofit(irf, y, p, dt, tau, limits, init).
@@ -152,16 +152,16 @@ def fluofit(irf, y, p, dt, tau, lim, init, ploton):
         c = 0
 
     # if (nargin<6)||isempty(lim)
-    lim = [np.zeros(1,np.shape(tau)), 100.*np.ones(1,np.shape(tau))]
+    lim = np.concatenate((np.zeros((1, np.size(tau, 1))), 100*np.ones((1, np.size(tau, 1)))))
 
     p = p/dt
-    tp = np.arange(1, p).transpose()
-    tau = tau.flatten().transpose()/dt
-    lim_min = lim[np.arange(tau)]/dt
-    lim_max = lim[np.shape(tau)+1:]/dt
-    t = np.arange(y)
+    tp = np.array([np.arange(1, p)]).transpose()
+    tau = tau/dt
+    lim_min = lim[0:np.size(tau)]/dt
+    lim_max = lim[np.size(tau)+1:]/dt
+    t = np.arange(np.size(y))
     m = np.shape(tau)
-    x = np.exp(-(tp-1)*(1./tau))*np.diag(1./(1-np.exp(-p/tau)))
+    x = np.matmul(np.exp(np.matmul(-(tp-1), (1/tau))), np.diag(1/(1-np.exp(-p/tau).flatten())))  # TODO: Figure out why flatten is needed
     irs = (1-c+np.floor(c))*irf(np.fmod(np.fmod(t-np.floor(c)-1, n)+n,n)+1) + (c-np.floor(c))*irf(np.floor(np.floor(t-np.ceil(c)-1, n)+n,n)+1)
     z = convol(irs, x)
     z = [np.ones(np.shape(z,1),1), z]
