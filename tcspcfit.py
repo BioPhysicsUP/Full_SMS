@@ -9,7 +9,8 @@ https://www.uni-goettingen.de/en/513325.html
 import numpy as np
 from scipy.fftpack import fft, ifft
 from scipy.optimize import minimize
-# from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
+
 
 class InputError(Exception):
     """Custom exeption, raised when input is incompatible with a given function"""
@@ -28,18 +29,18 @@ def convol(irf, x):
         n = np.size(irf, 1)
     except IndexError:
         raise InputError('Input is not a row vector ([[a,b,..]]')
-
     if p > n:
         irf = np.append(irf, mm * np.ones(p - n))
     else:
-        irf = irf[0:p]
+        irf = irf[:, :p]
     y = np.float_(ifft(np.outer(np.ones(np.size(x, 0)), fft(irf)) * fft(x)))
 
     # t needs to have the same length as irf (n) in each case:
     if n <= p:
         t = np.arange(0, n)
     else:
-        t = np.concatenate((np.arange(0, p - 2), np.arange(0, n - p - 1)))
+        t = np.concatenate((np.arange(0, p), np.arange(0, n - p)))
+        # t = np.concatenate((np.arange(0, p - 2), np.arange(0, n - p - 1)))
 
     # Either remove from y or add from start to end so that y has same length as irf.
     y = y.take(t, 1)
@@ -60,24 +61,28 @@ def lsfit(param, irf, y, p):
     y is the measured fluorescence decay curve.
     p is the time between to laser excitations (in number of TCSPC channels).
     """
+    if np.ndim(param) == 1:
+        param = np.reshape(param, (1, -1))
 
     n = np.size(irf, 1)
     t = np.arange(1, n)
     tp = np.arange(1, p).transpose()
-    c = param[0, 1]
+    c = param[0, 0]
     tau = param[0, 2:]
     tau = tau.transpose()
+    print(tau)
     x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-p / tau)))))
-    irs = [(1 - c + np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.floor(c) - 1, n) + n, n).astype(int)]\
-        + (c - np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.ceil(c) - 1, n) + n, n).astype(int)]]
-
+    irs = (1 - c + np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.floor(c) - 1, n) + n, n).astype(int)]\
+        + (c - np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.ceil(c) - 1, n) + n, n).astype(int)]
+    irs = np.reshape(irs, (1, -1))
     z = convol(irs, x.transpose())
     z = np.concatenate((np.ones((np.size(z, 0), 1)), z), axis=1)
     A, residuals, rank, s = np.linalg.lstsq(z.transpose(), y.transpose())
     z = np.matmul(z.transpose(), A)
     y = y.transpose()
-    err = np.sum((z-y)**2/np.abs(z))/(n-np.size(tau, 0))
-    return err, A, z
+    print(n - np.size(tau, 0))
+    err = np.sum(((z-y)**2)/np.abs(z))/(n-np.size(tau, 0))
+    return err#, A, z
 
 
 def fluofit(irf, y, p, dt, tau, lim=0, init=0, ploton=False):
@@ -115,7 +120,7 @@ def fluofit(irf, y, p, dt, tau, lim=0, init=0, ploton=False):
     irf = irf.flatten()
     offset = 0
     y = y.flatten()
-    n = np.shape(irf)
+    n = np.size(irf)
     # if nargin>6:
     #     if isempty(init):
     #         init = 1
@@ -155,41 +160,72 @@ def fluofit(irf, y, p, dt, tau, lim=0, init=0, ploton=False):
     lim = np.concatenate((np.zeros((1, np.size(tau, 1))), 100*np.ones((1, np.size(tau, 1)))))
 
     p = p/dt
-    tp = np.array([np.arange(1, p)]).transpose()
+    tp = np.arange(1, p).transpose()
     tau = tau/dt
     lim_min = lim[0:np.size(tau)]/dt
     lim_max = lim[np.size(tau)+1:]/dt
     t = np.arange(np.size(y))
-    m = np.shape(tau)
-    x = np.matmul(np.exp(np.matmul(-(tp-1), (1/tau))), np.diag(1/(1-np.exp(-p/tau).flatten())))  # TODO: Figure out why flatten is needed
-    irs = (1-c+np.floor(c))*irf(np.fmod(np.fmod(t-np.floor(c)-1, n)+n,n)+1) + (c-np.floor(c))*irf(np.floor(np.floor(t-np.ceil(c)-1, n)+n,n)+1)
-    z = convol(irs, x)
-    z = [np.ones(np.shape(z,1),1), z]
-    #A = z\y
-    A = np.linalg.lstsq(z,y)
-    z = np.matmul(z, A)
+    m = np.size(tau)
+    tau = tau.flatten()
+    print('tp', np.shape(tp), 'tau:', np.shape(tau))
+    # x = np.matmul(np.exp(np.matmul(-(tp-1), (1/tau))), np.diagflat(1/(1-np.exp(-p/tau))))
+    x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-p / tau)))))
+
+    irs = (1-c+np.floor(c))*irf[(np.fmod(np.fmod(t-np.floor(c)-1, n)+n, n)).astype(int)] \
+        + (c-np.floor(c))*irf[(np.fmod(np.fmod(t-np.ceil(c)-1, n)+n, n)).astype(int)]
+    irs = np.reshape(irs, (1, -1))
+    # z = convol(np.reshape(irs, (1, -1)), x.transpose())
+    # z = np.reshape([np.ones([np.size(z,1), 1]), z], (-1, 1))
+    # x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-p / tau)))))
+    # irs = [(1 - c + np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.floor(c) - 1, n) + n, n).astype(int)]\
+    #     + (c - np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.ceil(c) - 1, n) + n, n).astype(int)]]
+
+    z = convol(irs, x.transpose())
+    # print(np.shape(z), np.shape(y))
+    # z = np.concatenate((np.ones((np.size(z, 0), 1)), z), axis=1)
+    # print(np.shape(irf), np.shape(y))
+    A, residuals, rank, s = np.linalg.lstsq(z.transpose(), y.transpose())
+    z = np.matmul(z.transpose(), A)
+
     if init<2:
     #     disp('Fit =                Parameters =')
-        param = [c, tau.transpose()]
+    #     param = np.reshape(np.insert(tau, 0, 0), (1, -1))
+        param = np.insert(tau, 0, 999)
+        print(param)
         # Decay times and Offset are assumed to be positive.
-        paramin = [-1/dt, lim_min]
-        paramax = [ 1/dt, lim_max]
-        [param, dparam] = minimize(fitfun, param, paramin, paramax, [], [], irf.transpose(), y.transpose(), p)
-        c = param(1)
-        dc = dparam(1)
-        tau = param[2:np.shape(param)].transpose()
-        dtau = dparam[2:np.shape(param)]
-        x = np.exp(-(tp-1)*(1./tau))*np.diag(1./(1-np.exp(-p/tau)))
-        irs = (1-c+np.floor(c))*irf(np.fmod(np.fmod(t-np.floor(c)-1, n)+n,n)+1) + (c-np.floor(c))*irf(np.fmod(np.fmod(t-np.ceil(c)-1, n)+n,n)+1)
-        z = convol(irs, x)
-        z = [np.ones(np.shape(z,1),1), z]
-        z = z/(np.ones(n,1)*sum(z))
-        #A = z\y
-        A = np.linalg.lstsq(z,y)
-        zz = z*(np.ones(np.shape(z,1),1)*A.transpose())
+        # paramin = [-1/dt, lim_min]
+        # paramax = [ 1/dt, lim_max]
+        # print(paramin, paramax)
+        # TODO: paramin and paramax should be incorporated into the minimisation below
+        print(param)
+        result = minimize(lsfit, param, args=(np.reshape(irf, (1, -1)), np.reshape(y, (1, -1)), p), method='Nelder-Mead')
+        param = result.x
+        print(result)
+        c = param[0]
+        # dc = dparam(1)  # TODO: Get errors out of minimisation
+        tau = param[1:np.size(param)].flatten()
+        # dtau = dparam[2:np.shape(param)]
+
+        # x = np.matmul(np.exp(np.matmul(-(tp-1), (1./tau))), np.diag(1./(1-np.exp(-p/tau))))
+        x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-p / tau)))))
+        # irs = (1-c+np.floor(c))*irf(np.fmod(np.fmod(t-np.floor(c)-1, n)+n,n)+1) + (c-np.floor(c))*irf(np.fmod(np.fmod(t-np.ceil(c)-1, n)+n,n)+1)
+        irs = (1-c+np.floor(c))*irf[(np.fmod(np.fmod(t-np.floor(c)-1, n)+n, n)).astype(int)] \
+            + (c-np.floor(c))*irf[(np.fmod(np.fmod(t-np.ceil(c)-1, n)+n, n)).astype(int)]
+        irs = np.reshape(irs, (1, -1))
+        print(np.shape(x))
+        z = convol(irs, x.transpose())
+        # z = np.concatenate((np.ones((np.size(z, 0), 1)), z), axis=1)
+        z = z.transpose()/np.ones((n, 1))*np.sum(z)
+        # A = z\y
+        A, residuals, rank, s = np.linalg.lstsq(z,y)
+        bla = z*(np.ones((np.shape(z)[0], 1)))
+        # A = np.reshape(A, (1, -1)).transpose()
+        print('A:', np.shape(A), 'bla:', np.shape(bla))
+        zz = np.matmul(bla, A)
         z = z*A
+        z = z.transpose()
     #     dtau = dtau
-        dc = dt*dc
+    #     dc = dt*dc
     else:
         dtau = 0
         dc = 0
@@ -197,5 +233,7 @@ def fluofit(irf, y, p, dt, tau, lim=0, init=0, ploton=False):
     t = dt*t
     tau = dt*tau.transpose()
     c = dt*c
-    offset = zz(1,1)
-    A[1] = []
+    print(np.shape(zz))
+    offset = zz[0]
+    # A[0] = np.array([])
+    return c, offset, A, tau, 0, 0, irs, zz, t, chi

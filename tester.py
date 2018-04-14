@@ -6,10 +6,10 @@ window_ns = 200
 numPoints = 200
 chnlWidth_ns = window_ns/numPoints
 tauIRF_ns = 1
-A1 = 10000
-tau1_ns = 8
-A2 = 20000
-tau2_ns = 30
+A1 = 100
+tau1_ns = 20
+A2 = 200
+tau2_ns = 1
 delay_ns = 20
 addNoise = True
 
@@ -54,10 +54,17 @@ if addNoise:
         IRF = IRF - backLevel
         TCSPCdata = TCSPCdata - backLevel
 
-# err, A, z = lsfit(np.array([[1000, 0.0004, 8, 30]]), IRF, TCSPCdata, 200)
-#
+# err, A, z = lsfit(np.array([[999, 0.0004, 8, 30]]), IRF, TCSPCdata, 200)
+# print(err, A)
 # plt.plot(z.transpose()[0])
 # plt.plot(TCSPCdata[0])
 # plt.show()
 
-c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[8, 30]]))
+c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[tau1_ns, tau2_ns]]))
+
+print(A, tau)
+fitted = A[0] * np.exp(-t / tau[0]) + A[1] * np.exp(-t / tau[1])
+plt.plot(5000000*fitted)
+plt.plot(TCSPCdata[0])
+# plt.xlim([18, 100])
+plt.show()
