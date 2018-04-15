@@ -13,14 +13,16 @@ from matplotlib import pyplot as plt
 
 
 class InputError(Exception):
-    """Custom exeption, raised when input is incompatible with a given function"""
+    """Raised when input is incompatible with a given function"""
     pass
 
 
 def convol(irf, x):
     """Performs a convolution of irf with x.
 
-    Periodicity (period = len(x)) is assumed.
+    Periodicity (period = size(x)) is assumed.
+    irf should be a row vector.
+    Output is a convolution of irf with each row of x.
     """
 
     mm = np.mean(irf[-11:-1])
@@ -47,42 +49,49 @@ def convol(irf, x):
     return y
 
 
-def lsfit(param, irf, y, p):
-    """Returns the Least-Squares deviation between the data y and the computed values.
+def lsfit(param, irf, y, period):
+    """Returns the Least-Squares deviation between y and computed values.
 
     Assumes a function of the form:
 
-    y =  yoffset + A(1)*convol(irf,exp(-t/tau(1)/(1-exp(-p/tau(1)))) + ...
+    y =  yoffset + A1*convol(irf,exp(-t/tau1/(1-exp(-p/tau1))) + ...
 
-    param(1) is the color shift value between irf and y.
-    param(2) is the irf offset.
-    param(3:...) are the decay times.
-    irf is the measured Instrumental Response Function.
-    y is the measured fluorescence decay curve.
-    p is the time between to laser excitations (in number of TCSPC channels).
+    The only use case of lsfit is in the call to
+    scipy.optimize.minimize(). minimize() minimizes the output of lsfit by
+    varying the param vector.
+
+    Arguments:
+    param is 1D vector as required by minimize()
+        param[0] -- color shift value between irf and y.
+        param[1] -- irf offset.
+        param[2:] -- decay times.
+
+    irf -- measured Instrumental Response Function.
+    y -- measured fluorescence decay curve.
+    period -- time between two laser excitations (in number of TCSPC channels).
+
+    Output:
+    err -- least-squares error.
     """
-    if np.ndim(param) == 1:
-        param = np.reshape(param, (1, -1))
+    param = np.reshape(param, (1, -1))
 
-    n = np.size(irf, 1)
-    t = np.arange(1, n)
-    tp = np.arange(1, p).transpose()
-    c = param[0, 0]
-    tau = param[0, 2:]
-    tau = tau.transpose()
-    print(tau)
-    x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-p / tau)))))
-    irs = (1 - c + np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.floor(c) - 1, n) + n, n).astype(int)]\
-        + (c - np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.ceil(c) - 1, n) + n, n).astype(int)]
+    irflength = np.size(irf, 1)
+    t = np.arange(1, irflength)
+    tp = np.arange(1, period)
+    colorshift = param[0, 0]
+    tau = param[0, 2:].transpose()
+    x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1 - np.exp(-period / tau)))))
+    irs = (1 - colorshift + np.floor(colorshift)) * irf[0, np.fmod(np.fmod(t - np.floor(colorshift) - 1, irflength) + irflength, irflength).astype(int)]\
+        + (colorshift - np.floor(colorshift)) * irf[0, np.fmod(np.fmod(t - np.ceil(colorshift) - 1, irflength) + irflength, irflength).astype(int)]
     irs = np.reshape(irs, (1, -1))
     z = convol(irs, x.transpose())
     z = np.concatenate((np.ones((np.size(z, 0), 1)), z), axis=1)
     A, residuals, rank, s = np.linalg.lstsq(z.transpose(), y.transpose())
     z = np.matmul(z.transpose(), A)
     y = y.transpose()
-    print(n - np.size(tau, 0))
-    err = np.sum(((z-y)**2)/np.abs(z))/(n-np.size(tau, 0))
-    return err#, A, z
+    print(irflength - np.size(tau, 0))
+    err = np.sum(((z-y)**2)/np.abs(z))/(irflength-np.size(tau, 0))
+    return err
 
 
 def fluofit(irf, y, p, dt, tau, lim=0, init=0, ploton=False):

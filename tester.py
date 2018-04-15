@@ -64,7 +64,7 @@ c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns
 
 print(A, tau)
 fitted = A[0] * np.exp(-t / tau[0]) + A[1] * np.exp(-t / tau[1])
-plt.plot(5000000*fitted)
+plt.plot(20000000*fitted)
 plt.plot(TCSPCdata[0])
-# plt.xlim([18, 100])
+plt.ylim([-10, 300])
 plt.show()
