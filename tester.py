@@ -54,7 +54,7 @@ if addNoise:
         IRF = IRF - backLevel
         TCSPCdata = TCSPCdata - backLevel
 
-# err, A, z = lsfit(np.array([[999, 0.0004, 8, 30]]), IRF, TCSPCdata, 200)
+# err, A, z = lsfit(np.array([[1.5, 0.0004, 8, 30]]), IRF, TCSPCdata, 200)
 # print(err, A)
 # plt.plot(z.transpose()[0])
 # plt.plot(TCSPCdata[0])
@@ -64,7 +64,8 @@ c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns
 
 print(A, tau)
 fitted = A[0] * np.exp(-t / tau[0]) + A[1] * np.exp(-t / tau[1])
-plt.plot(20000000*fitted)
+plt.plot(4000000*fitted)
+plt.plot(fData[0])
 plt.plot(TCSPCdata[0])
 plt.ylim([-10, 300])
 plt.show()

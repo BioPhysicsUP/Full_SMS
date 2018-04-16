@@ -49,6 +49,13 @@ def convol(irf, x):
     return y
 
 
+def colorshift(irf, shift, irflength, t):
+    integer_left_shift = irf[0, np.fmod(np.fmod(t - np.floor(shift) - 1, irflength) + irflength, irflength).astype(int)]
+    integer_right_shift = irf[0, np.fmod(np.fmod(t - np.ceil(shift) - 1, irflength) + irflength, irflength).astype(int)]
+    irs = (1 - shift + np.floor(shift)) * integer_left_shift + (shift - np.floor(shift)) * integer_right_shift
+    return irs
+
+
 def lsfit(param, irf, y, period):
     """Returns the Least-Squares deviation between y and computed values.
 
@@ -78,20 +85,27 @@ def lsfit(param, irf, y, period):
     irflength = np.size(irf, 1)
     t = np.arange(1, irflength)
     tp = np.arange(1, period)
-    colorshift = param[0, 0]
+    cshift = param[0, 0]
     tau = param[0, 2:].transpose()
-    x = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1 - np.exp(-period / tau)))))
-    irs = (1 - colorshift + np.floor(colorshift)) * irf[0, np.fmod(np.fmod(t - np.floor(colorshift) - 1, irflength) + irflength, irflength).astype(int)]\
-        + (colorshift - np.floor(colorshift)) * irf[0, np.fmod(np.fmod(t - np.ceil(colorshift) - 1, irflength) + irflength, irflength).astype(int)]
+
+    # Create data from parameters
+    calculated = np.matmul(np.diag(1 / (1 - np.exp(-period / tau))), np.exp(np.outer((1/tau), -(tp-1))))
+
+    irs = colorshift(irf, cshift, irflength, t)
     irs = np.reshape(irs, (1, -1))
-    z = convol(irs, x.transpose())
+    # plt.plot(irf[0])
+    # plt.plot(irs[0])
+    # plt.xlim([10, 30])
+    # plt.show()
+
+    z = convol(irs, calculated)
     z = np.concatenate((np.ones((np.size(z, 0), 1)), z), axis=1)
     A, residuals, rank, s = np.linalg.lstsq(z.transpose(), y.transpose())
     z = np.matmul(z.transpose(), A)
     y = y.transpose()
     print(irflength - np.size(tau, 0))
     err = np.sum(((z-y)**2)/np.abs(z))/(irflength-np.size(tau, 0))
-    return err
+    return err#, A, z
 
 
 def fluofit(irf, y, p, dt, tau, lim=0, init=0, ploton=False):
