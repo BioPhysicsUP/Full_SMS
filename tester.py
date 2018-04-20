@@ -7,11 +7,11 @@ numPoints = 200
 chnlWidth_ns = window_ns/numPoints
 tauIRF_ns = 1
 A1 = 100
-tau1_ns = 20
+tau1_ns = 3
 A2 = 200
-tau2_ns = 1
+tau2_ns = 8
 delay_ns = 20
-addNoise = True
+addNoise = False
 
 perfConv = 1
 remBack = 1
@@ -62,10 +62,12 @@ if addNoise:
 
 c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[tau1_ns, tau2_ns]]))
 
-print(A, tau)
+print("Amplitudes:", A)
+print("Decay times:", tau)
+print("Decay times error:", dtau)
 fitted = A[0] * np.exp(-t / tau[0]) + A[1] * np.exp(-t / tau[1])
-plt.plot(4000000*fitted)
-plt.plot(fData[0])
-plt.plot(TCSPCdata[0])
-plt.ylim([-10, 300])
-plt.show()
+# plt.plot(4000000*fitted)
+# plt.plot(fData[0])
+# plt.plot(TCSPCdata[0])
+# plt.ylim([-10, 300])
+# plt.show()
