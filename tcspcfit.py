@@ -22,12 +22,12 @@ def makerow(vector):
     return np.reshape(vector, (1, -1))
 
 
-def create_exp(tp, tau, period, irf, cshift, offset, irflength, t):
+def create_exp(tp, tau, period, irf, irflength, t):
     """Create a convolved exponential decay function"""
-    decay = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1 - np.exp(-period / tau))))) + offset
-    irs = colorshift(irf, cshift, irflength, t)
-    calculated = convol(irs, decay.T)
-    return calculated, irs
+    decay = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1 - np.exp(-period / tau)))))
+    # irs = colorshift(irf, cshift, irflength, t)
+    calculated = convol(irf, decay.T)
+    return calculated, irf
 
 
 def convol(irf, decay):
@@ -140,11 +140,10 @@ def lsfit(param, irf, measured, period):
     return err#, amplitudes, calculated
 
 
-def model(model_in, cshift, offset, tau1, tau2):
+def model(model_in, tau1, tau2):
 
     period = model_in[-1:].astype(int)[0]
     irflength = model_in[-2:-1].astype(int)[0]
-    print(irflength)
     irf = model_in[:irflength]
     measured = model_in[irflength:-2]
 
@@ -155,7 +154,7 @@ def model(model_in, cshift, offset, tau1, tau2):
     tau = np.array([tau1, tau2])
 
     # Create data from parameters
-    calculated, irs = create_exp(tp, tau, period, irf, cshift, offset, irflength, t)
+    calculated, irs = create_exp(tp, tau, period, irf, irflength, t)
     amplitudes, residuals, rank, s = np.linalg.lstsq(calculated.T, measured, rcond=None)
     calculated = np.matmul(calculated.T, amplitudes)
     return calculated.flatten()
@@ -192,7 +191,7 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     measured = measured.flatten()
     irflength = np.size(irf)
     init = 0
-    offset = 0.004
+    offset = 0
 
     if init>0:
         # [cx, tau, ~, c] = DistFluofit(irf, measured, period, channelwidth, [-3 3], 0, 0)
@@ -256,10 +255,10 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     param = np.append(param, tau)
 
     # Decay times and offset are assumed to be positive.
-    offs_lower = np.array([0])
-    offs_upper = np.array([np.inf])
-    cshift_lower = np.array([0])
-    cshift_upper = np.array([np.inf])
+    offs_lower = np.array([-10])
+    offs_upper = np.array([10])
+    cshift_lower = np.array([-1])
+    cshift_upper = np.array([1])
 
     lowerbounds = np.concatenate((offs_lower, cshift_lower, tau_lower))
     upperbounds = np.concatenate((offs_upper, cshift_upper, tau_upper))
@@ -275,16 +274,16 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     model_in = np.append(measured.flatten(), [irflength, period])
     model_in = np.concatenate((irf.flatten(), model_in))
 
-    param, pcov = curve_fit(model, model_in, measured.flatten(), param, bounds=(lowerbounds, upperbounds))
-
-    dtau = np.sqrt(np.diag(pcov))[2:]
+    print(tau)
+    param, pcov = curve_fit(model, model_in, measured.flatten(), tau.flatten(), bounds=(tau_lower, tau_upper))
+    dtau = np.sqrt(np.diag(pcov))
     cshift = param[0]
     # dc = dparam(1)  # TODO: Get errors out of minimisation
-    tau = param[2:]
+    tau = param
     # dtau = dparam[2:np.shape(param)]
 
     # Calculate values from parameters
-    calculated, irs = create_exp(tp, tau, period, irf, cshift, offset, irflength, t)
+    calculated, irs = create_exp(tp, tau, period, irf, irflength, t)
 
     calculated = calculated.T/np.ones((irflength, 1))*np.sum(calculated)  # Normalize
     amplitudes, residuals, rank, s = np.linalg.lstsq(calculated, measured, rcond=None)
@@ -294,6 +293,11 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     # Put individual decay curves into rows
     separated_decays = calculated * np.matmul(np.ones(np.size(calculated, 1)), amplitudes.T)
     total_decay = np.matmul(calculated, amplitudes).T
+
+    # plt.figure(dpi=800)
+    plt.plot(total_decay)
+    plt.plot(measured)
+    plt.show()
     #     dtau = dtau
     #     dc = channelwidth*dc
     chisquared = sum((measured - total_decay) ** 2. / abs(total_decay)) / (irflength - taulength)

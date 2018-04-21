@@ -6,12 +6,12 @@ window_ns = 200
 numPoints = 200
 chnlWidth_ns = window_ns/numPoints
 tauIRF_ns = 1
-A1 = 100
-tau1_ns = 3
-A2 = 200
-tau2_ns = 8
+A1 = 10000
+tau1_ns = 8
+A2 = 6000
+tau2_ns = 30
 delay_ns = 20
-addNoise = False
+addNoise = True
 
 perfConv = 1
 remBack = 1
@@ -30,6 +30,7 @@ IRF = np.exp(-t / tauIRF_ns) / (1 + np.exp(-delay_ns * (t - delay_ns)))
 IRF = IRF - min(IRF.flatten())
 IRF = Airf * (IRF / np.max(IRF.flatten()))
 IRF = np.array([IRF])
+# IRF = colorshift(IRF, cshift, np.size(IRF.flatten()), t)
 
 # fData = [np.zeros(1, delay_pts) fData(1, 1:end - delay_pts)]
 # fData1 = [np.zeros(1, delay_pts) fData1(1, 1:end - delay_pts)]
@@ -62,12 +63,13 @@ if addNoise:
 
 c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[tau1_ns, tau2_ns]]))
 
-print("Amplitudes:", A)
+# print("Amplitudes:", A)
 print("Decay times:", tau)
 print("Decay times error:", dtau)
-fitted = A[0] * np.exp(-t / tau[0]) + A[1] * np.exp(-t / tau[1])
+# print("Offset, cshift:", offset, c)
+# fitted = A[0] * np.exp(-t / tau[0]) + A[1] * np.exp(-t / tau[1])
 # plt.plot(4000000*fitted)
 # plt.plot(fData[0])
 # plt.plot(TCSPCdata[0])
-# plt.ylim([-10, 300])
+# # plt.ylim([-10, 300])
 # plt.show()
