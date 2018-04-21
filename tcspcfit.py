@@ -297,7 +297,7 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     # plt.figure(dpi=800)
     plt.plot(total_decay)
     plt.plot(measured)
-    plt.show()
+    # plt.show()
     #     dtau = dtau
     #     dc = channelwidth*dc
     chisquared = sum((measured - total_decay) ** 2. / abs(total_decay)) / (irflength - taulength)
