@@ -125,6 +125,39 @@ def gendata(window_ns, numPoints, tauIRF_ns, A1, tau1, A2, tau2, delay, addNoise
 
 
 
+# window_ns = 200
+# numPoints = 10000
+# chnlWidth_ns = window_ns/numPoints
+# tauIRF_ns = 1
+# A1 = 10000
+# tau1_ns = 8
+# A2 = 6000
+# tau2_ns = 30
+# delay_ns = 20
+# addNoise = True
+#
+# TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1_ns, A2, tau2_ns, delay_ns, addNoise)
+# c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[8, 30]]))
+#
+# tau1list = np.array([])
+# tau2list = np.array([])
+# for count in range(1):
+#     TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1_ns, A2, tau2_ns, delay_ns, addNoise)
+#     c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[9, 30]]))
+#     tau1list = np.append(tau1list, tau[0])
+#     tau2list = np.append(tau2list, tau[1])
+# print(np.mean(tau1list - 8))
+# print(np.mean(tau2list - 30))
+# # print("Amplitudes:", A)
+# print("Decay times:", tau)
+# print("Decay times error:", dtau)
+# # fitted = A[0] * np.exp(-t / tau[0]) + A[1] * np.exp(-t / tau[1])
+# # plt.plot(4000000*fitted)
+# # plt.plot(fData[0])
+# # plt.plot(TCSPCdata[0])
+# # plt.ylim([-10, 300])
+# # plt.show()
+
 window_ns = 200
 numPoints = 10000
 chnlWidth_ns = window_ns/numPoints
@@ -136,14 +169,12 @@ tau2_ns = 30
 delay_ns = 20
 addNoise = True
 
-TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1_ns, A2, tau2_ns, delay_ns, addNoise)
-c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[8, 30]]))
-
 tau1list = np.array([])
 tau2list = np.array([])
-for count in range(1):
+for count in range(100):
+    print(count)
     TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1_ns, A2, tau2_ns, delay_ns, addNoise)
-    c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[9, 30]]))
+    c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[8, 30]]), ploton=False)
     tau1list = np.append(tau1list, tau[0])
     tau2list = np.append(tau2list, tau[1])
 print(np.mean(tau1list - 8))
@@ -151,9 +182,11 @@ print(np.mean(tau2list - 30))
 # print("Amplitudes:", A)
 print("Decay times:", tau)
 print("Decay times error:", dtau)
-# fitted = A[0] * np.exp(-t / tau[0]) + A[1] * np.exp(-t / tau[1])
-# plt.plot(4000000*fitted)
-# plt.plot(fData[0])
-# plt.plot(TCSPCdata[0])
-# plt.ylim([-10, 300])
-# plt.show()
+
+fig, (ax1, ax2) = plt.subplots(2, 1)
+ax1.plot(tau1list)
+ax1.axhline(np.mean(tau1list))
+ax2.plot(tau2list, color='C1')
+ax2.axhline(np.mean(tau2list), color='C1')
+fig.savefig('/home/bertus/Documents/Honneurs/Projek/python2.png', dpi=600)
+plt.show()
