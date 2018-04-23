@@ -128,7 +128,7 @@ def lsfit(param, irf, measured, period):
     tau = param[2:]
 
     # Create data from parameters
-    calculated, irs = create_exp(tp, tau, period, irf, cshift, offset, irflength, t)
+    calculated, irs = create_exp(tp, tau, period, irf, irflength, t)
 
     # Calculate least-squares error between calculated and measured data
     amplitudes, residuals, rank, s = np.linalg.lstsq(calculated.T, measured, rcond=None)
@@ -222,9 +222,9 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     if taubounds is None:
         taubounds = np.concatenate((np.zeros((np.size(tau, 1), 1)), 100 * np.ones((np.size(tau, 1), 1))), axis=1)
     taubounds = taubounds / channelwidth
-    # taubounds = tuple(map(tuple, taubounds))  # convert to tuple as required by minimize()
-    tau_lower = taubounds[:, 0]
-    tau_upper = taubounds[:, 1]
+    taubounds = tuple(map(tuple, taubounds))  # convert to tuple as required by minimize()
+    # tau_lower = taubounds[:, 0]
+    # tau_upper = taubounds[:, 1]
 
     period = period / channelwidth
     tau = tau / channelwidth
@@ -260,27 +260,26 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     cshift_lower = np.array([-1])
     cshift_upper = np.array([1])
 
-    lowerbounds = np.concatenate((offs_lower, cshift_lower, tau_lower))
-    upperbounds = np.concatenate((offs_upper, cshift_upper, tau_upper))
-    # bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
-    # params = []
-    # result = minimize(lsfit, param, args=(irf, measured, period), method='L-BFGS-B', bounds=bounds)
-    # param = result.x
-    # params.append(param)
-
+    # lowerbounds = np.concatenate((offs_lower, cshift_lower, tau_lower))
+    # upperbounds = np.concatenate((offs_upper, cshift_upper, tau_upper))
+    bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
+    params = []
+    result = minimize(lsfit, param, args=(irf, measured, period), method='Nelder-Mead', tol=1e-16)#, bounds=bounds)
+    param = result.x
+    tau = param[2:]
     # paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
     # print(paramvariance)
 
     model_in = np.append(measured.flatten(), [irflength, period])
     model_in = np.concatenate((irf.flatten(), model_in))
 
-    print(tau)
-    param, pcov = curve_fit(model, model_in, measured.flatten(), tau.flatten(), bounds=(tau_lower, tau_upper))
-    dtau = np.sqrt(np.diag(pcov))
-    cshift = param[0]
-    # dc = dparam(1)  # TODO: Get errors out of minimisation
-    tau = param
-    # dtau = dparam[2:np.shape(param)]
+    # print(tau)
+    # param, pcov = curve_fit(model, model_in, measured.flatten(), tau.flatten(), bounds=(tau_lower, tau_upper))
+    # dtau = np.sqrt(np.diag(pcov))
+    # cshift = param[0]
+    # # dc = dparam(1)  # TODO: Get errors out of minimisation
+    # tau = param
+    # # dtau = dparam[2:np.shape(param)]
 
     # Calculate values from parameters
     calculated, irs = create_exp(tp, tau, period, irf, irflength, t)
@@ -305,4 +304,4 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     tau = channelwidth * tau.T
     cshift = channelwidth * cshift
     offset = separated_decays[0]
-    return cshift, offset, amplitudes, tau, 0, dtau, irs, separated_decays, t, chisquared
+    return cshift, offset, amplitudes, tau, 0, 0, irs, separated_decays, t, chisquared
