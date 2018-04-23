@@ -169,11 +169,16 @@ tau2_ns = 30
 delay_ns = 20
 addNoise = True
 
+irffile = np.loadtxt('/home/bertus/temp/genirf10.txt', delimiter=',')
+datfile = np.loadtxt('/home/bertus/temp/gendata10.txt', delimiter=',')
+
 tau1list = np.array([])
 tau2list = np.array([])
 for count in range(100):
     print(count)
-    TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1_ns, A2, tau2_ns, delay_ns, addNoise)
+    # TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1_ns, A2, tau2_ns, delay_ns, addNoise)
+    TCSPCdata = datfile[count]
+    IRF = irffile[count]
     c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, np.array([[8, 30]]), ploton=False)
     tau1list = np.append(tau1list, tau[0])
     tau2list = np.append(tau2list, tau[1])
