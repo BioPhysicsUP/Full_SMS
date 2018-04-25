@@ -117,6 +117,7 @@ def lsfit(param, irf, measured, period):
     Output:
     err -- least-squares error.
     """
+
     measured = measured.flatten()
     irf = irf.flatten()
 
@@ -133,7 +134,7 @@ def lsfit(param, irf, measured, period):
     # Calculate least-squares error between calculated and measured data
     amplitudes, residuals, rank, s = np.linalg.lstsq(calculated.T, measured, rcond=None)
     calculated = np.matmul(calculated.T, amplitudes)
-    err = residuals  # np.sum(((calculated - measured) ** 2) / np.abs(calculated)) / (irflength - np.size(tau, 0))
+    err = np.sum(((calculated - measured) ** 2) / np.abs(calculated)) / (irflength - np.size(tau, 0))
     # ind = np.nonzero(measured > 0)
     # print(calculated[ind])
     # err = np.sum(measured[ind] * np.log(np.abs(measured[ind] / calculated[ind])) - measured[ind] + calculated[ind]) / (irflength - np.size(tau));
@@ -264,7 +265,7 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     # upperbounds = np.concatenate((offs_upper, cshift_upper, tau_upper))
     bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
     params = []
-    result = minimize(lsfit, param, args=(irf, measured, period), method='Nelder-Mead', tol=1e-16)#, bounds=bounds)
+    result = minimize(lsfit, param, args=(irf, measured, period), options={'disp': True})#, bounds=bounds)
     param = result.x
     tau = param[2:]
     # paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
