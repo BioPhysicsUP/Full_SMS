@@ -8,13 +8,8 @@ https://www.uni-goettingen.de/en/513325.html
 # from statistics import *
 import numpy as np
 from scipy.fftpack import fft, ifft
-from scipy.optimize import minimize, curve_fit
+from scipy.optimize import minimize, curve_fit, nnls
 from matplotlib import pyplot as plt
-
-
-class InputError(Exception):
-    """Raised when input is incompatible with a given function"""
-    pass
 
 
 def makerow(vector):
@@ -161,12 +156,47 @@ def model(model_in, tau1, tau2):
     return calculated.flatten()
 
 
+def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choose=False, ntau=100):
+    irf = irf.flatten()
+    irflength = np.size(irf)
+    tp = channelwidth*np.arange(1, period/channelwidth)
+    t = np.arange(irflength)
+    nrange = np.arange(ntau)
+    tau = (1/channelwidth) / np.exp(nrange / ntau * np.log(period / channelwidth))  # Distribution of decay times
+    m = convol(irf, np.exp(np.outer(tau, -tp)))
+    # plt.plot(m.T)
+    m = m / np.sum(m)
+    amplitudes, residuals = nnls(m.T, measured.flatten())
+    tau = 1/tau
+
+    tmp = amplitudes > 0.1 * np.max(amplitudes)
+    tmp = tmp.flatten()
+    t = np.arange(1, np.size(tmp))
+    t1 = t[tmp[1:] > tmp[:-1]] + 1
+    t2 = t[tmp[:-1] > tmp[1:]]
+    if t1[0] > t2[0]:
+        t2 = np.delete(t2, 0)
+    if t1[-1] > t2[-1]:
+        t1 = np.delete(t1, -1)
+    if np.size(t1) == np.size(t2) + 1:
+        t2 = np.delete(t2, 0)
+    if np.size(t2) == np.size(t1) + 1:
+        t1 = np.delete(t1, -1)
+
+    tmp = np.array([])
+    for j in range(np.size(t1)):
+        # print(j)
+        # print(t1[j], t2[j])
+        # print(amplitudes[t1[j]-1:t2[j]])
+        # print(tau[t1[j]:t2[j]+1])
+        tmp = np.append(tmp, np.dot(amplitudes[t1[j]-1:t2[j]], tau[t1[j]-1:t2[j]]) / np.sum(amplitudes[t1[j]-1:t2[j]]))
+    print(tmp)
+
+
 def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, ploton=False):
     """Fit of a multi-exponential decay curve.
 
-    Arguments:
-    irf -- Instrumental Response Function
-    measured -- Fluorescence decay data
+    Arguments: irf -- Instrumental Response Function measured -- Fluorescence decay data
     period -- Time between laser exciation pulses (in nanoseconds)
     channelwidth -- Time width of one TCSPC channel (in nanoseconds)
     tau -- Initial guess times
@@ -221,7 +251,7 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
         cshift = 0
 
     if taubounds is None:
-        taubounds = np.concatenate((np.zeros((np.size(tau, 1), 1)), 100 * np.ones((np.size(tau, 1), 1))), axis=1)
+        taubounds = np.concatenate((0.001 * np.ones((np.size(tau, 1), 1)), 30 * np.ones((np.size(tau, 1), 1))), axis=1)
     taubounds = taubounds / channelwidth
     taubounds = tuple(map(tuple, taubounds))  # convert to tuple as required by minimize()
     # tau_lower = taubounds[:, 0]
@@ -264,11 +294,11 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     # lowerbounds = np.concatenate((offs_lower, cshift_lower, tau_lower))
     # upperbounds = np.concatenate((offs_upper, cshift_upper, tau_upper))
     bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
-    params = []
-    result = minimize(lsfit, param, args=(irf, measured, period), options={'disp': True})#, bounds=bounds)
+    result = minimize(lsfit, param, args=(irf, measured, period), options={'disp': False}, bounds=bounds)
     param = result.x
+    # print(param)
     tau = param[2:]
-    # paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
+    paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
     # print(paramvariance)
 
     model_in = np.append(measured.flatten(), [irflength, period])
@@ -288,19 +318,20 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     calculated = calculated.T/np.ones((irflength, 1))*np.sum(calculated)  # Normalize
     amplitudes, residuals, rank, s = np.linalg.lstsq(calculated, measured, rcond=None)
 
-    # print(np.sqrt((residuals/(irflength - 4)) * paramvariance))
+    # print(np.sqrt(paramvariance))
 
     # Put individual decay curves into rows
     separated_decays = calculated * np.matmul(np.ones(np.size(calculated, 1)), amplitudes.T)
     total_decay = np.matmul(calculated, amplitudes).T
 
     # plt.figure(dpi=800)
-    plt.plot(total_decay)
-    plt.plot(measured)
+    # plt.plot(total_decay)
+    # plt.plot(measured)
     # plt.show()
     #     dtau = dtau
     #     dc = channelwidth*dc
     chisquared = sum((measured - total_decay) ** 2. / abs(total_decay)) / (irflength - taulength)
+    # print(channelwidth * np.sqrt(chisquared * paramvariance))
     t = channelwidth * t
     tau = channelwidth * tau.T
     cshift = channelwidth * cshift
