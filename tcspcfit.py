@@ -37,11 +37,13 @@ def convol(irf, decay):
     Output
     y -- convolution of irf with each row of decay.
     """
+
     # Make sure irf (and decay if 1D) are row vectors:
     irf = makerow(irf)
     if decay.ndim == 1:
         irf = makerow(decay)
 
+    # Make irf the same length as decay:
     mm = np.mean(irf[-11:])
     decaylength = np.size(decay, 1)
     irflength = np.size(irf, 1)
@@ -50,7 +52,7 @@ def convol(irf, decay):
     else:
         irf = irf[:, :decaylength]
 
-    # Duplicate rows of irf so dimensions are the same as decay and convolve.
+    # Duplicate rows of irf so dimensions are the same as decay and convolve:
     y = np.float_(np.real(ifft(np.outer(np.ones(np.size(decay, 0)), fft(irf)) * fft(decay))))
 
     # t needs to have the same length as irf (irflength) in each case:
@@ -59,7 +61,7 @@ def convol(irf, decay):
     else:
         t = np.concatenate((np.arange(0, decaylength), np.arange(0, irflength - decaylength)))
 
-    # Either remove from y or add from start to end so that y has same length as irf.
+    # Either remove from y or add from start to end so that y has same length as irf:
     y = y.take(t, 1)
     return y
 
@@ -96,7 +98,7 @@ def lsfit(param, irf, measured, period):
     measured =  yoffset + A1*convol(irf,exp(-t/tau1/(1-exp(-p/tau1))) + ...
 
     The only use case of lsfit is in the call to
-    scipy.optimize.minimize(). minimize() minimizes the output of lsfit by
+    scipy.optimize.minimize(), which minimizes the output of lsfit by
     varying the param vector.
 
     Arguments:
@@ -119,9 +121,10 @@ def lsfit(param, irf, measured, period):
     irflength = np.size(irf)
     t = np.arange(irflength)
     tp = np.arange(1, period)
-    cshift = param[0]
-    offset = param[1]
-    tau = param[2:]
+    # cshift = param[0]
+    # offset = param[1]
+    # tau = param[2:]
+    tau = param
 
     # Create data from parameters
     calculated, irs = create_exp(tp, tau, period, irf, irflength, t)
@@ -130,50 +133,60 @@ def lsfit(param, irf, measured, period):
     amplitudes, residuals, rank, s = np.linalg.lstsq(calculated.T, measured, rcond=None)
     calculated = np.matmul(calculated.T, amplitudes)
     err = np.sum(((calculated - measured) ** 2) / np.abs(calculated)) / (irflength - np.size(tau, 0))
-    # ind = np.nonzero(measured > 0)
-    # print(calculated[ind])
-    # err = np.sum(measured[ind] * np.log(np.abs(measured[ind] / calculated[ind])) - measured[ind] + calculated[ind]) / (irflength - np.size(tau));
-    return err#, amplitudes, calculated
-
-
-def model(model_in, tau1, tau2):
-
-    period = model_in[-1:].astype(int)[0]
-    irflength = model_in[-2:-1].astype(int)[0]
-    irf = model_in[:irflength]
-    measured = model_in[irflength:-2]
-
-    irf = irf.flatten()
-
-    t = np.arange(irflength)
-    tp = np.arange(1, period)
-    tau = np.array([tau1, tau2])
-
-    # Create data from parameters
-    calculated, irs = create_exp(tp, tau, period, irf, irflength, t)
-    amplitudes, residuals, rank, s = np.linalg.lstsq(calculated.T, measured, rcond=None)
-    calculated = np.matmul(calculated.T, amplitudes)
-    return calculated.flatten()
+    return err
 
 
 def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choose=False, ntau=100):
+    """Quickly fit a multiexponential decay to use as 'initial guess'
+
+        The function aims to identify the number of lifetimes in the
+        measured data, as well as the values of the lifetimes. The result
+        can be used as an initial guess for fluofit.
+
+    Arguments:
+    irf -- Instrumental Response Function measured -- Fluorescence decay data
+    period -- Time between laser exciation pulses (in nanoseconds)
+    channelwidth -- Time width of one TCSPC channel (in nanoseconds)
+    tau -- Initial guess times
+    taubounds -- limits for the lifetimes guess times - defaults to 0<tau<100
+                 format: [[tau1_min, tau1_max], [tau2_min, tau2_max], ...]
+    init -- Whether to use a initial guess routine or not
+
+    Output:
+    peak_tau	-- Decay times of the different decay components
+    TODO: Add all other outputs
+    c -- Color Shift (time shift of the IRF w.r.t. the fluorescence curve)
+    offset -- Offset
+    amplitudes -- Amplitudes of the different decay components
+    dc -- Color shift error
+    doffset -- Offset error
+    dtau -- Decay times error
+    irs -- IRF, shifted by the value of the colorshift
+    separated_decays -- Fitted fluorecence component curves
+    t -- time axis
+    chisquared -- chi squared value
+
+    """
     irf = irf.flatten()
     irflength = np.size(irf)
-    tp = channelwidth*np.arange(1, period/channelwidth)
-    t = np.arange(irflength)
+    tp = channelwidth*np.arange(1, period/channelwidth)  # Time index for whole window
+    t = np.arange(irflength)  # Time index for IRF
     nrange = np.arange(ntau)
-    tau = (1/channelwidth) / np.exp(nrange / ntau * np.log(period / channelwidth))  # Distribution of decay times
-    m = convol(irf, np.exp(np.outer(tau, -tp)))
-    # plt.plot(m.T)
-    m = m / np.sum(m)
-    amplitudes, residuals = nnls(m.T, measured.flatten())
+    # Distribution of inverse decay times:
+    tau = (1/channelwidth) / np.exp(nrange / ntau * np.log(period / channelwidth))
+    decays = convol(irf, np.exp(np.outer(tau, -tp)))
+    decays = decays / np.sum(decays)
+    amplitudes, residuals = nnls(decays.T, measured.flatten())
     tau = 1/tau
 
-    tmp = amplitudes > 0.1 * np.max(amplitudes)
-    tmp = tmp.flatten()
-    t = np.arange(1, np.size(tmp))
-    t1 = t[tmp[1:] > tmp[:-1]] + 1
-    t2 = t[tmp[:-1] > tmp[1:]]
+    peak_amplitudes = amplitudes > 0.1 * np.max(amplitudes)  # Pick out peaks
+    peak_amplitudes = peak_amplitudes.flatten()
+    t = np.arange(1, np.size(peak_amplitudes))
+
+    # t1 are the 'start points' and t2 are the 'end points' of the peaks
+    t1 = t[peak_amplitudes[1:] > peak_amplitudes[:-1]] + 1
+    t2 = t[peak_amplitudes[:-1] > peak_amplitudes[1:]]
+    # Make sure there isn't a peak at the edge:
     if t1[0] > t2[0]:
         t2 = np.delete(t2, 0)
     if t1[-1] > t2[-1]:
@@ -183,21 +196,20 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     if np.size(t2) == np.size(t1) + 1:
         t1 = np.delete(t1, -1)
 
-    tmp = np.array([])
+    peak_tau = np.array([])
+    #  Calculate weighted average tau for each peak:
     for j in range(np.size(t1)):
-        # print(j)
-        # print(t1[j], t2[j])
-        # print(amplitudes[t1[j]-1:t2[j]])
-        # print(tau[t1[j]:t2[j]+1])
-        tmp = np.append(tmp, np.dot(amplitudes[t1[j]-1:t2[j]], tau[t1[j]-1:t2[j]]) / np.sum(amplitudes[t1[j]-1:t2[j]]))
-    print(tmp)
+        peak_tau = np.append(peak_tau, np.dot(amplitudes[t1[j]-1:t2[j]], tau[t1[j]-1:t2[j]]) / np.sum(amplitudes[t1[j]-1:t2[j]]))
+
+    return peak_tau
 
 
-def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, ploton=False):
+def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=0, ploton=False):
     """Fit of a multi-exponential decay curve.
 
-    Arguments: irf -- Instrumental Response Function measured -- Fluorescence decay data
-    period -- Time between laser exciation pulses (in nanoseconds)
+    Arguments:
+    irf -- Instrumental Response Function measured -- Fluorescence decay data
+    window -- Time between laser exciation pulses (in nanoseconds)
     channelwidth -- Time width of one TCSPC channel (in nanoseconds)
     tau -- Initial guess times
     taubounds -- limits for the lifetimes guess times - defaults to 0<tau<100
@@ -205,7 +217,7 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     init -- Whether to use a initial guess routine or not
 
     Output:
-    c -- Color Shift (time shift of the IRF w.r.t. the fluorescence curve)
+    c -- Color Shift (time shift of the IRF w.r.data_times. the fluorescence curve)
     offset -- Offset
     amplitudes -- Amplitudes of the different decay components
     tau	-- Decay times of the different decay components
@@ -214,76 +226,34 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     dtau -- Decay times error
     irs -- IRF, shifted by the value of the colorshift
     separated_decays -- Fitted fluorecence component curves
-    t -- time axis
+    data_times -- time axis
     chisquared -- chi squared value
     """
 
     irf = irf.flatten()
     measured = measured.flatten()
     irflength = np.size(irf)
-    init = 0
     offset = 0
+    cshift = 0
 
-    if init>0:
-        # [cx, tau, ~, c] = DistFluofit(irf, measured, period, channelwidth, [-3 3], 0, 0)
-        # cx = cx(:)'
-        # tmp = cx>0
-        # t = 1:length(tmp)
-        # t1 = t(tmp(2:end)>tmp(1:end-1)) + 1
-        # t2 = t(tmp(1:end-1)>tmp(2:end))
-        # if length(t1)==length(t2)+1
-        #     t1(end)=[]
-        # end
-        # if length(t2)==length(t1)+1
-        #     t2(1)=[]
-        # end
-        # if t1(1)>t2(1)
-        #     t1(end)=[]
-        #     t2(1)=[]
-        # end
-        # tmp = []
-        # for j=1:length(t1)
-        #     tmp = [tmp cx(t1(j):t2(j))*tau(t1(j):t2(j))/sum(cx(t1(j):t2(j)))]
-        # end
-        # tau = tmp
-        pass
-    else:
-        cshift = 0
+    if tau is None:
+        tau = distfluofit(irf, measured, window, channelwidth)
+        # print('Initial guess:', tau)
 
     if taubounds is None:
-        taubounds = np.concatenate((0.001 * np.ones((np.size(tau, 1), 1)), 30 * np.ones((np.size(tau, 1), 1))), axis=1)
+        taubounds = np.concatenate((0.001 * np.ones((np.size(tau), 1)), 30 * np.ones((np.size(tau), 1))), axis=1)
     taubounds = taubounds / channelwidth
     taubounds = tuple(map(tuple, taubounds))  # convert to tuple as required by minimize()
-    # tau_lower = taubounds[:, 0]
-    # tau_upper = taubounds[:, 1]
 
-    period = period / channelwidth
+    window = window / channelwidth
     tau = tau / channelwidth
-    t = np.arange(np.size(measured))
-    tp = np.arange(1, period)
+    data_times = np.arange(np.size(measured))
+    window_times = np.arange(1, window)
     taulength = np.size(tau)
-    # decay = np.matmul(np.exp(np.matmul(-(tp-1), (1/tau))), np.diagflat(1/(1-np.exp(-period/tau))))
-    # decay = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-period / tau)))))
 
-    # irs = (1-c+np.floor(c))*irf[(np.fmod(np.fmod(t-np.floor(c)-1, irflength)+irflength, irflength)).astype(int)] \
-        # + (c-np.floor(c))*irf[(np.fmod(np.fmod(t-np.ceil(c)-1, irflength)+irflength, irflength)).astype(int)]
-    # irs = np.reshape(irs, (1, -1))
-    # calculated = convol(np.reshape(irs, (1, -1)), decay.T)
-    # calculated = np.reshape([np.ones([np.size(calculated,1), 1]), calculated], (-1, 1))
-    # decay = np.exp(np.matmul(np.outer(-(tp-1), (1/tau)), np.diag(1 / (1-np.exp(-period / tau)))))
-    # irs = [(1 - c + np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.floor(c) - 1, irflength) + irflength, irflength).astype(int)]\
-    #     + (c - np.floor(c)) * irf[0, np.fmod(np.fmod(t - np.ceil(c) - 1, irflength) + irflength, irflength).astype(int)]]
-
-    # calculated = convol(irs, decay.T)
-    # print(np.shape(calculated), np.shape(measured))
-    # calculated = np.concatenate((np.ones((np.size(calculated, 0), 1)), calculated), axis=1)
-    # print(np.shape(irf), np.shape(measured))
-    # amplitudes, residuals, rank, s = np.linalg.lstsq(calculated.T, measured.T)
-    # calculated = np.matmul(calculated.T, amplitudes)
-
-    # param = np.insert(tau, 0, 999)
-    param = np.array([cshift, offset])
-    param = np.append(param, tau)
+    # param = np.array([cshift, offset])
+    # param = np.append(param, tau)
+    param = tau
 
     # Decay times and offset are assumed to be positive.
     offs_lower = np.array([-10])
@@ -291,49 +261,35 @@ def fluofit(irf, measured, period, channelwidth, tau, taubounds=None, init=0, pl
     cshift_lower = np.array([-1])
     cshift_upper = np.array([1])
 
-    # lowerbounds = np.concatenate((offs_lower, cshift_lower, tau_lower))
-    # upperbounds = np.concatenate((offs_upper, cshift_upper, tau_upper))
     bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
-    result = minimize(lsfit, param, args=(irf, measured, period), options={'disp': False}, bounds=bounds)
+    result = minimize(lsfit, param, args=(irf, measured, window), method='BFGS')
     param = result.x
-    # print(param)
-    tau = param[2:]
-    paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
+    # tau = param[2:]
+    tau = param
+    # paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
+    paramvariance = np.diag(result.hess_inv)
     # print(paramvariance)
 
-    model_in = np.append(measured.flatten(), [irflength, period])
-    model_in = np.concatenate((irf.flatten(), model_in))
-
-    # print(tau)
-    # param, pcov = curve_fit(model, model_in, measured.flatten(), tau.flatten(), bounds=(tau_lower, tau_upper))
-    # dtau = np.sqrt(np.diag(pcov))
     # cshift = param[0]
-    # # dc = dparam(1)  # TODO: Get errors out of minimisation
+    # # dc = dparam(1)
     # tau = param
     # # dtau = dparam[2:np.shape(param)]
 
     # Calculate values from parameters
-    calculated, irs = create_exp(tp, tau, period, irf, irflength, t)
+    calculated, irs = create_exp(window_times, tau, window, irf, irflength, data_times)
 
     calculated = calculated.T/np.ones((irflength, 1))*np.sum(calculated)  # Normalize
     amplitudes, residuals, rank, s = np.linalg.lstsq(calculated, measured, rcond=None)
-
-    # print(np.sqrt(paramvariance))
 
     # Put individual decay curves into rows
     separated_decays = calculated * np.matmul(np.ones(np.size(calculated, 1)), amplitudes.T)
     total_decay = np.matmul(calculated, amplitudes).T
 
-    # plt.figure(dpi=800)
-    # plt.plot(total_decay)
-    # plt.plot(measured)
-    # plt.show()
-    #     dtau = dtau
     #     dc = channelwidth*dc
     chisquared = sum((measured - total_decay) ** 2. / abs(total_decay)) / (irflength - taulength)
-    # print(channelwidth * np.sqrt(chisquared * paramvariance))
-    t = channelwidth * t
+    dtau = channelwidth * np.sqrt(chisquared * paramvariance)
+    data_times = channelwidth * data_times
     tau = channelwidth * tau.T
     cshift = channelwidth * cshift
     offset = separated_decays[0]
-    return cshift, offset, amplitudes, tau, 0, 0, irs, separated_decays, t, chisquared
+    return cshift, offset, amplitudes, tau, 0, dtau, irs, separated_decays, data_times, chisquared

@@ -62,7 +62,7 @@ TCSPCdata, IRF = gendata(window, numPoints, tauIRF_ns, A1, tau1_ns, A2, tau2_ns,
     # TCSPCdata = datfile[count]
     # IRF = irffile[count]
 c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window, chnlWidth_ns,
-                                                           np.array([[tau1_ns, tau2_ns]]), ploton=False)
+                                                           np.array([tau1_ns, tau2_ns]), ploton=False)
 print(tau)
 
 
