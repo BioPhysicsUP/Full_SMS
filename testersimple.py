@@ -107,38 +107,44 @@ addNoise = True
 tau1list = np.array([])
 tau2list = np.array([])
 counter = 0
-for count in range(100):
-    print(count)
-    TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1, A2, tau2, delay_ns, addNoise)
-    # TCSPCdata = datfile[count]
-    # IRF = irffile[count]
-    c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns,
-                                                           tau=np.array([tau1, tau2]), ploton=False)
-    # distfluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns)
-    # print(tau)
-    if np.size(tau, 0) == 2:
-        tau1list = np.append(tau1list, tau[0])
-        tau2list = np.append(tau2list, tau[1])
-    else:
-        counter += 1
+methods=['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'Newton-CG', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'dogleg', 'trust-ncg'
+         'trust-exact', 'trust-krylov']
+for method in methods:
+    for count in range(1):
+        print(count)
+        TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1, A2, tau2, delay_ns, addNoise)
+        # TCSPCdata = datfile[count]
+        # IRF = irffile[count]
+        c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns,
+                                                               ploton=False)
+        # distfluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns)
+        # print(tau)
+        if np.size(tau, 0) == 2:
+            tau1list = np.append(tau1list, tau[0])
+            tau2list = np.append(tau2list, tau[1])
+        else:
+            counter += 1
 
 # print("Amplitudes:", A)
 
-print(counter)
-tau1mean = np.mean(tau1list)
-tau2mean = np.mean(tau2list)
-tau1std = np.std(tau1list)
-tau2std = np.std(tau2list)
-tau1max = np.std(tau1list)
-tau1min = np.std(tau1list)
-tau2max = np.std(tau2list)
-tau2min = np.std(tau2list)
+    print(counter)
+    tau1mean = np.mean(tau1list)
+    tau2mean = np.mean(tau2list)
+    tau1std = np.std(tau1list)
+    tau2std = np.std(tau2list)
+    tau1max = np.std(tau1list)
+    tau1min = np.std(tau1list)
+    tau2max = np.std(tau2list)
+    tau2min = np.std(tau2list)
 
-print("Decay times:", tau1mean, tau2mean)
-print("Decay times error:", dtau)
-plt.hist(tau1list, bins='auto')
-plt.hist(tau2list, bins='auto')
-plt.show()
+    print("Decay times:", tau1mean, tau2mean)
+    print("Decay times error:", dtau)
+    plt.hist(tau1list, bins='auto')
+    plt.hist(tau2list, bins='auto')
+    plt.axvline(tau1, color='C2')
+    plt.axvline(tau2, color='C2')
+    plt.text(0, 0, method)
+    plt.show()
 # print("Decay times max/min:", tau1std, tau2std)
 
 # fig, (ax1, ax2) = plt.subplots(2, 1)

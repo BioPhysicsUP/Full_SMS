@@ -204,7 +204,7 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     return peak_tau
 
 
-def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=0, ploton=False):
+def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=0, ploton=False, method='Nelder-Mead'):
     """Fit of a multi-exponential decay curve.
 
     Arguments:
@@ -262,12 +262,12 @@ def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=
     cshift_upper = np.array([1])
 
     bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
-    result = minimize(lsfit, param, args=(irf, measured, window), method='BFGS')
+    result = minimize(lsfit, param, args=(irf, measured, window), method=method)
     param = result.x
     # tau = param[2:]
     tau = param
     # paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
-    paramvariance = np.diag(result.hess_inv)
+    # paramvariance = np.diag(result.hess_inv)
     # print(paramvariance)
 
     # cshift = param[0]
@@ -287,7 +287,7 @@ def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=
 
     #     dc = channelwidth*dc
     chisquared = sum((measured - total_decay) ** 2. / abs(total_decay)) / (irflength - taulength)
-    dtau = channelwidth * np.sqrt(chisquared * paramvariance)
+    dtau = 0  # channelwidth * np.sqrt(chisquared * paramvariance)
     data_times = channelwidth * data_times
     tau = channelwidth * tau.T
     cshift = channelwidth * cshift
