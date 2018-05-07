@@ -110,20 +110,25 @@ counter = 0
 methods=['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'Newton-CG', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'dogleg', 'trust-ncg'
          'trust-exact', 'trust-krylov']
 for method in methods:
-    for count in range(1):
+    if method == 'Powell':
+        break
+    for count in range(20):
         print(count)
-        TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1, A2, tau2, delay_ns, addNoise)
-        # TCSPCdata = datfile[count]
-        # IRF = irffile[count]
-        c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns,
-                                                               ploton=False)
-        # distfluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns)
-        # print(tau)
-        if np.size(tau, 0) == 2:
-            tau1list = np.append(tau1list, tau[0])
-            tau2list = np.append(tau2list, tau[1])
-        else:
-            counter += 1
+        try:
+            TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1, A2, tau2, delay_ns, addNoise)
+            # TCSPCdata = datfile[count]
+            # IRF = irffile[count]
+            c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns,
+                                                                   tau=np.array([tau1, tau2]), ploton=False)
+            # tau = distfluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns)
+            # print(tau)
+            if np.size(tau, 0) == 2:
+                tau1list = np.append(tau1list, tau[0])
+                tau2list = np.append(tau2list, tau[1])
+            else:
+                counter += 1
+        except:
+            raise
 
 # print("Amplitudes:", A)
 
@@ -138,7 +143,7 @@ for method in methods:
     tau2min = np.std(tau2list)
 
     print("Decay times:", tau1mean, tau2mean)
-    print("Decay times error:", dtau)
+    # print("Decay times error:", dtau)
     plt.hist(tau1list, bins='auto')
     plt.hist(tau2list, bins='auto')
     plt.axvline(tau1, color='C2')

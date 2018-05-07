@@ -132,7 +132,11 @@ def lsfit(param, irf, measured, period):
     # Calculate least-squares error between calculated and measured data
     amplitudes, residuals, rank, s = np.linalg.lstsq(calculated.T, measured, rcond=None)
     calculated = np.matmul(calculated.T, amplitudes)
-    err = np.sum(((calculated - measured) ** 2) / np.abs(calculated)) / (irflength - np.size(tau, 0))
+    # err = np.sum(((calculated - measured) ** 2) / np.abs(calculated)) / (irflength - np.size(tau, 0))
+    ind = ((measured > 0) & (calculated > 0)) | ((measured < 0) & (calculated < 0))
+    # raise TypeError
+    err = sum(measured[ind] * np.log(measured[ind] / calculated[ind]) - measured[ind] + calculated[ind]) / (irflength - np.size(tau))
+    # print(err)
     return err
 
 
