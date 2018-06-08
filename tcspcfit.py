@@ -262,6 +262,7 @@ def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=
     cshift_upper = np.array([1])
 
     bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
+    print(bounds)
     result = minimize(lsfit, param, args=(irf, measured, window), method=method)
     param = result.x
     # tau = param[2:]
