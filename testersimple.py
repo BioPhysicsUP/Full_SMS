@@ -104,31 +104,31 @@ tau2 = 30
 delay_ns = 20
 addNoise = True
 
-data1 = np.loadtxt('/home/bertus/temp/gendata1.txt')
-TCSPCdata = data1[:, 1]
-IRF = data1[:, 2]
-
 tau1list = np.array([])
 tau2list = np.array([])
 counter = 0
-# methods=['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'Newton-CG', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'dogleg', 'trust-ncg'
-#          'trust-exact', 'trust-krylov']
-methods = ['L-BFGS-B']
+methods=['Nelder-Mead', 'Powell', 'CG', 'BFGS', 'Newton-CG', 'L-BFGS-B', 'TNC', 'COBYLA', 'SLSQP', 'dogleg', 'trust-ncg'
+         'trust-exact', 'trust-krylov']
 for method in methods:
-    for count in range(1):
+    if method == 'Powell':
+        break
+    for count in range(20):
         print(count)
-        # TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1, A2, tau2, delay_ns, addNoise)
-        # TCSPCdata = datfile[count]
-        # IRF = irffile[count]
-        c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns, method=method,
-                                                               taubounds=np.array([[0, 35], [0, 35]]), ploton=False)
-        # distfluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns)
-        # print(tau)
-        if np.size(tau, 0) == 2:
-            tau1list = np.append(tau1list, tau[0])
-            tau2list = np.append(tau2list, tau[1])
-        else:
-            counter += 1
+        try:
+            TCSPCdata, IRF = gendata(window_ns, numPoints, tauIRF_ns, A1, tau1, A2, tau2, delay_ns, addNoise)
+            # TCSPCdata = datfile[count]
+            # IRF = irffile[count]
+            c, offset, A, tau, dc, dtau, irs, zz, t, chi = fluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns,
+                                                                   tau=np.array([tau1, tau2]), ploton=False)
+            # tau = distfluofit(IRF, TCSPCdata, window_ns, chnlWidth_ns)
+            # print(tau)
+            if np.size(tau, 0) == 2:
+                tau1list = np.append(tau1list, tau[0])
+                tau2list = np.append(tau2list, tau[1])
+            else:
+                counter += 1
+        except:
+            raise
 
 # print("Amplitudes:", A)
 
@@ -143,8 +143,7 @@ for method in methods:
     tau2min = np.std(tau2list)
 
     print("Decay times:", tau1mean, tau2mean)
-    print("Decay times error:", dtau)
-    print('Chi squared:', chi)
+    # print("Decay times error:", dtau)
     plt.hist(tau1list, bins='auto')
     plt.hist(tau2list, bins='auto')
     plt.axvline(tau1, color='C2')
