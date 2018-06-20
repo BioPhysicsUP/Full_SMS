@@ -9,6 +9,7 @@ https://www.uni-goettingen.de/en/513325.html
 import numpy as np
 from scipy.fftpack import fft, ifft
 from scipy.optimize import minimize, curve_fit, nnls
+from scipy.signal import convolve
 from matplotlib import pyplot as plt
 
 
@@ -82,12 +83,30 @@ def colorshift(irf, shift, irflength, t):
     irs -- shifted irf, as row vector
     """
     irf = irf.flatten()
+    irflength = np.size(irf)
+    t = np.arange(irflength)
     new_index_left = np.fmod(np.fmod(t - np.floor(shift) - 1, irflength) + irflength, irflength).astype(int)
     new_index_right = np.fmod(np.fmod(t - np.ceil(shift) - 1, irflength) + irflength, irflength).astype(int)
     integer_left_shift = irf[new_index_left]
     integer_right_shift = irf[new_index_right]
     irs = (1 - shift + np.floor(shift)) * integer_left_shift + (shift - np.floor(shift)) * integer_right_shift
     return makerow(irs)
+
+
+def fitfunc(model_in, tau1, tau2, scale, a1, a2):
+    irflength = int(model_in[-1])
+    startpoint = int(model_in[-2:-1])
+    t = model_in[:irflength]
+    irf = model_in[irflength:-2]
+    # irs = colorshift(irf.flatten(), shift, np.size(irf), t)
+    # irs = irs.flatten()
+
+    model = a1 * np.exp(-t/tau1) + a2 * np.exp(-t/tau2)
+
+    convd = convolve(irf, model)
+    convd = convd * scale/np.max(convd)
+    convd = convd[:irflength-startpoint]
+    return convd
 
 
 def lsfit(param, irf, measured, period):
@@ -208,7 +227,7 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     return peak_tau
 
 
-def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=0, ploton=False, method='Nelder-Mead'):
+def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, startpoint=0, init=0, ploton=False, method='Nelder-Mead'):
     """Fit of a multi-exponential decay curve.
 
     Arguments:
@@ -241,8 +260,9 @@ def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=
     cshift = 0
 
     if tau is None:
-        tau = distfluofit(irf, measured, window, channelwidth)
+        # tau = distfluofit(irf, measured, window, channelwidth)
         # print('Initial guess:', tau)
+        tau = [10, 25]
 
     if taubounds is None:
         taubounds = np.concatenate((0.001 * np.ones((np.size(tau), 1)), 30 * np.ones((np.size(tau), 1))), axis=1)
@@ -250,27 +270,63 @@ def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=
     taubounds = tuple(map(tuple, taubounds))  # convert to tuple as required by minimize()
 
     window = window / channelwidth
-    tau = tau / channelwidth
+    # tau = tau / channelwidth
     data_times = np.arange(np.size(measured))
     window_times = np.arange(1, window)
     taulength = np.size(tau)
 
     # param = np.array([cshift, offset])
     # param = np.append(param, tau)
-    param = tau
+    # param = tau
 
     # Decay times and offset are assumed to be positive.
-    offs_lower = np.array([-10])
-    offs_upper = np.array([10])
-    cshift_lower = np.array([-1])
-    cshift_upper = np.array([1])
+    # offs_lower = np.array([-10])
+    # offs_upper = np.array([10])
+    # cshift_lower = np.array([-1])
+    # cshift_upper = np.array([1])
 
-    bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
-    print(bounds)
-    result = minimize(lsfit, param, args=(irf, measured, window), method=method)
-    param = result.x
-    # tau = param[2:]
-    tau = param
+    # bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
+    # print(bounds)
+    # result = minimize(lsfit, param, args=(irf, measured, window), method=method)
+
+    scale = np.max(measured)
+    measured = measured[startpoint:]
+    irf = irf[startpoint:]
+    # irflength = np.size(irf)
+    model_in = np.append(t, irf)
+    model_in = np.append(model_in, startpoint)
+    model_in = np.append(model_in, irflength)
+    popt, pcov = curve_fit(fitfunc, model_in, measured, bounds=([1, 1, 0, 0, 0], [100, 100, scale+1000, 1, 1]),
+                           p0=[tau[0], tau[1], scale, 0.7, 0.3])
+    print(popt)
+    param = popt
+    tau = param[:2]
+    scale = param[2:3]
+    amplitudes = param[4:]
+
+    dtau = None
+    irs = None
+    separated_decays = None
+
+    convd = fitfunc(model_in, popt[0], popt[1], popt[2], popt[3], popt[4])
+    residuals = convd - measured
+    chisquared = sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0]), 0.001) /np.size(measured[measured>0])
+
+    if ploton:
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+        ax1.set_yscale('log')
+        ax1.set_ylim([1, 50000])
+        ax1.plot(measured)
+        ax1.plot(convd)
+        ax1.plot(irf)
+        ax1.text(1500, 20000, 'Tau = %5.3f,     %5.3f' %(popt[0], popt[1]))
+        ax1.text(1500, 8000, 'Amp = %5.3f,     %5.3f' %(popt[3], popt[4]))
+
+        ax2.plot(residuals, '.')
+        ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
+        plt.show()
+
+    # tau = param
     # paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
     # paramvariance = np.diag(result.hess_inv)
     # print(paramvariance)
@@ -281,20 +337,21 @@ def fluofit(irf, measured, window, channelwidth, tau=None, taubounds=None, init=
     # # dtau = dparam[2:np.shape(param)]
 
     # Calculate values from parameters
-    calculated, irs = create_exp(window_times, tau, window, irf, irflength, data_times)
-
-    calculated = calculated.T/np.ones((irflength, 1))*np.sum(calculated)  # Normalize
-    amplitudes, residuals, rank, s = np.linalg.lstsq(calculated, measured, rcond=None)
-
-    # Put individual decay curves into rows
-    separated_decays = calculated * np.matmul(np.ones(np.size(calculated, 1)), amplitudes.T)
-    total_decay = np.matmul(calculated, amplitudes).T
-
-    #     dc = channelwidth*dc
-    chisquared = sum((measured - total_decay) ** 2. / abs(total_decay)) / (irflength - taulength)
-    dtau = 0  # channelwidth * np.sqrt(chisquared * paramvariance)
-    data_times = channelwidth * data_times
-    tau = channelwidth * tau.T
-    cshift = channelwidth * cshift
-    offset = separated_decays[0]
+    # calculated, irs = create_exp(window_times, tau, window, irf, irflength, data_times)
+    #
+    # calculated = calculated.T/np.ones((irflength, 1))*np.sum(calculated)  # Normalize
+    # amplitudes, residuals, rank, s = np.linalg.lstsq(calculated, measured, rcond=None)
+    #
+    # # Put individual decay curves into rows
+    # separated_decays = calculated * np.matmul(np.ones(np.size(calculated, 1)), amplitudes.T)
+    # total_decay = np.matmul(calculated, amplitudes).T
+    #
+    # #     dc = channelwidth*dc
+    # chisquared = sum((measured - total_decay) ** 2. / abs(total_decay)) / (irflength - taulength)
+    # dtau = 0  # channelwidth * np.sqrt(chisquared * paramvariance)
+    # data_times = channelwidth * data_times
+    # tau = channelwidth * tau.T
+    # print(tau)
+    # cshift = channelwidth * cshift
+    # offset = separated_decays[0]
     return cshift, offset, amplitudes, tau, 0, dtau, irs, separated_decays, data_times, chisquared
