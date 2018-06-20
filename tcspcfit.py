@@ -298,13 +298,15 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
     model_in = np.append(model_in, irflength)
     popt, pcov = curve_fit(fitfunc, model_in, measured, bounds=([1, 1, 0, 0, 0], [100, 100, scale+1000, 1, 1]),
                            p0=[tau[0], tau[1], scale, 0.7, 0.3])
-    print(popt)
     param = popt
+    print(param)
+    print(pcov)
     tau = param[:2]
+    dtau = np.sqrt([pcov[0, 0], pcov[1, 1]])
+    print(dtau)
     scale = param[2:3]
     amplitudes = param[4:]
 
-    dtau = None
     irs = None
     separated_decays = None
 
@@ -320,7 +322,8 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
         ax1.plot(convd)
         ax1.plot(irf)
         ax1.text(1500, 20000, 'Tau = %5.3f,     %5.3f' %(popt[0], popt[1]))
-        ax1.text(1500, 8000, 'Amp = %5.3f,     %5.3f' %(popt[3], popt[4]))
+        ax1.text(1500, 8000, 'Tau err = %5.3f,     %5.3f' %(dtau[0], dtau[1]))
+        ax1.text(1500, 3000, 'Amp = %5.3f,     %5.3f' %(popt[3], popt[4]))
 
         ax2.plot(residuals, '.')
         ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
