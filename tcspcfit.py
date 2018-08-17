@@ -96,6 +96,7 @@ def colorshift(irf, shift, irflength, t):
 def one_exp(model_in, tau1, scale, a1, shift):
     irflength = int(model_in[-1])
     startpoint = int(model_in[-2:-1])
+    endpoint = int(model_in[-3:-2])
     t = model_in[:irflength]
     irf = model_in[irflength:-2]
     irs = colorshift(irf.flatten(), shift, np.size(irf), t)
@@ -104,15 +105,21 @@ def one_exp(model_in, tau1, scale, a1, shift):
     model = a1 * np.exp(-t/tau1)
 
     convd = convolve(irf, model)
+    # plt.plot(convd[:irflength])
+    # plt.plot(irf)
+    # plt.show()
+
     if scale is not None:
         convd = convd * scale/np.max(convd)
-    convd = convd[:irflength-startpoint]
+    convd = convd[startpoint:endpoint]
+
     return convd
 
 
-def two_exp(model_in, tau1, tau2, scale, a1, a2, shift):
+def two_exp(model_in, tau1, tau2, scale, a1, a2, shift, bg):
     irflength = int(model_in[-1])
     startpoint = int(model_in[-2:-1])
+    endpoint = int(model_in[-3:-2])
     t = model_in[:irflength]
     irf = model_in[irflength:-2]
     irs = colorshift(irf.flatten(), shift, np.size(irf), t)
@@ -122,14 +129,16 @@ def two_exp(model_in, tau1, tau2, scale, a1, a2, shift):
 
     convd = convolve(irf, model)
     if scale is not None:
-        convd = convd * scale/np.max(convd)
-    convd = convd[:irflength-startpoint]
+        convd = convd * scale/np.max(convd) + bg
+    # convd = convd[:irflength-startpoint]
+    convd = convd[startpoint:endpoint]
     return convd
 
 
 def three_exp(model_in, tau1, tau2, tau3, scale, a1, a2, a3, shift):
     irflength = int(model_in[-1])
     startpoint = int(model_in[-2:-1])
+    endpoint = int(model_in[-3:-2])
     t = model_in[:irflength]
     irf = model_in[irflength:-2]
     irs = colorshift(irf.flatten(), shift, np.size(irf), t)
@@ -140,7 +149,7 @@ def three_exp(model_in, tau1, tau2, tau3, scale, a1, a2, a3, shift):
     convd = convolve(irf, model)
     if scale is not None:
         convd = convd * scale/np.max(convd)
-    convd = convd[:irflength]
+    convd = convd[startpoint:endpoint]
     return convd
 
 
@@ -373,19 +382,21 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
     # t = t[startpoint:]
     irflength = np.size(irf)
     model_in = np.append(t, irf)
-    model_in = np.append(model_in, startpoint)
     model_in = np.append(model_in, endpoint)
+    model_in = np.append(model_in, startpoint)
     model_in = np.append(model_in, irflength)
     if np.size(tau) == 1:
-        popt, pcov = curve_fit(one_exp, model_in, measured, bounds=([1, 0, 0, 0], [100, scale + 1000, 1, 1]),
+        popt, pcov = curve_fit(one_exp, model_in, measured, bounds=([1, 0, 0, 0], [100, scale + 1000, 1, 20]),
                                p0=[tau[0], scale, 1, 0.1])
         param = popt
         # print(param)
         # print(pcov)
         tau = param[0]
+        print("Tau:", tau)
         dtau = np.sqrt([pcov[0, 0]])
-        print(dtau)
+        print("dTau:", dtau)
         scale = param[1]
+        print("Scale:", scale)
         amplitudes = param[2]
         shift = param[3]
         print('shift:', shift)
@@ -403,7 +414,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
             ax1.set_ylim([1, 50000])
             ax1.plot(measured.flatten())
             ax1.plot(convd.flatten())
-            ax1.plot(irf)
+            ax1.plot(irf[startpoint:endpoint])
             ax1.text(1500, 20000, 'Tau = %5.3f' % popt[0])
             ax1.text(1500, 8000, 'Tau err = %5.3f' % dtau[0])
             ax1.text(1500, 3000, 'Amp = %5.3f' % popt[2])
@@ -413,23 +424,26 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
             plt.show()
 
     elif np.size(tau) == 2:
-        popt, pcov = curve_fit(two_exp, model_in, measured, bounds=([1, 1, 0, 0, 0, 0], [100, 100, scale + 1000, 1, 1, 1]),
-                               p0=[tau[0], tau[1], scale, 0.5, 0.5, 0.1])
+        popt, pcov = curve_fit(two_exp, model_in, measured, bounds=([0.01, 0.01, 0, 0, 0, 0, 0], [100, 100, scale + 1000, 1, 1, 20, 10]),
+                               p0=[tau[0], tau[1], scale, 0.5, 0.5, 0.1, 0.05])
         param = popt
         # print(param)
         # print(pcov)
         tau = param[:2]
+        print(tau)
         dtau = np.sqrt([pcov[0, 0], pcov[1, 1]])
         print(dtau)
         scale = param[2:3]
         amplitudes = param[4:6]
         shift = param[5]
         print('shift:', shift)
+        bg = param[6]
+        print(bg)
 
         irs = None
         separated_decays = None
 
-        convd = two_exp(model_in, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5])
+        convd = two_exp(model_in, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6])
         residuals = convd - measured
         chisquared = sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0]), 0.001) /np.size(measured[measured>0])
 
@@ -439,13 +453,14 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
             ax1.set_ylim([1, 50000])
             ax1.plot(measured.flatten())
             ax1.plot(convd.flatten())
-            ax1.plot(irf)
+            ax1.plot(irf[startpoint:endpoint])
             ax1.text(1500, 20000, 'Tau = %5.3f,     %5.3f' %(popt[0], popt[1]))
             ax1.text(1500, 8000, 'Tau err = %5.3f,     %5.3f' %(dtau[0], dtau[1]))
             ax1.text(1500, 3000, 'Amp = %5.3f,     %5.3f' %(popt[3], popt[4]))
 
             ax2.plot(residuals, '.')
             ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
+            print('chi = ', chisquared)
             plt.show()
 
     elif np.size(tau) == 3:
@@ -475,13 +490,14 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
             ax1.set_ylim([1, 50000])
             ax1.plot(measured.flatten())
             ax1.plot(convd.flatten())
-            ax1.plot(irf)
+            ax1.plot(irf[startpoint:endpoint])
             ax1.text(1500, 20000, 'Tau = %5.3f,     %5.3f,     %5.3f' % (popt[0], popt[1], popt[2]))
             ax1.text(1500, 8000, 'Tau err = %5.3f,     %5.3f,     %5.3f' % (dtau[0], dtau[1], dtau[2]))
             ax1.text(1500, 3000, 'Amp = %5.3f,     %5.3f,     %5.3f' % (popt[4], popt[5], popt[6]))
 
             ax2.plot(residuals, '.')
             ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
+            print('chi = ', chisquared)
             plt.show()
 
     elif np.size(tau) == 4:

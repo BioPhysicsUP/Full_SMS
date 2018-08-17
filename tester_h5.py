@@ -8,7 +8,9 @@ import h5py
 rc('text', usetex=True)
 
 f = h5py.File('IRF 680nm.h5', 'r')
+meas = h5py.File('LHCII.h5', 'r')
 data = f['Particle 1/Micro Times (s)'][:]
+meas_data = meas['Particle 1/Micro Times (s)'][:]
 
 # data = np.loadtxt('gendata5_20.txt')
 # # simdata = np.loadtxt('/home/bertus/temp/convd.txt')
@@ -18,9 +20,13 @@ data = f['Particle 1/Micro Times (s)'][:]
 
 # t = data[:, 0]
 # measured = data[:, 1]
-irf = data
+irf, t = np.histogram(data, bins=1000)
 irflength = np.size(irf)
+
+measured, blabla = np.histogram(meas_data, bins=1000)
 # scale = np.max(measured)
+savedata = np.column_stack((t[:-1], measured, irf))
+np.savetxt('savedata.txt', savedata)
 
 window = np.size(irf)
 channelwidth = max(t) / window
@@ -46,16 +52,19 @@ model_in = np.append(model_in, startpoint)
 model_in = np.append(model_in, endpoint)
 model_in = np.append(model_in, irflength)
 # measured = three_exp(model_in, tau1, tau2, tau3, np.max(irf), a1, a2, a3, 0)
-measured = four_exp(model_in, tau1, tau2, tau3, tau4, np.max(irf), a1, a2, a3, a4, 0)
+# measured = four_exp(model_in, tau1, tau2, tau3, tau4, np.max(irf), a1, a2, a3, a4, 0)
 # measured = one_exp(model_in, tau1, np.max(irf), a1, 0)
 measured = np.abs(measured)
-measured = np.random.poisson(measured)
+# measured = np.random.poisson(measured)
+
+irf = irf * (np.max(measured) / np.max(irf))
 # plt.plot(measured)
 # plt.plot(irf)
+# plt.plot(t)
 # plt.show()
 
-fit = fluofit(irf, measured, t, window, channelwidth, tau=[9, 0.5, 1.7, 0.04], startpoint=310, endpoint=3500, ploton=True)
-print(fit)
+fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.8, 1.5], startpoint=346, endpoint=663, ploton=True)
+# print(fit)
 
 
 
