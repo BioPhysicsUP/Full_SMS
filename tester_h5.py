@@ -62,8 +62,11 @@ irf = irf * (np.max(measured) / np.max(irf))
 # plt.plot(irf)
 # plt.plot(t)
 # plt.show()
+plt.plot(measured)
+plt.plot(irf)
+plt.show()
 
-fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.8, 1.5], startpoint=346, endpoint=663, ploton=True)
+fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.8], startpoint=300, endpoint=1000, ploton=True)
 # print(fit)
 
 

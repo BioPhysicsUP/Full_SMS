@@ -98,14 +98,15 @@ def one_exp(model_in, tau1, scale, a1, shift):
     startpoint = int(model_in[-2:-1])
     endpoint = int(model_in[-3:-2])
     t = model_in[:irflength]
-    irf = model_in[irflength:-2]
+    irf = model_in[irflength:-3]
     irs = colorshift(irf.flatten(), shift, np.size(irf), t)
     irf = irs.flatten()
 
     model = a1 * np.exp(-t/tau1)
 
     convd = convolve(irf, model)
-    # plt.plot(convd[:irflength])
+    # plt.plot(convd[:irflength] / 100)
+    # plt.plot(model)
     # plt.plot(irf)
     # plt.show()
 
@@ -121,7 +122,7 @@ def two_exp(model_in, tau1, tau2, scale, a1, a2, shift, bg):
     startpoint = int(model_in[-2:-1])
     endpoint = int(model_in[-3:-2])
     t = model_in[:irflength]
-    irf = model_in[irflength:-2]
+    irf = model_in[irflength:-3]
     irs = colorshift(irf.flatten(), shift, np.size(irf), t)
     irf = irs.flatten()
 
@@ -378,7 +379,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
 
     scale = np.max(measured)
     measured = measured[startpoint:endpoint]
-    # irf = irf[startpoint:]
+    # irf = irf[startpoint:endpoint]
     # t = t[startpoint:]
     irflength = np.size(irf)
     model_in = np.append(t, irf)
@@ -386,7 +387,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
     model_in = np.append(model_in, startpoint)
     model_in = np.append(model_in, irflength)
     if np.size(tau) == 1:
-        popt, pcov = curve_fit(one_exp, model_in, measured, bounds=([1, 0, 0, 0], [100, scale + 1000, 1, 20]),
+        popt, pcov = curve_fit(one_exp, model_in, measured, bounds=([1, 0, 0, -100], [100, scale + 1000, 1, 1000]),
                                p0=[tau[0], scale, 1, 0.1])
         param = popt
         # print(param)
@@ -411,7 +412,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
         if ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
             ax1.set_yscale('log')
-            ax1.set_ylim([1, 50000])
+            ax1.set_ylim([1, 100])
             ax1.plot(measured.flatten())
             ax1.plot(convd.flatten())
             ax1.plot(irf[startpoint:endpoint])
@@ -424,7 +425,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
             plt.show()
 
     elif np.size(tau) == 2:
-        popt, pcov = curve_fit(two_exp, model_in, measured, bounds=([0.01, 0.01, 0, 0, 0, 0, 0], [100, 100, scale + 1000, 1, 1, 20, 10]),
+        popt, pcov = curve_fit(two_exp, model_in, measured, bounds=([0.1, 0.1, 0, 0, 0, -100, 0], [100, 100, scale + 1000, 1, 1, 1000, 10]),
                                p0=[tau[0], tau[1], scale, 0.5, 0.5, 0.1, 0.05])
         param = popt
         # print(param)
@@ -448,18 +449,18 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
         chisquared = sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0]), 0.001) /np.size(measured[measured>0])
 
         if ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, dpi=600)
             ax1.set_yscale('log')
-            ax1.set_ylim([1, 50000])
+            ax1.set_ylim([1, 1000])
             ax1.plot(measured.flatten())
             ax1.plot(convd.flatten())
             ax1.plot(irf[startpoint:endpoint])
-            ax1.text(1500, 20000, 'Tau = %5.3f,     %5.3f' %(popt[0], popt[1]))
-            ax1.text(1500, 8000, 'Tau err = %5.3f,     %5.3f' %(dtau[0], dtau[1]))
-            ax1.text(1500, 3000, 'Amp = %5.3f,     %5.3f' %(popt[3], popt[4]))
+            ax1.text(500, 500, 'Tau = %5.3f,     %5.3f' %(popt[0], popt[1]))
+            ax1.text(500, 300, 'Tau err = %5.3f,     %5.3f' %(dtau[0], dtau[1]))
+            ax1.text(500, 150, 'Amp = %5.3f,     %5.3f' %(popt[3], popt[4]))
 
             ax2.plot(residuals, '.')
-            ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
+            ax2.text(500, 40, r'$\chi ^2 = $ %4.3f' %chisquared)
             print('chi = ', chisquared)
             plt.show()
 
@@ -573,33 +574,4 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
             ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
             plt.show()
 
-
-    # tau = param
-    # paramvariance = np.diag(result.hess_inv.matmat(np.identity(4)))
-    # paramvariance = np.diag(result.hess_inv)
-    # print(paramvariance)
-
-    # cshift = param[0]
-    # # dc = dparam(1)
-    # tau = param
-    # # dtau = dparam[2:np.shape(param)]
-
-    # Calculate values from parameters
-    # calculated, irs = create_exp(window_times, tau, window, irf, irflength, data_times)
-    #
-    # calculated = calculated.T/np.ones((irflength, 1))*np.sum(calculated)  # Normalize
-    # amplitudes, residuals, rank, s = np.linalg.lstsq(calculated, measured, rcond=None)
-    #
-    # # Put individual decay curves into rows
-    # separated_decays = calculated * np.matmul(np.ones(np.size(calculated, 1)), amplitudes.T)
-    # total_decay = np.matmul(calculated, amplitudes).T
-    #
-    # #     dc = channelwidth*dc
-    # chisquared = sum((measured - total_decay) ** 2. / abs(total_decay)) / (irflength - taulength)
-    # dtau = 0  # channelwidth * np.sqrt(chisquared * paramvariance)
-    # data_times = channelwidth * data_times
-    # tau = channelwidth * tau.T
-    # print(tau)
-    # cshift = channelwidth * cshift
-    # offset = separated_decays[0]
     return cshift, offset, amplitudes, tau, 0, dtau, irs, separated_decays, data_times, chisquared
