@@ -23,9 +23,11 @@ meas_data = meas['Particle 1/Micro Times (s)'][:]
 irf, t = np.histogram(data, bins=1000)
 irflength = np.size(irf)
 
+t = t[:-1]
+
 measured, blabla = np.histogram(meas_data, bins=1000)
 # scale = np.max(measured)
-savedata = np.column_stack((t[:-1], measured, irf))
+savedata = np.column_stack((t, measured, irf))
 np.savetxt('savedata.txt', savedata)
 
 window = np.size(irf)
@@ -62,8 +64,9 @@ irf = irf * (np.max(measured) / np.max(irf))
 # plt.plot(irf)
 # plt.plot(t)
 # plt.show()
-plt.plot(measured)
-plt.plot(irf)
+plt.yscale('log')
+plt.plot(t, measured)
+plt.plot(t, irf)
 plt.show()
 
 fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.8], startpoint=300, endpoint=1000, ploton=True)

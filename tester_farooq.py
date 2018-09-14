@@ -8,7 +8,7 @@ from tcspcfit import *
 rc('text', usetex=True)
 
 fitlist = np.array([[0, 0, 0, 0]])
-for i in range(21):
+for i in range(1):
     data = np.loadtxt('/home/bertus/Documents/Honneurs/Projek/Farooq_Data/Decaytrace' + str(i))
     irfdata = np.loadtxt('/home/bertus/Documents/Honneurs/Projek/Farooq_Data/IRF_data.txt')
     # # simdata = np.loadtxt('/home/bertus/temp/convd.txt')
@@ -32,45 +32,39 @@ for i in range(21):
 
     window = np.size(irf)
     channelwidth = max(t) / window
+    print(channelwidth)
 
     # window = 200
-    numPoints = window / channelwidth
-    # channelwidth = window/numPoints
-    tauIRF_ns = 1
-    a1 = 0.05
-    tau1 = 9
-    a2 = 0.5
-    tau2 = 1.7
-    a3 = 0.2
-    tau3 = 0.5
-    a4 = 1.4
-    tau4 = 0.04
-    delay_ns = 20
 
-    startpoint = 0
-    endpoint = 4000
-    model_in = np.append(t, irf)
-    model_in = np.append(model_in, startpoint)
-    model_in = np.append(model_in, endpoint)
-    model_in = np.append(model_in, irflength)
-    # measured = three_exp(model_in, tau1, tau2, tau3, np.max(irf), a1, a2, a3, 0)
-    # measured = four_exp(model_in, tau1, tau2, tau3, tau4, np.max(irf), a1, a2, a3, a4, 0)
-    # measured = one_exp(model_in, tau1, np.max(irf), a1, 0)
-    measured = np.abs(measured)
-    # measured = np.random.poisson(measured)
+    # irf = irf - 31
+    # irf = irf * (np.max(measured) / np.max(irf))
+    # irf = colorshift(irf, -50, 0, 0).flatten()
 
-    irf = irf * (np.max(measured) / np.max(irf))
+    model = 11.19 * np.exp(-t / 2.52) + 39.5 * np.exp(-t / 0.336)
+
+    irf = irf - 31
+    irf = irf.clip(0)
+    measured = measured - 0.535
+    measured = measured.clip(0)
+    # measured = measured / np.sum(measured)
+    irf = irf * (np.sum(measured) / np.sum(irf))
+
+    irf = colorshift(irf, -15, np.size(irf), t).flatten()
+    convd = convolve(irf, model)
+    convd = convd / np.sum(convd) * np.sum(measured)
     # plt.plot(irf)
-    # irf = colorshift(irf, -100, np.size(irf), t).flatten()
+    # plt.plot(model)
     # plt.plot(measured)
-    # plt.plot(irf)
     # plt.xlim((400, 1000))
     # plt.plot(t)
-    # plt.show()
+    plt.plot(convd[0:3000] - measured[0:3000], '.')
+    residuals = np.sum((convd[0:3000] - measured[0:3000]) ** 2)
+    plt.text(2000, -10, str(residuals))
+    plt.show()
 
-    fit = fluofit(irf, measured, t, window, channelwidth, tau=[3.6, 0.3], startpoint=300, endpoint=3000, ploton=False)
-    print(np.array([[fit[3][0], fit[3][1], fit[5][0], fit[5][1]]]))
-    fitlist = np.append(fitlist, np.array([[fit[3][0], fit[3][1], fit[5][0], fit[5][1]]]), axis=0)
+    # fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.52, 0.336], startpoint=300, endpoint=3000, ploton=False)
+    # print(np.array([[fit[3][0], fit[3][1], fit[5][0], fit[5][1]]]))
+    # fitlist = np.append(fitlist, np.array([[fit[3][0], fit[3][1], fit[5][0], fit[5][1]]]), axis=0)
 
-np.savetxt('/home/bertus/Documents/Honneurs/Projek/Farooq_Data/fitlist.txt', fitlist, fmt='%5.3f')
+# np.savetxt('/home/bertus/Documents/Honneurs/Projek/Farooq_Data/fitlist.txt', fitlist, fmt='%5.3f')
 

@@ -99,6 +99,7 @@ def one_exp(model_in, tau1, scale, a1, shift):
     endpoint = int(model_in[-3:-2])
     t = model_in[:irflength]
     irf = model_in[irflength:-3]
+    shift = shift
     irs = colorshift(irf.flatten(), shift, np.size(irf), t)
     irf = irs.flatten()
 
@@ -117,20 +118,26 @@ def one_exp(model_in, tau1, scale, a1, shift):
     return convd
 
 
-def two_exp(model_in, tau1, tau2, scale, a1, a2, shift, bg):
+def two_exp(model_in, tau1, tau2, a1, a2, shift, bg, irfbg):
     irflength = int(model_in[-1])
-    startpoint = int(model_in[-2:-1])
+    startpoint = int(model_in[-2:-1])  # TODO: one index
     endpoint = int(model_in[-3:-2])
+    summeas = model_in[-4:-3]
     t = model_in[:irflength]
-    irf = model_in[irflength:-3]
+    irf = model_in[irflength:-4]
     irs = colorshift(irf.flatten(), shift, np.size(irf), t)
-    irf = irs.flatten()
+    irf = irs.flatten() - irfbg
 
     model = a1 * np.exp(-t/tau1) + a2 * np.exp(-t/tau2)
 
     convd = convolve(irf, model)
+    # convd = convd * (summeas / np.sum(convd)) - bg
+    # plt.plot(convd)
+    # plt.show()
+    # print('blabla')
+    scale = None
     if scale is not None:
-        convd = convd * scale/np.max(convd) + bg
+        convd = convd * scale/np.max(convd)
     # convd = convd[:irflength-startpoint]
     convd = convd[startpoint:endpoint]
     return convd
@@ -383,6 +390,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
     # t = t[startpoint:]
     irflength = np.size(irf)
     model_in = np.append(t, irf)
+    model_in = np.append(model_in, np.sum(measured))
     model_in = np.append(model_in, endpoint)
     model_in = np.append(model_in, startpoint)
     model_in = np.append(model_in, irflength)
@@ -407,7 +415,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
 
         convd = one_exp(model_in, popt[0], popt[1], popt[2], popt[3])
         residuals = convd - measured
-        chisquared = sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0]), 0.001) /np.size(measured[measured>0])
+        chisquared = np.sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0])) /np.size(measured[measured>0])
 
         if ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
@@ -425,8 +433,8 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
             plt.show()
 
     elif np.size(tau) == 2:
-        popt, pcov = curve_fit(two_exp, model_in, measured, bounds=([0.1, 0.1, 0, 0, 0, -100, 0], [100, 100, scale + 1000, 1, 1, 1000, 10]),
-                               p0=[tau[0], tau[1], scale, 0.5, 0.5, 0.1, 0.05])
+        popt, pcov = curve_fit(two_exp, model_in, measured, bounds=([0.1, 0.1, 0, 0, -70, 0, 0], [10, 10, 100, 100, 14, 1e-30, 1e-30]),
+                               p0=[tau[0], tau[1], 0.001, 0.001, -15, 0, 0])
         param = popt
         # print(param)
         # print(pcov)
@@ -434,24 +442,31 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
         print(tau)
         dtau = np.sqrt([pcov[0, 0], pcov[1, 1]])
         print(dtau)
-        scale = param[2:3]
-        amplitudes = param[4:6]
-        shift = param[5]
-        print('shift:', shift)
-        bg = param[6]
-        print(bg)
+        # scale = param[2:3]
+        amplitudes = param[2:4]
+        sumamp = np.sum(amplitudes)
+        print('ampl: ', amplitudes[0], amplitudes[1])
+        print('rel ampl: ', amplitudes[0]/sumamp, amplitudes[1]/sumamp)
+        shift = param[4]
+        print('shift:', shift*channelwidth)
+        bg = param[5]
+        print('bg: ', bg*11928)
+        irfbg = param[6]
+        print('irf bg: ', irfbg*4047)
 
         irs = None
         separated_decays = None
 
         convd = two_exp(model_in, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6])
         residuals = convd - measured
-        chisquared = sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0]), 0.001) /np.size(measured[measured>0])
+        print(np.size(measured[measured>0]))
+        print(np.size(measured))
+        chisquared = np.sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0])) /np.size(measured[measured>0])
 
         if ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, dpi=600)
+            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, dpi=300)
             ax1.set_yscale('log')
-            ax1.set_ylim([1, 1000])
+            ax1.set_ylim([1, 10000])
             ax1.plot(measured.flatten())
             ax1.plot(convd.flatten())
             ax1.plot(irf[startpoint:endpoint])
