@@ -33,9 +33,9 @@ np.savetxt('savedata.txt', savedata)
 window = np.size(irf)
 channelwidth = max(t) / window
 
-# window = 200
+# root = 200
 numPoints = window / channelwidth
-# channelwidth = window/numPoints
+# channelwidth = root/numPoints
 tauIRF_ns = 1
 a1 = 0.05
 tau1 = 9
@@ -69,7 +69,7 @@ plt.plot(t, measured)
 plt.plot(t, irf)
 plt.show()
 
-fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.8], startpoint=300, endpoint=1000, ploton=True)
+fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.8, 0.3], startpoint=300, endpoint=1000, ploton=True)
 # print(fit)
 
 

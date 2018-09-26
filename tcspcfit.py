@@ -287,7 +287,7 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     """
     irf = irf.flatten()
     irflength = np.size(irf)
-    tp = channelwidth*np.arange(1, period/channelwidth)  # Time index for whole window
+    tp = channelwidth*np.arange(1, period/channelwidth)  # Time index for whole root
     t = np.arange(irflength)  # Time index for IRF
     nrange = np.arange(ntau)
     # Distribution of inverse decay times:
@@ -327,7 +327,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
 
     Arguments:
     irf -- Instrumental Response Function measured -- Fluorescence decay data
-    window -- Time between laser exciation pulses (in nanoseconds)
+    root -- Time between laser exciation pulses (in nanoseconds)
     channelwidth -- Time width of one TCSPC channel (in nanoseconds)
     tau -- Initial guess times
     taubounds -- limits for the lifetimes guess times - defaults to 0<tau<100
@@ -355,7 +355,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
     cshift = 0
 
     if tau is None:
-        # tau = distfluofit(irf, measured, window, channelwidth)
+        # tau = distfluofit(irf, measured, root, channelwidth)
         # print('Initial guess:', tau)
         tau = [10, 25]
 
@@ -382,7 +382,7 @@ def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, st
 
     # bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
     # print(bounds)
-    # result = minimize(lsfit, param, args=(irf, measured, window), method=method)
+    # result = minimize(lsfit, param, args=(irf, measured, root), method=method)
 
     scale = np.max(measured)
     measured = measured[startpoint:endpoint]

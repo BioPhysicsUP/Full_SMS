@@ -21,9 +21,9 @@ scale = np.max(measured)
 window = np.size(irf)
 channelwidth = max(t) / window
 
-# window = 200
+# root = 200
 numPoints = window / channelwidth
-# channelwidth = window/numPoints
+# channelwidth = root/numPoints
 tauIRF_ns = 1
 a1 = 0.05
 tau1 = 9

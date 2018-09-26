@@ -34,7 +34,7 @@ for i in range(1):
     channelwidth = max(t) / window
     print(channelwidth)
 
-    # window = 200
+    root = 200
 
     # irf = irf - 31
     # irf = irf * (np.max(measured) / np.max(irf))
@@ -62,7 +62,7 @@ for i in range(1):
     plt.text(2000, -10, str(residuals))
     plt.show()
 
-    # fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.52, 0.336], startpoint=300, endpoint=3000, ploton=False)
+    fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.52, 0.336], startpoint=300, endpoint=3000, ploton=True)
     # print(np.array([[fit[3][0], fit[3][1], fit[5][0], fit[5][1]]]))
     # fitlist = np.append(fitlist, np.array([[fit[3][0], fit[3][1], fit[5][0], fit[5][1]]]), axis=0)
 
