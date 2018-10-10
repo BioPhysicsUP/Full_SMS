@@ -71,7 +71,7 @@ def draw_figure(canvas, figure, loc=(0, 0)):
 
 # Create a canvas
 
-# Generate some example data
+# Generate some example irf_data
 X = np.linspace(0, 2 * np.pi, 50)
 Y = np.sin(X)
 

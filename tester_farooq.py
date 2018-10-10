@@ -32,7 +32,6 @@ for i in range(1):
 
     window = np.size(irf)
     channelwidth = max(t) / window
-    print(channelwidth)
 
     root = 200
 
@@ -42,27 +41,39 @@ for i in range(1):
 
     model = 11.19 * np.exp(-t / 2.52) + 39.5 * np.exp(-t / 0.336)
 
-    irf = irf - 31
-    irf = irf.clip(0)
-    measured = measured - 0.535
-    measured = measured.clip(0)
-    # measured = measured / np.sum(measured)
-    irf = irf * (np.sum(measured) / np.sum(irf))
-
-    irf = colorshift(irf, -15, np.size(irf), t).flatten()
-    convd = convolve(irf, model)
-    convd = convd / np.sum(convd) * np.sum(measured)
+    # plt.plot(irf)
+    # irf = irf - 20
+    # irf = irf.clip(0)
+    # plt.plot(irf)
+    # plt.plot(measured)
+    # measured = measured - 0.535
+    # measured = measured.clip(0)
+    # plt.plot(measured)
+    # plt.yscale('log')
+    # plt.show()
+    # # measured = measured / np.sum(measured)
+    # irf = irf * (np.sum(measured) / np.sum(irf))
+    #
+    # irf = colorshift(irf, -40, np.size(irf), t).flatten()
+    # convd = convolve(irf, model)
+    # convd = convd / np.sum(convd) * np.sum(measured)
     # plt.plot(irf)
     # plt.plot(model)
     # plt.plot(measured)
-    # plt.xlim((400, 1000))
+    # plt.plot(convd)
+    # plt.xlim((200, 3000))
+    # plt.yscale('log')
+    # plt.ylim((0.01, 100))
     # plt.plot(t)
-    plt.plot(convd[0:3000] - measured[0:3000], '.')
-    residuals = np.sum((convd[0:3000] - measured[0:3000]) ** 2)
-    plt.text(2000, -10, str(residuals))
-    plt.show()
+    # plt.plot(convd[0:3000] - measured[0:3000], '.')
+    # residuals = np.sum((convd[0:3000] - measured[0:3000]) ** 2)
+    # plt.text(2000, -10, str(residuals))
+    # plt.show()
 
-    fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.52, 0.336], startpoint=300, endpoint=3000, ploton=True)
+    # fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.52, 0.336], startpoint=300, endpoint=3000, ploton=True)
+
+    fit = TwoExp(irf, measured, t, channelwidth, tau=[2.52, 0.336], startpoint=300, endpoint=3000, ploton=True)
+
     # print(np.array([[fit[3][0], fit[3][1], fit[5][0], fit[5][1]]]))
     # fitlist = np.append(fitlist, np.array([[fit[3][0], fit[3][1], fit[5][0], fit[5][1]]]), axis=0)
 
