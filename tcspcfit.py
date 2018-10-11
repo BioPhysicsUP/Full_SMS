@@ -1,7 +1,10 @@
 """ Module for fitting TCSPC irf_data.
 
-Based on MATLAB code by Jörg Enderlein
+The function distfluofit is based on MATLAB code by Jörg Enderlein:
 https://www.uni-goettingen.de/en/513325.html
+
+Bertus van Heerden
+University of Pretoria
 """
 
 # from math import *
@@ -18,6 +21,7 @@ def makerow(vector):
     return np.reshape(vector, (1, -1))
 
 
+# TODO: simplify this as it is only used by distfluofit()
 def convol(irf, decay):
     """Performs a convolution of irf with decay.
 
@@ -74,6 +78,8 @@ def colorshift(irf, shift, irflength=None, t=None):
     Output:
     irs -- shifted irf, as row vector
     """
+    if irflength is not None:
+        raise Warning("Don't input irflength and t")
     irf = irf.flatten()
     irflength = np.size(irf)
     t = np.arange(irflength)
@@ -85,7 +91,8 @@ def colorshift(irf, shift, irflength=None, t=None):
     return irs
 
 
-def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choose=False, ntau=100):
+# TODO: Add colourshift estimation to this function (important for actually getting correct lifetimes)
+def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choose=False, ntau=50):
     """Quickly fit a multiexponential decay to use as 'initial guess'
 
         The function aims to identify the number of lifetimes in the
@@ -118,7 +125,7 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     """
     irf = irf.flatten()
     irflength = np.size(irf)
-    tp = channelwidth*np.arange(1, period/channelwidth)  # Time index for whole root
+    tp = channelwidth*np.arange(1, period/channelwidth)  # Time index for whole window
     t = np.arange(irflength)  # Time index for IRF
     nrange = np.arange(ntau)
     # Distribution of inverse decay times:
@@ -127,7 +134,9 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     decays = decays / np.sum(decays)
     amplitudes, residuals = nnls(decays.T, measured.flatten())
     tau = 1/tau
-
+    print(period)
+    plt.plot(amplitudes)
+    plt.show()
     peak_amplitudes = amplitudes > 0.1 * np.max(amplitudes)  # Pick out peaks
     peak_amplitudes = peak_amplitudes.flatten()
     t = np.arange(1, np.size(peak_amplitudes))
@@ -153,301 +162,33 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     return peak_tau
 
 
-def fluofit(irf, measured, t, window, channelwidth, tau=None, taubounds=None, startpoint=0, endpoint=9000, init=0, ploton=False, method='Nelder-Mead'):
-    """Fit of a multi-exponential decay curve.
-
-    Arguments:
-    irf -- Instrumental Response Function measured -- Fluorescence decay irf_data
-    root -- Time between laser exciation pulses (in nanoseconds)
-    channelwidth -- Time width of one TCSPC channel (in nanoseconds)
-    tau -- Initial guess times
-    taubounds -- limits for the lifetimes guess times - defaults to 0<tau<100
-                 format: [[tau1_min, tau1_max], [tau2_min, tau2_max], ...]
-    init -- Whether to use a initial guess routine or not
-
-    Output:
-    c -- Color Shift (time shift of the IRF w.r.data_times. the fluorescence curve)
-    offset -- Offset
-    amplitudes -- Amplitudes of the different decay components
-    tau	-- Decay times of the different decay components
-    dc -- Color shift error
-    doffset -- Offset error
-    dtau -- Decay times error
-    irs -- IRF, shifted by the value of the colorshift
-    separated_decays -- Fitted fluorecence component curves
-    data_times -- time axis
-    chisquared -- chi squared value
-    """
-
-    irf = irf.flatten()
-    measured = measured.flatten()
-    irflength = np.size(irf)
-    offset = 0
-    cshift = 0
-
-    if tau is None:
-        # tau = distfluofit(irf, measured, root, channelwidth)
-        # print('Initial guess:', tau)
-        tau = [10, 25]
-
-    if taubounds is None:
-        taubounds = np.concatenate((0.001 * np.ones((np.size(tau), 1)), 30 * np.ones((np.size(tau), 1))), axis=1)
-    taubounds = taubounds / channelwidth
-    taubounds = tuple(map(tuple, taubounds))  # convert to tuple as required by minimize()
-
-    window = window / channelwidth
-    # tau = tau / channelwidth
-    data_times = np.arange(np.size(measured))
-    window_times = np.arange(1, window)
-    taulength = np.size(tau)
-
-    # param = np.array([cshift, offset])
-    # param = np.append(param, tau)
-    # param = tau
-
-    # Decay times and offset are assumed to be positive.
-    # offs_lower = np.array([-10])
-    # offs_upper = np.array([10])
-    # cshift_lower = np.array([-1])
-    # cshift_upper = np.array([1])
-
-    # bounds = (((-1/channelwidth, 1/channelwidth), (0, None)) + taubounds)
-    # print(bounds)
-    # result = minimize(lsfit, param, args=(irf, measured, root), method=method)
-
-    scale = np.max(measured)
-    measured = measured[startpoint:endpoint]
-    # irf = irf[startpoint:endpoint]
-    # t = t[startpoint:]
-    irflength = np.size(irf)
-    model_in = np.append(t, irf)
-    model_in = np.append(model_in, np.sum(measured))
-    model_in = np.append(model_in, endpoint)
-    model_in = np.append(model_in, startpoint)
-    model_in = np.append(model_in, irflength)
-    if np.size(tau) == 1:
-        param, pcov = curve_fit(one_exp, model_in, measured, bounds=([1, 0, 0, -100], [100, scale + 1000, 1, 1000]),
-                               p0=[tau[0], scale, 1, 0.1])
-        tau = param[0]
-        print("Tau:", tau)
-        dtau = np.sqrt([pcov[0, 0]])
-        print("dTau:", dtau)
-        scale = param[1]
-        print("Scale:", scale)
-        amplitudes = param[2]
-        shift = param[3]
-        print('shift:', shift)
-
-        irs = None
-        separated_decays = None
-
-        convd = one_exp(model_in, param[0], param[1], param[2], param[3])
-        residuals = convd - measured
-        convpos = convd[measured>0]
-        measpos = measured[measured>0]
-        chisquared = np.sum((convpos - measpos ** 2 / np.abs(measpos))) / np.size(measpos)
-
-        if ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-            ax1.set_yscale('log')
-            ax1.set_ylim([1, 100])
-            ax1.plot(measured.flatten())
-            ax1.plot(convd.flatten())
-            ax1.plot(irf[startpoint:endpoint])
-            ax1.text(1500, 20000, 'Tau = %5.3f' % param[0])
-            ax1.text(1500, 8000, 'Tau err = %5.3f' % dtau[0])
-            ax1.text(1500, 3000, 'Amp = %5.3f' % param[2])
-
-            ax2.plot(residuals, '.')
-            ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' % chisquared)
-            plt.show()
-
-    elif np.size(tau) == 2:
-        popt, pcov = curve_fit(two_exp, model_in, measured, bounds=([0.1, 0.1, 0, 0, -70, 0, 0], [10, 10, 100, 100, 14, 1e-30, 1e-30]),
-                               p0=[tau[0], tau[1], 0.001, 0.001, -15, 0, 0])
-        param = popt
-        # print(param)
-        # print(pcov)
-        tau = param[:2]
-        print(tau)
-        dtau = np.sqrt([pcov[0, 0], pcov[1, 1]])
-        print(dtau)
-        # scale = param[2:3]
-        amplitudes = param[2:4]
-        sumamp = np.sum(amplitudes)
-        print('ampl: ', amplitudes[0], amplitudes[1])
-        print('rel ampl: ', amplitudes[0]/sumamp, amplitudes[1]/sumamp)
-        shift = param[4]
-        print('shift:', shift*channelwidth)
-        bg = param[5]
-        print('bg: ', bg*11928)
-        irfbg = param[6]
-        print('irf bg: ', irfbg*4047)
-
-        irs = None
-        separated_decays = None
-
-        convd = two_exp(model_in, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6])
-        residuals = convd - measured
-        print(np.size(measured[measured>0]))
-        print(np.size(measured))
-        chisquared = np.sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0])) /np.size(measured[measured>0])
-
-        if ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, dpi=300)
-            ax1.set_yscale('log')
-            ax1.set_ylim([1, 10000])
-            ax1.plot(measured.flatten())
-            ax1.plot(convd.flatten())
-            ax1.plot(irf[startpoint:endpoint])
-            ax1.text(500, 500, 'Tau = %5.3f,     %5.3f' %(popt[0], popt[1]))
-            ax1.text(500, 300, 'Tau err = %5.3f,     %5.3f' %(dtau[0], dtau[1]))
-            ax1.text(500, 150, 'Amp = %5.3f,     %5.3f' %(popt[3], popt[4]))
-
-            ax2.plot(residuals, '.')
-            ax2.text(500, 40, r'$\chi ^2 = $ %4.3f' %chisquared)
-            print('chi = ', chisquared)
-            plt.show()
-
-    elif np.size(tau) == 3:
-        popt, pcov = curve_fit(three_exp, model_in, measured, bounds=([0.01, 0.01, 0.01, 0, 0, 0, 0, 0], [100, 100, 100, scale + 1000, 1, 1, 1, 1]),
-                               p0=[tau[0], tau[1], tau[2], scale, 0.333, 0.333, 0.334, 0.1])
-        param = popt
-        # print(param)
-        # print(pcov)
-        tau = param[:3]
-        dtau = np.sqrt([pcov[0, 0], pcov[1, 1], pcov[2, 2]])
-        print(dtau)
-        scale = param[3]
-        amplitudes = param[4:7]
-        shift = param[7]
-        print('shift:', shift)
-
-        irs = None
-        separated_decays = None
-
-        convd = three_exp(model_in, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6], popt[7])
-        residuals = convd - measured
-        chisquared = sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0]), 0.001) /np.size(measured[measured>0])
-
-        if ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-            ax1.set_yscale('log')
-            ax1.set_ylim([1, 50000])
-            ax1.plot(measured.flatten())
-            ax1.plot(convd.flatten())
-            ax1.plot(irf[startpoint:endpoint])
-            ax1.text(1500, 20000, 'Tau = %5.3f,     %5.3f,     %5.3f' % (popt[0], popt[1], popt[2]))
-            ax1.text(1500, 8000, 'Tau err = %5.3f,     %5.3f,     %5.3f' % (dtau[0], dtau[1], dtau[2]))
-            ax1.text(1500, 3000, 'Amp = %5.3f,     %5.3f,     %5.3f' % (popt[4], popt[5], popt[6]))
-
-            ax2.plot(residuals, '.')
-            ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
-            print('chi = ', chisquared)
-            plt.show()
-
-    elif np.size(tau) == 4:
-        print(np.size(measured))
-        popt, pcov = curve_fit(four_exp, model_in, measured, bounds=([0.01, 0.01, 0.01, 0.01, 0, 0, 0, 0, 0, 0], [100, 100, 100, 100, scale + 1000, 1, 1, 1, 1, 1]),
-                               p0=[tau[0], tau[1], tau[2], tau[3], scale, 0.25, 0.25, 0.25, 0.25, 0.1])
-        param = popt
-        # print(param)
-        # print(pcov)
-        tau = param[:4]
-        dtau = np.sqrt([pcov[0, 0], pcov[1, 1], pcov[2, 2], pcov[3, 3]])
-        print(dtau)
-        scale = param[4]
-        amplitudes = param[5:9]
-        shift = param[9]
-        print('shift:', shift)
-
-        irs = None
-        separated_decays = None
-
-        convd = four_exp(model_in, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6], popt[7], popt[8], popt[9])
-        residuals = convd - measured
-        chisquared = sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0]), 0.001) /np.size(measured[measured>0])
-
-        if ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-            ax1.set_yscale('log')
-            ax1.set_ylim([1, 50000])
-            ax1.plot(measured.flatten())
-            ax1.plot(convd.flatten())
-            ax1.plot(irf[startpoint:endpoint])
-            ax1.text(1500, 20000, 'Tau = %5.3f,     %5.3f,     %5.3f,     %5.3f' %(popt[0], popt[1], popt[2], popt[3]))
-            ax1.text(1500, 8000, 'Tau err = %5.3f,     %5.3f,     %5.3f,     %5.3f' %(dtau[0], dtau[1], dtau[2], dtau[3]))
-            ax1.text(1500, 3000, 'Amp = %5.3f,     %5.3f,     %5.3f,     %5.3f' %(popt[5], popt[6], popt[7], popt[8]))
-
-            ax2.plot(residuals, '.')
-            ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
-            plt.show()
-
-    elif np.size(tau) == 5:
-        popt, pcov = curve_fit(five_exp, model_in, measured, bounds=([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0], [100, 100, 100, 100, 100, scale + 1000, 1, 1, 1, 1, 1, 1]),
-                               p0=[tau[0], tau[1], tau[2], tau[3], tau[4], scale, 0.2, 0.2, 0.2, 0.2, 0.2, 0.1])
-        param = popt
-        # print(param)
-        # print(pcov)
-        tau = param[:2]
-        dtau = np.sqrt([pcov[0, 0], pcov[1, 1]])
-        print(dtau)
-        scale = param[2:3]
-        amplitudes = param[4:6]
-        shift = param[5]
-        print('shift:', shift)
-
-        irs = None
-        separated_decays = None
-
-        convd = two_exp(model_in, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5])
-        residuals = convd - measured
-        chisquared = sum((convd[measured>0] - measured[measured>0]) ** 2 / np.abs(measured[measured>0]), 0.001) /np.size(measured[measured>0])
-
-        if ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-            ax1.set_yscale('log')
-            ax1.set_ylim([1, 50000])
-            ax1.plot(measured.flatten())
-            ax1.plot(convd.flatten())
-            ax1.plot(irf)
-            ax1.text(1500, 20000, 'Tau = %5.3f,     %5.3f' %(popt[0], popt[1]))
-            ax1.text(1500, 8000, 'Tau err = %5.3f,     %5.3f' %(dtau[0], dtau[1]))
-            ax1.text(1500, 3000, 'Amp = %5.3f,     %5.3f' %(popt[3], popt[4]))
-
-            ax2.plot(residuals, '.')
-            ax2.text(2500, 200, r'$\chi ^2 = $ %4.3f' %chisquared)
-            plt.show()
-
-    return cshift, offset, amplitudes, tau, 0, dtau, irs, separated_decays, data_times, chisquared
-
-
 class FluoFit:
     """Base class for fit of a multi-exponential decay curve.
 
     Arguments:
-    irf -- Instrumental Response Function measured -- Fluorescence decay irf_data
-    measured -- The measured decay irf_data
+    irf -- Instrumental Response Function measured -- Fluorescence decay data
+    measured -- The measured decay data
     channelwidth -- Time width of one TCSPC channel (in nanoseconds)
-    tau -- Initial guess times
+    tau -- Initial guess times (in ns)
     taubounds -- Limits for the lifetimes guess times - defaults to 0<tau<100
                  format: [[tau1_min, tau1_max], [tau2_min, tau2_max], ...]
-    startpoint -- Start of fitting range
-    endpoint -- end of fitting range
+    startpoint -- Start of fitting range - will default to channel of irf max
+    endpoint -- End of fitting range - will default to the channel of the
+                fluorescence decay that is either around 10 times higher
+                than the background level or equivalent to 0.1% of the counts
+                in the peak channel, whichever is greater.
     init -- Whether to use a initial guess routine or not
     ploton -- Whether to automatically plot the irf_data
 
     This class is only used for subclassing.
     """
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=0, endpoint=9000,
+    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=None, endpoint=None,
                  init=0, ploton=False):
 
         self.channelwidth = channelwidth
         self.tau = tau
         self.taubounds = taubounds
-        self.startpoint = startpoint
-        self.endpoint = endpoint
         self.init = init
         self.ploton = ploton
         self.t = t
@@ -475,7 +216,23 @@ class FluoFit:
         self.bg = np.mean(measured[:bglim])
         measured = measured - self.bg
 
-        self.measured = measured[startpoint:endpoint]
+        if startpoint is None:
+            self.startpoint = np.argmax(self.irf)
+        else:
+            self.startpoint = startpoint
+
+        if endpoint is None:
+            great_than_bg, = np.where(measured > 10 * self.bg)
+            hundredth_of_peak, = np.where(measured > 0.01 * measured.max())
+            max1 = great_than_bg.max()
+            max2 = hundredth_of_peak.max()
+            self.endpoint = max(max1, max2)
+        else:
+            self.endpoint = endpoint
+
+        print(self.startpoint, self.endpoint)
+
+        self.measured = measured[self.startpoint:self.endpoint]
 
     def results(self, tau, dtau, shift, amp=1):
 
@@ -486,32 +243,35 @@ class FluoFit:
         # print(self.measured)
 
         residuals = self.convd - self.measured
-        convpos = self.convd[self.measured > 0]
-        measpos = self.measured[self.measured > 0]
+        pos_ind = self.measured > 0
+        measpos = self.measured[pos_ind]
         # print(measpos, convpos)
-        chisquared = np.sum((convpos - measpos) ** 2 / measpos) / (np.size(measpos) - 5 - 1)
+        chisquared = np.sum((residuals[pos_ind]) ** 2 / measpos) / (np.size(measpos) - 4 - 1)
         print(chisquared)
 
         if self.ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
             ax1.set_yscale('log')
-            ax1.set_ylim([1, np.max(self.measured)])
+            ax1.set_ylim([1, self.measured.max() * 2])
             ax1.plot(self.measured.flatten())
             ax1.plot(self.convd.flatten())
             # ax1.plot(self.irf[self.startpoint:self.endpoint])
-            ax1.text(1500, 30, 'Tau = %s' % tau)
-            ax1.text(1500, 20, 'Tau err = %s' % dtau)
-            ax1.text(1500, 10, 'Amp = %s' % amp)
+            # ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])
+            textx = (self.endpoint - self.startpoint) / 2
+            texty = self.measured.max()
+            ax1.text(textx, texty, 'Tau = %s' % tau)
+            ax1.text(textx, texty / 2, 'Tau err = %s' % dtau)
+            ax1.text(textx, texty / 4, 'Amp = %s' % amp)
 
             ax2.plot(residuals, '.')
-            ax2.text(2000, 10, r'$\chi ^2 = $ %s' % chisquared)
+            ax2.text(textx, residuals.max() / 1.5, r'$\chi ^2 = $ %s' % chisquared)
             plt.show()
 
     def makeconvd(self, shift, model):
 
         irf = self.irf
         irf = irf * (np.sum(self.measured) / np.sum(irf))
-        irf = colorshift(irf, shift, np.size(irf), self.t)
+        irf = colorshift(irf, shift)
         convd = convolve(irf, model)
         convd = convd / np.sum(convd) * np.sum(self.measured)
         convd = convd[self.startpoint:self.endpoint]
@@ -520,8 +280,9 @@ class FluoFit:
 
 
 class OneExp(FluoFit):
+    """"Single exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=0, endpoint=9000,
+    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=None, endpoint=None,
                  init=0, ploton=False):
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, taubounds, startpoint, endpoint, init, ploton)
@@ -543,34 +304,37 @@ class OneExp(FluoFit):
 
 
 class TwoExp(FluoFit):
+    """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=0, endpoint=9000,
+    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=None, endpoint=None,
                  init=0, ploton=False):
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, taubounds, startpoint, endpoint, init, ploton)
 
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
-                                bounds=([0.01, 0.01, 0, 0, -60], [10, 10, 100, 100, 100]),
-                                p0=[tau[0], tau[1], 50, 10, 0.1], verbose=2, ftol=5e-16, xtol=2e-16)
+                                bounds=([0.01, 0.01, 0, -60], [10, 10, 100, 100]),
+                                p0=[tau[0], tau[1], 50, 0.1])
 
         tau = param[0:2]
-        amp = param[2:4]
+        amp = np.append(param[2], 100-param[2])
         print('Amp:', amp)
-        shift = param[4]
+        shift = param[3]
         dtau = np.diag(pcov[0:2])
 
         # print(self.t, tau[0], tau[1], amp[0], amp[1], shift)
 
-        self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift)
+        self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], shift)
         self.results(tau, dtau, shift, amp)
 
-    def fitfunc(self, t, tau1, tau2, a1, a2, shift):
+    def fitfunc(self, t, tau1, tau2, a1, shift):
 
         model = a1 * np.exp(-t / tau1) + (100 - a1) * np.exp(-t / tau2)
         return self.makeconvd(shift, model)
 
 
+# TODO: make this class also use normalised amplitudes
 class ThreeExp(FluoFit):
+    """"Triple exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=0, endpoint=9000,
                  init=0, ploton=False):

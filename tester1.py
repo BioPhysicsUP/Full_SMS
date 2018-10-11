@@ -19,7 +19,7 @@ print(channelwidth)
 
 root = 200
 
-fit = TwoExp(irf, measured, t, channelwidth, tau=[5, 0.4], startpoint=300, endpoint=3000, ploton=True)
+fit = TwoExp(irf, measured, t, channelwidth, tau=[5, 0.4], startpoint=400, ploton=True)
 #
 # print(t)
 # model = 15.39 * np.exp(-t / 3.02) + 56.04 * np.exp(-t / 0.387)
