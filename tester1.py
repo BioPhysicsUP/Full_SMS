@@ -19,30 +19,16 @@ print(channelwidth)
 
 root = 200
 
+# [init, min, max, fix]
+tau = [[5, 0.01, 10, 0],
+      [0.4, 0.01, 10, 0]]
+
+shift = [0, -100, 100, 0]  # num of channels
+
+# [init (amp1 %), fix]
+amp = [30, 0]
+
 fit = TwoExp(irf, measured, t, channelwidth, tau=[5, 0.4], startpoint=400, ploton=True)
-#
-# print(t)
-# model = 15.39 * np.exp(-t / 3.02) + 56.04 * np.exp(-t / 0.387)
-#
-# irs = colorshift(irf, -53.5)
-#
-# measured = measured[:3280]
-# model = convolve(irs, model)[:3280]
-# model = model * measured.sum() / model.sum()
-#
-# data_nonzero = measured[measured > 0]
-# model_nonzero = model[measured > 0]
-# chisum_next = ((measured - model) ** 2).sum() / 2
-# print(chisum_next)
-#
-# model = fit.fitfunc(t, 3.02, 0.387, 15.39, 56.04, -53.5)
-#
-# print(measured)
-#
-# data_nonzero = measured[measured > 0]
-# model_nonzero = model[measured > 0]
-# chisum_next = ((data_nonzero - model_nonzero) ** 2).sum() / 2
-# print(chisum_next)
 
 
 

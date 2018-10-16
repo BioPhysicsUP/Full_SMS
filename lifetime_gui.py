@@ -152,7 +152,7 @@ class Lifetime(Plot):
         Plot.__init__(self, parent, *args, **kwargs)
         self.parent = parent
         fitbutton = ttk.Button(self.controlframe, text='Fit Lifetimes', command=self.parent.fit_lifetime)
-        fitbutton.pack(side='left', expand=True)
+        fitbutton.pack(side='right', expand=True)
 
 
 class MainApp(tk.Frame):
@@ -166,12 +166,12 @@ class MainApp(tk.Frame):
 
         # Data file selection
         currentdir = os.path.dirname(os.path.abspath(__file__))
-        # root.decay_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select decay irf_data",
-        #                                                  filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
-        # root.irf_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select IRF",
-        #                                                filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
-        self.decay_filename = '/home/bertus/PycharmProjects/SMS-Python-port/LHCII2.h5'
-        self.irf_filename = '/home/bertus/PycharmProjects/SMS-Python-port/IRF 680nm.h5'
+        self.decay_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select decay irf_data",
+                                                         filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
+        self.irf_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select IRF",
+                                                       filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
+        # self.decay_filename = '/home/bertus/PycharmProjects/SMS-Python-port/LHCII2.h5'
+        # self.irf_filename = '/home/bertus/PycharmProjects/SMS-Python-port/IRF 680nm.h5'
 
         self.meas_file = h5py.File(self.decay_filename, 'r')
         self.irf_file = h5py.File(self.irf_filename, 'r')
@@ -246,7 +246,7 @@ class MainApp(tk.Frame):
         binned *= (1000 / 10)
 
         self.intensity.ax1.clear()
-        self.intensity.ax1.plot(binned)
+        self.intensity.ax1.plot(binned[:-10])
 
         self.intensity.canvas1.draw()
         self.intensity.canvas1.get_tk_widget().pack(side='left', fill='both', expand=1)

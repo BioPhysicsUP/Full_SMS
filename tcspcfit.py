@@ -183,15 +183,46 @@ class FluoFit:
     This class is only used for subclassing.
     """
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=None, endpoint=None,
-                 init=0, ploton=False):
+    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None, init=0,
+                 ploton=False):
 
         self.channelwidth = channelwidth
-        self.tau = tau
-        self.taubounds = taubounds
+        self.amp = amp
         self.init = init
         self.ploton = ploton
         self.t = t
+
+        self.tau = []
+        self.taumin = []
+        self.taumax = []
+        for tauval in tau:
+            try:
+                self.tau.append(tauval[0])
+                if tauval[-1]:
+                    self.taumin.append(tauval[0] - 0.0001)
+                    self.taumax.append(tauval[0] + 0.0001)
+                else:
+                    self.taumin.append(tauval[1])
+                    self.taumax.append(tauval[2])
+            except TypeError:  # If tauval is not a list
+                self.tau.append(tauval)
+                self.taumin.append(0.01)
+                self.taumax.append(100)
+
+        if shift is None:
+            shift = 0
+        try:
+            self.shift = shift[0]
+            if shift[-1]:
+                self.shiftmin = shift[0] - 0.0001
+                self.shiftmax = shift[0] + 0.0001
+            else:
+                self.shiftmin = shift[1]
+                self.shiftmax = shift[2]
+        except TypeError:  # If shiftval is not a list
+            self.shift = shift
+            self.shiftmin = -100
+            self.shiftmax = 100
 
         # Estimate background for IRF using average value up to start of the rise
         maxind = np.argmax(irf)
@@ -282,17 +313,20 @@ class FluoFit:
 class OneExp(FluoFit):
     """"Single exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=None, endpoint=None,
-                 init=0, ploton=False):
+    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None, init=0,
+                 ploton=False):
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, taubounds, startpoint, endpoint, init, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, init, ploton)
 
-        param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=([0.01, -100], [100, 1000]),
-                                p0=[tau[0], 0.1])
+        paramin = self.taumin + [self.shiftmin]
+        paramax = self.taumax + [self.shiftmax]
+        paraminit = self.tau + [self.shift]
+        param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax),
+                                p0=paraminit)
 
         tau = param[0]
         shift = param[1]
-        dtau = pcov[0, 0]
+        dtau = np.sqrt(pcov[0, 0])
 
         self.convd = self.fitfunc(self.t, tau, shift)
         self.results(tau, dtau, shift)
@@ -306,20 +340,24 @@ class OneExp(FluoFit):
 class TwoExp(FluoFit):
     """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=None, endpoint=None,
-                 init=0, ploton=False):
+    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None, init=0,
+                 ploton=False):
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, taubounds, startpoint, endpoint, init, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, init, ploton)
 
+        paramin = self.taumin + [0, self.shiftmin]
+        paramax = self.taumax + [100, self.shiftmax]
+        paraminit = self.tau + [50, self.shift]
+        print(paraminit)
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
-                                bounds=([0.01, 0.01, 0, -60], [10, 10, 100, 100]),
-                                p0=[tau[0], tau[1], 50, 0.1])
+                                bounds=(paramin, paramax),
+                                p0=paraminit)
 
         tau = param[0:2]
         amp = np.append(param[2], 100-param[2])
         print('Amp:', amp)
         shift = param[3]
-        dtau = np.diag(pcov[0:2])
+        dtau = np.sqrt(np.diag(pcov[0:2]))
 
         # print(self.t, tau[0], tau[1], amp[0], amp[1], shift)
 
@@ -336,10 +374,10 @@ class TwoExp(FluoFit):
 class ThreeExp(FluoFit):
     """"Triple exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, taubounds=None, startpoint=0, endpoint=9000,
-                 init=0, ploton=False):
+    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=0, endpoint=9000, init=0,
+                 ploton=False):
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, taubounds, startpoint, endpoint, init, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, init, ploton)
 
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=([0.01, 0.01, 0.01, 0, 0, 0, -60], [10, 10, 10, 100, 100, 100, 100]),
