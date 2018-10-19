@@ -187,7 +187,6 @@ class FluoFit:
                  ploton=False):
 
         self.channelwidth = channelwidth
-        self.amp = amp
         self.init = init
         self.ploton = ploton
         self.t = t
@@ -208,6 +207,42 @@ class FluoFit:
                 self.tau.append(tauval)
                 self.taumin.append(0.01)
                 self.taumax.append(100)
+
+        if amp is not None:
+            try:
+                amplen = len(amp)
+            except TypeError:
+                amplen = 1
+            if amplen == len(self.tau):
+                self.amp = amp[:-1]
+                if amp[-1]:
+                    self.ampmin = []
+                    self.ampmax = []
+                    for amp in self.amp:
+                        self.ampmin.append(amp - 0.0001)
+                        self.ampmax.append(amp + 0.0001)
+                else:
+                    self.ampmin = []
+                    self.ampmax = []
+                    for tau in self.tau[:-1]:
+                        self.ampmin.append(0)
+                        self.ampmax.append(100)
+            else:
+                self.amp = []
+                self.ampmin = []
+                self.ampmax = []
+                for tau in self.tau[:-1]:
+                    self.amp.append(50)
+                    self.ampmin.append(0)
+                    self.ampmax.append(100)
+        else:
+            self.amp = []
+            self.ampmin = []
+            self.ampmax = []
+            for tau in self.tau[:-1]:
+                self.amp.append(50)
+                self.ampmin.append(0)
+                self.ampmax.append(100)
 
         if shift is None:
             shift = 0
@@ -340,14 +375,14 @@ class OneExp(FluoFit):
 class TwoExp(FluoFit):
     """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None, init=0,
-                 ploton=False):
+    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
+                 init=0, ploton=False):
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, init, ploton)
 
-        paramin = self.taumin + [0, self.shiftmin]
-        paramax = self.taumax + [100, self.shiftmax]
-        paraminit = self.tau + [50, self.shift]
+        paramin = self.taumin + self.ampmin + [self.shiftmin]
+        paramax = self.taumax + self.ampmax + [self.shiftmax]
+        paraminit = self.tau + self.amp + [self.shift]
         print(paraminit)
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=(paramin, paramax),

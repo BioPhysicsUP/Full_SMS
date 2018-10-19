@@ -20,15 +20,15 @@ print(channelwidth)
 root = 200
 
 # [init, min, max, fix]
-tau = [[5, 0.01, 10, 0],
-      [0.4, 0.01, 10, 0]]
+tau = [[5, 0.01, 10, 1],
+      [0.4, 0.01, 10, 1]]
 
 shift = [0, -100, 100, 0]  # num of channels
 
 # [init (amp1 %), fix]
 amp = [30, 0]
 
-fit = TwoExp(irf, measured, t, channelwidth, tau=[5, 0.4], startpoint=400, ploton=True)
+fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=[30, 0], shift=shift, startpoint=400, ploton=True)
 
 
 
