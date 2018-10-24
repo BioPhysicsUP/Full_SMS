@@ -165,25 +165,41 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
 class FluoFit:
     """Base class for fit of a multi-exponential decay curve.
 
-    Arguments:
-    irf -- Instrumental Response Function measured -- Fluorescence decay data
-    measured -- The measured decay data
-    channelwidth -- Time width of one TCSPC channel (in nanoseconds)
-    tau -- Initial guess times (in ns)
-    taubounds -- Limits for the lifetimes guess times - defaults to 0<tau<100
-                 format: [[tau1_min, tau1_max], [tau2_min, tau2_max], ...]
-    startpoint -- Start of fitting range - will default to channel of irf max
-    endpoint -- End of fitting range - will default to the channel of the
-                fluorescence decay that is either around 10 times higher
-                than the background level or equivalent to 0.1% of the counts
-                in the peak channel, whichever is greater.
-    init -- Whether to use a initial guess routine or not
-    ploton -- Whether to automatically plot the irf_data
-
     This class is only used for subclassing.
+
+    Parameters
+    ----------
+    irf : ndarray
+        Instrumental Response Function
+    measured : ndarray
+        The measured decay data
+    channelwidth : float
+        Time width of one TCSPC channel (in nanoseconds)
+    tau : array_like, optional
+        Initial guess times (in ns). This is either in the format
+        [tau1, tau2, ...] or [[tau1, min1, max1, fix1], [tau2, ...], ...].
+        When the "fix" value is False, the min and max values are ignored.
+    amp : array_like, optional
+        Initial guess amplitude. Format [amp1, amp2, ...] or [[amp1, fix1],
+        [amp2, fix2], ...]
+    shift : array_like, optional
+        Initial guess IRF shift. Either a float, or [shift, min, max, fix].
+    startpoint : int
+        Start of fitting range - will default to channel of decay max or
+        IRF max, whichever is least.
+    endpoint : int
+        End of fitting range - will default to the channel of the
+        fluorescence decay that is either around 10 times higher than the
+        background level or equivalent to 0.1% of the counts in the peak
+        channel, whichever is greater.
+    init : bool
+        Whether to use an initial guess routine or not.
+    ploton : bool
+        Whether to automatically plot the irf_data
+
     """
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None, init=0,
+    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
                  ploton=False):
 
         self.channelwidth = channelwidth
@@ -348,10 +364,10 @@ class FluoFit:
 class OneExp(FluoFit):
     """"Single exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None, init=0,
+    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
                  ploton=False):
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, init, ploton)
+        FluoFit.__init__(irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
 
         paramin = self.taumin + [self.shiftmin]
         paramax = self.taumax + [self.shiftmax]
@@ -376,9 +392,9 @@ class TwoExp(FluoFit):
     """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
-                 init=0, ploton=False):
+                 ploton=False):
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, init, ploton)
+        FluoFit.__init__(irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
 
         paramin = self.taumin + self.ampmin + [self.shiftmin]
         paramax = self.taumax + self.ampmax + [self.shiftmax]
@@ -409,10 +425,10 @@ class TwoExp(FluoFit):
 class ThreeExp(FluoFit):
     """"Triple exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=0, endpoint=9000, init=0,
+    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
                  ploton=False):
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, init, ploton)
+        FluoFit.__init__(irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
 
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=([0.01, 0.01, 0.01, 0, 0, 0, -60], [10, 10, 10, 100, 100, 100, 100]),
