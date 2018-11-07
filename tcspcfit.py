@@ -203,26 +203,31 @@ class FluoFit:
                  ploton=False):
 
         self.channelwidth = channelwidth
-        self.init = init
+        # self.init = init
         self.ploton = ploton
         self.t = t
 
         self.tau = []
         self.taumin = []
         self.taumax = []
-        for tauval in tau:
-            try:
-                self.tau.append(tauval[0])
-                if tauval[-1]:
-                    self.taumin.append(tauval[0] - 0.0001)
-                    self.taumax.append(tauval[0] + 0.0001)
-                else:
-                    self.taumin.append(tauval[1])
-                    self.taumax.append(tauval[2])
-            except TypeError:  # If tauval is not a list
-                self.tau.append(tauval)
-                self.taumin.append(0.01)
-                self.taumax.append(100)
+        try:
+            for tauval in tau:
+                try:
+                    self.tau.append(tauval[0])
+                    if tauval[-1]:
+                        self.taumin.append(tauval[0] - 0.0001)
+                        self.taumax.append(tauval[0] + 0.0001)
+                    else:
+                        self.taumin.append(tauval[1])
+                        self.taumax.append(tauval[2])
+                except TypeError:  # If tauval is not a list
+                    self.tau.append(tauval)
+                    self.taumin.append(0.01)
+                    self.taumax.append(100)
+        except TypeError:  # If tau is not a list
+            self.tau = np.array([tau])
+            self.taumin = np.array([0.01])
+            self.taumax = np.array([100])
 
         if amp is not None:
             try:
@@ -312,15 +317,14 @@ class FluoFit:
         else:
             self.endpoint = endpoint
 
-        print(self.startpoint, self.endpoint)
-
         self.measured = measured[self.startpoint:self.endpoint]
 
     def results(self, tau, dtau, shift, amp=1):
 
-        print("Tau:", tau)
-        print("dTau:", dtau)
-        print('shift:', shift)
+        # print("Tau:", tau)
+        self.tau = tau
+        # print("dTau:", dtau)
+        # print('shift:', shift)
 
         # print(self.measured)
 
@@ -329,7 +333,7 @@ class FluoFit:
         measpos = self.measured[pos_ind]
         # print(measpos, convpos)
         chisquared = np.sum((residuals[pos_ind]) ** 2 / measpos) / (np.size(measpos) - 4 - 1)
-        print(chisquared)
+        # print(chisquared)
 
         if self.ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
@@ -337,8 +341,8 @@ class FluoFit:
             ax1.set_ylim([1, self.measured.max() * 2])
             ax1.plot(self.measured.flatten())
             ax1.plot(self.convd.flatten())
-            # ax1.plot(self.irf[self.startpoint:self.endpoint])
-            # ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])
+            ax1.plot(self.irf[self.startpoint:self.endpoint])
+            ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])
             textx = (self.endpoint - self.startpoint) / 2
             texty = self.measured.max()
             ax1.text(textx, texty, 'Tau = %s' % tau)
@@ -367,11 +371,14 @@ class OneExp(FluoFit):
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
                  ploton=False):
 
-        FluoFit.__init__(irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
 
-        paramin = self.taumin + [self.shiftmin]
-        paramax = self.taumax + [self.shiftmax]
-        paraminit = self.tau + [self.shift]
+        self.tau = self.tau[0]
+        self.taumin = self.taumin[0]
+        self.taumax = self.taumax[0]
+        paramin = [self.taumin, self.shiftmin]
+        paramax = [self.taumax, self.shiftmax]
+        paraminit = [self.tau, self.shift]
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax),
                                 p0=paraminit)
 
@@ -394,7 +401,7 @@ class TwoExp(FluoFit):
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
                  ploton=False):
 
-        FluoFit.__init__(irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
 
         paramin = self.taumin + self.ampmin + [self.shiftmin]
         paramax = self.taumax + self.ampmax + [self.shiftmax]

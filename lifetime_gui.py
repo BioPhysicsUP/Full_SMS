@@ -1,5 +1,14 @@
+"""Program for viewing SMS data from HDF5 files
+
+Depends on smsh5 and tcspcfit
+
+Bertus van Heerden
+University of Pretoria
+2018
+"""
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 import h5py
 import os
 from tkinter import filedialog
@@ -11,6 +20,7 @@ from matplotlib.backends._backend_tk import ToolTip
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 import numpy as np
+mpl.rcParams.update({'font.size': 22})
 
 
 class VerticalToolbar(NavigationToolbar2Tk):
@@ -68,8 +78,25 @@ class Browser(tk.Frame):
         self.treeframe = tk.Frame(self.panes)
         self.info = tk.Frame(self.panes)
         self.tree1 = ttk.Treeview(self.treeframe)
-        self.infolabel = tk.Label(self.info, text='Hello World')
-        self.rasterscan = tk.Label(self.info, text='RS goes here')
+        self.descriptlabel = tk.Label(self.info, text='Description:')
+        self.infolabel = tk.Label(self.info)
+        self.checkframe = tk.Frame(self.info)
+        # self.rasterscan = tk.Label(self.info, text='RS goes here')
+        self.rasterscan = RasterScan(self.info)
+
+        self.bgvar = tk.IntVar()
+        self.ignorevar = tk.IntVar()
+        self.bgcheckbox = tk.Checkbutton(self.checkframe, variable=self.bgvar, command=self.parent.bgcb)
+        self.bglabel = tk.Label(self.checkframe, text='BG:')
+        self.ignorecheckbox = tk.Checkbutton(self.checkframe, variable=self.ignorevar, command=self.parent.ignorecb)
+        self.ignorelabel = tk.Label(self.checkframe, text='Ignore:')
+
+        self.bgvaluevar = tk.StringVar()
+        self.bgentrylabel = tk.Label(self.checkframe, text='BG value:')
+        self.bgentry = tk.Entry(self.checkframe, textvariable=self.bgvaluevar)
+
+        self.subtractbg_but = tk.Button(self.checkframe, command=self.parent.subtractbg_cb, text='Subtract BG')
+        self.export_but = tk.Button(self.checkframe, command=self.parent.export_cb, text='Export')
 
         self.tree1.insert('', 'end', 'widgets', text='All files')
 
@@ -79,11 +106,22 @@ class Browser(tk.Frame):
         self.panes.pack(side='left', fill='both', expand=True)
         # self.treeframe.pack(side='left', fill='both', expand=True)
         # self.info.pack(side='left', fill='both', expand=True)
-        self.tree1.pack(side='left', fill='both', expand=True)
-        self.infolabel.pack(side='top', fill='both', expand=True)
-        self.rasterscan.pack(side='top', fill='both', expand=True)
 
-        self.tree1.bind('<<TreeviewSelect>>', self.parent.plot_trace)
+        self.tree1.pack(side='left', fill='both', expand=True)
+        self.descriptlabel.pack(side='top', fill='both', expand=True)
+        self.infolabel.pack(side='top', fill='both', expand=True)
+        self.checkframe.pack(side='top', fill='both', expand=True)
+        self.rasterscan.pack(side='top', fill='x', expand=True)
+
+        self.bglabel.pack(side='left')
+        self.bgcheckbox.pack(side='left')
+        self.ignorelabel.pack(side='left')
+        self.ignorecheckbox.pack(side='left')
+
+        self.subtractbg_but.pack(side='left')
+        self.export_but.pack(side='left')
+
+        self.tree1.bind('<<TreeviewSelect>>', self.parent.particle_sel_cb)
 
         self.particles = []
 
@@ -98,11 +136,27 @@ class Browser(tk.Frame):
 
         particle_list.sort(key=sortnumeric)
 
-        for index, particle in enumerate(particle_list):
-            self.tree1.insert('widgets', 'end', text=particle, iid=index)
-            self.particles.append(Particle(self.parent.meas_file, index + 1, self.parent.irf, self.parent.tmin,
-                                           self.parent.tmax, self.parent.channelwidth))
-            self.particles[-1].makehistogram()
+        answer = messagebox.askyesno("Question", "Import particle list?")
+        if answer:
+            currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise/Exported/Gebruik'
+            dir = filedialog.askopenfilename(initialdir=currentdir,
+                                             filetypes=(('Text files', '*.txt'),))
+            # currentdir = os.path.dirname(os.path.abspath(__file__))
+            imported_list = np.genfromtxt(dir, skip_header=2, dtype='str', delimiter='\n')
+            print(imported_list)
+
+        index = 0
+        for particlename in particle_list:
+            print(answer, particlename)
+            if not answer or particlename in imported_list:
+                try:
+                    self.tree1.insert('widgets', 'end', text=particlename, iid=index)
+                    self.particles.append(Particle(particlename, self.parent.meas_file, index + 1, self.parent.irf, self.parent.tmin,
+                                                   self.parent.tmax, self.parent.channelwidth))
+                    self.particles[-1].makehistogram()
+                    index += 1
+                except KeyError:
+                    raise
 
 
 class Plot(tk.Frame):
@@ -138,6 +192,7 @@ class Spectrum(Plot):
         tk.Frame.__init__(self, parent, *args, **kwargs)
         Plot.__init__(self, parent, *args, **kwargs)
         self.parent = parent
+        # self.ax1.set_aspect(0.01)
 
 
 class Intensity(Plot):
@@ -155,6 +210,23 @@ class Lifetime(Plot):
         fitbutton.pack(side='right', expand=True)
 
 
+class RasterScan(tk.Frame):
+    def __init__(self, parent, *args, **kwargs):
+        tk.Frame.__init__(self, parent, *args, **kwargs)
+        self.parent = parent
+
+        self.fig1 = Figure(figsize=(7, 7), dpi=50)
+        self.ax1 = self.fig1.add_subplot(111)
+        self.plotframe = tk.Frame(self)
+        self.canvas1 = FigureCanvasTkAgg(self.fig1, master=self.plotframe)  # A tk.DrawingArea.
+        self.canvas1.draw()
+        self.canvas1.get_tk_widget().pack(side='top', fill='both', expand=True)
+
+        self.fig1.tight_layout()
+
+        self.plotframe.pack(side='top', fill='both', expand=True)
+
+
 class MainApp(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
@@ -166,19 +238,17 @@ class MainApp(tk.Frame):
 
         # Data file selection
         currentdir = os.path.dirname(os.path.abspath(__file__))
-        self.decay_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select decay irf_data",
+        currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise'
+        self.decay_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select decay data",
                                                          filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
-        self.irf_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select IRF",
-                                                       filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
+        # currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Random'
+        # self.irf_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select IRF",
+        #                                                filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
         # self.decay_filename = '/home/bertus/PycharmProjects/SMS-Python-port/LHCII2.h5'
-        # self.irf_filename = '/home/bertus/PycharmProjects/SMS-Python-port/IRF 680nm.h5'
+        self.irf_filename = '/home/bertus/PycharmProjects/SMS-Python-port/IRF 680nm.h5'
 
         self.meas_file = h5py.File(self.decay_filename, 'r')
         self.irf_file = h5py.File(self.irf_filename, 'r')
-
-        # irf_file = h5py.File('/home/bertus/Documents/Honneurs/Projek/metings/Farooq_intensity/IRF (SLOW APD@680nm).h5', 'r')
-        # meas_file = h5py.File('/home/bertus/Documents/Honneurs/Projek/metings/Farooq_intensity/LHCII-PLL(slow APD)-410nW.h5',
-        #                       'r')
 
         irf_data = self.irf_file['Particle 1/Micro Times (s)'][:]
 
@@ -207,6 +277,7 @@ class MainApp(tk.Frame):
         self.plotframe = tk.Frame(self)
 
         self.browser.pack(side='left', fill='both', expand=True)
+
         self.plotframe.pack(side='left', fill='both', expand=True)
 
         self.lifetime.pack(side='top', fill='both', expand=True)
@@ -215,36 +286,21 @@ class MainApp(tk.Frame):
 
         self.browser.addparticles()
 
+        self.isbinned = False
+
+        self.bgparticles = []
+
     def fit_lifetime(self):
-        idxs = self.browser.tree1.selection()
-        try:
-            particle = self.browser.particles[int(idxs[0])]
-        except ValueError:
-            return
-        decay = particle.measured[:-20]
+        decay = self.selected_particle.measured[:-20]
         fit = TwoExp(self.irf, decay, self.t, self.channelwidth, tau=[2.52, 0.336], ploton=True)
 
     def plot_trace(self, *args):
 
-        self.plot_decay()
+        if not self.isbinned:
+            self.binints()
+            self.isbinned = True
 
-        idxs = self.browser.tree1.selection()
-        try:
-            particle = self.browser.particles[int(idxs[0])]
-        except ValueError:
-            return
-
-        data = particle.abstimes
-
-        binsize = 10 * 1000000
-        endbin = np.int(np.max(data) / binsize)
-
-        binned = np.zeros(endbin)
-        for step in range(endbin):
-            binned[step] = np.size(data[((step+1)*binsize > data) * (data > step*binsize)])
-
-        binned *= (1000 / 10)
-
+        binned = self.selected_particle.binned
         self.intensity.ax1.clear()
         self.intensity.ax1.plot(binned[:-10])
 
@@ -255,26 +311,123 @@ class MainApp(tk.Frame):
 
     def plot_decay(self, *args):
 
-        idxs = self.browser.tree1.selection()
-        print(idxs)
-        try:
-            particle = self.browser.particles[int(idxs[0])]
-        except ValueError:
-            return
-
         # data = meas_file[particle + '/Micro Times (s)'][:]
         # decay, t = np.histogram(data, bins=1000)
         # t = t[2:]
         # decay = decay[:-1]  # TODO: this should not be hard coded as it is specific to the current irf_data
 
         self.lifetime.ax1.clear()
-        self.lifetime.ax1.semilogy(particle.t[:-21], particle.measured[:-20])
+        self.lifetime.ax1.semilogy(self.selected_particle.t[:-21], self.selected_particle.measured[:-20])
         self.lifetime.ax1.semilogy(self.t, self.irf)
 
         self.lifetime.canvas1.draw()
         self.lifetime.canvas1.get_tk_widget().pack(side='left', fill='both', expand=1)
         self.lifetime.toolbar.update()
         self.lifetime.canvas1.get_tk_widget().pack(side='top', fill='both', expand=1)
+
+    def plot_spectra(self, *args):
+
+        self.spectrum.ax1.clear()
+        times = self.selected_particle.spectratimes
+        wavelengths = self.selected_particle.wavelengths
+        mintime = np.min(times)
+        maxtime = np.max(times)
+        minwav = np.min(wavelengths)
+        maxwav = np.max(wavelengths)
+        self.spectrum.ax1.imshow(self.selected_particle.spectra.T, aspect='auto', interpolation='none',
+                                 extent=[mintime, maxtime, minwav, maxwav])
+        # self.spectrum.ax1.set_aspect(0.005)
+
+        self.spectrum.canvas1.draw()
+        self.spectrum.canvas1.get_tk_widget().pack(side='left', fill='both', expand=1)
+        self.spectrum.toolbar.update()
+        self.spectrum.canvas1.get_tk_widget().pack(side='top', fill='both', expand=1)
+
+    def plot_rs(self, *args):
+
+        self.browser.rasterscan.ax1.clear()
+        try:
+            self.browser.rasterscan.ax1.imshow(self.selected_particle.rasterscan)
+        except AttributeError:
+            self.browser.rasterscan.ax1.text(0.3, 0.5, "Raster Scan not available")
+
+        self.browser.rasterscan.canvas1.draw()
+        self.browser.rasterscan.canvas1.get_tk_widget().pack(side='left', fill='both', expand=1)
+
+    def binints(self):
+        for particle in self.browser.particles:
+
+            data = particle.abstimes
+
+            binsize = 100 * 1000000
+            endbin = np.int(np.max(data) / binsize)
+
+            binned = np.zeros(endbin)
+            for step in range(endbin):
+                binned[step] = np.size(data[((step+1)*binsize > data) * (data > step*binsize)])
+
+            binned *= (1000 / 100)
+            particle.binned = binned
+
+    def bgcb(self):
+        self.selected_particle.bg = bool(self.browser.bgvar.get())
+
+    def ignorecb(self):
+        self.selected_particle.ignore = bool(self.browser.ignorevar.get())
+
+    def particle_sel_cb(self, *args):
+        if self.selected_particle is not None:
+
+            self.browser.ignorevar.set(int(self.selected_particle.ignore))
+            self.browser.bgvar.set(int(self.selected_particle.bg))
+
+            self.browser.infolabel.config(text=self.selected_particle.description)
+
+            self.plot_decay()
+            self.plot_rs()
+            self.plot_trace()
+            self.plot_spectra()
+
+    def export_cb(self):
+        currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise/Exported/Gebruik'
+        dir = filedialog.asksaveasfilename(initialdir=currentdir,
+                                           filetypes=(('Text files', '*.txt'), ))
+        print(dir)
+        export_list = ['BG value: {}'.format(self.bgav), "Used particles:"]
+        for particle in self.browser.particles:
+            if not particle.bg and not particle.ignore:
+                export_list.append(particle.name)
+
+        np.savetxt(dir, export_list, fmt='%s')
+
+    def subtractbg_cb(self):
+
+        for particle in self.browser.particles:
+            if particle.bg:
+                self.bgparticles.append(particle)
+
+        bgtrace = np.concatenate(tuple(particle.binned for particle in self.bgparticles))
+        try:
+            self.bgav = np.average(bgtrace)
+            self.browser.bgvaluevar.set(self.bgav)
+        except ValueError:
+            self.bgav = self.browser.bgvaluevar.get()
+
+        print('BG value is {}'.format(self.bgav))
+
+        for particle in self.browser.particles:
+            particle.binned = particle.binned - self.bgav
+            particle.binned = np.clip(particle.binned, 0, None)
+        print('Done with BG subtract!')
+
+    @property
+    def selected_particle(self):
+        idxs = self.browser.tree1.selection()
+        try:
+            particle = self.browser.particles[int(idxs[0])]
+        except ValueError:
+            return None
+        return particle
 
 
 if __name__ == "__main__":
