@@ -278,7 +278,7 @@ class FluoFit:
         except TypeError:  # If shiftval is not a list
             self.shift = shift
             self.shiftmin = -100
-            self.shiftmax = 100
+            self.shiftmax = 300
 
         # Estimate background for IRF using average value up to start of the rise
         maxind = np.argmax(irf)
@@ -323,6 +323,9 @@ class FluoFit:
 
         # print("Tau:", tau)
         self.tau = tau
+        self.dtau = dtau
+        self.amp = amp
+        self.shift = shift
         # print("dTau:", dtau)
         # print('shift:', shift)
 
@@ -338,10 +341,10 @@ class FluoFit:
         if self.ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
             ax1.set_yscale('log')
-            ax1.set_ylim([1, self.measured.max() * 2])
+            ax1.set_ylim([1, self.irf.max() * 2])
             ax1.plot(self.measured.flatten())
             ax1.plot(self.convd.flatten())
-            ax1.plot(self.irf[self.startpoint:self.endpoint])
+            # ax1.plot(self.irf[self.startpoint:self.endpoint])
             ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])
             textx = (self.endpoint - self.startpoint) / 2
             texty = self.measured.max()
@@ -371,6 +374,8 @@ class OneExp(FluoFit):
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
                  ploton=False):
 
+        if tau is None:
+            tau = 5
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
 
         self.tau = self.tau[0]
@@ -406,14 +411,13 @@ class TwoExp(FluoFit):
         paramin = self.taumin + self.ampmin + [self.shiftmin]
         paramax = self.taumax + self.ampmax + [self.shiftmax]
         paraminit = self.tau + self.amp + [self.shift]
-        print(paraminit)
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=(paramin, paramax),
                                 p0=paraminit)
 
         tau = param[0:2]
         amp = np.append(param[2], 100-param[2])
-        print('Amp:', amp)
+        # print('Amp:', amp)
         shift = param[3]
         dtau = np.sqrt(np.diag(pcov[0:2]))
 
