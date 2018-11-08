@@ -138,7 +138,8 @@ class Browser(tk.Frame):
 
         answer = messagebox.askyesno("Question", "Import particle list?")
         if answer:
-            currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise/Exported/Gebruik'
+            currentdir = os.path.dirname(os.path.abspath(__file__))
+            # currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise/Exported/Gebruik'
             dir = filedialog.askopenfilename(initialdir=currentdir,
                                              filetypes=(('Text files', '*.txt'),))
             # currentdir = os.path.dirname(os.path.abspath(__file__))
@@ -238,14 +239,14 @@ class MainApp(tk.Frame):
 
         # Data file selection
         currentdir = os.path.dirname(os.path.abspath(__file__))
-        currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise'
+        # currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise'
         self.decay_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select decay data",
                                                          filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
         # currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Random'
-        # self.irf_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select IRF",
-        #                                                filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
+        self.irf_filename = filedialog.askopenfilename(initialdir=currentdir, title="Select IRF",
+                                                       filetypes=(("HDF5 files","*.h5"), ("all files","*.*")))
         # self.decay_filename = '/home/bertus/PycharmProjects/SMS-Python-port/LHCII2.h5'
-        self.irf_filename = '/home/bertus/PycharmProjects/SMS-Python-port/IRF 680nm.h5'
+        # self.irf_filename = '/home/bertus/PycharmProjects/SMS-Python-port/IRF 680nm.h5'
 
         self.meas_file = h5py.File(self.decay_filename, 'r')
         self.irf_file = h5py.File(self.irf_filename, 'r')
@@ -389,7 +390,8 @@ class MainApp(tk.Frame):
             self.plot_spectra()
 
     def export_cb(self):
-        currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise/Exported/Gebruik'
+        currentdir = os.path.dirname(os.path.abspath(__file__))
+        # currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise/Exported/Gebruik'
         dir = filedialog.asksaveasfilename(initialdir=currentdir,
                                            filetypes=(('Text files', '*.txt'), ))
         print(dir)

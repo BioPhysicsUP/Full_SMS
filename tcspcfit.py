@@ -284,7 +284,7 @@ class FluoFit:
         maxind = np.argmax(irf)
         for i in range(maxind):
             reverse = maxind - i
-            if irf[reverse] == np.int(np.mean(irf[:20])):
+            if np.int(irf[reverse]) == np.int(np.mean(irf[:20])):
                 bglim = reverse
                 break
 
