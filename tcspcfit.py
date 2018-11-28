@@ -290,7 +290,7 @@ class FluoFit:
 
         self.irfbg = np.mean(irf[:bglim])
         self.irf = irf - self.irfbg
-        # self.irf = irf
+        self.irf = irf
 
         # Estimate background for decay in the same way
         maxind = np.argmax(measured)
@@ -301,7 +301,7 @@ class FluoFit:
                 break
 
         self.bg = np.mean(measured[:bglim])
-        measured = measured - self.bg
+        # measured = measured - self.bg
 
         if startpoint is None:
             self.startpoint = np.argmax(self.irf)
@@ -325,45 +325,62 @@ class FluoFit:
         self.tau = tau
         self.dtau = dtau
         self.amp = amp
-        self.shift = shift
+        self.shift = shift*self.channelwidth
         # print("dTau:", dtau)
         # print('shift:', shift)
 
         # print(self.measured)
 
         residuals = self.convd - self.measured
-        pos_ind = self.measured > 0
-        measpos = self.measured[pos_ind]
+        residuals = residuals / np.sqrt(np.abs(self.measured))
+        # pos_ind = self.measured > 0
+        # measpos = self.measured[pos_ind]
+        # residuals = residuals[measpos]
         # print(measpos, convpos)
-        chisquared = np.sum((residuals[pos_ind]) ** 2 / measpos) / (np.size(measpos) - 4 - 1)
+        residualsnotinf = residuals != np.inf
+        residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
+        chisquared = np.sum((residuals ** 2 )) / (np.size(self.measured) - 4 - 1)
+        self.chisq = chisquared
+        self.t = self.t[self.startpoint:self.endpoint]
+        self.residuals = residuals
         # print(chisquared)
 
         if self.ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, dpi=200)
             ax1.set_yscale('log')
-            ax1.set_ylim([1, self.irf.max() * 2])
-            ax1.plot(self.measured.flatten())
-            ax1.plot(self.convd.flatten())
+            ax1.set_ylim([1, self.measured.max() * 2])
+            ax1.plot(self.t, self.measured.flatten(), color='gray', linewidth=1)
+            ax1.plot(self.t, self.convd.flatten(), color='C3', linewidth=1)
             # ax1.plot(self.irf[self.startpoint:self.endpoint])
-            ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])
-            textx = (self.endpoint - self.startpoint) / 2
+            # ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])
+            textx = (self.endpoint - self.startpoint) * self.channelwidth * 0.8
             texty = self.measured.max()
-            ax1.text(textx, texty, 'Tau = %s' % tau)
-            ax1.text(textx, texty / 2, 'Tau err = %s' % dtau)
-            ax1.text(textx, texty / 4, 'Amp = %s' % amp)
-
-            ax2.plot(residuals, '.')
-            ax2.text(textx, residuals.max() / 1.5, r'$\chi ^2 = $ %s' % chisquared)
+            try:
+                ax1.text(textx, texty, 'Tau = ' + ' '.join('{:#.3g}'.format(F) for F in tau))
+                ax1.text(textx, texty / 2, 'Amp = ' + ' '.join('{:#.3g}\% '.format(F) for F in amp))
+            except TypeError:  # only one component
+                ax1.text(textx, texty, 'Tau = {:#.3g}'.format(tau))
+                # ax1.text(textx, texty / 2, 'Amp = {:#.3g}\% '.format(amp))
+                # ax1.text(textx, texty / 2, 'Tau err = %s' % dtau)
+            ax2.plot(self.t[residualsnotinf], residuals, '.', markersize=2)
+            print(residuals.max())
+            ax2.text(textx, residuals.max() / 1.1, r'$\chi ^2 = $ {:3.4f}'.format(chisquared))
+            ax2.set_xlabel('Time (ns)')
+            ax2.set_ylabel('Weighted residual')
+            ax1.set_ylabel('Number of photons in channel')
             plt.show()
 
     def makeconvd(self, shift, model):
 
         irf = self.irf
-        irf = irf * (np.sum(self.measured) / np.sum(irf))
+        # irf = irf * (np.sum(self.measured) / np.sum(irf))
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
-        convd = convd / np.sum(convd) * np.sum(self.measured)
+        # convd = convd[:np.size(irf)]
         convd = convd[self.startpoint:self.endpoint]
+        self.scalefactor = np.sum(self.measured) / np.sum(convd)
+        convd = convd * self.scalefactor
+        # convd = convd[self.startpoint:self.endpoint]
 
         return convd
 
@@ -411,9 +428,8 @@ class TwoExp(FluoFit):
         paramin = self.taumin + self.ampmin + [self.shiftmin]
         paramax = self.taumax + self.ampmax + [self.shiftmax]
         paraminit = self.tau + self.amp + [self.shift]
-        param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
-                                bounds=(paramin, paramax),
-                                p0=paraminit)
+        param, pcov = curve_fit(self.fitfunc, self.t, self.measured,# sigma=np.sqrt(np.abs(self.measured)),
+                                bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
 
         tau = param[0:2]
         amp = np.append(param[2], 100-param[2])
@@ -439,7 +455,7 @@ class ThreeExp(FluoFit):
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
                  ploton=False):
 
-        FluoFit.__init__(irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
 
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=([0.01, 0.01, 0.01, 0, 0, 0, -60], [10, 10, 10, 100, 100, 100, 100]),

@@ -5,9 +5,11 @@ import h5py
 rc('text', usetex=True)
 
 irf_file = h5py.File('IRF_680nm.h5', 'r')
-meas_file = h5py.File('LHCII_630nW.h5', 'r')
+# meas_file = h5py.File('LHCII_630nW.h5', 'r')
+meas_file = h5py.File('/home/bertus/Documents/Honneurs/Projek/Johanette/40.h5', 'r')
 irf_data = irf_file['Particle 1/Micro Times (s)'][:]
 meas_data = meas_file['Particle 7/Micro Times (s)'][:]
+# meas_data += 10
 irf_data = irf_data - np.sort(meas_data)[1]
 meas_data = meas_data - np.sort(meas_data)[1]
 
@@ -22,8 +24,15 @@ tmax = max(irf_data.max(), meas_data.max())
 window = tmax - tmin
 numpoints = int(window // channelwidth)
 t = np.linspace(0, window, numpoints)
+print(t)
 irf, t = np.histogram(irf_data, bins=t)
 measured, t = np.histogram(meas_data, bins=t)
+irf = irf[:-20]
+measured = measured[:-20]
+t = t[:-20]
+plt.plot(measured)
+plt.plot(irf)
+plt.show()
 
 # How to specify initial values
 # [init, min, max, fix]
