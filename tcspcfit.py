@@ -346,7 +346,7 @@ class FluoFit:
         # print(chisquared)
 
         if self.ploton:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, dpi=200)
+            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
             ax1.set_yscale('log')
             ax1.set_ylim([1, self.measured.max() * 2])
             ax1.plot(self.t, self.measured.flatten(), color='gray', linewidth=1)
