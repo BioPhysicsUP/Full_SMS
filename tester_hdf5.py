@@ -5,8 +5,8 @@ import h5py
 rc('text', usetex=True)
 
 irf_file = h5py.File('IRF_680nm.h5', 'r')
-# meas_file = h5py.File('LHCII_630nW.h5', 'r')
-meas_file = h5py.File('/home/bertus/Documents/Honneurs/Projek/Johanette/40.h5', 'r')
+meas_file = h5py.File('LHCII_630nW.h5', 'r')
+# meas_file = h5py.File('/home/bertus/Documents/Honneurs/Projek/Johanette/40.h5', 'r')
 irf_data = irf_file['Particle 1/Micro Times (s)'][:]
 meas_data = meas_file['Particle 7/Micro Times (s)'][:]
 # meas_data += 10
@@ -30,35 +30,42 @@ measured, t = np.histogram(meas_data, bins=t)
 irf = irf[:-20]
 measured = measured[:-20]
 t = t[:-20]
-plt.plot(measured)
-plt.plot(irf)
-plt.show()
+print(channelwidth)
+# plt.plot(measured)
+# plt.plot(irf)
+# plt.show()
 
 # How to specify initial values
 # [init, min, max, fix]
 tau = [[3, 0.01, 10, 0],
-      [0.2, 0.01, 10, 0]]
+      [0.1, 0.01, 10, 0]]
 
-shift = [250, -100, 2000, 0]  # Units are number of channels
+shift = [3, -100, 2000, 0]  # Units are number of channels
 
 # Only need to specify one amplitude as they sum to 100%
 # [init (amp1 %), fix]
 amp = [30, 0]
 
 # Object orientated interface: Each fit is an object
-fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=800, ploton=True)
-fit1 = OneExp(irf, measured, t, channelwidth, tau=3, shift=shift, startpoint=800, ploton=True)
+# fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=800, ploton=True)
+fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=0, ploton=True)
+# fit1 = OneExp(irf, measured, t, channelwidth, tau=3, shift=shift, startpoint=800, ploton=True)
 # Initial guess not necessarily needed:
-fit2 = OneExp(irf, measured, t, channelwidth, ploton=True)
+# fit2 = OneExp(irf, measured, t, channelwidth, ploton=True)
 
 tau = fit.tau
 amp = fit.amp
 shift = fit.shift
+chisq = fit.chisq
+bg = fit.bg
+irfbg = fit.irfbg
 
-print('Lifetimes: {:4.2f} ns, {:4.2f} ns'.format(tau[0], tau[1]))
+print('Lifetimes: {:4.2f} ns, {:5.3f} ns'.format(tau[0], tau[1]))
 print('Amplitudes: {:4.2f} %, {:4.2f} %'.format(amp[0], amp[1]))
-print('IRF Shift: {:4.2f} ns'.format(shift * channelwidth))
-
+print('IRF Shift: {:6.4f} ns'.format(shift * channelwidth))
+print('Chi sq: {:6.4f}'.format(chisq))
+print('Decay bg: {:6.4f}'.format(bg))
+print('IRF bg: {:6.4f}'.format(irfbg))
 
 
 

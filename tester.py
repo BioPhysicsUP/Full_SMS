@@ -3,6 +3,8 @@ from scipy.signal import convolve
 from tcspcfit import *
 from matplotlib import pyplot as plt
 import os
+import matplotlib as mpl
+mpl.rcParams.update({'font.size': 16})
 
 
 def gendata(window_ns, numpoints, tauirf_ns, delay_ns, cshift, ampl1, tau1, ampl2, tau2, addnoise, remback=True):
@@ -90,7 +92,7 @@ channelwidth = max(t) / window
 # irf = irf * (np.max(measured) / np.max(irf))
 # irf = colorshift(irf, -50, 0, 0).flatten()
 
-model = 0.5 * np.exp(-t / 3) + 0.5 * np.exp(-t / 0.1)
+model = 0.3 * np.exp(-t / 3) + 0.7 * np.exp(-t / 0.05)
 modelfit = 0.431 * np.exp(-t / 2.96) + 0.569 * np.exp(-t / 0.023)
 
 # plt.plot(irf)
@@ -129,6 +131,8 @@ convd_noise = np.random.poisson(convd / 10)
 
 convd_fit *= (np.sum(convd) / np.sum(convd_fit))
 
+np.savetxt('fast/gen_data.fst', np.column_stack((t, irf, convd_noise)))
+
 # plt.plot(irf)
 # plt.plot(model)
 # plt.plot(measured)
@@ -149,7 +153,7 @@ convd_fit *= (np.sum(convd) / np.sum(convd_fit))
 
 # fit = fluofit(irf, measured, t, window, channelwidth, tau=[2.52, 0.336], startpoint=300, endpoint=3000, ploton=True)
 
-# fit = TwoExp(irf, convd, t, channelwidth, tau=[[3, 0.1, 6, 0], [0.036, 0.01, 1, 0]], startpoint=300, endpoint=3000, ploton=True)
+fit = TwoExp(irf, convd, t, channelwidth, tau=[[3, 0.1, 6, 0], [0.036, 0.01, 1, 0]], startpoint=300, endpoint=3000, ploton=True)
 fit2 = TwoExp(irf, convd_noise, t, channelwidth, tau=[[4, 1, 15, 0], [0.1, 0.01, 4, 0]], startpoint=400, endpoint=2400, ploton=True)
 # fit = OneExp(irf, convd_noise, t, channelwidth, tau=[[4, 1, 15, 0]], startpoint=400, endpoint=2400, ploton=True)
 # sumamp = sum(fit.amp * fit.tau)

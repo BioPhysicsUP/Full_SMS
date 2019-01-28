@@ -290,18 +290,22 @@ class FluoFit:
 
         self.irfbg = np.mean(irf[:bglim])
         self.irf = irf - self.irfbg
-        self.irf = irf
+        # self.irf = irf
+        # self.irf = irf - 0.6
+        print(self.irfbg)
 
         # Estimate background for decay in the same way
         maxind = np.argmax(measured)
         for i in range(maxind):
             reverse = maxind - i
-            if irf[reverse] == np.int(np.mean(measured[:20])):
+            if measured[reverse] == np.int(np.mean(measured[:20])):
                 bglim = reverse
                 break
 
         self.bg = np.mean(measured[:bglim])
-        # measured = measured - self.bg
+        # measured = measured - 200
+        # measured = measured - 3.061
+        measured = measured - self.bg
 
         if startpoint is None:
             self.startpoint = np.argmax(self.irf)
@@ -317,6 +321,7 @@ class FluoFit:
         else:
             self.endpoint = endpoint
 
+        print(self.endpoint)
         self.measured = measured[self.startpoint:self.endpoint]
 
     def results(self, tau, dtau, shift, amp=1):
@@ -326,6 +331,8 @@ class FluoFit:
         self.dtau = dtau
         self.amp = amp
         self.shift = shift*self.channelwidth
+        print(shift)
+        print(self.channelwidth)
         # print("dTau:", dtau)
         # print('shift:', shift)
 
@@ -353,7 +360,7 @@ class FluoFit:
             ax1.plot(self.t, self.convd.flatten(), color='C3', linewidth=1)
             # ax1.plot(self.irf[self.startpoint:self.endpoint])
             # ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])
-            textx = (self.endpoint - self.startpoint) * self.channelwidth * 0.8
+            textx = (self.endpoint - self.startpoint) * self.channelwidth * 1.4
             texty = self.measured.max()
             try:
                 ax1.text(textx, texty, 'Tau = ' + ' '.join('{:#.3g}'.format(F) for F in tau))
@@ -457,22 +464,27 @@ class ThreeExp(FluoFit):
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
 
+        paramin = self.taumin + self.ampmin + [self.shiftmin]
+        paramax = self.taumax + self.ampmax + [self.shiftmax]
+        paraminit = self.tau + self.amp + [self.shift]
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
-                                bounds=([0.01, 0.01, 0.01, 0, 0, 0, -60], [10, 10, 10, 100, 100, 100, 100]),
-                                p0=[tau[0], tau[1], tau[2], 50, 40, 50, 0.1], verbose=2, max_nfev=20000)#, ftol=5e-16, xtol=2e-16)
+                                bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
+        # param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
+        #                         bounds=([0.01, 0.01, 0.01, 0, 0, 0, -60], [10, 10, 10, 100, 100, 100, 100]),
+        #                         p0=[tau[0], tau[1], tau[2], 50, 40, 50, 0.1], verbose=2, max_nfev=20000)#, ftol=5e-16, xtol=2e-16)
 
         tau = param[0:3]
-        amp = param[3:6]
+        amp = param[3:5]
         print('Amp:', amp)
-        shift = param[6]
+        shift = param[5]
         dtau = np.diag(pcov[0:3])
 
-        self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift)
+        self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], shift)
         self.results(tau, dtau, shift, amp)
 
-    def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift):
+    def fitfunc(self, t, tau1, tau2, tau3, a1, a2, shift):
 
-        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + a3 * np.exp(-t / tau3)
+        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + (100 - a1 - a2) * np.exp(-t / tau3)
         return self.makeconvd(shift, model)
 
 
