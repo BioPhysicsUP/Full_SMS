@@ -8,7 +8,9 @@ irf_file = h5py.File('IRF_680nm.h5', 'r')
 meas_file = h5py.File('LHCII_630nW.h5', 'r')
 # meas_file = h5py.File('/home/bertus/Documents/Honneurs/Projek/Johanette/40.h5', 'r')
 irf_data = irf_file['Particle 1/Micro Times (s)'][:]
-meas_data = meas_file['Particle 7/Micro Times (s)'][:]
+
+particlename = 'Particle 7'
+meas_data = meas_file[particlename + '/Micro Times (s)'][:]
 # meas_data += 10
 irf_data = irf_data - np.sort(meas_data)[1]
 meas_data = meas_data - np.sort(meas_data)[1]
@@ -44,7 +46,7 @@ shift = [3, -100, 2000, 0]  # Units are number of channels
 
 # Only need to specify one amplitude as they sum to 100%
 # [init (amp1 %), fix]
-amp = [30, 0]
+amp = [30, 30, 0]
 
 # Object orientated interface: Each fit is an object
 # fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=800, ploton=True)
@@ -67,5 +69,7 @@ print('Chi sq: {:6.4f}'.format(chisq))
 print('Decay bg: {:6.4f}'.format(bg))
 print('IRF bg: {:6.4f}'.format(irfbg))
 
+savedata = np.column_stack((fit.t, fit.measured, fit.convd, fit.residuals))
+np.savetxt(particlename + '-decay.txt', savedata, fmt='%6f', header='time (ns)  measured    fitted  residuals')
 
 

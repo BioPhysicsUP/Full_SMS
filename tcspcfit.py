@@ -234,7 +234,7 @@ class FluoFit:
                 amplen = len(amp)
             except TypeError:
                 amplen = 1
-            if amplen == len(self.tau):
+            if amplen == len(self.tau) + 1:
                 self.amp = amp[:-1]
                 if amp[-1]:
                     self.ampmin = []
@@ -245,14 +245,14 @@ class FluoFit:
                 else:
                     self.ampmin = []
                     self.ampmax = []
-                    for tau in self.tau[:-1]:
+                    for tau in self.tau:
                         self.ampmin.append(0)
                         self.ampmax.append(100)
             else:
                 self.amp = []
                 self.ampmin = []
                 self.ampmax = []
-                for tau in self.tau[:-1]:
+                for tau in self.tau:
                     self.amp.append(50)
                     self.ampmin.append(0)
                     self.ampmax.append(100)
@@ -260,7 +260,7 @@ class FluoFit:
             self.amp = []
             self.ampmin = []
             self.ampmax = []
-            for tau in self.tau[:-1]:
+            for tau in self.tau:
                 self.amp.append(50)
                 self.ampmin.append(0)
                 self.ampmax.append(100)
@@ -385,8 +385,8 @@ class FluoFit:
         convd = convolve(irf, model)
         # convd = convd[:np.size(irf)]
         convd = convd[self.startpoint:self.endpoint]
-        self.scalefactor = np.sum(self.measured) / np.sum(convd)
-        convd = convd * self.scalefactor
+        # self.scalefactor = np.sum(self.measured) / np.sum(convd)
+        # convd = convd * self.scalefactor
         # convd = convd[self.startpoint:self.endpoint]
 
         return convd
@@ -435,23 +435,24 @@ class TwoExp(FluoFit):
         paramin = self.taumin + self.ampmin + [self.shiftmin]
         paramax = self.taumax + self.ampmax + [self.shiftmax]
         paraminit = self.tau + self.amp + [self.shift]
+        print(paramax, paraminit)
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,# sigma=np.sqrt(np.abs(self.measured)),
                                 bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
 
         tau = param[0:2]
-        amp = np.append(param[2], 100-param[2])
+        amp = np.append(param[2], param[3])
         # print('Amp:', amp)
-        shift = param[3]
+        shift = param[4]
         dtau = np.sqrt(np.diag(pcov[0:2]))
 
         # print(self.t, tau[0], tau[1], amp[0], amp[1], shift)
 
-        self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], shift)
+        self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift)
         self.results(tau, dtau, shift, amp)
 
-    def fitfunc(self, t, tau1, tau2, a1, shift):
+    def fitfunc(self, t, tau1, tau2, a1, a2, shift):
 
-        model = a1 * np.exp(-t / tau1) + (100 - a1) * np.exp(-t / tau2)
+        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
         return self.makeconvd(shift, model)
 
 
