@@ -47,6 +47,7 @@ shift = [3.1018 / channelwidth, -100, 2000, 1]  # Units are number of channels
 # Only need to specify one amplitude as they sum to 100%
 # [init (amp1 %), fix]
 amp = [0.0064, 0.198, 0]
+amp = [0.1, 0.1, 0]
 
 # Object orientated interface: Each fit is an object
 fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=0, bg=2.602, irfbg=0.6, ploton=True)

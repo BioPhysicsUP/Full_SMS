@@ -295,6 +295,7 @@ class FluoFit:
             self.irfbg = irfbg
 
         self.irf = irf - self.irfbg
+        # self.irf = self.irf / np.sum(self.irf)
 
         if bg is None:
             # Estimate background for decay in the same way
@@ -310,6 +311,7 @@ class FluoFit:
             self.bg = bg
 
         measured = measured - self.bg
+        # measured = measured / np.sum(measured)
 
         if startpoint is None:
             self.startpoint = np.argmax(self.irf)

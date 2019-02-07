@@ -40,7 +40,7 @@ print(channelwidth)
 # How to specify initial values
 # [init, min, max, fix]
 tau = [[3, 0.01, 10, 0],
-      [0.1, 0.01, 10, 0]]
+       [0.1, 0.01, 10, 0]]
 
 shift = [3, -100, 2000, 0]  # Units are number of channels
 
