@@ -200,7 +200,7 @@ class FluoFit:
     """
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
-                 ploton=False):
+                 bg=None, irfbg=None, ploton=False):
 
         self.channelwidth = channelwidth
         # self.init = init
@@ -280,31 +280,35 @@ class FluoFit:
             self.shiftmin = -100
             self.shiftmax = 300
 
-        # Estimate background for IRF using average value up to start of the rise
-        maxind = np.argmax(irf)
-        for i in range(maxind):
-            reverse = maxind - i
-            if np.int(irf[reverse]) == np.int(np.mean(irf[:20])):
-                bglim = reverse
-                break
+        if irfbg is None:
+            # Estimate background for IRF using average value up to start of the rise
+            maxind = np.argmax(irf)
+            for i in range(maxind):
+                reverse = maxind - i
+                if np.int(irf[reverse]) == np.int(np.mean(irf[:20])):
+                    bglim = reverse
+                    break
 
-        self.irfbg = np.mean(irf[:bglim])
+            self.irfbg = np.mean(irf[:bglim])
+            print(self.irfbg)
+        else:
+            self.irfbg = irfbg
+
         self.irf = irf - self.irfbg
-        # self.irf = irf
-        # self.irf = irf - 0.6
-        print(self.irfbg)
 
-        # Estimate background for decay in the same way
-        maxind = np.argmax(measured)
-        for i in range(maxind):
-            reverse = maxind - i
-            if measured[reverse] == np.int(np.mean(measured[:20])):
-                bglim = reverse
-                break
+        if bg is None:
+            # Estimate background for decay in the same way
+            maxind = np.argmax(measured)
+            for i in range(maxind):
+                reverse = maxind - i
+                if measured[reverse] == np.int(np.mean(measured[:20])):
+                    bglim = reverse
+                    break
 
-        self.bg = np.mean(measured[:bglim])
-        # measured = measured - 200
-        # measured = measured - 3.061
+            self.bg = np.mean(measured[:bglim])
+        else:
+            self.bg = bg
+
         measured = measured - self.bg
 
         if startpoint is None:
@@ -428,9 +432,9 @@ class TwoExp(FluoFit):
     """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, startpoint=None, endpoint=None,
-                 ploton=False):
+                 bg=None, irfbg=None, ploton=False):
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, startpoint, endpoint, bg, irfbg, ploton)
 
         paramin = self.taumin + self.ampmin + [self.shiftmin]
         paramax = self.taumax + self.ampmax + [self.shiftmax]

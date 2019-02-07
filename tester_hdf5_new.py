@@ -1,16 +1,14 @@
-import matplotlib as mpl
 from matplotlib import rc
 from tcspcfit import *
 import h5py
 
 rc('text', usetex=True)
-mpl.rcParams.update({'font.size': 26})
 
 irf_file = h5py.File('IRF_680nm.h5', 'r')
 meas_file = h5py.File('LHCII_630nW.h5', 'r')
 # meas_file = h5py.File('/home/bertus/Documents/Honneurs/Projek/Johanette/40.h5', 'r')
 irf_data = irf_file['Particle 1/Micro Times (s)'][:]
-meas_data = meas_file['Particle 10/Micro Times (s)'][:]
+meas_data = meas_file['Particle 7/Micro Times (s)'][:]
 # meas_data += 10
 irf_data = irf_data - np.sort(meas_data)[1]
 meas_data = meas_data - np.sort(meas_data)[1]
@@ -39,43 +37,44 @@ t = t[:-20]
 # How to specify initial values
 # [init, min, max, fix]
 tau = [[3, 0.01, 10, 0],
-       [0.2, 0.01, 10, 0]]
+      [0.1, 0.01, 10, 0]]
+# tau = [[3.652, 0.01, 10, 0],
+#        [1.037, 0.01, 10, 0]]
 
-shift = [0, -100, 2000, 0]  # Units are number of channels
+# shift = [-0.0487/channelwidth, -100, 2000, 0]  # Units are number of channels
+shift = [3, -100, 2000, 0]  # Units are number of channels
+print(channelwidth)
 
 # Only need to specify one amplitude as they sum to 100%
 # [init (amp1 %), fix]
-amp = [30, 0]
+amp = [30.3, 0]
 
 # Object orientated interface: Each fit is an object
-fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=0, ploton=False)
-# fit1 = OneExp(irf, measured, t, channelwidth, tau=3, shift=shift, startpoint=800, ploton=False)
+fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=0, ploton=True)
+# fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, ploton=True)
+# fit1 = OneExp(irf, measured, t, channelwidth, tau=3, shift=shift, startpoint=800, ploton=True)
 # Initial guess not necessarily needed:
-# fit2 = OneExp(irf, measured, t, channelwidth, ploton=False)
+# fit2 = OneExp(irf, measured, t, channelwidth, ploton=True)
 
 tau = fit.tau
+dtau = fit.dtau
 amp = fit.amp
 shift = fit.shift
-print(shift)
-start = int(10 / channelwidth)
-end = fit.endpoint
-convd = fit.convd[start:end]
-irf = colorshift(fit.irf, shift / channelwidth)[start:end]
-irf = irf * np.max(measured) / np.max(irf)
-t = fit.t[start:end]
-measured = fit.measured[start:end]
+chisq = fit.chisq
+bg = fit.bg
+irfbg = fit.irfbg
 
-plt.plot(t, measured, color='xkcd:pale red', linewidth=1)
-plt.plot(t, irf, color='xkcd:gray', linewidth=2.5)
-# plt.axhline(irf.max() * 0.5)
-plt.plot(t, convd, color='xkcd:dark red', linewidth=4)
-plt.yscale('log')
-plt.xlabel('Time (ns)')
-plt.ylabel('Intensity (counts)')
-plt.ylim([0.5, 700])
-plt.text(17, 200, r'$\tau_1 = {:3.2f}\ ns, \ \tau_2 = {:3.2f}\ ns$'.format(tau[0], tau[1]))
-plt.text(17, 100, r'$A_1 = {:3.2f}\ \%, \ A_2 = {:3.2f}\ \%$'.format(amp[0], amp[1]))
-plt.tight_layout()
-plt.show()
+print('Lifetimes: {:4.2f} ns, {:5.3f} ns'.format(tau[0], tau[1]))
+print('Lifetime err: {:4.2f} ns, {:5.3f} ns'.format(dtau[0], dtau[1]))
+print('Amplitudes: {:4.2f} %, {:4.2f} %'.format(amp[0], amp[1]))
+print('IRF Shift: {:6.4f} ns'.format(shift))
+print('Chi sq: {:6.4f}'.format(chisq))
+print('Decay bg: {:6.4f}'.format(bg))
+print('IRF bg: {:6.4f}'.format(irfbg))
+print('scale factor: {}'.format(fit.scalefactor))
+
+
+
+
 
 
