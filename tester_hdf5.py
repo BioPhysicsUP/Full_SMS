@@ -6,7 +6,6 @@ rc('text', usetex=True)
 
 irf_file = h5py.File('IRF_680nm.h5', 'r')
 meas_file = h5py.File('LHCII_630nW.h5', 'r')
-# meas_file = h5py.File('/home/bertus/Documents/Honneurs/Projek/Johanette/40.h5', 'r')
 irf_data = irf_file['Particle 1/Micro Times (s)'][:]
 
 particlename = 'Particle 7'
@@ -42,18 +41,17 @@ print(channelwidth)
 tau = [[3, 0.01, 10, 0],
        [0.1, 0.01, 10, 0]]
 
-shift = [3, -100, 2000, 0]  # Units are number of channels
+amp = [[0.01, 0, 10, 0],
+       [0.01, 0, 10, 0]]
 
-# Only need to specify one amplitude as they sum to 100%
-# [init (amp1 %), fix]
-amp = [30, 30, 0]
+shift = [3, -100, 2000, 0]  # Units are number of channels
 
 # Object orientated interface: Each fit is an object
 # fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=800, ploton=True)
 fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=0, ploton=True)
-# fit1 = OneExp(irf, measured, t, channelwidth, tau=3, shift=shift, startpoint=800, ploton=True)
+fit1 = OneExp(irf, measured, t, channelwidth, tau=3, shift=shift, startpoint=0, ploton=True)
 # Initial guess not necessarily needed:
-# fit2 = OneExp(irf, measured, t, channelwidth, ploton=True)
+fit2 = OneExp(irf, measured, t, channelwidth, ploton=True)
 
 tau = fit.tau
 amp = fit.amp
