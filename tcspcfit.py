@@ -61,7 +61,7 @@ def convol(irf, decay):
     return y
 
 
-def colorshift(irf, shift, irflength=None, t=None):
+def colorshift(irf, shift, irflength=None):
     """Shift irf left or right 'periodically'.
 
     A shift past the start or end results in those values of irf
@@ -155,7 +155,8 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     peak_tau = np.array([])
     #  Calculate weighted average tau for each peak:
     for j in range(np.size(t1)):
-        peak_tau = np.append(peak_tau, np.dot(amplitudes[t1[j]-1:t2[j]], tau[t1[j]-1:t2[j]]) / np.sum(amplitudes[t1[j]-1:t2[j]]))
+        peak_tau = np.append(peak_tau, np.dot(amplitudes[t1[j]-1:t2[j]],
+                                              tau[t1[j]-1:t2[j]]) / np.sum(amplitudes[t1[j]-1:t2[j]]))
 
     return peak_tau
 
@@ -212,6 +213,77 @@ class FluoFit:
         self.tau = []
         self.taumin = []
         self.taumax = []
+        self.amp = []
+        self.ampmin = []
+        self.ampmax = []
+        self.shift = None
+        self.shiftmin = None
+        self.shiftmax = None
+        self.setup_params(amp, shift, tau)
+
+        self.bg = None
+        self.irfbg = None
+        self.calculate_bg(bg, irf, irfbg, measured)
+
+        self.irf = irf - self.irfbg
+        self.irf = self.irf / np.sum(self.irf)  # Normalize IRF
+
+        measured = measured - self.bg
+
+        self.startpoint = None
+        self.endpoint = None
+        self.calculate_boundaries(endpoint, measured, startpoint)
+
+        self.meas_sum = np.sum(measured)
+        measured = measured / self.meas_sum  # Normalize measured
+        self.measured = measured[self.startpoint:self.endpoint]
+        self.dtau = None
+        self.chisq = None
+        self.residuals = None
+        self.convd = None
+
+    def calculate_boundaries(self, endpoint, measured, startpoint):
+        if startpoint is None:
+            self.startpoint = np.argmax(self.irf)
+        else:
+            self.startpoint = startpoint
+        if endpoint is None:
+            great_than_bg, = np.where(measured > 10 * self.bg)
+            hundredth_of_peak, = np.where(measured > 0.01 * measured.max())
+            max1 = great_than_bg.max()
+            max2 = hundredth_of_peak.max()
+            self.endpoint = max(max1, max2)
+        else:
+            self.endpoint = endpoint
+
+    def calculate_bg(self, bg, irf, irfbg, measured):
+        if irfbg is None:
+            # Estimate background for IRF using average value up to start of the rise
+            maxind = np.argmax(irf)
+            for i in range(maxind):
+                reverse = maxind - i
+                if np.int(irf[reverse]) == np.int(np.mean(irf[:20])):
+                    bglim = reverse
+                    break
+
+            self.irfbg = np.mean(irf[:bglim])
+            print(self.irfbg)
+        else:
+            self.irfbg = irfbg
+        if bg is None:
+            # Estimate background for decay in the same way
+            maxind = np.argmax(measured)
+            for i in range(maxind):
+                reverse = maxind - i
+                if measured[reverse] == np.int(np.mean(measured[:20])):
+                    bglim = reverse
+                    break
+
+            self.bg = np.mean(measured[:bglim])
+        else:
+            self.bg = bg
+
+    def setup_params(self, amp, shift, tau):
         try:
             for tauval in tau:
                 try:
@@ -227,69 +299,27 @@ class FluoFit:
                     self.taumin.append(0.01)
                     self.taumax.append(100)
         except TypeError:  # If tau is not a list - i.e. only one lifetime
-            self.tau = np.array([tau])
-            self.taumin = np.array([0.01])
-            self.taumax = np.array([100])
-
-        self.amp = []
-        self.ampmin = []
-        self.ampmax = []
-        if amp is not None:
-            try:
-                for ampval in amp:
-                    try:
-                        self.amp.append(ampval[0])
-                        if tauval[-1]:  # If amp is fixed
-                            self.ampmin.append(ampval[0] - 0.0001)
-                            self.ampmax.append(ampval[0] + 0.0001)
-                        else:
-                            self.ampmin.append(ampval[1])
-                            self.ampmax.append(ampval[2])
-                    except TypeError:  # If ampval is not a list - i.e. no bounds given
-                        self.amp.append(ampval)
-                        self.ampmin.append(0.01)
-                        self.ampmax.append(100)
-            except TypeError:  # If amp is not a list - i.e. only one lifetime
-                self.amp = np.array([amp])
-                self.ampmin = np.array([0.01])
-                self.ampmax = np.array([100])
-        print("amp", self.amp)
-
-        #     try:
-        #         amplen = len(amp)
-        #     except TypeError:
-        #         amplen = 1
-        #     if amplen == len(self.tau) + 1:
-        #         self.amp = amp[:-1]
-        #         if amp[-1]:  # If amp fixed
-        #             self.ampmin = []
-        #             self.ampmax = []
-        #             for amp in self.amp:
-        #                 self.ampmin.append(amp - 0.0001)
-        #                 self.ampmax.append(amp + 0.0001)
-        #         else:
-        #             self.ampmin = []
-        #             self.ampmax = []
-        #             for tau in self.tau:
-        #                 self.ampmin.append(0)
-        #                 self.ampmax.append(100)
-        #     else:
-        #         self.amp = []
-        #         self.ampmin = []
-        #         self.ampmax = []
-        #         for tau in self.tau:
-        #             self.amp.append(50)
-        #             self.ampmin.append(0)
-        #             self.ampmax.append(100)
-        # else:
-        #     self.amp = []
-        #     self.ampmin = []
-        #     self.ampmax = []
-        #     for tau in self.tau:
-        #         self.amp.append(50)
-        #         self.ampmin.append(0)
-        #         self.ampmax.append(100)
-
+            self.tau = tau
+            self.taumin = 0.01
+            self.taumax = 100
+        try:
+            for ampval in amp:
+                try:
+                    self.amp.append(ampval[0])
+                    if tauval[-1]:  # If amp is fixed
+                        self.ampmin.append(ampval[0] - 0.0001)
+                        self.ampmax.append(ampval[0] + 0.0001)
+                    else:
+                        self.ampmin.append(ampval[1])
+                        self.ampmax.append(ampval[2])
+                except TypeError:  # If ampval is not a list - i.e. no bounds given
+                    self.amp.append(ampval)
+                    self.ampmin.append(0)
+                    self.ampmax.append(100)
+        except TypeError:  # If amp is not a list - i.e. only one lifetime
+            self.amp = amp
+            self.ampmin = 0
+            self.ampmax = 100
         if shift is None:
             shift = 0
         try:
@@ -305,88 +335,27 @@ class FluoFit:
             self.shiftmin = -100
             self.shiftmax = 300
 
-        if irfbg is None:
-            # Estimate background for IRF using average value up to start of the rise
-            maxind = np.argmax(irf)
-            for i in range(maxind):
-                reverse = maxind - i
-                if np.int(irf[reverse]) == np.int(np.mean(irf[:20])):
-                    bglim = reverse
-                    break
-
-            self.irfbg = np.mean(irf[:bglim])
-            print(self.irfbg)
-        else:
-            self.irfbg = irfbg
-
-        self.irf = irf - self.irfbg
-        # self.irf = self.irf / np.sum(self.irf)
-
-        if bg is None:
-            # Estimate background for decay in the same way
-            maxind = np.argmax(measured)
-            for i in range(maxind):
-                reverse = maxind - i
-                if measured[reverse] == np.int(np.mean(measured[:20])):
-                    bglim = reverse
-                    break
-
-            self.bg = np.mean(measured[:bglim])
-        else:
-            self.bg = bg
-
-        measured = measured - self.bg
-        # measured = measured / np.sum(measured)
-
-        if startpoint is None:
-            self.startpoint = np.argmax(self.irf)
-        else:
-            self.startpoint = startpoint
-
-        if endpoint is None:
-            great_than_bg, = np.where(measured > 10 * self.bg)
-            hundredth_of_peak, = np.where(measured > 0.01 * measured.max())
-            max1 = great_than_bg.max()
-            max2 = hundredth_of_peak.max()
-            self.endpoint = max(max1, max2)
-        else:
-            self.endpoint = endpoint
-
-        print(self.endpoint)
-        self.measured = measured[self.startpoint:self.endpoint]
-
     def results(self, tau, dtau, shift, amp=1):
 
-        # print("Tau:", tau)
         self.tau = tau
         self.dtau = dtau
         self.amp = amp
         self.shift = shift*self.channelwidth
-        print(shift)
-        print(self.channelwidth)
-        # print("dTau:", dtau)
-        # print('shift:', shift)
-
-        # print(self.measured)
 
         residuals = self.convd - self.measured
         residuals = residuals / np.sqrt(np.abs(self.measured))
-        # pos_ind = self.measured > 0
-        # measpos = self.measured[pos_ind]
-        # residuals = residuals[measpos]
-        # print(measpos, convpos)
         residualsnotinf = residuals != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
-        chisquared = np.sum((residuals ** 2 )) / (np.size(self.measured) - 4 - 1)
+        chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - 4 - 1)
+        chisquared = chisquared * self.meas_sum  # This is necessary because of normalisation
         self.chisq = chisquared
         self.t = self.t[self.startpoint:self.endpoint]
         self.residuals = residuals
-        # print(chisquared)
 
         if self.ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
             ax1.set_yscale('log')
-            ax1.set_ylim([1, self.measured.max() * 2])
+            # ax1.set_ylim([self.measured.min() * 1000, self.measured.max() * 2])
             ax1.plot(self.t, self.measured.flatten(), color='gray', linewidth=1)
             ax1.plot(self.t, self.convd.flatten(), color='C3', linewidth=1)
             # ax1.plot(self.irf[self.startpoint:self.endpoint])
@@ -411,15 +380,9 @@ class FluoFit:
     def makeconvd(self, shift, model):
 
         irf = self.irf
-        # irf = irf * (np.sum(self.measured) / np.sum(irf))
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
-        # convd = convd[:np.size(irf)]
         convd = convd[self.startpoint:self.endpoint]
-        # self.scalefactor = np.sum(self.measured) / np.sum(convd)
-        # convd = convd * self.scalefactor
-        # convd = convd[self.startpoint:self.endpoint]
-
         return convd
 
 
@@ -431,27 +394,26 @@ class OneExp(FluoFit):
 
         if tau is None:
             tau = 5
+        if amp is None:
+            amp = 1
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton)
 
-        self.tau = self.tau[0]
-        self.taumin = self.taumin[0]
-        self.taumax = self.taumax[0]
-        paramin = [self.taumin, self.shiftmin]
-        paramax = [self.taumax, self.shiftmax]
-        paraminit = [self.tau, self.shift]
-        param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax),
-                                p0=paraminit)
+        paramin = [self.taumin, self.ampmin, self.shiftmin]
+        paramax = [self.taumax, self.ampmax, self.shiftmax]
+        paraminit = [self.tau, self.amp, self.shift]
+        param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
 
         tau = param[0]
-        shift = param[1]
+        amp = param[1]
+        shift = param[2]
         dtau = np.sqrt(pcov[0, 0])
 
-        self.convd = self.fitfunc(self.t, tau, shift)
+        self.convd = self.fitfunc(self.t, tau, amp, shift)
         self.results(tau, dtau, shift)
 
-    def fitfunc(self, t, tau1, shift):
+    def fitfunc(self, t, tau1, a, shift):
 
-        model = np.exp(-t/tau1)
+        model = a * np.exp(-t/tau1)
         return self.makeconvd(shift, model)
 
 
@@ -461,22 +423,24 @@ class TwoExp(FluoFit):
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
                  startpoint=None, endpoint=None, ploton=False):
 
+        if tau is None:
+            tau = [1, 5]
+        if amp is None:
+            amp = [1, 1]
+
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton)
 
         paramin = self.taumin + self.ampmin + [self.shiftmin]
         paramax = self.taumax + self.ampmax + [self.shiftmax]
         paraminit = self.tau + self.amp + [self.shift]
         print(paramax, paraminit)
-        param, pcov = curve_fit(self.fitfunc, self.t, self.measured,# sigma=np.sqrt(np.abs(self.measured)),
+        param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
 
         tau = param[0:2]
         amp = np.append(param[2], param[3])
-        # print('Amp:', amp)
         shift = param[4]
         dtau = np.sqrt(np.diag(pcov[0:2]))
-
-        # print(self.t, tau[0], tau[1], amp[0], amp[1], shift)
 
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift)
         self.results(tau, dtau, shift, amp)
@@ -487,12 +451,16 @@ class TwoExp(FluoFit):
         return self.makeconvd(shift, model)
 
 
-# TODO: make this class also use normalised amplitudes
 class ThreeExp(FluoFit):
     """"Triple exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
                  startpoint=None, endpoint=None, ploton=False):
+
+        if tau is None:
+            tau = [0.1, 1, 5]
+        if amp is None:
+            amp = [1, 1, 1]
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton)
 
@@ -501,13 +469,9 @@ class ThreeExp(FluoFit):
         paraminit = self.tau + self.amp + [self.shift]
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
-        # param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
-        #                         bounds=([0.01, 0.01, 0.01, 0, 0, 0, -60], [10, 10, 10, 100, 100, 100, 100]),
-        #                         p0=[tau[0], tau[1], tau[2], 50, 40, 50, 0.1], verbose=2, max_nfev=20000)#, ftol=5e-16, xtol=2e-16)
 
         tau = param[0:3]
         amp = param[3:6]
-        print('Amp:', amp)
         shift = param[6]
         dtau = np.diag(pcov[0:3])
 
@@ -518,28 +482,5 @@ class ThreeExp(FluoFit):
 
         model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + a3 * np.exp(-t / tau3)
         return self.makeconvd(shift, model)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
