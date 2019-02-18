@@ -364,7 +364,7 @@ class FluoFit:
             texty = self.measured.max()
             try:
                 ax1.text(textx, texty, 'Tau = ' + ' '.join('{:#.3g}'.format(F) for F in tau))
-                ax1.text(textx, texty / 2, 'Amp = ' + ' '.join('{:#.3g}\% '.format(F) for F in amp))
+                ax1.text(textx, texty / 2, 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp))
             except TypeError:  # only one component
                 ax1.text(textx, texty, 'Tau = {:#.3g}'.format(tau))
                 # ax1.text(textx, texty / 2, 'Amp = {:#.3g}\% '.format(amp))
