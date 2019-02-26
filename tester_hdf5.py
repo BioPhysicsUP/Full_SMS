@@ -2,7 +2,7 @@ from matplotlib import rc
 from tcspcfit import *
 import h5py
 
-rc('text', usetex=True)  # Requires latex to be installed
+# rc('text', usetex=True)  # Requires latex to be installed
 
 irf_file = h5py.File('IRF_680nm.h5', 'r')
 meas_file = h5py.File('LHCII_630nW.h5', 'r')

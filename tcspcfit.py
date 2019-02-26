@@ -226,7 +226,8 @@ class FluoFit:
         self.calculate_bg(bg, irf, irfbg, measured)
 
         self.irf = irf - self.irfbg
-        self.irf = self.irf / np.sum(self.irf)  # Normalize IRF
+        # self.irf = self.irf / np.sum(self.irf)  # Normalize IRF
+        self.irf = self.irf / self.irf.max()  # Normalize IRF
 
         measured = measured - self.bg
 
@@ -234,8 +235,9 @@ class FluoFit:
         self.endpoint = None
         self.calculate_boundaries(endpoint, measured, startpoint)
 
-        self.meas_sum = np.sum(measured)
-        measured = measured / self.meas_sum  # Normalize measured
+        self.meas_max = measured.max()
+        measured = measured / self.meas_max  # Normalize measured
+        # measured = measured / measured.max()  # Normalize measured
         self.measured = measured[self.startpoint:self.endpoint]
         self.dtau = None
         self.chisq = None
@@ -347,7 +349,7 @@ class FluoFit:
         residualsnotinf = residuals != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
         chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - 4 - 1)
-        chisquared = chisquared * self.meas_sum  # This is necessary because of normalisation
+        chisquared = chisquared * self.meas_max  # This is necessary because of normalisation
         self.chisq = chisquared
         self.t = self.t[self.startpoint:self.endpoint]
         self.residuals = residuals
