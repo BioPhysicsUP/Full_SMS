@@ -82,7 +82,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>1</number>
       </property>
       <property name="iconSize">
        <size>
@@ -782,7 +782,7 @@
            </spacer>
           </item>
           <item>
-           <widget class="QPushButton" name="btnSubBackground">
+           <widget class="QPushButton" name="pushButton_7">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -855,8 +855,8 @@
      <property name="title">
       <string>Open...</string>
      </property>
-     <addaction name="actionOpen_h5"/>
-     <addaction name="actionOpen_pt3"/>
+     <addaction name="actionHDF5_h5"/>
+     <addaction name="actionPT3_Folder_pt3"/>
     </widget>
     <addaction name="menuOpen"/>
    </widget>
@@ -876,7 +876,7 @@
    <addaction name="menuTools"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionOpen_h5">
+  <action name="actionHDF5_h5">
    <property name="icon">
     <iconset>
      <normaloff>icons/001-new-file-new.png</normaloff>icons/001-new-file-new.png</iconset>
@@ -885,7 +885,7 @@
     <string>HDF5 (*.h5)</string>
    </property>
   </action>
-  <action name="actionOpen_pt3">
+  <action name="actionPT3_Folder_pt3">
    <property name="icon">
     <iconset>
      <normaloff>icons/004-open-archive-new.png</normaloff>icons/004-open-archive-new.png</iconset>
@@ -929,7 +929,7 @@
   <tabstop>btnFit</tabstop>
   <tabstop>btnFitSelected</tabstop>
   <tabstop>btnFitAll</tabstop>
-  <tabstop>btnSubBackground</tabstop>
+  <tabstop>pushButton_7</tabstop>
   <tabstop>btnPrevLevel</tabstop>
   <tabstop>treeViewParticles</tabstop>
   <tabstop>btnNextLevel</tabstop>

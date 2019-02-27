@@ -24,8 +24,8 @@ class MplWidget(QWidget):
         self.setLayout(vertical_layout)
 
         window_color = self.palette().color(QPalette.Window)
-        rgbacolor = (window_color.red()/255, window_color.green()/255, window_color.blue()/255, 1)
-        self.canvas.figure.patch.set_facecolor(rgbacolor)
+        rgba_color = (window_color.red()/255, window_color.green()/255, window_color.blue()/255, 1)
+        self.canvas.figure.patch.set_facecolor(rgba_color)
         # self.canvas.figure.patch.set_facecolor()
 
         # QColorDialog.palette().Background.__getattribute__('Color')
