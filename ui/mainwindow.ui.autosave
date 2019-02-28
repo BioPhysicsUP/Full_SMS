@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <author>Joshua Botha</author>
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
   <property name="geometry">
@@ -82,7 +81,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -147,7 +146,7 @@
              </spacer>
             </item>
             <item row="1" column="1">
-             <widget class="QPushButton" name="btnApplyBin">
+             <widget class="QPushButton" name="btnApplyBon">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -782,7 +781,7 @@
            </spacer>
           </item>
           <item>
-           <widget class="QPushButton" name="btnSubBackground">
+           <widget class="QPushButton" name="pushButton_7">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -844,7 +843,7 @@
      <x>0</x>
      <y>0</y>
      <width>993</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -855,8 +854,8 @@
      <property name="title">
       <string>Open...</string>
      </property>
-     <addaction name="actionOpen_h5"/>
-     <addaction name="actionOpen_pt3"/>
+     <addaction name="actionHDF5_h5"/>
+     <addaction name="actionPT3_Folder_pt3"/>
     </widget>
     <addaction name="menuOpen"/>
    </widget>
@@ -876,7 +875,7 @@
    <addaction name="menuTools"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionOpen_h5">
+  <action name="actionHDF5_h5">
    <property name="icon">
     <iconset>
      <normaloff>icons/001-new-file-new.png</normaloff>icons/001-new-file-new.png</iconset>
@@ -885,7 +884,7 @@
     <string>HDF5 (*.h5)</string>
    </property>
   </action>
-  <action name="actionOpen_pt3">
+  <action name="actionPT3_Folder_pt3">
    <property name="icon">
     <iconset>
      <normaloff>icons/004-open-archive-new.png</normaloff>icons/004-open-archive-new.png</iconset>
@@ -907,7 +906,6 @@
    </property>
   </action>
  </widget>
- <layoutdefault spacing="6" margin="9"/>
  <customwidgets>
   <customwidget>
    <class>MplWidget</class>
@@ -916,24 +914,6 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <tabstops>
-  <tabstop>tabWidget</tabstop>
-  <tabstop>spbBinSize</tabstop>
-  <tabstop>btnApplyBin</tabstop>
-  <tabstop>btnApplyBinAll</tabstop>
-  <tabstop>cmbConfIndex</tabstop>
-  <tabstop>btnResolve</tabstop>
-  <tabstop>btnResolveAll</tabstop>
-  <tabstop>btnLoadIRF</tabstop>
-  <tabstop>btnFitParameters</tabstop>
-  <tabstop>btnFit</tabstop>
-  <tabstop>btnFitSelected</tabstop>
-  <tabstop>btnFitAll</tabstop>
-  <tabstop>btnSubBackground</tabstop>
-  <tabstop>btnPrevLevel</tabstop>
-  <tabstop>treeViewParticles</tabstop>
-  <tabstop>btnNextLevel</tabstop>
- </tabstops>
  <resources/>
  <connections/>
 </ui>

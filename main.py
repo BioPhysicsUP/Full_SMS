@@ -52,6 +52,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		fig_intensity.axes.set_position(fig_pos)
 		
 		fig_life_int = FigureCanvas(self.MW_LifetimeInt.canvas.figure)
+		fig_life_int.figure.set_dpi(10)
 		fig_life_int.axes = self.MW_LifetimeInt.canvas.axes
 		fig_life_int.axes.set_xlabel('Time (s)')
 		fig_life_int.axes.set_ylabel('Bin Intensity\n(counts/bin)')
