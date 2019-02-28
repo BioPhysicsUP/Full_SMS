@@ -82,7 +82,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -231,7 +231,7 @@
               </item>
               <item>
                <property name="text">
-                <string>66%</string>
+                <string>69%</string>
                </property>
               </item>
              </widget>

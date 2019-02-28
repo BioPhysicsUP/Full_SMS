@@ -8,7 +8,6 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -424,7 +423,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         MainWindow.setTabOrder(self.tabWidget, self.spbBinSize)
         MainWindow.setTabOrder(self.spbBinSize, self.btnApplyBin)
@@ -451,7 +450,7 @@ class Ui_MainWindow(object):
         self.cmbConfIndex.setItemText(0, _translate("MainWindow", "99%"))
         self.cmbConfIndex.setItemText(1, _translate("MainWindow", "95%"))
         self.cmbConfIndex.setItemText(2, _translate("MainWindow", "90%"))
-        self.cmbConfIndex.setItemText(3, _translate("MainWindow", "66%"))
+        self.cmbConfIndex.setItemText(3, _translate("MainWindow", "69%"))
         self.btnApplyBinAll.setText(_translate("MainWindow", "Apply To All"))
         self.label_2.setText(_translate("MainWindow", "Bin Size"))
         self.btnResolve.setText(_translate("MainWindow", "Resolve"))

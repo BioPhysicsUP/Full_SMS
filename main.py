@@ -52,6 +52,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		fig_intensity.axes.set_position(fig_pos)
 		
 		fig_life_int = FigureCanvas(self.MW_LifetimeInt.canvas.figure)
+		fig_life_int.figure.set_dpi(10)
 		fig_life_int.axes = self.MW_LifetimeInt.canvas.axes
 		fig_life_int.axes.set_xlabel('Time (s)')
 		fig_life_int.axes.set_ylabel('Bin Intensity\n(counts/bin)')
@@ -96,44 +97,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		print(self.spbBinSize.value())
 		
 		# return self.
-	
-	# def update_graph(self):
-	#     fs = 500
-	#     f = random.randint(1, 100)
-	#     ts = 1 / fs
-	#     length_of_signal = 100
-	#     t = np.linspace(0, 1, length_of_signal)
-	#
-	#     cosinus_signal = np.cos(2 * np.pi * f * t)
-	#     sinus_signal = np.sin(2 * np.pi * f * t)
-	#
-	#     self.MplWidgetIntensity.canvas.axes.clear()
-	#     self.MplWidgetIntensity.canvas.axes.plot(t, cosinus_signal)
-	#     self.MplWidgetIntensity.canvas.axes.plot(t, sinus_signal)
-	#     self.MplWidgetIntensity.canvas.axes.legend(('cosinus', 'sinus'), loc='upper right')
-	#     self.MplWidgetIntensity.canvas.draw()
-
-
-class PlotCanvas(FigureCanvas):
-	
-	def __init__(self):
-		fig = Figure()
-		self.axes = fig.add_subplot(111)
-		
-		FigureCanvas.__init__(self, fig)
-		self.setParent()
-		
-		FigureCanvas.setSizePolicy(self, QSizePolicy.Expanding, QSizePolicy.Expanding)
-		FigureCanvas.updateGeometry(self)
-		self.plot()
-	
-	def plot(self):
-		data = [random.random() for i in range(25)]
-		ax = self.figure.add_subplot(111)
-		# print(ax)
-		ax.plot(data, 'r-')
-		ax.set_title('PyQt Matplotlib Example')
-		self.draw()
 
 
 def gui_apply_bin():
@@ -199,6 +162,7 @@ def gui_sub_bkg():
 
 def act_open_h5():
 	print("act_open_h5")
+	
 	pass
 
 
