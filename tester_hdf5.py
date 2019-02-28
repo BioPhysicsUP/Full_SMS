@@ -44,9 +44,8 @@ tau = [[3, 0.01, 10, 0],
 
 shift = [3, -100, 2000, 0]  # Units are number of channels
 
-# Only need to specify one amplitude as they sum to 100%
 # [init (amp1 %), fix]
-amp = [30, 30, 0]
+# amp = [30, 30, 0]
 
 # Object orientated interface: Each fit is an object
 # fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=800, ploton=True)
