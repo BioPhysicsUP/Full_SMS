@@ -390,17 +390,34 @@ class MainApp(tk.Frame):
             self.plot_spectra()
 
     def export_cb(self):
+
+        answer = messagebox.askyesno("Question", "Export to hdf? (Otherwise text)")
         currentdir = os.path.dirname(os.path.abspath(__file__))
         # currentdir = '/home/bertus/Documents/Honneurs/Projek/Metings/Intensiteitsanalise/Exported/Gebruik'
-        dir = filedialog.asksaveasfilename(initialdir=currentdir,
-                                           filetypes=(('Text files', '*.txt'), ))
-        print(dir)
-        export_list = ['BG value: {}'.format(self.bgav), "Used particles:"]
-        for particle in self.browser.particles:
-            if not particle.bg and not particle.ignore:
-                export_list.append(particle.name)
 
-        np.savetxt(dir, export_list, fmt='%s')
+        if not answer:
+            expfile = filedialog.asksaveasfilename(initialdir=currentdir, filetypes=(('Text files', '*.txt'), ))
+            export_list = ['BG value: {}'.format(self.bgav), "Used particles:"]
+            for particle in self.browser.particles:
+                if not particle.bg and not particle.ignore:
+                    export_list.append(particle.name)
+
+            np.savetxt(expfile, export_list, fmt='%s')
+        else:
+            expfile = filedialog.asksaveasfilename(initialdir=currentdir, filetypes=(('HDF5 files', '*.h5'), ))
+            export_file = h5py.File(expfile, 'a')
+
+            ind = 1
+            for item in export_file.items():
+                ind += 1
+
+            for particle in self.browser.particles:
+                if not particle.bg and not particle.ignore:
+                    self.meas_file.copy(particle.name, export_file, 'Particle {}'.format(ind), expand_external=True,
+                                        expand_refs=True, expand_soft=True)
+                    print(ind, particle.name)
+                    ind += 1
+            print('Exported!')
 
     def subtractbg_cb(self):
 
