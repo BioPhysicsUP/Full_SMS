@@ -15,3 +15,9 @@ pipelines:
           - conda install sphinx
           - cd docs
           - make html
+          - cd _build
+          - git init
+          - git remote add origin https://BioPhysicsUP@bitbucket.org/BioPhysicsUP/full-sms-documentation.git
+          - git add *
+          - git commit -m "updating docs after repo push"
+          - git push -u origin master
