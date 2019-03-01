@@ -3,12 +3,13 @@
 # Only use spaces to indent your .yml configuration.
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
-image: netresearch/sphinx-buildbox
+image: python
 
 pipelines:
   default:
     - step:
         deployment: test
         script:
+          - pip install -U sphinx
           - cd docs
           - make html
