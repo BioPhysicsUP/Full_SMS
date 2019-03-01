@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(993, 599)
+        MainWindow.resize(993, 649)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
@@ -384,7 +384,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 993, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 993, 22))
         self.menubar.setObjectName("menubar")
         self.menuFile = QtWidgets.QMenu(self.menubar)
         self.menuFile.setObjectName("menuFile")
@@ -414,11 +414,14 @@ class Ui_MainWindow(object):
         icon17.addPixmap(QtGui.QPixmap("icons/020-cutting-with-a-scissor-on-broken-line-new.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.actionTrim_Dead_Traces.setIcon(icon17)
         self.actionTrim_Dead_Traces.setObjectName("actionTrim_Dead_Traces")
+        self.actionReset_Analysis = QtWidgets.QAction(MainWindow)
+        self.actionReset_Analysis.setObjectName("actionReset_Analysis")
         self.menuOpen.addAction(self.actionOpen_h5)
         self.menuOpen.addAction(self.actionOpen_pt3)
         self.menuFile.addAction(self.menuOpen.menuAction())
         self.menuIntensity.addAction(self.actionTrim_Dead_Traces)
         self.menuTools.addAction(self.menuIntensity.menuAction())
+        self.menuTools.addAction(self.actionReset_Analysis)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuTools.menuAction())
 
@@ -472,5 +475,6 @@ class Ui_MainWindow(object):
         self.actionOpen_h5.setText(_translate("MainWindow", "HDF5 (*.h5)"))
         self.actionOpen_pt3.setText(_translate("MainWindow", "PT3 Folder (*.pt3)"))
         self.actionTrim_Dead_Traces.setText(_translate("MainWindow", "Trim Dead Traces"))
+        self.actionReset_Analysis.setText(_translate("MainWindow", "Reset Analysis"))
 
 from mplwidget import MplWidget

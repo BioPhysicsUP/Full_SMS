@@ -5,6 +5,7 @@
 from PyQt5.QtWidgets import*
 from PyQt5.QtCore import QObject, pyqtSignal
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from platform import system
 
 from PyQt5.QtGui import *
 
@@ -17,7 +18,7 @@ import random
 
 import matplotlib as mpl
 
-from mainwidow import Ui_MainWindow
+from ui.mainwindow import Ui_MainWindow
 
 
 # Default settings for matplotlib plots
@@ -40,8 +41,36 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		self.setupUi(self)
 		
 		self.setWindowTitle("Full SMS")
-		
-		fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
+
+		if system() == "win32" or system() == "win64":
+			fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
+			fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
+			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
+			mpl.rcParams['figure.dpi'] = 120
+			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+			mpl.rcParams['savefig.dpi'] = 400
+			mpl.rcParams['font.size'] = 10
+			mpl.rcParams['lines.linewidth'] = 1.0
+		elif system() == "Darwin":
+			fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
+			fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
+			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
+			mpl.rcParams['figure.dpi'] = 120
+			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+			mpl.rcParams['savefig.dpi'] = 400
+			mpl.rcParams['font.size'] = 10
+			mpl.rcParams['lines.linewidth'] = 1.0
+		else:
+			fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
+			fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
+			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
+			mpl.rcParams['figure.dpi'] = 120
+			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+			mpl.rcParams['savefig.dpi'] = 400
+			mpl.rcParams['font.size'] = 10
+			mpl.rcParams['lines.linewidth'] = 1.0
+
+		fig_life_int.figure.set_dpi(10)
 
 		fig_intensity = FigureCanvas(self.MW_Intensity.canvas.figure)
 		fig_intensity.axes = self.MW_Intensity.canvas.axes
@@ -52,19 +81,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		fig_intensity.axes.set_position(fig_pos)
 		
 		fig_life_int = FigureCanvas(self.MW_LifetimeInt.canvas.figure)
-		fig_life_int.figure.set_dpi(10)
 		fig_life_int.axes = self.MW_LifetimeInt.canvas.axes
 		fig_life_int.axes.set_xlabel('Time (s)')
 		fig_life_int.axes.set_ylabel('Bin Intensity\n(counts/bin)')
 		fig_life_int.figure.tight_layout()
-		fig_life_int.axes.set_position([0.12, 0.2, 0.85, 0.75])
+		fig_life_int.axes.set_position(fig_life_int_pos)
 
 		fig_lifetime = FigureCanvas(self.MW_Lifetime.canvas.figure)
 		fig_lifetime.axes = self.MW_Lifetime.canvas.axes
 		fig_lifetime.axes.set_xlabel('Time (ns)')
 		fig_lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
 		fig_lifetime.figure.tight_layout()
-		fig_lifetime.axes.set_position([0.12, 0.22, 0.85, 0.75])
+		fig_lifetime.axes.set_position(fig_lifetime_pos)
 		
 		fig_spectra = FigureCanvas(self.MW_Spectra.canvas.figure)
 		fig_spectra.axes = self.MW_Spectra.canvas.axes
@@ -89,6 +117,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		self.actionOpen_h5.triggered.connect(act_open_h5)
 		self.actionOpen_pt3.triggered.connect(act_open_pt3)
 		self.actionTrim_Dead_Traces.triggered.connect(act_trim)
+
 	
 	def get_bin(self):
 		test = QSpinBox()
