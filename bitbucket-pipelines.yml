@@ -11,5 +11,6 @@ pipelines:
         deployment: test
         script:
           #- pip install -U sphinx
+          - apt-get install build-essentials
           - cd docs
           - make html
