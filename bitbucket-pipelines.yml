@@ -10,6 +10,6 @@ pipelines:
     - step:
         deployment: test
         script:
-          - pip install -U sphinx
+          #- pip install -U sphinx
           - cd docs
           - make html
