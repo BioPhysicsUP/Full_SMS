@@ -3,7 +3,7 @@
 # Only use spaces to indent your .yml configuration.
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
-image: continuumio/anaconda3
+image: continuumio/conda_builder_linux
 
 pipelines:
   default:
@@ -11,6 +11,6 @@ pipelines:
         deployment: test
         script:
           #- pip install -U sphinx
-          - apt-get install build-essential
+          #- apt-get install build-essential
           - cd docs
           - make html
