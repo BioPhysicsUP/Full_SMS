@@ -19,7 +19,7 @@ pipelines:
           - git init
           - git remote add origin https://BioPhysicsUP@bitbucket.org/BioPhysicsUP/full-sms-documentation.git
           - git add *
-          - git config user.email="biophysicsup@gmail.com"
-          - git config user.name="BioPhysics"
+         # - git config user.email="biophysicsup@gmail.com"
+          #- git config user.name="BioPhysics"
           - git commit -m "updating docs after repo push"
           - git push -u origin master
