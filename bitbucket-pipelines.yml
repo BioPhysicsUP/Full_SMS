@@ -10,6 +10,6 @@ pipelines:
     - step:
         deployment: test
         script:
-          - pip install numpy
+          - apt-get install numpy
           - cd docs
           - make html
