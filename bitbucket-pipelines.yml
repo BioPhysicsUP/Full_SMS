@@ -17,7 +17,7 @@ pipelines:
           - make html
           - cd _build
           - git init
-          - git remote add origin https://BioPhysicsUP@bitbucket.org/BioPhysicsUP/full-sms-documentation.git
+          - git remote add origin https://BioPhysicsUP:photonsarefun@bitbucket.org/BioPhysicsUP/full-sms-documentation.git
           - git add *
           - git config user.email "biophysicsup@gmail.com"
           - git config user.name "BioPhysics"
