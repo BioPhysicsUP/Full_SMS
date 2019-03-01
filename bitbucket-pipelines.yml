@@ -10,6 +10,5 @@ pipelines:
     - step:
         deployment: test
         script:
-          - apt-get install numpy
           - cd docs
           - make html
