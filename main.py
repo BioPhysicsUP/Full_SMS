@@ -18,88 +18,103 @@ import random
 
 import matplotlib as mpl
 
+import dbg
+
 from ui.mainwindow import Ui_MainWindow
+
+# mpl.use("Qt5Agg")
 
 
 # Default settings for matplotlib plots
 # *************************************
-mpl.rcParams['figure.dpi'] = 120
-mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-mpl.rcParams['savefig.dpi'] = 400
-mpl.rcParams['font.size'] = 10
-# mpl.rcParams['legend.fontsize'] = 'small'
-# mpl.rcParams['legend.fontsize'] = 'small'
-mpl.rcParams['lines.linewidth'] = 1.0
-# mpl.rcParams['errorbar.capsize'] = 3
+# mpl.rcParams['figure.dpi'] = 120
+# mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+# mpl.rcParams['savefig.dpi'] = 400
+# mpl.rcParams['font.size'] = 10
+# # mpl.rcParams['legend.fontsize'] = 'small'
+# # mpl.rcParams['legend.fontsize'] = 'small'
+# mpl.rcParams['lines.linewidth'] = 1.0
+# # mpl.rcParams['errorbar.capsize'] = 3
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
+	"""
+	Class for Full SMS application that returns QMainWindow object.
+
+	This class uses a *.ui converted to a *.py script to generate gui. Be
+	sure to run convert_ui.py after having made changes to mainwindow.ui.
+	"""
 	
 	def __init__(self):
-		
+		"""Initialise MainWindow object.
+
+		Creates and populates QMainWindow object as described by mainwindow.py
+		as well as creates MplWidget
+
+		"""
+
+		# Set defaults for figures depending on system
+		if system() == "win32" or system() == "win64":
+			dbg.p(debug_print="System: Windows", debug_from="Main")
+			dpi = 120
+			mpl.rcParams['figure.dpi'] = dpi
+			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+			mpl.rcParams['savefig.dpi'] = 400
+			mpl.rcParams['font.size'] = 10
+			mpl.rcParams['lines.linewidth'] = 1.0
+			fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
+			fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
+			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
+		elif system() == "Darwin":
+			dbg.p("System: Unix/Linus", "Main")
+			dpi = 100
+			mpl.rcParams['figure.dpi'] = dpi
+			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+			mpl.rcParams['savefig.dpi'] = 400
+			mpl.rcParams['font.size'] = 10
+			mpl.rcParams['lines.linewidth'] = 1.0
+			fig_pos = [0.1, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
+			fig_life_int_pos = [0.17, 0.2, 0.8, 0.75]
+			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
+		else:
+			dbg.p("System: Other", "Main")
+			dpi = 120
+			mpl.rcParams['figure.dpi'] = dpi
+			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+			mpl.rcParams['savefig.dpi'] = 400
+			mpl.rcParams['font.size'] = 10
+			mpl.rcParams['lines.linewidth'] = 1.0
+			fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
+			fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
+			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
+
 		QMainWindow.__init__(self)
 		self.setupUi(self)
+		# print(self.MW_Intensity.figure.get_dpi())
 		
 		self.setWindowTitle("Full SMS")
 
-		if system() == "win32" or system() == "win64":
-			fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
-			fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
-			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
-			mpl.rcParams['figure.dpi'] = 120
-			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-			mpl.rcParams['savefig.dpi'] = 400
-			mpl.rcParams['font.size'] = 10
-			mpl.rcParams['lines.linewidth'] = 1.0
-		elif system() == "Darwin":
-			fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
-			fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
-			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
-			mpl.rcParams['figure.dpi'] = 120
-			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-			mpl.rcParams['savefig.dpi'] = 400
-			mpl.rcParams['font.size'] = 10
-			mpl.rcParams['lines.linewidth'] = 1.0
-		else:
-			fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
-			fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
-			fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
-			mpl.rcParams['figure.dpi'] = 120
-			mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-			mpl.rcParams['savefig.dpi'] = 400
-			mpl.rcParams['font.size'] = 10
-			mpl.rcParams['lines.linewidth'] = 1.0
+		self.MW_Intensity.axes.set_xlabel('Time (s)')
+		self.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/bin)')
+		self.MW_Intensity.axes.patch.set_linewidth(0.1)
+		self.MW_Intensity.figure.tight_layout()
+		self.MW_Intensity.axes.set_position(fig_pos)
+		# print(self.MW_Intensity.figure.get_dpi())
 
-		fig_life_int.figure.set_dpi(10)
+		self.MW_LifetimeInt.axes.set_xlabel('Time (s)')
+		self.MW_LifetimeInt.axes.set_ylabel('Bin Intensity\n(counts/bin)')
+		self.MW_LifetimeInt.figure.tight_layout()
+		self.MW_LifetimeInt.axes.set_position(fig_life_int_pos)
 
-		fig_intensity = FigureCanvas(self.MW_Intensity.canvas.figure)
-		fig_intensity.axes = self.MW_Intensity.canvas.axes
-		fig_intensity.axes.set_xlabel('Time (s)')
-		fig_intensity.axes.set_ylabel('Bin Intensity (counts/bin)')
-		fig_intensity.axes.patch.set_linewidth(0.1)
-		fig_intensity.figure.tight_layout()
-		fig_intensity.axes.set_position(fig_pos)
-		
-		fig_life_int = FigureCanvas(self.MW_LifetimeInt.canvas.figure)
-		fig_life_int.axes = self.MW_LifetimeInt.canvas.axes
-		fig_life_int.axes.set_xlabel('Time (s)')
-		fig_life_int.axes.set_ylabel('Bin Intensity\n(counts/bin)')
-		fig_life_int.figure.tight_layout()
-		fig_life_int.axes.set_position(fig_life_int_pos)
+		self.MW_Lifetime.axes.set_xlabel('Time (ns)')
+		self.MW_Lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
+		self.MW_Lifetime.figure.tight_layout()
+		self.MW_Lifetime.axes.set_position(fig_lifetime_pos)
 
-		fig_lifetime = FigureCanvas(self.MW_Lifetime.canvas.figure)
-		fig_lifetime.axes = self.MW_Lifetime.canvas.axes
-		fig_lifetime.axes.set_xlabel('Time (ns)')
-		fig_lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
-		fig_lifetime.figure.tight_layout()
-		fig_lifetime.axes.set_position(fig_lifetime_pos)
-		
-		fig_spectra = FigureCanvas(self.MW_Spectra.canvas.figure)
-		fig_spectra.axes = self.MW_Spectra.canvas.axes
-		fig_spectra.axes.set_xlabel('Time (s)')
-		fig_spectra.axes.set_ylabel('Wavelength (nm)')
-		fig_spectra.figure.tight_layout()
-		fig_spectra.axes.set_position(fig_pos)
+		self.MW_Spectra.axes.set_xlabel('Time (s)')
+		self.MW_Spectra.axes.set_ylabel('Wavelength (nm)')
+		self.MW_Spectra.figure.tight_layout()
+		self.MW_Spectra.axes.set_position(fig_pos)
 		
 		# Connect all GUI buttons with outside class functions
 		self.btnApplyBin.clicked.connect(gui_apply_bin)
@@ -130,7 +145,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
 def gui_apply_bin():
 	print("gui_apply_bin")
-	mainwindow.get_bin()
+	main_window.get_bin()
 	pass
 
 
@@ -204,7 +219,16 @@ def act_trim():
 	print("act_trim")
 	pass
 
+
 app = QApplication([])
-mainwindow = MainWindow()
-mainwindow.show()
+dbg.p(debug_print='App created', debug_from='Main')
+main_window = MainWindow()
+dbg.p(debug_print='Main Window created', debug_from='Main')
+main_window.show()
+# print(main_window.f)
+dbg.p(debug_print='Main Window shown', debug_from='Main')
+# main_window.MW_Intensity.figure.set_dpi(100)
+# main_window.MW_Intensity.draw()
+# print(main_window.MW_Intensity.figure.get_dpi())
 app.exec_()
+dbg.p(debug_print='App excuted', debug_from='Main')

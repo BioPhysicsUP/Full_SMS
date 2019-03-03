@@ -8,6 +8,9 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from ui.matplotlibwidget import MatplotlibWidget
+
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -168,7 +171,7 @@ class Ui_MainWindow(object):
         self.gridLayout_3.addWidget(self.label_3, 0, 4, 1, 1)
         self.horizontalLayout_2.addLayout(self.gridLayout_3)
         self.gridLayout.addLayout(self.horizontalLayout_2, 2, 0, 1, 1)
-        self.MW_Intensity = MplWidget(self.tabIntensity)
+        self.MW_Intensity = MatplotlibWidget(self.tabIntensity)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -192,7 +195,7 @@ class Ui_MainWindow(object):
         self.gridLayout_2.setContentsMargins(9, 9, 9, 9)
         self.gridLayout_2.setSpacing(6)
         self.gridLayout_2.setObjectName("gridLayout_2")
-        self.MW_Lifetime = MplWidget(self.tabLifetime)
+        self.MW_Lifetime = MatplotlibWidget(self.tabLifetime)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -221,7 +224,7 @@ class Ui_MainWindow(object):
         self.btnPrevLevel.setIconSize(QtCore.QSize(25, 25))
         self.btnPrevLevel.setObjectName("btnPrevLevel")
         self.horizontalLayout_5.addWidget(self.btnPrevLevel)
-        self.MW_LifetimeInt = MplWidget(self.tabLifetime)
+        self.MW_LifetimeInt = MatplotlibWidget(self.tabLifetime)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -343,7 +346,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.setContentsMargins(9, 9, 9, 9)
         self.gridLayout_7.setSpacing(6)
         self.gridLayout_7.setObjectName("gridLayout_7")
-        self.MW_Spectra = MplWidget(self.tabSpectra)
+        self.MW_Spectra = MatplotlibWidget(self.tabSpectra)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -477,4 +480,3 @@ class Ui_MainWindow(object):
         self.actionTrim_Dead_Traces.setText(_translate("MainWindow", "Trim Dead Traces"))
         self.actionReset_Analysis.setText(_translate("MainWindow", "Reset Analysis"))
 
-from mplwidget import MplWidget
