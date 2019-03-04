@@ -8,6 +8,8 @@ as well as change-point code.
 
 :doc:`userguide`
 
+:doc:`installation`
+
 Indices and tables
 ==================
 
