@@ -1,5 +1,5 @@
-Current list of HDF5 attributes
-===============================
+Current list of HDF5 attributes (Version 0.1)
+=============================================
 
 HDF5 files::
 
