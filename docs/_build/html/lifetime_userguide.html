@@ -1,0 +1,145 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>User’s Guide: Lifetime fitting &#8212; UP Biophysics SMS Analysis 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="user-s-guide-lifetime-fitting">
+<h1>User’s Guide: Lifetime fitting<a class="headerlink" href="#user-s-guide-lifetime-fitting" title="Permalink to this headline">¶</a></h1>
+<p>The main lifetime fitting code is in the module <a class="reference internal" href="tcspcfit.html#module-tcspcfit" title="tcspcfit"><code class="xref py py-mod docutils literal notranslate"><span class="pre">tcspcfit</span></code></a>.</p>
+<p>A fit is performed by creating an instance of a class. Currently the available classes are
+<a class="reference internal" href="tcspcfit.html#tcspcfit.OneExp" title="tcspcfit.OneExp"><code class="xref py py-class docutils literal notranslate"><span class="pre">tcspcfit.OneExp</span></code></a>, <a class="reference internal" href="tcspcfit.html#tcspcfit.TwoExp" title="tcspcfit.TwoExp"><code class="xref py py-class docutils literal notranslate"><span class="pre">tcspcfit.TwoExp</span></code></a> and <a class="reference internal" href="tcspcfit.html#tcspcfit.ThreeExp" title="tcspcfit.ThreeExp"><code class="xref py py-class docutils literal notranslate"><span class="pre">tcspcfit.ThreeExp</span></code></a>.</p>
+<p>A very simple usage would be:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">tcspcfit</span> <span class="k">import</span> <span class="o">*</span>
+<span class="n">fit1</span> <span class="o">=</span> <span class="n">OneExp</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">irf</span></code>, <code class="docutils literal notranslate"><span class="pre">measured</span></code> and <code class="docutils literal notranslate"><span class="pre">t</span></code> are all one-dimensional and the same size. <code class="docutils literal notranslate"><span class="pre">channelwidth</span></code> is the width of one
+channel in nanoseconds. <code class="docutils literal notranslate"><span class="pre">ploton=True</span></code> instructs the fitting code to plot the result.</p>
+<p>Now, <code class="docutils literal notranslate"><span class="pre">fit1</span></code> is an object that contains all the information of the fit. This includes the results such as fitted
+lifetimes, amplitudes, etc. as well as the raw data and all kinds of other things. A few important properties:</p>
+<ul class="simple">
+<li><code class="docutils literal notranslate"><span class="pre">fit1.tau</span></code> is the lifetimes</li>
+<li><code class="docutils literal notranslate"><span class="pre">fit1.amp</span></code> is the amplitudes</li>
+<li><code class="docutils literal notranslate"><span class="pre">fit1.shift</span></code> is the IRF shift</li>
+<li><code class="docutils literal notranslate"><span class="pre">fit1.chisq</span></code> is the chi-squared value</li>
+<li><code class="docutils literal notranslate"><span class="pre">fit1.bg</span></code> is the decay background value</li>
+<li><code class="docutils literal notranslate"><span class="pre">fit1.irfbg</span></code> is the IRF background value</li>
+</ul>
+<p>Fits generally require initial values:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fit1</span> <span class="o">=</span> <span class="n">OneExp</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="p">[</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+              <span class="n">shift</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Where for example <code class="docutils literal notranslate"><span class="pre">tau=[1.5,</span> <span class="pre">0.1,</span> <span class="pre">10,</span> <span class="pre">0]</span></code> means: starting value 1.5, minimum value 0.1, maximum value 10, and the
+final 0 means that the value should not be fixed (it would be a 1 if it should be fixed. If the parameter value is
+fixed, the min and max values are ignored).</p>
+<p>The IRF shift units are number of channels.</p>
+<p>A two exponential fit has amplitudes as parameters as well (note how multiple parameters are specified):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tau</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+      <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+
+<span class="n">shift</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+
+<span class="n">amp</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+      <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+
+<span class="n">fit</span> <span class="o">=</span> <span class="n">TwoExp</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="n">tau</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="n">shift</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">UP Biophysics SMS Analysis</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Bertus van Heerden, Joshua Botha.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/lifetime_userguide.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
