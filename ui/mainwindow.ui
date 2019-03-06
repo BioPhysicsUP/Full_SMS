@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
+ <author>Joshua Botha</author>
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
   <property name="geometry">
@@ -7,7 +8,7 @@
     <x>0</x>
     <y>0</y>
     <width>993</width>
-    <height>599</height>
+    <height>649</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -81,7 +82,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -146,7 +147,7 @@
              </spacer>
             </item>
             <item row="1" column="1">
-             <widget class="QPushButton" name="btnApplyBon">
+             <widget class="QPushButton" name="btnApplyBin">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -230,7 +231,7 @@
               </item>
               <item>
                <property name="text">
-                <string>66%</string>
+                <string>69%</string>
                </property>
               </item>
              </widget>
@@ -781,7 +782,7 @@
            </spacer>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_7">
+           <widget class="QPushButton" name="btnSubBackground">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -854,8 +855,8 @@
      <property name="title">
       <string>Open...</string>
      </property>
-     <addaction name="actionHDF5_h5"/>
-     <addaction name="actionPT3_Folder_pt3"/>
+     <addaction name="actionOpen_h5"/>
+     <addaction name="actionOpen_pt3"/>
     </widget>
     <addaction name="menuOpen"/>
    </widget>
@@ -870,12 +871,13 @@
      <addaction name="actionTrim_Dead_Traces"/>
     </widget>
     <addaction name="menuIntensity"/>
+    <addaction name="actionReset_Analysis"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionHDF5_h5">
+  <action name="actionOpen_h5">
    <property name="icon">
     <iconset>
      <normaloff>icons/001-new-file-new.png</normaloff>icons/001-new-file-new.png</iconset>
@@ -884,7 +886,7 @@
     <string>HDF5 (*.h5)</string>
    </property>
   </action>
-  <action name="actionPT3_Folder_pt3">
+  <action name="actionOpen_pt3">
    <property name="icon">
     <iconset>
      <normaloff>icons/004-open-archive-new.png</normaloff>icons/004-open-archive-new.png</iconset>
@@ -905,7 +907,13 @@
     <string>Trim Dead Traces</string>
    </property>
   </action>
+  <action name="actionReset_Analysis">
+   <property name="text">
+    <string>Reset Analysis</string>
+   </property>
+  </action>
  </widget>
+ <layoutdefault spacing="6" margin="9"/>
  <customwidgets>
   <customwidget>
    <class>MplWidget</class>
@@ -914,6 +922,24 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>spbBinSize</tabstop>
+  <tabstop>btnApplyBin</tabstop>
+  <tabstop>btnApplyBinAll</tabstop>
+  <tabstop>cmbConfIndex</tabstop>
+  <tabstop>btnResolve</tabstop>
+  <tabstop>btnResolveAll</tabstop>
+  <tabstop>btnLoadIRF</tabstop>
+  <tabstop>btnFitParameters</tabstop>
+  <tabstop>btnFit</tabstop>
+  <tabstop>btnFitSelected</tabstop>
+  <tabstop>btnFitAll</tabstop>
+  <tabstop>btnSubBackground</tabstop>
+  <tabstop>btnPrevLevel</tabstop>
+  <tabstop>treeViewParticles</tabstop>
+  <tabstop>btnNextLevel</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
