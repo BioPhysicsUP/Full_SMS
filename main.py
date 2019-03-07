@@ -44,7 +44,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 	This class uses a *.ui converted to a *.py script to generate gui. Be
 	sure to run convert_ui.py after having made changes to mainwindow.ui.
 	"""
-	
+
 	def __init__(self):
 		"""Initialise MainWindow object.
 
@@ -52,6 +52,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		as well as creates MplWidget
 
 		"""
+
+		self.confidence_index = {
+			0: 99,
+			1: 95,
+			2: 90,
+			3: 69
+		}
 
 		# Set defaults for figures depending on system
 		if system() == "win32" or system() == "win64":
@@ -133,19 +140,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		self.actionOpen_pt3.triggered.connect(act_open_pt3)
 		self.actionTrim_Dead_Traces.triggered.connect(act_trim)
 
-	
 	def get_bin(self):
-		test = QSpinBox()
-		test.__init__(self.spbBinSize)
-		print(test.value())
-		print(self.spbBinSize.value())
-		
-		# return self.
+		"""Returns current GUI value for bin size in ms."""
+		return self.spbBinSize.value()
+
+	def get_gui_confidence(self):
+		"""Return current GUI value for confidence percentage."""
+		return [self.cmbConfIndex.currentIndex(), self.confidence_index[self.cmbConfIndex.currentIndex()]]
 
 
 def gui_apply_bin():
 	print("gui_apply_bin")
-	main_window.get_bin()
+	print(main_window.get_bin())
 	pass
 
 
@@ -156,6 +162,7 @@ def gui_apply_bin_all():
 
 def gui_resolve():
 	print("gui_resolve")
+	print(main_window.get_gui_confidence())
 	pass
 
 
