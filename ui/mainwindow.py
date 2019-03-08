@@ -8,10 +8,13 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+from ui.matplotlibwidget import MatplotlibWidget
+
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(993, 599)
+        MainWindow.resize(993, 649)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
@@ -168,7 +171,7 @@ class Ui_MainWindow(object):
         self.gridLayout_3.addWidget(self.label_3, 0, 4, 1, 1)
         self.horizontalLayout_2.addLayout(self.gridLayout_3)
         self.gridLayout.addLayout(self.horizontalLayout_2, 2, 0, 1, 1)
-        self.MW_Intensity = MplWidget(self.tabIntensity)
+        self.MW_Intensity = MatplotlibWidget(self.tabIntensity)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -192,7 +195,7 @@ class Ui_MainWindow(object):
         self.gridLayout_2.setContentsMargins(9, 9, 9, 9)
         self.gridLayout_2.setSpacing(6)
         self.gridLayout_2.setObjectName("gridLayout_2")
-        self.MW_Lifetime = MplWidget(self.tabLifetime)
+        self.MW_Lifetime = MatplotlibWidget(self.tabLifetime)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -221,7 +224,7 @@ class Ui_MainWindow(object):
         self.btnPrevLevel.setIconSize(QtCore.QSize(25, 25))
         self.btnPrevLevel.setObjectName("btnPrevLevel")
         self.horizontalLayout_5.addWidget(self.btnPrevLevel)
-        self.MW_LifetimeInt = MplWidget(self.tabLifetime)
+        self.MW_LifetimeInt = MatplotlibWidget(self.tabLifetime)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -343,7 +346,7 @@ class Ui_MainWindow(object):
         self.gridLayout_7.setContentsMargins(9, 9, 9, 9)
         self.gridLayout_7.setSpacing(6)
         self.gridLayout_7.setObjectName("gridLayout_7")
-        self.MW_Spectra = MplWidget(self.tabSpectra)
+        self.MW_Spectra = MatplotlibWidget(self.tabSpectra)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -384,7 +387,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 993, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 993, 22))
         self.menubar.setObjectName("menubar")
         self.menuFile = QtWidgets.QMenu(self.menubar)
         self.menuFile.setObjectName("menuFile")
@@ -414,11 +417,14 @@ class Ui_MainWindow(object):
         icon17.addPixmap(QtGui.QPixmap("icons/020-cutting-with-a-scissor-on-broken-line-new.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.actionTrim_Dead_Traces.setIcon(icon17)
         self.actionTrim_Dead_Traces.setObjectName("actionTrim_Dead_Traces")
+        self.actionReset_Analysis = QtWidgets.QAction(MainWindow)
+        self.actionReset_Analysis.setObjectName("actionReset_Analysis")
         self.menuOpen.addAction(self.actionOpen_h5)
         self.menuOpen.addAction(self.actionOpen_pt3)
         self.menuFile.addAction(self.menuOpen.menuAction())
         self.menuIntensity.addAction(self.actionTrim_Dead_Traces)
         self.menuTools.addAction(self.menuIntensity.menuAction())
+        self.menuTools.addAction(self.actionReset_Analysis)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuTools.menuAction())
 
@@ -472,5 +478,5 @@ class Ui_MainWindow(object):
         self.actionOpen_h5.setText(_translate("MainWindow", "HDF5 (*.h5)"))
         self.actionOpen_pt3.setText(_translate("MainWindow", "PT3 Folder (*.pt3)"))
         self.actionTrim_Dead_Traces.setText(_translate("MainWindow", "Trim Dead Traces"))
+        self.actionReset_Analysis.setText(_translate("MainWindow", "Reset Analysis"))
 
-from mplwidget import MplWidget

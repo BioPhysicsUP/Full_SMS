@@ -8,7 +8,7 @@
     <x>0</x>
     <y>0</y>
     <width>993</width>
-    <height>599</height>
+    <height>649</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -844,7 +844,7 @@
      <x>0</x>
      <y>0</y>
      <width>993</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -871,6 +871,7 @@
      <addaction name="actionTrim_Dead_Traces"/>
     </widget>
     <addaction name="menuIntensity"/>
+    <addaction name="actionReset_Analysis"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -904,6 +905,11 @@
    </property>
    <property name="text">
     <string>Trim Dead Traces</string>
+   </property>
+  </action>
+  <action name="actionReset_Analysis">
+   <property name="text">
+    <string>Reset Analysis</string>
    </property>
   </action>
  </widget>
