@@ -28,15 +28,18 @@ class H5dataset:
             particle.makehistogram()
 
     def binints(self, binsize):
-        """Bin the absolute times into traces using binsize"""
+        """Bin the absolute times into traces using binsize
+            binsize is in ms
+        """
 
         for particle in self.particles:
             particle.binints(binsize)
+        print("done binning")
 
 
 class Particle:
 
-    def __init__(self, name, dataset, tmin, tmax, channelwidth):#, number, irf, tmin, tmax, channelwidth=None):
+    def __init__(self, name, dataset, tmin=None, tmax=None, channelwidth=None):#, number, irf, tmin, tmax, channelwidth=None):
 
         self.name = name
         self.dataset = dataset
@@ -61,8 +64,8 @@ class Particle:
             differences = np.diff(np.sort(self.microtimes[:]))
             channelwidth = np.unique(differences)[1]
         self.channelwidth = channelwidth
-        self.tmin = tmin
-        self.tmax = tmax
+        # self.tmin = tmin
+        # self.tmax = tmax
         self.measured = None
         self.t = None
         self.ignore = False
