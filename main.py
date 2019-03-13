@@ -142,6 +142,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		self.actionOpen_pt3.triggered.connect(act_open_pt3)
 		self.actionTrim_Dead_Traces.triggered.connect(act_trim)
 
+		# Connect the tree selecttion to data display
+		self.treeViewParticles.currentChanged.connect(display_data)
+
 	def get_bin(self):
 		"""Returns current GUI value for bin size in ms."""
 		return self.spbBinSize.value()
@@ -311,6 +314,10 @@ def act_open_h5():
 	fname = QFileDialog.getOpenFileName(main_window, 'Open HDF5 file', '', "HDF5 files (*.h5)")
 	print(fname)
 	dataset = smsh5.H5dataset(fname[0])
+	items = []
+	for particle in dataset.particles:
+		items.append(CustomNode(particle.name))
+	main_window.treeViewParticles.setModel(CustomModel(items))
 
 
 def act_open_pt3():
@@ -321,6 +328,9 @@ def act_open_pt3():
 def act_trim():
 	print("act_trim")
 	pass
+
+def display_data():
+    pass
 
 
 app = QApplication([])
