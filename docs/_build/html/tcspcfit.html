@@ -34,14 +34,14 @@
             
   <div class="section" id="module-tcspcfit">
 <span id="tcspcfit"></span><h1>tcspcfit<a class="headerlink" href="#module-tcspcfit" title="Permalink to this headline">¶</a></h1>
-<p>Module for fitting TCSPC irf_data.</p>
+<p>Module for fitting TCSPC data.</p>
 <p>The function distfluofit is based on MATLAB code by Jörg Enderlein:
 <a class="reference external" href="https://www.uni-goettingen.de/en/513325.html">https://www.uni-goettingen.de/en/513325.html</a></p>
 <p>Bertus van Heerden
 University of Pretoria</p>
 <dl class="class">
 <dt id="tcspcfit.FluoFit">
-<em class="property">class </em><code class="descclassname">tcspcfit.</code><code class="descname">FluoFit</code><span class="sig-paren">(</span><em>irf</em>, <em>measured</em>, <em>t</em>, <em>channelwidth</em>, <em>tau=None</em>, <em>amp=None</em>, <em>shift=None</em>, <em>startpoint=None</em>, <em>endpoint=None</em>, <em>bg=None</em>, <em>irfbg=None</em>, <em>ploton=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#FluoFit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.FluoFit" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">tcspcfit.</code><code class="descname">FluoFit</code><span class="sig-paren">(</span><em>irf</em>, <em>measured</em>, <em>t</em>, <em>channelwidth</em>, <em>tau=None</em>, <em>amp=None</em>, <em>shift=None</em>, <em>bg=None</em>, <em>irfbg=None</em>, <em>startpoint=None</em>, <em>endpoint=None</em>, <em>ploton=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#FluoFit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.FluoFit" title="Permalink to this definition">¶</a></dt>
 <dd><p>Base class for fit of a multi-exponential decay curve.</p>
 <p>This class is only used for subclassing.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -58,13 +58,15 @@ When the “fix” value is False, the min and max values are ignored.</li>
 <li><strong>amp</strong> (<em>array_like</em><em>, </em><em>optional</em>) – Initial guess amplitude. Format [amp1, amp2, …] or [[amp1, fix1],
 [amp2, fix2], …]</li>
 <li><strong>shift</strong> (<em>array_like</em><em>, </em><em>optional</em>) – Initial guess IRF shift. Either a float, or [shift, min, max, fix].</li>
+<li><strong>bg</strong> (<em>float</em>) – Background value for decay. Will be estimated if not given.</li>
+<li><strong>irfbg</strong> (<em>float</em>) – Background value for IRF. Will be estimated if not given.</li>
 <li><strong>startpoint</strong> (<em>int</em>) – Start of fitting range - will default to channel of decay max or
 IRF max, whichever is least.</li>
 <li><strong>endpoint</strong> (<em>int</em>) – End of fitting range - will default to the channel of the
 fluorescence decay that is either around 10 times higher than the
 background level or equivalent to 0.1% of the counts in the peak
 channel, whichever is greater.</li>
-<li><strong>init</strong> (<em>bool</em>) – Whether to use an initial guess routine or not.</li>
+<li><strong>init</strong> (<em>bool  # TODO: add this functionality</em>) – Whether to use an initial guess routine or not.</li>
 <li><strong>ploton</strong> (<em>bool</em>) – Whether to automatically plot the irf_data</li>
 </ul>
 </td>
@@ -75,25 +77,25 @@ channel, whichever is greater.</li>
 
 <dl class="class">
 <dt id="tcspcfit.OneExp">
-<em class="property">class </em><code class="descclassname">tcspcfit.</code><code class="descname">OneExp</code><span class="sig-paren">(</span><em>irf</em>, <em>measured</em>, <em>t</em>, <em>channelwidth</em>, <em>tau=None</em>, <em>amp=None</em>, <em>shift=None</em>, <em>startpoint=None</em>, <em>endpoint=None</em>, <em>ploton=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#OneExp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.OneExp" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">tcspcfit.</code><code class="descname">OneExp</code><span class="sig-paren">(</span><em>irf</em>, <em>measured</em>, <em>t</em>, <em>channelwidth</em>, <em>tau=None</em>, <em>amp=None</em>, <em>shift=None</em>, <em>bg=None</em>, <em>irfbg=None</em>, <em>startpoint=None</em>, <em>endpoint=None</em>, <em>ploton=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#OneExp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.OneExp" title="Permalink to this definition">¶</a></dt>
 <dd><p>“Single exponential fit. Takes exact same arguments as Fluofit</p>
 </dd></dl>
 
 <dl class="class">
 <dt id="tcspcfit.ThreeExp">
-<em class="property">class </em><code class="descclassname">tcspcfit.</code><code class="descname">ThreeExp</code><span class="sig-paren">(</span><em>irf</em>, <em>measured</em>, <em>t</em>, <em>channelwidth</em>, <em>tau=None</em>, <em>amp=None</em>, <em>shift=None</em>, <em>startpoint=None</em>, <em>endpoint=None</em>, <em>ploton=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#ThreeExp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.ThreeExp" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">tcspcfit.</code><code class="descname">ThreeExp</code><span class="sig-paren">(</span><em>irf</em>, <em>measured</em>, <em>t</em>, <em>channelwidth</em>, <em>tau=None</em>, <em>amp=None</em>, <em>shift=None</em>, <em>bg=None</em>, <em>irfbg=None</em>, <em>startpoint=None</em>, <em>endpoint=None</em>, <em>ploton=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#ThreeExp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.ThreeExp" title="Permalink to this definition">¶</a></dt>
 <dd><p>“Triple exponential fit. Takes exact same arguments as Fluofit</p>
 </dd></dl>
 
 <dl class="class">
 <dt id="tcspcfit.TwoExp">
-<em class="property">class </em><code class="descclassname">tcspcfit.</code><code class="descname">TwoExp</code><span class="sig-paren">(</span><em>irf</em>, <em>measured</em>, <em>t</em>, <em>channelwidth</em>, <em>tau=None</em>, <em>amp=None</em>, <em>shift=None</em>, <em>startpoint=None</em>, <em>endpoint=None</em>, <em>bg=None</em>, <em>irfbg=None</em>, <em>ploton=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#TwoExp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.TwoExp" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">tcspcfit.</code><code class="descname">TwoExp</code><span class="sig-paren">(</span><em>irf</em>, <em>measured</em>, <em>t</em>, <em>channelwidth</em>, <em>tau=None</em>, <em>amp=None</em>, <em>shift=None</em>, <em>bg=None</em>, <em>irfbg=None</em>, <em>startpoint=None</em>, <em>endpoint=None</em>, <em>ploton=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#TwoExp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.TwoExp" title="Permalink to this definition">¶</a></dt>
 <dd><p>“Double exponential fit. Takes exact same arguments as Fluofit</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="tcspcfit.colorshift">
-<code class="descclassname">tcspcfit.</code><code class="descname">colorshift</code><span class="sig-paren">(</span><em>irf</em>, <em>shift</em>, <em>irflength=None</em>, <em>t=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#colorshift"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.colorshift" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">tcspcfit.</code><code class="descname">colorshift</code><span class="sig-paren">(</span><em>irf</em>, <em>shift</em>, <em>irflength=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/tcspcfit.html#colorshift"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#tcspcfit.colorshift" title="Permalink to this definition">¶</a></dt>
 <dd><p>Shift irf left or right ‘periodically’.</p>
 <p>A shift past the start or end results in those values of irf
 ‘wrapping around’.</p>
