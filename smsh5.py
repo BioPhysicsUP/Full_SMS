@@ -13,7 +13,8 @@ class H5dataset:
 
     def __init__(self, filename):
 
-        self.file = h5py.File(filename, 'r')
+        self.name = filename
+        self.file = h5py.File(self.name, 'r')
         try:
             self.version = self.file.attrs['Version']
         except KeyError:

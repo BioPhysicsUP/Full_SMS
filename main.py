@@ -143,10 +143,11 @@ class MainWindow(QMainWindow):
         self.ui.actionOpen_pt3.triggered.connect(self.act_open_pt3)
         self.ui.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
 
-        # Connect the tree selecttion to data display
-        self.ui.treeViewParticles.clicked.connect(self.display_data)
-
-        self.datasets = []
+        # Create and connect model for dataset tree
+        self.treemodel = DatasetTreeModel()
+        self.ui.treeViewParticles.setModel(self.treemodel)
+        # Connect the tree selection to data display
+        self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
     def get_bin(self):
         """Returns current GUI value for bin size in ms."""
@@ -197,12 +198,13 @@ class MainWindow(QMainWindow):
     def act_open_h5(self):
         fname = QFileDialog.getOpenFileName(main_window, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         dataset = smsh5.H5dataset(fname[0])
-        self.datasets.append(dataset)
-        items = []
+
+        datasetnode = DatasetTreeNode(fname, dataset, 'dataset')
+        self.treemodel.addChild(datasetnode)
+
         for particle in dataset.particles:
-            items.append(CustomNode(particle.name))
-        self.treemodel = CustomModel(items)
-        main_window.ui.treeViewParticles.setModel(self.treemodel)
+            particlenode = DatasetTreeNode(particle.name, particle, 'particle')
+            self.treemodel.addChild(particlenode, datasetnode)
 
     def act_open_pt3(self):
         print("act_open_pt3")
@@ -210,22 +212,31 @@ class MainWindow(QMainWindow):
     def act_trim(self):
         print("act_trim")
 
-    def display_data(self):
-        print('bla')
+    def display_data(self, current, prev):
+        print(self.treemodel.data(current, Qt.DisplayRole))
+        print(prev)
 
 
-class CustomNode(object):
-    def __init__(self, in_data):
-        self._data = in_data
-        if type(in_data) == tuple:
-            self._data = list(in_data)
-        if type(in_data) in (str, bytes) or not hasattr(in_data, '__getitem__'):
-            self._data = [in_data]
+class DatasetTreeNode():
+    def __init__(self, name, data, datatype):
+        self._data = name
+        if type(name) == tuple:
+            self._data = list(name)
+        if type(name) in (str, bytes) or not hasattr(name, '__getitem__'):
+            self._data = [name]
 
         self._columncount = len(self._data)
         self._children = []
         self._parent = None
         self._row = 0
+
+        if type == 'dataset':
+            pass
+
+        elif type == 'particle':
+            pass
+
+        self.data = data
 
     def data(self, in_column):
         if in_column >= 0 and in_column < len(self._data):
@@ -254,19 +265,19 @@ class CustomNode(object):
         self._columncount = max(in_child.columnCount(), self._columncount)
 
 
-class CustomModel(QAbstractItemModel):
-    def __init__(self, in_nodes):
+class DatasetTreeModel(QAbstractItemModel):
+    def __init__(self):
         QAbstractItemModel.__init__(self)
-        self._root = CustomNode(None)
-        for node in in_nodes:
-            self._root.addChild(node)
+        self._root = DatasetTreeNode(None, None, None)
+        # for node in in_nodes:
+        #     self._root.addChild(node)
 
     def rowCount(self, in_index):
         if in_index.isValid():
             return in_index.internalPointer().childCount()
         return self._root.childCount()
 
-    def addChild(self, in_node, in_parent):
+    def addChild(self, in_node, in_parent=None):
         if not in_parent or not in_parent.isValid():
             parent = self._root
         else:
@@ -307,7 +318,6 @@ class CustomModel(QAbstractItemModel):
         if role == Qt.DisplayRole:
             return node.data(in_index.column())
         return None
-
 
 
 app = QApplication([])
