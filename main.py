@@ -199,12 +199,16 @@ class MainWindow(QMainWindow):
         fname = QFileDialog.getOpenFileName(main_window, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         dataset = smsh5.H5dataset(fname[0])
 
-        datasetnode = DatasetTreeNode(fname, dataset, 'dataset')
-        self.treemodel.addChild(datasetnode)
+        datasetnode = DatasetTreeNode(fname[0], dataset, 'dataset')
+        datasetindex = self.treemodel.addChild(datasetnode)
+        print(datasetindex)
 
         for particle in dataset.particles:
             particlenode = DatasetTreeNode(particle.name, particle, 'particle')
-            self.treemodel.addChild(particlenode, datasetnode)
+            self.treemodel.addChild(particlenode, datasetindex)
+
+        print(self.treemodel._root)
+        print(self.treemodel._root._children[0]._children)
 
     def act_open_pt3(self):
         print("act_open_pt3")
@@ -218,7 +222,7 @@ class MainWindow(QMainWindow):
 
 
 class DatasetTreeNode():
-    def __init__(self, name, data, datatype):
+    def __init__(self, name, dataobj, datatype):
         self._data = name
         if type(name) == tuple:
             self._data = list(name)
@@ -230,13 +234,13 @@ class DatasetTreeNode():
         self._parent = None
         self._row = 0
 
-        if type == 'dataset':
+        if datatype == 'dataset':
             pass
 
-        elif type == 'particle':
+        elif datatype == 'particle':
             pass
 
-        self.data = data
+        self.dataobj = dataobj
 
     def data(self, in_column):
         if in_column >= 0 and in_column < len(self._data):
@@ -264,6 +268,8 @@ class DatasetTreeNode():
         self._children.append(in_child)
         self._columncount = max(in_child.columnCount(), self._columncount)
 
+        return in_child._row
+
 
 class DatasetTreeModel(QAbstractItemModel):
     def __init__(self):
@@ -278,11 +284,14 @@ class DatasetTreeModel(QAbstractItemModel):
         return self._root.childCount()
 
     def addChild(self, in_node, in_parent=None):
+        self.layoutAboutToBeChanged.emit()
         if not in_parent or not in_parent.isValid():
             parent = self._root
         else:
             parent = in_parent.internalPointer()
-        parent.addChild(in_node)
+        row = parent.addChild(in_node)
+        self.layoutChanged.emit()
+        return self.index(row, 0)
 
     def index(self, in_row, in_column, in_parent=None):
         if not in_parent or not in_parent.isValid():
@@ -290,8 +299,8 @@ class DatasetTreeModel(QAbstractItemModel):
         else:
             parent = in_parent.internalPointer()
 
-        if not QAbstractItemModel.hasIndex(self, in_row, in_column, in_parent):
-            return QModelIndex()
+        # if not QAbstractItemModel.hasIndex(self, in_row, in_column, in_parent):
+        #     return QModelIndex()
 
         child = parent.child(in_row)
         if child:
