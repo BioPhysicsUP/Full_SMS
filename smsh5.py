@@ -60,8 +60,14 @@ class Particle:
             differences = np.diff(np.sort(self.microtimes[:]))
             channelwidth = np.unique(differences)[1]
         self.channelwidth = channelwidth
-        # self.tmin = tmin
-        # self.tmax = tmax
+        if tmin is None:
+            self.tmin = 0
+        else:
+            self.tmin = tmin
+        if tmax is None:
+            self.tmax = 25
+        else:
+            self.tmax = tmax
         self.measured = None
         self.t = None
         self.ignore = False
@@ -123,6 +129,7 @@ class Histogram:
         # particle.microtimes -= particle.microtimes.min()
 
         self.decay, self.t = np.histogram(self.particle.microtimes[:], bins=t)
+        self.t = self.t[:-1]  # Remove last value so the arrays are the same size
 
 
 class RasterScan:

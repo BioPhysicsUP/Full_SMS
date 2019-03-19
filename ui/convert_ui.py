@@ -1,10 +1,10 @@
 from PyQt5 import uic
 import fileinput
 
-with open("ui/mainwindow.py", "w") as f:
-	uic.compileUi("ui/mainwindow.ui", f)
+with open("mainwindow.py", "w") as f:
+	uic.compileUi("mainwindow.ui", f)
 
-for line in fileinput.FileInput("ui/mainwindow.py", inplace=1):
+for line in fileinput.FileInput("mainwindow.py", inplace=1):
 	if "from PyQt5 import QtCore, QtGui, QtWidgets" in line:
 		line = line.replace(line, line + "\nfrom ui.matplotlibwidget import MatplotlibWidget\n\n")
 

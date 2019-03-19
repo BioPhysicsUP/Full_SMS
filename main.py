@@ -158,11 +158,20 @@ class MainWindow(QMainWindow):
         return [self.ui.cmbConfIndex.currentIndex(), self.confidence_index[self.ui.cmbConfIndex.currentIndex()]]
 
     def gui_apply_bin(self):
-        print("gui_apply_bin")
-        print(main_window.get_bin())
+        try:
+            self.currentparticle.binints(self.get_bin())
+        except Exception as err:
+            print('Error Occured:' + str(err))
+        else:
+            self.plot_trace()
 
     def gui_apply_bin_all(self):
-        print("gui_apply_bin_all")
+        try:
+            self.currentparticle.dataset.binints(self.get_bin())
+        except Exception as err:
+            print('Error Occured:' + str(err))
+        else:
+            self.plot_trace()
 
     def gui_resolve(self):
         print("gui_resolve")
@@ -198,6 +207,8 @@ class MainWindow(QMainWindow):
     def act_open_h5(self):
         fname = QFileDialog.getOpenFileName(main_window, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         dataset = smsh5.H5dataset(fname[0])
+        dataset.binints(100)
+        dataset.makehistograms()
 
         datasetnode = DatasetTreeNode(fname[0], dataset, 'dataset')
         datasetindex = self.treemodel.addChild(datasetnode)
@@ -207,9 +218,6 @@ class MainWindow(QMainWindow):
             particlenode = DatasetTreeNode(particle.name, particle, 'particle')
             self.treemodel.addChild(particlenode, datasetindex)
 
-        print(self.treemodel._root)
-        print(self.treemodel._root._children[0]._children)
-
     def act_open_pt3(self):
         print("act_open_pt3")
 
@@ -217,8 +225,30 @@ class MainWindow(QMainWindow):
         print("act_trim")
 
     def display_data(self, current, prev):
-        print(self.treemodel.data(current, Qt.DisplayRole))
-        print(prev)
+        self.currentparticle = self.treemodel.data(current, Qt.UserRole)
+        self.plot_trace()
+        self.plot_decay()
+
+    def plot_decay(self):
+        try:
+            decay = self.currentparticle.histogram.decay
+            t = self.currentparticle.histogram.t
+        except AttributeError:
+            print('No decay!')
+        else:
+            self.ui.MW_Lifetime.axes.clear()
+            self.ui.MW_Lifetime.axes.semilogy(t, decay)
+            self.ui.MW_Lifetime.draw()
+
+    def plot_trace(self):
+        try:
+            trace = self.currentparticle.binnedtrace.intdata
+        except AttributeError:
+            print('No trace!')
+        else:
+            self.ui.MW_Intensity.axes.clear()
+            self.ui.MW_Intensity.axes.plot(trace)
+            self.ui.MW_Intensity.draw()
 
 
 class DatasetTreeNode():
@@ -326,6 +356,8 @@ class DatasetTreeModel(QAbstractItemModel):
         node = in_index.internalPointer()
         if role == Qt.DisplayRole:
             return node.data(in_index.column())
+        if role == Qt.UserRole:
+            return node.dataobj
         return None
 
 
