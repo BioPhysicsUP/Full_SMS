@@ -23,6 +23,7 @@ import dbg
 import smsh5
 
 from ui.mainwindow import Ui_MainWindow
+from ui.fitting_dialog import Ui_Dialog
 
 # mpl.use("Qt5Agg")
 
@@ -100,6 +101,7 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        self.fitparam = FittingDialog(self)
         # print(self.MW_Intensity.figure.get_dpi())
 
         self.setWindowTitle("Full SMS")
@@ -190,7 +192,7 @@ class MainWindow(QMainWindow):
         print("gui_load_irf")
 
     def gui_fit_param(self):
-        print("gui_fit_param")
+        self.fitparam.exec()
 
     def gui_fit_current(self):
         print("gui_fit_current")
@@ -249,6 +251,12 @@ class MainWindow(QMainWindow):
             self.ui.MW_Intensity.axes.clear()
             self.ui.MW_Intensity.axes.plot(trace)
             self.ui.MW_Intensity.draw()
+
+
+class FittingDialog(QDialog, Ui_Dialog):
+    def __init__(self, parent):
+        QDialog.__init__(self, parent)
+        self.setupUi(self)
 
 
 class DatasetTreeNode():
