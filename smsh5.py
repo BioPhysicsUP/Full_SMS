@@ -13,7 +13,12 @@ class H5dataset:
 
     def __init__(self, filename):
 
-        self.file = h5py.File(filename, 'r')
+        self.name = filename
+        self.file = h5py.File(self.name, 'r')
+        try:
+            self.version = self.file.attrs['Version']
+        except KeyError:
+            self.version = '0.1'
         self.particles = []
         for particlename in self.file.keys():
             self.particles.append(Particle(particlename, self))
@@ -46,26 +51,23 @@ class Particle:
         self.datadict = self.dataset.file[self.name]
         self.microtimes = self.datadict['Micro Times (s)']
         self.abstimes = self.datadict['Absolute Times (ns)']
-        self.spectra = self.datadict['Spectra (counts\s)']
-        self.wavelengths = self.datadict['Spectra (counts\s)'].attrs['Wavelengths']
-        self.spectratimes = self.datadict['Spectra (counts\s)'].attrs['Spectra Abs. Times (s)']
-        # fig, ax = plt.subplots()
-        # ax.imshow(self.spectra.T)
-        # ax.set_aspect(0.01)
-        # plt.plot(self.wavelengths, np.sum(self.spectra, axis=0))
-        # plt.show()
-        try:
-            self.rasterscan = self.datadict['Raster Scan']
-        except KeyError:
-            print("Problem loading raster scan for " + self.name)
+
+        self.spectra = Spectra(self)
+        self.rasterscan = RasterScan(self)
         self.description = self.datadict.attrs['Discription']
         # self.irf = irf
         if channelwidth is None:
             differences = np.diff(np.sort(self.microtimes[:]))
             channelwidth = np.unique(differences)[1]
         self.channelwidth = channelwidth
-        # self.tmin = tmin
-        # self.tmax = tmax
+        if tmin is None:
+            self.tmin = 0
+        else:
+            self.tmin = tmin
+        if tmax is None:
+            self.tmax = 25
+        else:
+            self.tmax = tmax
         self.measured = None
         self.t = None
         self.ignore = False
@@ -127,14 +129,29 @@ class Histogram:
         # particle.microtimes -= particle.microtimes.min()
 
         self.decay, self.t = np.histogram(self.particle.microtimes[:], bins=t)
+        self.t = self.t[:-1]  # Remove last value so the arrays are the same size
 
 
 class RasterScan:
-    pass
+
+    def __init__(self, particle):
+
+        self.particle = particle
+        try:
+            self.image = self.particle.datadict['Raster Scan']
+        except KeyError:
+            print("Problem loading raster scan for " + self.name)
+            self.image = None
 
 
 class Spectra:
-    pass
+
+    def __init__(self, particle):
+
+        self.particle = particle
+        self.spectra = self.particle.datadict['Spectra (counts\s)']
+        self.wavelengths = self.spectra.attrs['Wavelengths']
+        self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
 
 
 class Levels:
