@@ -203,8 +203,8 @@ class MainWindow(QMainWindow):
     def gui_fit_param(self):
         if self.fitparam.exec():
             fp = self.fitparam
-            if fp.combNumExp == 1:
-                self.tauparam = [fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix]
+            if int(fp.combNumExp.currentText()) == 1:
+                self.tauparam = [int(fp.line1Init.text()), fp.line1Min, fp.line1Max, fp.check1Fix]
                 self.ampparam = [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]
 
             elif fp.combNumExp == 2:
@@ -233,7 +233,7 @@ class MainWindow(QMainWindow):
 
         try:
             self.currentparticle.histogram.fit(self.tauparam, self.ampparam, self.shift, self.decaybg, self.irfbg,
-                                             self.start, self.end, self.addopt)
+                                               self.start, self.end, self.addopt)
         except AttributeError:
             raise
             print("No decay")
