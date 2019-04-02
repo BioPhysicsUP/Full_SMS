@@ -151,6 +151,15 @@ class MainWindow(QMainWindow):
         # Connect the tree selection to data display
         self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
+        self.tauparam = None
+        self.ampparam = None
+        self.shift = None
+        self.decaybg = None
+        self.irfbg = None
+        self.start = None
+        self.end = None
+        self.addopt = None
+
     def get_bin(self):
         """Returns current GUI value for bin size in ms."""
         return self.ui.spbBinSize.value()
@@ -192,10 +201,42 @@ class MainWindow(QMainWindow):
         print("gui_load_irf")
 
     def gui_fit_param(self):
-        self.fitparam.exec()
+        if self.fitparam.exec():
+            fp = self.fitparam
+            if fp.combNumExp == 1:
+                self.tauparam = [fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix]
+                self.ampparam = [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]
+
+            elif fp.combNumExp == 2:
+                self.tauparam = [[fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix],
+                            [fp.line2Init, fp.line2Min, fp.line2Max, fp.check2Fix]]
+                self.ampparam = [[fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix],
+                            [fp.line2AmpInit, fp.line2AmpMin, fp.line2AmpMax, fp.check2AmpFix]]
+
+            elif fp.combNumExp == 3:
+                self.tauparam = [[fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix],
+                            [fp.line2Init, fp.line2Min, fp.line2Max, fp.check2Fix],
+                            [fp.line3Init, fp.line3Min, fp.line3Max, fp.check3Fix]]
+                self.ampparam = [[fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix],
+                            [fp.line2AmpInit, fp.line2AmpMin, fp.line2AmpMax, fp.check2AmpFix],
+                            [fp.line3AmpInit, fp.line3AmpMin, fp.line3AmpMax, fp.check3AmpFix]]
+
+            self.shift = fp.lineShift
+            self.decaybg = fp.lineDecayBG
+            self.irfbg = fp.lineIRFBG
+            self.start = fp.lineStartTime
+            self.end = fp.lineEndTime
+
+            self.addopt = fp.lineAddOpt
 
     def gui_fit_current(self):
-        print("gui_fit_current")
+
+        try:
+            self.currentparticle.histogram.fit(self.tauparam, self.ampparam, self.shift, self.decaybg, self.irfbg,
+                                             self.start, self.end, self.addopt)
+        except AttributeError:
+            raise
+            print("No decay")
 
     def gui_fit_selected(self):
         print("gui_fit_selected")

@@ -131,6 +131,9 @@ class Histogram:
         self.decay, self.t = np.histogram(self.particle.microtimes[:], bins=t)
         self.t = self.t[:-1]  # Remove last value so the arrays are the same size
 
+    def fit(self, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt):
+        print(tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt)
+
 
 class RasterScan:
 
