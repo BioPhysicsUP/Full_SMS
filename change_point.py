@@ -1,10 +1,62 @@
-import matplotlib.pyplot as plt
+"""Module for handling analysis of change points and creation of consequent levels
 
-import smsh5
-
+Joshua Botha
+University of Pretoria
+2018
+"""
 import os
-
+import numpy as np
 import dbg
+# from smsh5 import Particle
+
+
+class ChangePoints:
+    def __init__(self, particle=None, confidence=None, run_levels=None):
+        self.__particle = particle
+        self.cpa = ChangePointAnalysis(particle)
+
+        if run_levels is not None:
+            self._run_levels = run_levels
+        else:
+            self._run_levels = False
+
+        if confidence is not None:
+            self.run_cpa()
+        else:
+            self.confidence = None
+            self.inds = None
+            self.conf_regions = None
+            self.dt_uncertainty = None
+            self.cpa_has_run = False
+            self.num_cpts = None
+
+    def run_cpa(self, confidence=None, run_levels=None):
+        if run_levels is not None:
+            self._run_levels = run_levels
+        self.confidence = confidence
+        self.inds, self.conf_regions, self.dt_uncertainty = self.cpa.run_cpa(confidence)
+        self.num_cpts = self.cpa.num_cpts
+        self.cpa_has_run = True
+        if self._run_levels:
+            self.get_levels()
+
+    def get_levels(self):
+        self.cpa.get_levels()
+
+
+class Level:
+    def __init__(self, abstimes=None, level_inds=None):
+        # assert h5file is not None, "No HDF5 has been given"  # To ensure that a h5file is given
+        # assert type(particle) is smsh5.Particle, "Level:\tNo Particle object given."
+        # self.particle = smsh5.Particle.__copy__(particle)
+        assert abstimes is not None, "Levels:\tParameter 'abstimes' not given."
+        assert level_inds is not None, "Levels:\tParameter 'level_inds' not given."
+        assert type(level_inds) is tuple, "Level:\tLevel indexes argument is not a tuple (start, end)."
+        self.level_inds = level_inds  # (first_ind, last_ind)
+        self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
+        self.times = (abstimes[self.level_inds[0]], abstimes[self.level_inds[1]])
+        self.dwell_time = self.times[1] - self.times[0]
+        self.int = (self.num_photons / self.dwell_time) * 1e9
 
 
 class TauData:
@@ -50,40 +102,39 @@ class TauData:
         return self._b[num_data_points]
 
 
-class ChangePoints:
+class ChangePointAnalysis:
 
     def __init__(self, particle=None, confidence=None):
         # assert h5file is not None, "No HDF5 has been given"  # To ensure that a h5file is given
-        assert type(particle) is smsh5.Particle, "ChangePoints:\tNo Particle object given."
+        # assert type(particle) is smsh5.Particle, "ChangePoints:\tNo Particle object given."
         # assert confidence is not None, "ChangePoints:\tNo confidence parameter given."
-        self.particle = smsh5.Particle.__copy__(particle)
-        self.cpts = np.array([])
-        self.conf_regions = np.array(tuple())
+        self._particle = particle
+        self._abstimes = particle.abstimes
+        self.num_photons = particle.num_photons
+        self.cpts = np.array([], dtype=int)
+        self.conf_regions = np.array(tuple())  # [(start, end)]
+        self.dt_uncertainty = np.array([])  # dt
         self._finding = False
         self.found_cpts = False
+        self.num_cpts = None
         self.confidence = confidence
+        self._i = None
         if confidence is not None:
-            self.tau = TauData(self.confidence)
+            self._tau = TauData(self.confidence)
 
-    def __weighted_likelihood_ratio__(self, seg_inds=None):
+    def __weighted_likelihood_ratio(self, seg_inds=None):
         """ Calculates the Weighted & Standardised Likelihood ratio.
 
         Based on 'Detection of Intensity Change Points in Time-Resolved Single-Molecule Measurements'
         from Watkins nad Yang, J. Phys. Chem. B 2005, 109, 617-628 (http://pubs.acs.org/doi/abs/10.1021/jp0467548)
         """
 
-        """ Testing code:
-        with h5py.File('LHCII_630nW.h5', 'r') as f:
-            time_data = f['Particle 1/Absolute Times (ns)'][0:1000]
-
-        time_data = np.arange(2000, 3000)
-        """
-
-        assert type(seg_inds) is tuple, 'ChangePoints:\tSegment index\'s not given.'
+        assert type(seg_inds) is tuple, 'ChangePointAnalysis:\tSegment index\'s not given.'
         start_ind, end_ind = seg_inds
         n = end_ind - start_ind
-        assert n <= 1000, "ChangePoints:\tIndex\'s given result in more than a segment of more than 1000 points."
-        time_data = self.particle.abstimes[start_ind:end_ind]
+        assert n <= 1000, "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
+        print(start_ind, end_ind)
+        time_data = self._abstimes[start_ind:end_ind]
 
         ini_time = time_data[0]
         period = time_data[-1] - ini_time
@@ -107,145 +158,141 @@ class ChangePoints:
 
             wlr.itemset(k, l0_minus_expec_l0 / sigma_k + w_k)  # Eq. 6 and just after eq. 6
 
-        # """ Testing code:
-        # fig = plt.figure(dpi=300)
-        # ax = fig.add_subplot(111)
-        # ax.plot(wlr)
-        # plt.show()
-        # """
+        max_ind_local = int(wlr.argmax())
 
-        max_ind = wlr.argmax()
-
-        if wlr[max_ind] >= self.tau.get_tau_a(n):
-            self.cpts = np.append(self.cpts, max_ind)
-            region_all = np.where(wlr >= self.tau.get_tau_b(n))[0]
-            region = region_all[0], region_all[-1]
+        if wlr[max_ind_local] >= self.__tau.get_tau_a(n):
+            self.cpts = np.append(self.cpts, max_ind_local + start_ind)
+            region_all_local = np.where(wlr >= self.__tau.get_tau_b(n))[0]
+            region_local = [region_all_local[0], region_all_local[-1]]
+            region = (region_local[0] + start_ind, region_local[1] + start_ind)
+            dt = self._abstimes[region_local[1]] - self._abstimes[region_local[0]]
             self.conf_regions = np.append(self.conf_regions, region)
+            self.dt_uncertainty = np.append(self.dt_uncertainty, dt)
             cpt_found = True
-            cpt_return = max_ind
         else:
             cpt_found = False
-            cpt_return = None
-        return cpt_found, cpt_return
+        return cpt_found
 
-    def __next_seg_ind__(self, prev_seg_inds=None):
-        n_total = len(self.particle.abstimes)
+    def __next_seg_ind(self, prev_seg_inds=None, side=None):
+        last_photon_ind = self.num_photons - 1
+        #  See code2flow.com for tree:
+        #  https://code2flow.com/svLn85
+
         if prev_seg_inds is None:
             # Data sets need to be larger than 200 photons
-            assert n_total >= 200, 'ChangePoints:\tData set needs to be at least 200 photons for change point detection.'
-            if n_total > 1000:
-                next_start_ind, next_end_ind = 1, 1001
+            assert self.num_photons >= 200, 'ChangePointAnalysis:\tData set needs to be at least 200 photons for change point detection.'
+            if self.num_photons > 1000:
+                next_start_ind, next_end_ind = 0, 1000
             else:
-                next_start_ind, next_end_ind = 1, n_total
+                next_start_ind, next_end_ind = 0, last_photon_ind
         else:
             prev_start_ind, prev_end_ind = prev_seg_inds
             if len(self.cpts) == 0:
-                if n_total >= prev_end_ind + 800:
+                if last_photon_ind >= prev_end_ind + 800:
                     next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
-                elif n_total - prev_end_ind < 50:  # Next segment needs to be at least 200 photons large.
-                    next_start_ind, next_end_ind = self.cpts[-1] + 1, n_total - prev_end_ind
+                elif last_photon_ind - prev_end_ind >= 10:  # Next segment needs to be at least 10 photons large.
+                    next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
                 else:
                     next_start_ind, next_end_ind = None, None
                     dbg.p("Warning, last photon segment smaller than 50 photons and was not tested", "Change Point")
-            else:
-                if prev_start_ind < self.cpts[-1] < prev_end_ind:
-                    next_start_ind, next_end_ind = self.cpts[-1] + 1, self.cpts[-1] + 1001
+            elif side is not None:  # or prev_start_ind < self.cpts[-1] < prev_end_ind
+                if side is not None:
+                    assert side in ['left', 'right'], "ChangePointAnalysis:\tSide of change point invalid or not specified"
+                if side == 'left':
+                    next_start_ind, next_end_ind = prev_start_ind, int(self.cpts[-1] - 1)
+                else:
+                    next_start_ind, next_end_ind = int(self.cpts[-1]), prev_end_ind
+            elif last_photon_ind >= prev_end_ind + 800:
+                if prev_end_ind - 200 < self.cpts[-1] < prev_end_ind:
+                    if last_photon_ind >= self.cpts[-1] + 1000:
+                        next_start_ind, next_end_ind = int(self.cpts[-1]), int(self.cpts[-1]) + 1000
+                    else:
+                        next_start_ind, next_end_ind = int(self.cpts[-1]), last_photon_ind
                 else:
                     next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
+            elif last_photon_ind - prev_end_ind >= 10:  # Next segment needs to be at least 10 photons large.
+                if prev_end_ind - 200 < self.cpts[-1] < prev_end_ind:
+                    next_start_ind, next_end_ind = int(self.cpts[-1]) + 1, last_photon_ind
+                else:
+                    next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
+            else:
+                next_start_ind, next_end_ind = None, None
+                if prev_end_ind != last_photon_ind:
+                    dbg.p("Warning, last photon segment smaller than 10 photons and was not tested", "Change Point")
+
         return next_start_ind, next_end_ind
 
-    def __find_all_cps__(self, seg_inds=None):
+    def __find_all_cpts(self, seg_inds=None, side=None):
         is_top_level = False
+        # cpt_found = False
 
         if self._finding is False:
             is_top_level = True
             self._finding = True
-            assert seg_inds is None, "ChangePoints:\tDo not provide seg_inds when calling, it's used for recursive calling only."
-        if is_top_level:
-            seg_inds = self.__next_seg_ind__()
-        else:
-            seg_inds = self.__next_seg_ind__(prev_seg_inds=seg_inds)
+            assert seg_inds is None, "ChangePointAnalysis:\tDo not provide seg_inds when calling, it's used for recursive calling only."
 
-        local2global_offset = seg_inds[0] - 1
-        cpt_found, found_cpt = self.__weighted_likelihood_ratio__(seg_inds)
-        if cpt_found:
-            self.__find_all_cps__((seg_inds[0], found_cpt - 1))  # Left
-            self.__find_all_cps__((found_cpt, seg_inds[1]))  # Right
-        elif is_top_level:
+        if is_top_level:
+            seg_inds = self.__next_seg_ind()
+            self._i = 0
+        else:
+            seg_inds = self.__next_seg_ind(prev_seg_inds=seg_inds, side=side)
+            print(seg_inds)
+        self._i += 1
+        print(self._i)
+
+        if seg_inds != (None, None):
+            cpt_found = self.__weighted_likelihood_ratio(seg_inds)
+            # if seg_inds[1] != self.num_photons - 1:
+                # assert side.lower() in ['left', 'right', 'l', 'r'], "ChangePointAnalysis:\tSide argument needs to be 'left' or 'right'."
+            if cpt_found:
+                self.__find_all_cpts(seg_inds, side='left')  # Left side of change point
+                self.__find_all_cpts(seg_inds, side='right')
+                pass# Right side of change point
+
+            if seg_inds[1] <= self.num_photons + 9 and side is None:
+                self.__find_all_cpts(seg_inds)
+
+        if is_top_level:
             self._finding = False
             self.found_cpts = True
+            self.cpts.sort()
+            self.num_cpts = len(self.cpts)
+
+    def get_levels(self):
+        assert self.found_cpts, "ChangePointAnalysis:\tChange point analysis not done, or found no change points."
+        num_levels = self.num_cpts + 1
+        levels = [None] * num_levels
+
+        for num, cpt in enumerate(self.cpts):
+            print(num)
+            if num == 0:  # First change point
+                start_ind = 0
+                end_ind = cpt-1
+                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+
+            start_ind = cpt
+            if num != self.num_cpts-1:  # Not last change point
+                end_ind = self.cpts[num + 1]
+            else:  # Last photon
+                end_ind = self.num_photons - 1
+            levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+
+        self._particle.add_levels(levels, num_levels)
+        # return levels, num_levels
 
     def run_cpa(self, confidence=None):
         if confidence is not None:
-            assert confidence in [0.99, 0.95, 0.90, 0.69], "ChangePoints:\tConfidence value given not valid."
+            assert confidence in [0.99, 0.95, 0.90, 0.69], "ChangePointAnalysis:\tConfidence value given not valid."
             self.confidence = confidence
-            self.tau = TauData(confidence)
+            self.__tau = TauData(confidence)
         else:
-            assert self.confidence is not None, "ChangePoints:\tNo confidence value provided."
-        self.__find_all_cps__()
+            assert self.confidence is not None, "ChangePointAnalysis:\tNo confidence value provided."
 
+        self.__find_all_cpts()
 
-class Level:
-    def __init__(self, particle=None, level_inds=None):
-        # assert h5file is not None, "No HDF5 has been given"  # To ensure that a h5file is given
-        assert type(particle) is smsh5.Particle, "Level:\tNo Particle object given."
-        self.particle = smsh5.Particle.__copy__(particle)
-        assert type(level_inds) is tuple, "Level:\tLevel indexs argument is not a tuple (start, end)."
-        self.level_inds = level_inds
-        self.photon_first = self.level_inds[0]
-        self.photon_last = self.level_inds[1]
-        self.num_photons = self.photon_first - self.photon_last + 1
-        self.time_start = self.particle.abstimes[self.photon_first]
-        self.time_last = self.particle.abstimes[self.photon_last]
-        self.dwell_time = self.time_start - self.time_last
-        self.int = self.num_photons / self.dwell_time
-        pass
+        return self.cpts, self.conf_regions, self.dt_uncertainty
 
-
-# def find_change_points(self):
-
-
-# print('Start')
-# h5_file = H5()
-# particles = h5_file.particles
-# tau = TauData()
-# for part_name, part in particles.items():
-# 	print(part_name+': '+part.meta.user)
-
-file = smsh5.H5dataset('LHCII_630nW.h5')
-file.particles[0].cpa = ChangePoints(file.particles[0], )
-# # cpts_analysis.__next_seg_ind__()
-# inds = (3025, 4026)
-# print(cpts_analysis.__next_seg_ind__(inds))
-# cpts_analysis.cpts = [3333]
-# inds = (3025, 4026)
-# print(cpts_analysis.__next_seg_ind__(inds))
-# inds = (4025, 5026)
-# print(cpts_analysis.__next_seg_ind__(inds))
-# tau_test = TauData(confidence=0.99)
-file.particles[0].cpa
-pass
-
-# def atoi(text):
-#     return int(text) if text.isdigit() else None
-#
-#
-# def natural_keys(text):
-#     return [int(c) for c in re.split('(\d+)', text) if text.isdigit()]
-#
-#
-# my_list = ['Hello1', 'Hello12', 'Hello29', 'Hello2', 'Hello17', 'Hello25']
-# my_list.sort(key=natural_keys)
-# print(my_list)
-#
-# def atoi(text):
-#     return int(text) if text.isdigit() else None
-# def natural_keys(text):
-#     return [ atoi(c) for c in re.split('(\d+)',text) ]
-# my_list =['Hello1', 'Hello12', 'Hello29', 'Hello2', 'Hello17', 'Hello25']
-# my_list.sort(key=natural_keys)
-# print(my_list)
-#
+###### Natural Key Sorting ########
 # natural_keys = []
 # for name in my_list:
 #     for seg in re.split('(\d+)', name):

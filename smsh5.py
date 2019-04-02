@@ -7,6 +7,7 @@ University of Pretoria
 import h5py
 import numpy as np
 from matplotlib import pyplot as plt
+from change_point import ChangePoints
 
 
 class H5dataset:
@@ -51,6 +52,11 @@ class Particle:
         self.datadict = self.dataset.file[self.name]
         self.microtimes = self.datadict['Micro Times (s)']
         self.abstimes = self.datadict['Absolute Times (ns)']
+        self.num_photons = len(self.abstimes)
+        self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
+        self.has_levels = False
+        self.levels = None
+        self.num_levels = None
 
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
@@ -74,6 +80,16 @@ class Particle:
         self.bg = False
         self.histogram = None
         self.binnedtrace = None
+
+    def get_levels(self):
+        assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
+        self.add_levels(self.cpts.get_levels())
+
+    def add_levels(self, levels=None, num_levels=None):
+        assert levels is not None and num_levels is not None, "Particle:\tBoth arguments need to be non-None to add level."
+        self.levels = levels
+        self.num_levels = num_levels
+        self.has_levels = True
 
     def makehistogram(self):
         """Put the arrival times into a histogram"""
@@ -154,8 +170,9 @@ class Spectra:
         self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
 
 
-class Levels:
-
-    def __init__(self):
-
-        pass  # Change points code called here?
+# Level class has been defined in change_point.py
+# class Levels:
+#
+#     def __init__(self):
+#
+#         pass  # Change points code called here?
