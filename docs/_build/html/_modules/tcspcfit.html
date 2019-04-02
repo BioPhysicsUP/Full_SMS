@@ -1,0 +1,589 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>tcspcfit &#8212; UP Biophysics SMS Analysis 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for tcspcfit</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Module for fitting TCSPC data.</span>
+
+<span class="sd">The function distfluofit is based on MATLAB code by Jörg Enderlein:</span>
+<span class="sd">https://www.uni-goettingen.de/en/513325.html</span>
+
+<span class="sd">Bertus van Heerden</span>
+<span class="sd">University of Pretoria</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.fftpack</span> <span class="k">import</span> <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span>
+<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="k">import</span> <span class="n">curve_fit</span><span class="p">,</span> <span class="n">nnls</span>
+<span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="k">import</span> <span class="n">convolve</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="k">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+
+<div class="viewcode-block" id="makerow"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.makerow">[docs]</a><span class="k">def</span> <span class="nf">makerow</span><span class="p">(</span><span class="n">vector</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Reshape 1D vector into a 2D row&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">vector</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span></div>
+
+
+<span class="c1"># TODO: simplify this as it is only used by distfluofit()</span>
+<div class="viewcode-block" id="convol"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.convol">[docs]</a><span class="k">def</span> <span class="nf">convol</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">decay</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Performs a convolution of irf with decay.</span>
+
+<span class="sd">    Periodicity (period = size(decay)) is assumed.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">    irf -- row vector or 1D</span>
+<span class="sd">    decay -- 1D or array with irf_data in rows</span>
+
+<span class="sd">    Output</span>
+<span class="sd">    y -- convolution of irf with each row of decay.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Make sure irf (and decay if 1D) are row vectors:</span>
+    <span class="n">irf</span> <span class="o">=</span> <span class="n">makerow</span><span class="p">(</span><span class="n">irf</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">decay</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">irf</span> <span class="o">=</span> <span class="n">makerow</span><span class="p">(</span><span class="n">decay</span><span class="p">)</span>
+
+    <span class="c1"># Make irf the same length as decay:</span>
+    <span class="n">mm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">irf</span><span class="p">[</span><span class="o">-</span><span class="mi">11</span><span class="p">:])</span>
+    <span class="n">decaylength</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">decay</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">irflength</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">decaylength</span> <span class="o">&gt;</span> <span class="n">irflength</span><span class="p">:</span>
+        <span class="n">irf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">mm</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">decaylength</span> <span class="o">-</span> <span class="n">irflength</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">irf</span> <span class="o">=</span> <span class="n">irf</span><span class="p">[:,</span> <span class="p">:</span><span class="n">decaylength</span><span class="p">]</span>
+
+    <span class="c1"># Duplicate rows of irf so dimensions are the same as decay and convolve:</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float_</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">ifft</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">decay</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="n">fft</span><span class="p">(</span><span class="n">irf</span><span class="p">))</span> <span class="o">*</span> <span class="n">fft</span><span class="p">(</span><span class="n">decay</span><span class="p">))))</span>
+
+    <span class="c1"># t needs to have the same length as irf (irflength) in each case:</span>
+    <span class="k">if</span> <span class="n">irflength</span> <span class="o">&lt;=</span> <span class="n">decaylength</span><span class="p">:</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">irflength</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">decaylength</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">irflength</span> <span class="o">-</span> <span class="n">decaylength</span><span class="p">)))</span>
+
+    <span class="c1"># Either remove from y or add from start to end so that y has same length as irf:</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">take</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="colorshift"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.colorshift">[docs]</a><span class="k">def</span> <span class="nf">colorshift</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">irflength</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Shift irf left or right &#39;periodically&#39;.</span>
+
+<span class="sd">    A shift past the start or end results in those values of irf</span>
+<span class="sd">    &#39;wrapping around&#39;.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">    irf -- row vector or 1D</span>
+<span class="sd">    shift -- float</span>
+<span class="sd">    irflength -- float</span>
+<span class="sd">    t -- 1D vector</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">    irs -- shifted irf, as row vector</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">irflength</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Warning</span><span class="p">(</span><span class="s2">&quot;Don&#39;t input irflength and t&quot;</span><span class="p">)</span>
+    <span class="n">irf</span> <span class="o">=</span> <span class="n">irf</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="n">irflength</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">irf</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">irflength</span><span class="p">)</span>
+    <span class="n">new_index_left</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fmod</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fmod</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">irflength</span><span class="p">)</span> <span class="o">+</span> <span class="n">irflength</span><span class="p">,</span> <span class="n">irflength</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">new_index_right</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fmod</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fmod</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">irflength</span><span class="p">)</span> <span class="o">+</span> <span class="n">irflength</span><span class="p">,</span> <span class="n">irflength</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">integer_left_shift</span> <span class="o">=</span> <span class="n">irf</span><span class="p">[</span><span class="n">new_index_left</span><span class="p">]</span>
+    <span class="n">integer_right_shift</span> <span class="o">=</span> <span class="n">irf</span><span class="p">[</span><span class="n">new_index_right</span><span class="p">]</span>
+    <span class="n">irs</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">shift</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">shift</span><span class="p">))</span> <span class="o">*</span> <span class="n">integer_left_shift</span> <span class="o">+</span> <span class="p">(</span><span class="n">shift</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">shift</span><span class="p">))</span> <span class="o">*</span> <span class="n">integer_right_shift</span>
+    <span class="k">return</span> <span class="n">irs</span></div>
+
+
+<span class="c1"># TODO: Add colourshift estimation to this function (important for actually getting correct lifetimes)</span>
+<div class="viewcode-block" id="distfluofit"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.distfluofit">[docs]</a><span class="k">def</span> <span class="nf">distfluofit</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">period</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">cshift_bounds</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">choose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ntau</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Quickly fit a multiexponential decay to use as &#39;initial guess&#39;</span>
+
+<span class="sd">        The function aims to identify the number of lifetimes in the</span>
+<span class="sd">        measured irf_data, as well as the values of the lifetimes. The result</span>
+<span class="sd">        can be used as an initial guess for fluofit.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">    irf -- Instrumental Response Function measured -- Fluorescence decay irf_data</span>
+<span class="sd">    period -- Time between laser exciation pulses (in nanoseconds)</span>
+<span class="sd">    channelwidth -- Time width of one TCSPC channel (in nanoseconds)</span>
+<span class="sd">    tau -- Initial guess times</span>
+<span class="sd">    taubounds -- limits for the lifetimes guess times - defaults to 0&lt;tau&lt;100</span>
+<span class="sd">                 format: [[tau1_min, tau1_max], [tau2_min, tau2_max], ...]</span>
+<span class="sd">    init -- Whether to use a initial guess routine or not</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">    peak_tau	-- Decay times of the different decay components</span>
+<span class="sd">    TODO: Add all other outputs</span>
+<span class="sd">    c -- Color Shift (time shift of the IRF w.r.t. the fluorescence curve)</span>
+<span class="sd">    offset -- Offset</span>
+<span class="sd">    amplitudes -- Amplitudes of the different decay components</span>
+<span class="sd">    dc -- Color shift error</span>
+<span class="sd">    doffset -- Offset error</span>
+<span class="sd">    dtau -- Decay times error</span>
+<span class="sd">    irs -- IRF, shifted by the value of the colorshift</span>
+<span class="sd">    separated_decays -- Fitted fluorecence component curves</span>
+<span class="sd">    t -- time axis</span>
+<span class="sd">    chisquared -- chi squared value</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">irf</span> <span class="o">=</span> <span class="n">irf</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="n">irflength</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">irf</span><span class="p">)</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="n">channelwidth</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">period</span><span class="o">/</span><span class="n">channelwidth</span><span class="p">)</span>  <span class="c1"># Time index for whole window</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">irflength</span><span class="p">)</span>  <span class="c1"># Time index for IRF</span>
+    <span class="n">nrange</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">ntau</span><span class="p">)</span>
+    <span class="c1"># Distribution of inverse decay times:</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">channelwidth</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">nrange</span> <span class="o">/</span> <span class="n">ntau</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">period</span> <span class="o">/</span> <span class="n">channelwidth</span><span class="p">))</span>
+    <span class="n">decays</span> <span class="o">=</span> <span class="n">convol</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="o">-</span><span class="n">tp</span><span class="p">)))</span>
+    <span class="n">decays</span> <span class="o">=</span> <span class="n">decays</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">decays</span><span class="p">)</span>
+    <span class="n">amplitudes</span><span class="p">,</span> <span class="n">residuals</span> <span class="o">=</span> <span class="n">nnls</span><span class="p">(</span><span class="n">decays</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">measured</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">tau</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">period</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="n">peak_amplitudes</span> <span class="o">=</span> <span class="n">amplitudes</span> <span class="o">&gt;</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span>  <span class="c1"># Pick out peaks</span>
+    <span class="n">peak_amplitudes</span> <span class="o">=</span> <span class="n">peak_amplitudes</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">peak_amplitudes</span><span class="p">))</span>
+
+    <span class="c1"># t1 are the &#39;start points&#39; and t2 are the &#39;end points&#39; of the peaks</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="n">peak_amplitudes</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">&gt;</span> <span class="n">peak_amplitudes</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="n">t</span><span class="p">[</span><span class="n">peak_amplitudes</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">peak_amplitudes</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+    <span class="c1"># Make sure there isn&#39;t a peak at the edge:</span>
+    <span class="k">if</span> <span class="n">t1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">t2</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">t1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">t2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">t2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">t2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">t1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">peak_tau</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+    <span class="c1">#  Calculate weighted average tau for each peak:</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">t1</span><span class="p">)):</span>
+        <span class="n">peak_tau</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">peak_tau</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">[</span><span class="n">t1</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="n">t2</span><span class="p">[</span><span class="n">j</span><span class="p">]],</span>
+                                              <span class="n">tau</span><span class="p">[</span><span class="n">t1</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="n">t2</span><span class="p">[</span><span class="n">j</span><span class="p">]])</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">[</span><span class="n">t1</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="n">t2</span><span class="p">[</span><span class="n">j</span><span class="p">]]))</span>
+
+    <span class="k">return</span> <span class="n">peak_tau</span></div>
+
+
+<div class="viewcode-block" id="FluoFit"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.FluoFit">[docs]</a><span class="k">class</span> <span class="nc">FluoFit</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Base class for fit of a multi-exponential decay curve.</span>
+
+<span class="sd">    This class is only used for subclassing.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    irf : ndarray</span>
+<span class="sd">        Instrumental Response Function</span>
+<span class="sd">    measured : ndarray</span>
+<span class="sd">        The measured decay data</span>
+<span class="sd">    channelwidth : float</span>
+<span class="sd">        Time width of one TCSPC channel (in nanoseconds)</span>
+<span class="sd">    tau : array_like, optional</span>
+<span class="sd">        Initial guess times (in ns). This is either in the format</span>
+<span class="sd">        [tau1, tau2, ...] or [[tau1, min1, max1, fix1], [tau2, ...], ...].</span>
+<span class="sd">        When the &quot;fix&quot; value is False, the min and max values are ignored.</span>
+<span class="sd">    amp : array_like, optional</span>
+<span class="sd">        Initial guess amplitude. Format [amp1, amp2, ...] or [[amp1, fix1],</span>
+<span class="sd">        [amp2, fix2], ...]</span>
+<span class="sd">    shift : array_like, optional</span>
+<span class="sd">        Initial guess IRF shift. Either a float, or [shift, min, max, fix].</span>
+<span class="sd">    bg : float</span>
+<span class="sd">        Background value for decay. Will be estimated if not given.</span>
+<span class="sd">    irfbg : float</span>
+<span class="sd">        Background value for IRF. Will be estimated if not given.</span>
+<span class="sd">    startpoint : int</span>
+<span class="sd">        Start of fitting range - will default to channel of decay max or</span>
+<span class="sd">        IRF max, whichever is least.</span>
+<span class="sd">    endpoint : int</span>
+<span class="sd">        End of fitting range - will default to the channel of the</span>
+<span class="sd">        fluorescence decay that is either around 10 times higher than the</span>
+<span class="sd">        background level or equivalent to 0.1% of the counts in the peak</span>
+<span class="sd">        channel, whichever is greater.</span>
+<span class="sd">    init : bool  # TODO: add this functionality</span>
+<span class="sd">        Whether to use an initial guess routine or not.</span>
+<span class="sd">    ploton : bool</span>
+<span class="sd">        Whether to automatically plot the irf_data</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">startpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">channelwidth</span> <span class="o">=</span> <span class="n">channelwidth</span>
+        <span class="c1"># self.init = init</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ploton</span> <span class="o">=</span> <span class="n">ploton</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="o">=</span> <span class="n">t</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">taumin</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amp</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shift</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setup_params</span><span class="p">(</span><span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">tau</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">bg</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">irfbg</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calculate_bg</span><span class="p">(</span><span class="n">bg</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">irfbg</span><span class="p">,</span> <span class="n">measured</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">irf</span> <span class="o">=</span> <span class="n">irf</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">irfbg</span>
+        <span class="c1"># self.irf = self.irf / np.sum(self.irf)  # Normalize IRF</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">irf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">irf</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">irf</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>  <span class="c1"># Normalize IRF</span>
+
+        <span class="n">measured</span> <span class="o">=</span> <span class="n">measured</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">bg</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calculate_boundaries</span><span class="p">(</span><span class="n">endpoint</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">startpoint</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">meas_max</span> <span class="o">=</span> <span class="n">measured</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">measured</span> <span class="o">=</span> <span class="n">measured</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">meas_max</span>  <span class="c1"># Normalize measured</span>
+        <span class="c1"># measured = measured / measured.max()  # Normalize measured</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">measured</span> <span class="o">=</span> <span class="n">measured</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtau</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chisq</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residuals</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">calculate_boundaries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">startpoint</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">startpoint</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">irf</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span> <span class="o">=</span> <span class="n">startpoint</span>
+        <span class="k">if</span> <span class="n">endpoint</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">great_than_bg</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">measured</span> <span class="o">&gt;</span> <span class="mi">10</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">bg</span><span class="p">)</span>
+            <span class="n">hundredth_of_peak</span><span class="p">,</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">measured</span> <span class="o">&gt;</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="n">measured</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+            <span class="n">max1</span> <span class="o">=</span> <span class="n">great_than_bg</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="n">max2</span> <span class="o">=</span> <span class="n">hundredth_of_peak</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">max1</span><span class="p">,</span> <span class="n">max2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span> <span class="o">=</span> <span class="n">endpoint</span>
+
+    <span class="k">def</span> <span class="nf">calculate_bg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bg</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">irfbg</span><span class="p">,</span> <span class="n">measured</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">irfbg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Estimate background for IRF using average value up to start of the rise</span>
+            <span class="n">maxind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">irf</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">maxind</span><span class="p">):</span>
+                <span class="n">reverse</span> <span class="o">=</span> <span class="n">maxind</span> <span class="o">-</span> <span class="n">i</span>
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="n">irf</span><span class="p">[</span><span class="n">reverse</span><span class="p">])</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">irf</span><span class="p">[:</span><span class="mi">20</span><span class="p">])):</span>
+                    <span class="n">bglim</span> <span class="o">=</span> <span class="n">reverse</span>
+                    <span class="k">break</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">irfbg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">irf</span><span class="p">[:</span><span class="n">bglim</span><span class="p">])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">irfbg</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">irfbg</span> <span class="o">=</span> <span class="n">irfbg</span>
+        <span class="k">if</span> <span class="n">bg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Estimate background for decay in the same way</span>
+            <span class="n">maxind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">measured</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">maxind</span><span class="p">):</span>
+                <span class="n">reverse</span> <span class="o">=</span> <span class="n">maxind</span> <span class="o">-</span> <span class="n">i</span>
+                <span class="k">if</span> <span class="n">measured</span><span class="p">[</span><span class="n">reverse</span><span class="p">]</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">measured</span><span class="p">[:</span><span class="mi">20</span><span class="p">])):</span>
+                    <span class="n">bglim</span> <span class="o">=</span> <span class="n">reverse</span>
+                    <span class="k">break</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">bg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">measured</span><span class="p">[:</span><span class="n">bglim</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bg</span> <span class="o">=</span> <span class="n">bg</span>
+
+    <span class="k">def</span> <span class="nf">setup_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">tauval</span> <span class="ow">in</span> <span class="n">tau</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">tau</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tauval</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">tauval</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>  <span class="c1"># If tau is fixed</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">taumin</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tauval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.0001</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tauval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">taumin</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tauval</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tauval</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+                <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># If tauval is not a list - i.e. no bounds given</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">tau</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tauval</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">taumin</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># If tau is not a list - i.e. only one lifetime</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">=</span> <span class="n">tau</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">taumin</span> <span class="o">=</span> <span class="mf">0.01</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span> <span class="o">=</span> <span class="mi">100</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ampval</span> <span class="ow">in</span> <span class="n">amp</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">amp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">tauval</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>  <span class="c1"># If amp is fixed</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.0001</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+                <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># If ampval is not a list - i.e. no bounds given</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">amp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># If amp is not a list - i.e. only one lifetime</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">amp</span> <span class="o">=</span> <span class="n">amp</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span> <span class="o">=</span> <span class="mi">100</span>
+        <span class="k">if</span> <span class="n">shift</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">shift</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shift</span> <span class="o">=</span> <span class="n">shift</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">shift</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span> <span class="o">=</span> <span class="n">shift</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.0001</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span> <span class="o">=</span> <span class="n">shift</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span> <span class="o">=</span> <span class="n">shift</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span> <span class="o">=</span> <span class="n">shift</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># If shiftval is not a list</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shift</span> <span class="o">=</span> <span class="n">shift</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span> <span class="o">=</span> <span class="o">-</span><span class="mi">100</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span> <span class="o">=</span> <span class="mi">300</span>
+
+    <span class="k">def</span> <span class="nf">results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">=</span> <span class="n">tau</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtau</span> <span class="o">=</span> <span class="n">dtau</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">amp</span> <span class="o">=</span> <span class="n">amp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shift</span> <span class="o">=</span> <span class="n">shift</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">channelwidth</span>
+
+        <span class="n">residuals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span>
+        <span class="n">residuals</span> <span class="o">=</span> <span class="n">residuals</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="p">))</span>
+        <span class="n">residualsnotinf</span> <span class="o">=</span> <span class="n">residuals</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+        <span class="n">residuals</span> <span class="o">=</span> <span class="n">residuals</span><span class="p">[</span><span class="n">residualsnotinf</span><span class="p">]</span>  <span class="c1"># For some reason this is the only way i could find that works</span>
+        <span class="n">chisquared</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">residuals</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="p">)</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">chisquared</span> <span class="o">=</span> <span class="n">chisquared</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">meas_max</span>  <span class="c1"># This is necessary because of normalisation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chisq</span> <span class="o">=</span> <span class="n">chisquared</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">residuals</span> <span class="o">=</span> <span class="n">residuals</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ploton</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">sharex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+            <span class="c1"># ax1.set_ylim([self.measured.min() * 1000, self.measured.max() * 2])</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">convd</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;C3&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="c1"># ax1.plot(self.irf[self.startpoint:self.endpoint])</span>
+            <span class="c1"># ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])</span>
+            <span class="n">textx</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">channelwidth</span> <span class="o">*</span> <span class="mf">1.4</span>
+            <span class="n">texty</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ax1</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">textx</span><span class="p">,</span> <span class="n">texty</span><span class="p">,</span> <span class="s1">&#39;Tau = &#39;</span> <span class="o">+</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{:#.3g}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">F</span><span class="p">)</span> <span class="k">for</span> <span class="n">F</span> <span class="ow">in</span> <span class="n">tau</span><span class="p">))</span>
+                <span class="n">ax1</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">textx</span><span class="p">,</span> <span class="n">texty</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;Amp = &#39;</span> <span class="o">+</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{:#.3g}</span><span class="s1"> &#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">F</span><span class="p">)</span> <span class="k">for</span> <span class="n">F</span> <span class="ow">in</span> <span class="n">amp</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># only one component</span>
+                <span class="n">ax1</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">textx</span><span class="p">,</span> <span class="n">texty</span><span class="p">,</span> <span class="s1">&#39;Tau = </span><span class="si">{:#.3g}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">tau</span><span class="p">))</span>
+                <span class="c1"># ax1.text(textx, texty / 2, &#39;Amp = {:#.3g}\% &#39;.format(amp))</span>
+                <span class="c1"># ax1.text(textx, texty / 2, &#39;Tau err = %s&#39; % dtau)</span>
+            <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">[</span><span class="n">residualsnotinf</span><span class="p">],</span> <span class="n">residuals</span><span class="p">,</span> <span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">residuals</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+            <span class="n">ax2</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">textx</span><span class="p">,</span> <span class="n">residuals</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">/</span> <span class="mf">1.1</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;$\chi ^2 = $ </span><span class="si">{:3.4f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">chisquared</span><span class="p">))</span>
+            <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Time (ns)&#39;</span><span class="p">)</span>
+            <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Weighted residual&#39;</span><span class="p">)</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Number of photons in channel&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">makeconvd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+
+        <span class="n">irf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">irf</span>
+        <span class="n">irf</span> <span class="o">=</span> <span class="n">colorshift</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">shift</span><span class="p">)</span>
+        <span class="n">convd</span> <span class="o">=</span> <span class="n">convolve</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+        <span class="n">convd</span> <span class="o">=</span> <span class="n">convd</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">convd</span></div>
+
+
+<div class="viewcode-block" id="OneExp"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.OneExp">[docs]</a><span class="k">class</span> <span class="nc">OneExp</span><span class="p">(</span><span class="n">FluoFit</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;&quot;Single exponential fit. Takes exact same arguments as Fluofit&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">startpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">tau</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tau</span> <span class="o">=</span> <span class="mi">5</span>
+        <span class="k">if</span> <span class="n">amp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">amp</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">FluoFit</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">bg</span><span class="p">,</span> <span class="n">irfbg</span><span class="p">,</span> <span class="n">startpoint</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">ploton</span><span class="p">)</span>
+
+        <span class="n">paramin</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">taumin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span><span class="p">]</span>
+        <span class="n">paramax</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">taumax</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span><span class="p">]</span>
+        <span class="n">paraminit</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">tau</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">amp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shift</span><span class="p">]</span>
+        <span class="n">param</span><span class="p">,</span> <span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">paramin</span><span class="p">,</span> <span class="n">paramax</span><span class="p">),</span> <span class="n">p0</span><span class="o">=</span><span class="n">paraminit</span><span class="p">)</span>
+
+        <span class="n">tau</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">amp</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">shift</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">dtau</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">pcov</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+
+        <span class="n">model</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span><span class="o">/</span><span class="n">tau1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TwoExp"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.TwoExp">[docs]</a><span class="k">class</span> <span class="nc">TwoExp</span><span class="p">(</span><span class="n">FluoFit</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;&quot;Double exponential fit. Takes exact same arguments as Fluofit&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">startpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">tau</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tau</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">amp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">amp</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">FluoFit</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">bg</span><span class="p">,</span> <span class="n">irfbg</span><span class="p">,</span> <span class="n">startpoint</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">ploton</span><span class="p">)</span>
+
+        <span class="n">paramin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">taumin</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span><span class="p">]</span>
+        <span class="n">paramax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span><span class="p">]</span>
+        <span class="n">paraminit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">amp</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shift</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">paramax</span><span class="p">,</span> <span class="n">paraminit</span><span class="p">)</span>
+        <span class="n">param</span><span class="p">,</span> <span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="p">,</span>
+                                <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">paramin</span><span class="p">,</span> <span class="n">paramax</span><span class="p">),</span> <span class="n">p0</span><span class="o">=</span><span class="n">paraminit</span><span class="p">,</span> <span class="n">ftol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">,</span> <span class="n">gtol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">,</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">)</span>
+
+        <span class="n">tau</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">amp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">param</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+        <span class="n">shift</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>
+        <span class="n">dtau</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">pcov</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="n">tau</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tau</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">shift</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">amp</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">tau2</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+
+        <span class="n">model</span> <span class="o">=</span> <span class="n">a1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau1</span><span class="p">)</span> <span class="o">+</span> <span class="n">a2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ThreeExp"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.ThreeExp">[docs]</a><span class="k">class</span> <span class="nc">ThreeExp</span><span class="p">(</span><span class="n">FluoFit</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;&quot;Triple exponential fit. Takes exact same arguments as Fluofit&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">startpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">tau</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tau</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">amp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">amp</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">FluoFit</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">bg</span><span class="p">,</span> <span class="n">irfbg</span><span class="p">,</span> <span class="n">startpoint</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">ploton</span><span class="p">)</span>
+
+        <span class="n">paramin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">taumin</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span><span class="p">]</span>
+        <span class="n">paramax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span><span class="p">]</span>
+        <span class="n">paraminit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">amp</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shift</span><span class="p">]</span>
+        <span class="n">param</span><span class="p">,</span> <span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="p">,</span>
+                                <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">paramin</span><span class="p">,</span> <span class="n">paramax</span><span class="p">),</span> <span class="n">p0</span><span class="o">=</span><span class="n">paraminit</span><span class="p">,</span> <span class="n">ftol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">,</span> <span class="n">gtol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">,</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">)</span>
+
+        <span class="n">tau</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+        <span class="n">amp</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">6</span><span class="p">]</span>
+        <span class="n">shift</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span>
+        <span class="n">dtau</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">pcov</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="n">tau</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tau</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">tau</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">shift</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">amp</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">tau2</span><span class="p">,</span> <span class="n">tau3</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">a3</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+
+        <span class="n">model</span> <span class="o">=</span> <span class="n">a1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau1</span><span class="p">)</span> <span class="o">+</span> <span class="n">a2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau2</span><span class="p">)</span> <span class="o">+</span> <span class="n">a3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau3</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
+
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">UP Biophysics SMS Analysis</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Bertus van Heerden, Joshua Botha.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
