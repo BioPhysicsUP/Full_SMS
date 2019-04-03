@@ -149,6 +149,13 @@ class MainWindow(QMainWindow):
         # Connect the tree selection to data display
         self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
+        self.statusBar().showMessage('Load File')
+        self.progress = QProgressBar(self)
+        self.progress.setMinimumSize(170, 19)
+        self.progress.setVisible(False)
+        self.progress.setValue(0)  # Range of values is from 0 to 100
+        self.statusBar().addPermanentWidget(self.progress)
+
     def get_bin(self):
         """Returns current GUI value for bin size in ms."""
         return self.ui.spbBinSize.value()
@@ -164,6 +171,7 @@ class MainWindow(QMainWindow):
             print('Error Occured:' + str(err))
         else:
             self.plot_trace()
+            self.repaint()
 
     def gui_apply_bin_all(self):
         try:
@@ -172,6 +180,7 @@ class MainWindow(QMainWindow):
             print('Error Occured:' + str(err))
         else:
             self.plot_trace()
+            self.repaint()
 
     def gui_resolve(self):
         print("gui_resolve")
@@ -206,17 +215,32 @@ class MainWindow(QMainWindow):
 
     def act_open_h5(self):
         fname = QFileDialog.getOpenFileName(main_window, 'Open HDF5 file', '', "HDF5 files (*.h5)")
-        dataset = smsh5.H5dataset(fname[0])
-        dataset.binints(100)
-        dataset.makehistograms()
+        if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
+            self.statusBar().showMessage("...binning traces, building histograms and preparing spectra...")
+            # self.statusBar().show()
 
-        datasetnode = DatasetTreeNode(fname[0], dataset, 'dataset')
-        datasetindex = self.treemodel.addChild(datasetnode)
-        print(datasetindex)
+            # self.progress.setValue(0)
+            # self.progress.setVisible(True)
+            #
+            # self.progress.setValue(100 * num / total)
+            # self.progress.repaint()
+            #
+            # self.progress.setValue(0)
+            # self.progress.setVisible(False)
 
-        for particle in dataset.particles:
-            particlenode = DatasetTreeNode(particle.name, particle, 'particle')
-            self.treemodel.addChild(particlenode, datasetindex)
+            dataset = smsh5.H5dataset(fname[0])
+            dataset.binints(100)
+            self.ui.spbBinSize.setValue(100)
+            dataset.makehistograms()
+
+            datasetnode = DatasetTreeNode(fname[0][fname[0].rfind('/')+1:-3], dataset, 'dataset')
+            datasetindex = self.treemodel.addChild(datasetnode)
+            print(datasetindex)
+
+            total = len(dataset.particles)
+            for particle in dataset.particles:
+                particlenode = DatasetTreeNode(particle.name, particle, 'particle')
+                self.treemodel.addChild(particlenode, datasetindex)
 
     def act_open_pt3(self):
         print("act_open_pt3")

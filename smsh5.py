@@ -8,6 +8,7 @@ import h5py
 import numpy as np
 from matplotlib import pyplot as plt
 from change_point import ChangePoints
+import re
 
 
 class H5dataset:
@@ -20,8 +21,19 @@ class H5dataset:
             self.version = self.file.attrs['Version']
         except KeyError:
             self.version = '0.1'
+
+        unsorted_names = list(self.file.keys())
+        natural_p_names = [None] * len(unsorted_names)
+        natural_key = []
+        for name in unsorted_names:
+            for seg in re.split('(\d+)', name):
+                if seg.isdigit():
+                    natural_key.append(int(seg))
+        for num, key_num in enumerate(natural_key):
+            natural_p_names[key_num-1] = unsorted_names[num]
+
         self.particles = []
-        for particlename in self.file.keys():
+        for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
         self.numpart = len(self.particles)
         assert self.numpart == self.file.attrs['# Particles']

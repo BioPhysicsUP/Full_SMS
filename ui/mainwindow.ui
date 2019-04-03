@@ -82,6 +82,12 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="minimumSize">
+           <size>
+            <width>150</width>
+            <height>0</height>
+           </size>
+          </property>
          </widget>
         </item>
        </layout>
@@ -893,7 +899,7 @@
      <x>0</x>
      <y>0</y>
      <width>993</width>
-     <height>24</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
