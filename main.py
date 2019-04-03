@@ -101,7 +101,7 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.fitparam = FittingDialog(self)
+        self.fitparamdialog = FittingDialog(self)
         # print(self.MW_Intensity.figure.get_dpi())
 
         self.setWindowTitle("Full SMS")
@@ -201,39 +201,14 @@ class MainWindow(QMainWindow):
         print("gui_load_irf")
 
     def gui_fit_param(self):
-        if self.fitparam.exec():
-            fp = self.fitparam
-            if int(fp.combNumExp.currentText()) == 1:
-                self.tauparam = [int(fp.line1Init.text()), fp.line1Min, fp.line1Max, fp.check1Fix]
-                self.ampparam = [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]
-
-            elif fp.combNumExp == 2:
-                self.tauparam = [[fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix],
-                            [fp.line2Init, fp.line2Min, fp.line2Max, fp.check2Fix]]
-                self.ampparam = [[fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix],
-                            [fp.line2AmpInit, fp.line2AmpMin, fp.line2AmpMax, fp.check2AmpFix]]
-
-            elif fp.combNumExp == 3:
-                self.tauparam = [[fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix],
-                            [fp.line2Init, fp.line2Min, fp.line2Max, fp.check2Fix],
-                            [fp.line3Init, fp.line3Min, fp.line3Max, fp.check3Fix]]
-                self.ampparam = [[fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix],
-                            [fp.line2AmpInit, fp.line2AmpMin, fp.line2AmpMax, fp.check2AmpFix],
-                            [fp.line3AmpInit, fp.line3AmpMin, fp.line3AmpMax, fp.check3AmpFix]]
-
-            self.shift = fp.lineShift
-            self.decaybg = fp.lineDecayBG
-            self.irfbg = fp.lineIRFBG
-            self.start = fp.lineStartTime
-            self.end = fp.lineEndTime
-
-            self.addopt = fp.lineAddOpt
+        if self.fitparamdialog.exec():
+            self.fitparam = FittingParameters(self)
 
     def gui_fit_current(self):
-
         try:
-            self.currentparticle.histogram.fit(self.tauparam, self.ampparam, self.shift, self.decaybg, self.irfbg,
-                                               self.start, self.end, self.addopt)
+            self.currentparticle.histogram.fit(self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
+                                               self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
+                                               self.fitparam.end, self.fitparam.addopt)
         except AttributeError:
             raise
             print("No decay")
@@ -298,6 +273,44 @@ class FittingDialog(QDialog, Ui_Dialog):
     def __init__(self, parent):
         QDialog.__init__(self, parent)
         self.setupUi(self)
+
+
+class FittingParameters:
+    def __init__(self, parent):
+        self.parent = parent
+        fp = self.parent.fitparamdialog
+
+        if int(fp.combNumExp.currentText()) == 1:
+            self.tau = [self.get_from_gui(i) for i in [fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix]]
+            self.amp = [self.get_from_gui(i) for i in [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]]
+
+        elif fp.combNumExp == 2:
+            self.tau = [[self.get_from_gui(i) for i in [fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix]],
+                        [self.get_from_gui(i) for i in [fp.line2Init, fp.line2Min, fp.line2Max, fp.check2Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]],
+                        [self.get_from_gui(i) for i in [fp.line2AmpInit, fp.line2AmpMin, fp.line2AmpMax, fp.check2AmpFix]]]
+
+        elif fp.combNumExp == 3:
+            self.tau = [[self.get_from_gui(i) for i in [fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix]],
+                        [self.get_from_gui(i) for i in [fp.line2Init, fp.line2Min, fp.line2Max, fp.check2Fix]],
+                        [self.get_from_gui(i) for i in [fp.line3Init, fp.line3Min, fp.line3Max, fp.check3Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]],
+                        [self.get_from_gui(i) for i in [fp.line2AmpInit, fp.line2AmpMin, fp.line2AmpMax, fp.check2AmpFix]],
+                        [self.get_from_gui(i) for i in [fp.line3AmpInit, fp.line3AmpMin, fp.line3AmpMax, fp.check3AmpFix]]]
+
+        self.shift = self.get_from_gui(fp.lineShift)
+        self.decaybg = self.get_from_gui(fp.lineDecayBG)
+        self.irfbg = self.get_from_gui(fp.lineIRFBG)
+        self.start = self.get_from_gui(fp.lineStartTime)
+        self.end = self.get_from_gui(fp.lineEndTime)
+
+        self.addopt = self.get_from_gui(fp.lineAddOpt)
+        
+    def get_from_gui(self, guiobj):
+        if type(guiobj) == QLineEdit:
+            return float(guiobj.text())
+        elif type(guiobj) == QCheckBox:
+            return float(guiobj.isChecked())
 
 
 class DatasetTreeNode():
