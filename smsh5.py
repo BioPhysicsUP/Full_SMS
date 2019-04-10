@@ -6,6 +6,7 @@ University of Pretoria
 """
 import h5py
 import numpy as np
+import tcspcfit
 from matplotlib import pyplot as plt
 
 
@@ -55,7 +56,7 @@ class Particle:
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
         self.description = self.datadict.attrs['Discription']
-        # self.irf = irf
+        self.irf = None
         if channelwidth is None:
             differences = np.diff(np.sort(self.microtimes[:]))
             channelwidth = np.unique(differences)[1]
@@ -131,8 +132,11 @@ class Histogram:
         self.decay, self.t = np.histogram(self.particle.microtimes[:], bins=t)
         self.t = self.t[:-1]  # Remove last value so the arrays are the same size
 
-    def fit(self, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt):
-        print(tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt)
+    def fit(self, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
+        print(tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf)
+
+        tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
+                        irfbg, start, end)
 
 
 class RasterScan:

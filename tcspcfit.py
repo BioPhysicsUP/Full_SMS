@@ -400,9 +400,12 @@ class OneExp(FluoFit):
             amp = 1
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton)
 
-        paramin = [self.taumin, self.ampmin, self.shiftmin]
-        paramax = [self.taumax, self.ampmax, self.shiftmax]
-        paraminit = [self.tau, self.amp, self.shift]
+        paramin = [self.taumin[0], self.ampmin, self.shiftmin]
+        paramax = [self.taumax[0], self.ampmax, self.shiftmax]
+        paraminit = [self.tau[0], self.amp, self.shift]
+        print(paramin)
+        print(paramax)
+        print(paraminit)
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
 
         tau = param[0]

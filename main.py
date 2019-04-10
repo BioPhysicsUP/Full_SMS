@@ -159,6 +159,7 @@ class MainWindow(QMainWindow):
         self.start = None
         self.end = None
         self.addopt = None
+        self.fitparam = FittingParameters(self)
 
     def get_bin(self):
         """Returns current GUI value for bin size in ms."""
@@ -198,17 +199,18 @@ class MainWindow(QMainWindow):
         print("gui_next_lev")
 
     def gui_load_irf(self):
-        print("gui_load_irf")
+        dataset, fname = self.open_h5_dataset()
+        self.fitparam.irf = dataset.particles[0].histogram.decay
 
     def gui_fit_param(self):
         if self.fitparamdialog.exec():
-            self.fitparam = FittingParameters(self)
+            self.fitparam.getfromdialog()
 
     def gui_fit_current(self):
         try:
             self.currentparticle.histogram.fit(self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
                                                self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
-                                               self.fitparam.end, self.fitparam.addopt)
+                                               self.fitparam.end, self.fitparam.addopt, self.fitparam.irf)
         except AttributeError:
             raise
             print("No decay")
@@ -223,10 +225,7 @@ class MainWindow(QMainWindow):
         print("gui_sub_bkg")
 
     def act_open_h5(self):
-        fname = QFileDialog.getOpenFileName(main_window, 'Open HDF5 file', '', "HDF5 files (*.h5)")
-        dataset = smsh5.H5dataset(fname[0])
-        dataset.binints(100)
-        dataset.makehistograms()
+        dataset, fname = self.open_h5_dataset()
 
         datasetnode = DatasetTreeNode(fname[0], dataset, 'dataset')
         datasetindex = self.treemodel.addChild(datasetnode)
@@ -235,6 +234,18 @@ class MainWindow(QMainWindow):
         for particle in dataset.particles:
             particlenode = DatasetTreeNode(particle.name, particle, 'particle')
             self.treemodel.addChild(particlenode, datasetindex)
+
+    @staticmethod
+    def open_h5_dataset():
+        fname = QFileDialog.getOpenFileName(main_window, 'Open HDF5 file', '', "HDF5 files (*.h5)")
+        try:
+            dataset = smsh5.H5dataset(fname[0])
+        except ValueError:
+            dataset = None
+        else:
+            dataset.binints(100)
+            dataset.makehistograms()
+        return dataset, fname
 
     def act_open_pt3(self):
         print("act_open_pt3")
@@ -246,7 +257,7 @@ class MainWindow(QMainWindow):
         self.currentparticle = self.treemodel.data(current, Qt.UserRole)
         self.plot_trace()
         self.plot_decay()
-
+        
     def plot_decay(self):
         try:
             decay = self.currentparticle.histogram.decay
@@ -278,37 +289,43 @@ class FittingDialog(QDialog, Ui_Dialog):
 class FittingParameters:
     def __init__(self, parent):
         self.parent = parent
-        fp = self.parent.fitparamdialog
+        self.fp = self.parent.fitparamdialog
 
-        if int(fp.combNumExp.currentText()) == 1:
-            self.tau = [self.get_from_gui(i) for i in [fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix]]
-            self.amp = [self.get_from_gui(i) for i in [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]]
+        self.irf = None
 
-        elif fp.combNumExp == 2:
-            self.tau = [[self.get_from_gui(i) for i in [fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix]],
-                        [self.get_from_gui(i) for i in [fp.line2Init, fp.line2Min, fp.line2Max, fp.check2Fix]]]
-            self.amp = [[self.get_from_gui(i) for i in [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]],
-                        [self.get_from_gui(i) for i in [fp.line2AmpInit, fp.line2AmpMin, fp.line2AmpMax, fp.check2AmpFix]]]
+    def getfromdialog(self):
+        if int(self.fp.combNumExp.currentText()) == 1:
+            self.tau = [[self.get_from_gui(i) for i in [self.fp.line1Init, self.fp.line1Min, self.fp.line1Max, self.fp.check1Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fp.line1AmpInit, self.fp.line1AmpMin, self.fp.line1AmpMax, self.fp.check1AmpFix]]]
 
-        elif fp.combNumExp == 3:
-            self.tau = [[self.get_from_gui(i) for i in [fp.line1Init, fp.line1Min, fp.line1Max, fp.check1Fix]],
-                        [self.get_from_gui(i) for i in [fp.line2Init, fp.line2Min, fp.line2Max, fp.check2Fix]],
-                        [self.get_from_gui(i) for i in [fp.line3Init, fp.line3Min, fp.line3Max, fp.check3Fix]]]
-            self.amp = [[self.get_from_gui(i) for i in [fp.line1AmpInit, fp.line1AmpMin, fp.line1AmpMax, fp.check1AmpFix]],
-                        [self.get_from_gui(i) for i in [fp.line2AmpInit, fp.line2AmpMin, fp.line2AmpMax, fp.check2AmpFix]],
-                        [self.get_from_gui(i) for i in [fp.line3AmpInit, fp.line3AmpMin, fp.line3AmpMax, fp.check3AmpFix]]]
+        elif self.fp.combNumExp == 2:
+            self.tau = [[self.get_from_gui(i) for i in [self.fp.line1Init, self.fp.line1Min, self.fp.line1Max, self.fp.check1Fix]],
+                        [self.get_from_gui(i) for i in [self.fp.line2Init, self.fp.line2Min, self.fp.line2Max, self.fp.check2Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fp.line1AmpInit, self.fp.line1AmpMin, self.fp.line1AmpMax, self.fp.check1AmpFix]],
+                        [self.get_from_gui(i) for i in [self.fp.line2AmpInit, self.fp.line2AmpMin, self.fp.line2AmpMax, self.fp.check2AmpFix]]]
 
-        self.shift = self.get_from_gui(fp.lineShift)
-        self.decaybg = self.get_from_gui(fp.lineDecayBG)
-        self.irfbg = self.get_from_gui(fp.lineIRFBG)
-        self.start = self.get_from_gui(fp.lineStartTime)
-        self.end = self.get_from_gui(fp.lineEndTime)
+        elif self.fp.combNumExp == 3:
+            self.tau = [[self.get_from_gui(i) for i in [self.fp.line1Init, self.fp.line1Min, self.fp.line1Max, self.fp.check1Fix]],
+                        [self.get_from_gui(i) for i in [self.fp.line2Init, self.fp.line2Min, self.fp.line2Max, self.fp.check2Fix]],
+                        [self.get_from_gui(i) for i in [self.fp.line3Init, self.fp.line3Min, self.fp.line3Max, self.fp.check3Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fp.line1AmpInit, self.fp.line1AmpMin, self.fp.line1AmpMax, self.fp.check1AmpFix]],
+                        [self.get_from_gui(i) for i in [self.fp.line2AmpInit, self.fp.line2AmpMin, self.fp.line2AmpMax, self.fp.check2AmpFix]],
+                        [self.get_from_gui(i) for i in [self.fp.line3AmpInit, self.fp.line3AmpMin, self.fp.line3AmpMax, self.fp.check3AmpFix]]]
 
-        self.addopt = self.get_from_gui(fp.lineAddOpt)
+        self.shift = self.get_from_gui(self.fp.lineShift)
+        self.decaybg = self.get_from_gui(self.fp.lineDecayBG)
+        self.irfbg = self.get_from_gui(self.fp.lineIRFBG)
+        self.start = self.get_from_gui(self.fp.lineStartTime)
+        self.end = self.get_from_gui(self.fp.lineEndTime)
+
+        self.addopt = self.get_from_gui(self.fp.lineAddOpt)
         
     def get_from_gui(self, guiobj):
         if type(guiobj) == QLineEdit:
-            return float(guiobj.text())
+            if guiobj.text() == '':
+                return None
+            else:
+                return float(guiobj.text())
         elif type(guiobj) == QCheckBox:
             return float(guiobj.isChecked())
 
