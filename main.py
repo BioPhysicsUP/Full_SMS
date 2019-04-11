@@ -201,6 +201,8 @@ class MainWindow(QMainWindow):
     def gui_load_irf(self):
         dataset, fname = self.open_h5_dataset()
         self.fitparam.irf = dataset.particles[0].histogram.decay
+        self.fitparam.irft = dataset.particles[0].histogram.t
+        self.plot_irf()
 
     def gui_fit_param(self):
         if self.fitparamdialog.exec():
@@ -208,9 +210,11 @@ class MainWindow(QMainWindow):
 
     def gui_fit_current(self):
         try:
-            self.currentparticle.histogram.fit(self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
-                                               self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
-                                               self.fitparam.end, self.fitparam.addopt, self.fitparam.irf)
+            convd, t = self.currentparticle.histogram.fit(self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
+                                                       self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
+                                                       self.fitparam.end, self.fitparam.addopt, self.fitparam.irf)
+            print(t)
+            self.plot_convd(convd, t)
         except AttributeError:
             raise
             print("No decay")
@@ -261,13 +265,25 @@ class MainWindow(QMainWindow):
     def plot_decay(self):
         try:
             decay = self.currentparticle.histogram.decay
+            decay = decay / decay.max()
             t = self.currentparticle.histogram.t
         except AttributeError:
             print('No decay!')
         else:
             self.ui.MW_Lifetime.axes.clear()
             self.ui.MW_Lifetime.axes.semilogy(t, decay)
+            self.plot_irf()
             self.ui.MW_Lifetime.draw()
+
+    def plot_irf(self):
+        if self.fitparam.irf is not None:
+            irf = self.fitparam.irf / self.fitparam.irf.max()
+            self.ui.MW_Lifetime.axes.semilogy(self.fitparam.irft, irf)
+            self.ui.MW_Lifetime.draw()
+
+    def plot_convd(self, convd, t):
+        self.ui.MW_Lifetime.axes.semilogy(t, convd)
+        self.ui.MW_Lifetime.draw()
 
     def plot_trace(self):
         try:

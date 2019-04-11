@@ -135,8 +135,9 @@ class Histogram:
     def fit(self, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
         print(tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf)
 
-        tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
-                        irfbg, start, end)
+        fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
+                              irfbg, start, end)
+        return fit.convd, fit.t
 
 
 class RasterScan:
