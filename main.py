@@ -210,11 +210,10 @@ class MainWindow(QMainWindow):
 
     def gui_fit_current(self):
         try:
-            convd, t = self.currentparticle.histogram.fit(self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
-                                                       self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
-                                                       self.fitparam.end, self.fitparam.addopt, self.fitparam.irf)
-            print(t)
-            self.plot_convd(convd, t)
+            self.currentparticle.histogram.fit(self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
+                                               self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
+                                               self.fitparam.end, self.fitparam.addopt, self.fitparam.irf)
+            self.plot_convd()
         except AttributeError:
             raise
             print("No decay")
@@ -267,23 +266,45 @@ class MainWindow(QMainWindow):
             decay = self.currentparticle.histogram.decay
             decay = decay / decay.max()
             t = self.currentparticle.histogram.t
+
+            # Start at the first non-zero histogram value
+            decaystart = np.nonzero(decay)[0][0]
+            t -= t[decaystart]
+            t = t[decaystart:]
+            decay = decay[decaystart:]
+
         except AttributeError:
             print('No decay!')
         else:
             self.ui.MW_Lifetime.axes.clear()
-            self.ui.MW_Lifetime.axes.semilogy(t, decay)
+            self.ui.MW_Lifetime.axes.semilogy(t, decay, color='xkcd:dull blue')
             self.plot_irf()
+            self.plot_convd()
             self.ui.MW_Lifetime.draw()
 
     def plot_irf(self):
         if self.fitparam.irf is not None:
             irf = self.fitparam.irf / self.fitparam.irf.max()
-            self.ui.MW_Lifetime.axes.semilogy(self.fitparam.irft, irf)
+            t = self.fitparam.irft
+
+            # Start at the first non-zero histogram value
+            decaystart = np.nonzero(irf)[0][0]
+            t -= t[decaystart]
+            t = t[decaystart:]
+            irf = irf[decaystart:]
+
+            self.ui.MW_Lifetime.axes.semilogy(t, irf, color='xkcd:gray')
             self.ui.MW_Lifetime.draw()
 
-    def plot_convd(self, convd, t):
-        self.ui.MW_Lifetime.axes.semilogy(t, convd)
-        self.ui.MW_Lifetime.draw()
+    def plot_convd(self):
+        try:
+            hist = self.currentparticle.histogram
+        except AttributeError:
+            pass
+        else:
+            if hist.convd is not None:
+                self.ui.MW_Lifetime.axes.semilogy(hist.convd_t, hist.convd, color='xkcd:marine blue', linewidth=2)
+                self.ui.MW_Lifetime.draw()
 
     def plot_trace(self):
         try:

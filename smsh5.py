@@ -127,17 +127,19 @@ class Histogram:
         numpoints = int(window // self.particle.channelwidth)
 
         t = np.linspace(0, window, numpoints)
-        # particle.microtimes -= particle.microtimes.min()
 
         self.decay, self.t = np.histogram(self.particle.microtimes[:], bins=t)
         self.t = self.t[:-1]  # Remove last value so the arrays are the same size
+        self.convd = None
+        self.convd_t = None
 
     def fit(self, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
         print(tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf)
 
         fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
                               irfbg, start, end)
-        return fit.convd, fit.t
+        self.convd = fit.convd
+        self.convd_t = fit.t
 
 
 class RasterScan:
