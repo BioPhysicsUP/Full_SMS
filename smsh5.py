@@ -4,6 +4,7 @@ Bertus van Heerden
 University of Pretoria
 2018
 """
+import traceback
 import h5py
 import numpy as np
 import tcspcfit
@@ -133,13 +134,28 @@ class Histogram:
         self.convd = None
         self.convd_t = None
 
-    def fit(self, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
-        print(tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf)
+    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
+        print(numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf)
 
-        fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
-                              irfbg, start, end)
-        self.convd = fit.convd
-        self.convd_t = fit.t
+        try:
+            if numexp == 1:
+                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
+                                      irfbg, start, end)
+            elif numexp == 2:
+                print('2 exp')
+                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
+                                      irfbg, start, end)
+            elif numexp == 3:
+                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
+                                        irfbg, start, end)
+        except:
+            print('Error while fitting lifetime:')
+            traceback.print_exc()
+
+        else:
+            self.convd = fit.convd
+            self.convd_t = fit.t
+            self.tau = fit.tau
 
 
 class RasterScan:

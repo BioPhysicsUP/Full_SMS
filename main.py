@@ -210,7 +210,7 @@ class MainWindow(QMainWindow):
 
     def gui_fit_current(self):
         try:
-            self.currentparticle.histogram.fit(self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
+            self.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
                                                self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
                                                self.fitparam.end, self.fitparam.addopt, self.fitparam.irf)
             self.plot_convd()
@@ -304,6 +304,7 @@ class MainWindow(QMainWindow):
         else:
             if hist.convd is not None:
                 self.ui.MW_Lifetime.axes.semilogy(hist.convd_t, hist.convd, color='xkcd:marine blue', linewidth=2)
+                self.ui.MW_Lifetime.axes.text(1, 1, hist.tau)
                 self.ui.MW_Lifetime.draw()
 
     def plot_trace(self):
@@ -331,23 +332,30 @@ class FittingParameters:
         self.irf = None
 
     def getfromdialog(self):
+        print('working')
         if int(self.fp.combNumExp.currentText()) == 1:
+            print('1 exp')
+            self.numexp = 1
             self.tau = [[self.get_from_gui(i) for i in [self.fp.line1Init, self.fp.line1Min, self.fp.line1Max, self.fp.check1Fix]]]
             self.amp = [[self.get_from_gui(i) for i in [self.fp.line1AmpInit, self.fp.line1AmpMin, self.fp.line1AmpMax, self.fp.check1AmpFix]]]
 
-        elif self.fp.combNumExp == 2:
-            self.tau = [[self.get_from_gui(i) for i in [self.fp.line1Init, self.fp.line1Min, self.fp.line1Max, self.fp.check1Fix]],
-                        [self.get_from_gui(i) for i in [self.fp.line2Init, self.fp.line2Min, self.fp.line2Max, self.fp.check2Fix]]]
-            self.amp = [[self.get_from_gui(i) for i in [self.fp.line1AmpInit, self.fp.line1AmpMin, self.fp.line1AmpMax, self.fp.check1AmpFix]],
-                        [self.get_from_gui(i) for i in [self.fp.line2AmpInit, self.fp.line2AmpMin, self.fp.line2AmpMax, self.fp.check2AmpFix]]]
+        elif int(self.fp.combNumExp.currentText()) == 2:
+            print('2 exp')
+            self.numexp = 2
+            self.tau = [[self.get_from_gui(i) for i in [self.fp.line2Init1, self.fp.line2Min1, self.fp.line2Max1, self.fp.check2Fix1]],
+                        [self.get_from_gui(i) for i in [self.fp.line2Init2, self.fp.line2Min2, self.fp.line2Max2, self.fp.check2Fix2]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fp.line2AmpInit1, self.fp.line2AmpMin1, self.fp.line2AmpMax1, self.fp.check2AmpFix1]],
+                        [self.get_from_gui(i) for i in [self.fp.line2AmpInit2, self.fp.line2AmpMin2, self.fp.line2AmpMax2, self.fp.check2AmpFix2]]]
 
-        elif self.fp.combNumExp == 3:
-            self.tau = [[self.get_from_gui(i) for i in [self.fp.line1Init, self.fp.line1Min, self.fp.line1Max, self.fp.check1Fix]],
-                        [self.get_from_gui(i) for i in [self.fp.line2Init, self.fp.line2Min, self.fp.line2Max, self.fp.check2Fix]],
-                        [self.get_from_gui(i) for i in [self.fp.line3Init, self.fp.line3Min, self.fp.line3Max, self.fp.check3Fix]]]
-            self.amp = [[self.get_from_gui(i) for i in [self.fp.line1AmpInit, self.fp.line1AmpMin, self.fp.line1AmpMax, self.fp.check1AmpFix]],
-                        [self.get_from_gui(i) for i in [self.fp.line2AmpInit, self.fp.line2AmpMin, self.fp.line2AmpMax, self.fp.check2AmpFix]],
-                        [self.get_from_gui(i) for i in [self.fp.line3AmpInit, self.fp.line3AmpMin, self.fp.line3AmpMax, self.fp.check3AmpFix]]]
+        elif int(self.fp.combNumExp.currentText()) == 3:
+            print('3 exp')
+            self.numexp = 3
+            self.tau = [[self.get_from_gui(i) for i in [self.fp.line3Init1, self.fp.line3Min1, self.fp.line3Max1, self.fp.check3Fix1]],
+                        [self.get_from_gui(i) for i in [self.fp.line3Init2, self.fp.line3Min2, self.fp.line3Max2, self.fp.check3Fix2]],
+                        [self.get_from_gui(i) for i in [self.fp.line3Init3, self.fp.line3Min3, self.fp.line3Max3, self.fp.check3Fix3]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fp.line3AmpInit1, self.fp.line3AmpMin1, self.fp.line3AmpMax1, self.fp.check3AmpFix1]],
+                        [self.get_from_gui(i) for i in [self.fp.line3AmpInit2, self.fp.line3AmpMin2, self.fp.line3AmpMax2, self.fp.check3AmpFix2]],
+                        [self.get_from_gui(i) for i in [self.fp.line3AmpInit3, self.fp.line3AmpMin3, self.fp.line3AmpMax3, self.fp.check3AmpFix3]]]
 
         self.shift = self.get_from_gui(self.fp.lineShift)
         self.decaybg = self.get_from_gui(self.fp.lineDecayBG)
