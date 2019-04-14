@@ -160,6 +160,7 @@ class MainWindow(QMainWindow):
         self.end = None
         self.addopt = None
         self.fitparam = FittingParameters(self)
+        self.ui.textBrowser.setText('hello \n world')
 
     def get_bin(self):
         """Returns current GUI value for bin size in ms."""
@@ -213,10 +214,19 @@ class MainWindow(QMainWindow):
             self.currentparticle.histogram.fit(self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
                                                self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
                                                self.fitparam.end, self.fitparam.addopt, self.fitparam.irf)
-            self.plot_convd()
         except AttributeError:
             raise
             print("No decay")
+        else:
+            self.plot_convd()
+            tau = [2.00043, 4.333022]
+            amp = [2.00043, 4.333022]
+            try:
+                taustring = 'Tau = ' + ' '.join('{:#.3g}'.format(F) for F in tau)
+                ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
+            except TypeError:  # only one component
+                taustring = 'Tau = {:#.3g}'.format(tau)
+            self.ui.textBrowser.setText(taustring + '\n' + ampstring)
 
     def gui_fit_selected(self):
         print("gui_fit_selected")
