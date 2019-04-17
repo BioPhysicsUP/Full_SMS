@@ -342,6 +342,36 @@ class FittingDialog(QDialog, Ui_Dialog):
     def __init__(self, parent):
         QDialog.__init__(self, parent)
         self.setupUi(self)
+        for widget in self.findChildren(QLineEdit):
+            widget.textChanged.connect(self.updateplot)
+        for widget in self.findChildren(QCheckBox):
+            widget.stateChanged.connect(self.updateplot)
+        for widget in self.findChildren(QComboBox):
+            widget.currentTextChanged.connect(self.updateplot)
+
+    def updateplot(self, *args):
+
+        t = self.parent.currentparticle.histogram.t
+
+        self.parent.getfromdialog()
+        if self.parent.numexp == 1:
+            tau = self.parent.tau[0, 0]
+            amp = self.parent.amp[0, 0]
+            model = amp * np.exp(-t/tau)
+        if self.parent.numexp == 2:
+            tau1 = self.parent.tau[0, 0]
+            tau2 = self.parent.tau[1, 0]
+            amp1 = self.parent.amp[0, 0]
+            amp2 = self.parent.amp[1, 0]
+            model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2)
+        if self.parent.numexp == 2:
+            tau1 = self.parent.tau[0, 0]
+            tau2 = self.parent.tau[1, 0]
+            tau3 = self.parent.tau[2, 0]
+            amp1 = self.parent.amp[0, 0]
+            amp2 = self.parent.amp[1, 0]
+            amp3 = self.parent.amp[2, 0]
+            model = amp * np.exp(-t/tau) + amp2 * np.exp(-t/tau2) + amp3 * np.exp(-t/tau3)
 
 
 class FittingParameters:
@@ -352,7 +382,6 @@ class FittingParameters:
         self.irf = None
 
     def getfromdialog(self):
-        print('working')
         if int(self.fp.combNumExp.currentText()) == 1:
             print('1 exp')
             self.numexp = 1

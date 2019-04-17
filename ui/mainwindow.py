@@ -2,14 +2,13 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created by: PyQt5 UI code generator 5.12
+# Created by: PyQt5 UI code generator 5.9.2
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from ui.matplotlibwidget import MatplotlibWidget
-
 
 
 class Ui_MainWindow(object):
@@ -541,5 +540,4 @@ class Ui_MainWindow(object):
         self.actionOpen_pt3.setText(_translate("MainWindow", "PT3 Folder (*.pt3)"))
         self.actionTrim_Dead_Traces.setText(_translate("MainWindow", "Trim Dead Traces"))
         self.actionReset_Analysis.setText(_translate("MainWindow", "Reset Analysis"))
-
 
