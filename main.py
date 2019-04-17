@@ -211,22 +211,33 @@ class MainWindow(QMainWindow):
 
     def gui_fit_current(self):
         try:
-            self.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
+            if self.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
                                                self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
-                                               self.fitparam.end, self.fitparam.addopt, self.fitparam.irf)
+                                               self.fitparam.end, self.fitparam.addopt, self.fitparam.irf):
+                pass
+            else:
+                return
         except AttributeError:
             raise
             print("No decay")
         else:
             self.plot_convd()
-            tau = [2.00043, 4.333022]
-            amp = [2.00043, 4.333022]
+            tau = self.currentparticle.histogram.tau
+            amp = self.currentparticle.histogram.amp
+            shift = self.currentparticle.histogram.shift
+            bg = self.currentparticle.histogram.bg
+            irfbg = self.currentparticle.histogram.irfbg
             try:
                 taustring = 'Tau = ' + ' '.join('{:#.3g}'.format(F) for F in tau)
                 ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
             except TypeError:  # only one component
                 taustring = 'Tau = {:#.3g}'.format(tau)
-            self.ui.textBrowser.setText(taustring + '\n' + ampstring)
+                ampstring = 'Amp = {:#.3g}'.format(amp)
+            shiftstring = 'Shift = {:#.3g}'.format(shift)
+            bgstring = 'Decay BG = {:#.3g}'.format(bg)
+            irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
+            self.ui.textBrowser.setText(taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
+                                        irfbgstring)
 
     def gui_fit_selected(self):
         print("gui_fit_selected")
@@ -314,7 +325,6 @@ class MainWindow(QMainWindow):
         else:
             if hist.convd is not None:
                 self.ui.MW_Lifetime.axes.semilogy(hist.convd_t, hist.convd, color='xkcd:marine blue', linewidth=2)
-                self.ui.MW_Lifetime.axes.text(1, 1, hist.tau)
                 self.ui.MW_Lifetime.draw()
 
     def plot_trace(self):

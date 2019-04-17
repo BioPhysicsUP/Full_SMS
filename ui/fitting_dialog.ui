@@ -636,7 +636,7 @@
      </property>
      <layout class="QGridLayout" name="gridLayout_9">
       <item row="2" column="0" colspan="2">
-       <widget class="QFrame" name="frame_2">
+       <widget class="QFrame" name="right_frame">
         <property name="frameShape">
          <enum>QFrame::StyledPanel</enum>
         </property>
@@ -735,18 +735,12 @@
           </widget>
          </item>
          <item row="2" column="0" colspan="2">
-          <widget class="MplWidget" name="MW_fitparam">
+          <widget class="MplWidget" name="MW_fitparam" native="true">
            <property name="minimumSize">
             <size>
              <width>0</width>
              <height>200</height>
             </size>
-           </property>
-           <property name="frameShape">
-            <enum>QFrame::StyledPanel</enum>
-           </property>
-           <property name="frameShadow">
-            <enum>QFrame::Raised</enum>
            </property>
           </widget>
          </item>
@@ -761,7 +755,7 @@
  <customwidgets>
   <customwidget>
    <class>MplWidget</class>
-   <extends>QFrame</extends>
+   <extends>QWidget</extends>
    <header>mplwidget.h</header>
    <container>1</container>
   </customwidget>

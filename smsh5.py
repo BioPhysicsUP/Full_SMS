@@ -151,11 +151,18 @@ class Histogram:
         except:
             print('Error while fitting lifetime:')
             traceback.print_exc()
+            return False
 
         else:
             self.convd = fit.convd
             self.convd_t = fit.t
             self.tau = fit.tau
+            self.amp = fit.amp
+            self.shift = fit.shift
+            self.bg = fit.bg
+            self.irfbg = fit.irfbg
+
+        return True
 
 
 class RasterScan:
