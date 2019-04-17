@@ -14,6 +14,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes._subplots import Axes
 
 import numpy as np
+import scipy
 import random
 
 import matplotlib as mpl
@@ -21,6 +22,7 @@ import matplotlib as mpl
 import dbg
 
 import smsh5
+import tcspcfit
 
 from ui.mainwindow import Ui_MainWindow
 from ui.fitting_dialog import Ui_Dialog
@@ -340,6 +342,7 @@ class MainWindow(QMainWindow):
 
 class FittingDialog(QDialog, Ui_Dialog):
     def __init__(self, parent):
+        self.parent = parent
         QDialog.__init__(self, parent)
         self.setupUi(self)
         for widget in self.findChildren(QLineEdit):
@@ -351,68 +354,123 @@ class FittingDialog(QDialog, Ui_Dialog):
 
     def updateplot(self, *args):
 
+        fp = self.parent.fitparam
         t = self.parent.currentparticle.histogram.t
+        irft = self.parent.fitparam.irft
 
-        self.parent.getfromdialog()
-        if self.parent.numexp == 1:
-            tau = self.parent.tau[0, 0]
-            amp = self.parent.amp[0, 0]
-            model = amp * np.exp(-t/tau)
-        if self.parent.numexp == 2:
-            tau1 = self.parent.tau[0, 0]
-            tau2 = self.parent.tau[1, 0]
-            amp1 = self.parent.amp[0, 0]
-            amp2 = self.parent.amp[1, 0]
+        fp.getfromdialog()
+        if fp.numexp == 1:
+            tau = fp.tau[0][0]
+            model = np.exp(-t/tau)
+        if fp.numexp == 2:
+            tau1 = fp.tau[0][0]
+            tau2 = fp.tau[1][0]
+            amp1 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
             model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2)
-        if self.parent.numexp == 2:
-            tau1 = self.parent.tau[0, 0]
-            tau2 = self.parent.tau[1, 0]
-            tau3 = self.parent.tau[2, 0]
-            amp1 = self.parent.amp[0, 0]
-            amp2 = self.parent.amp[1, 0]
-            amp3 = self.parent.amp[2, 0]
-            model = amp * np.exp(-t/tau) + amp2 * np.exp(-t/tau2) + amp3 * np.exp(-t/tau3)
+        if fp.numexp == 2:
+            tau1 = fp.tau[0][0]
+            tau2 = fp.tau[1][0]
+            tau3 = fp.tau[2][0]
+            amp1 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
+            amp3 = fp.amp[2][0]
+            model = amp1 * np.exp(-t/tau) + amp2 * np.exp(-t/tau2) + amp3 * np.exp(-t/tau3)
+
+        try:
+            irf = fp.irf
+        except:
+            print('No IRF')
+            return
+
+        shift = fp.shift
+        if shift is None:
+            shift = 0
+        decaybg = fp.decaybg
+        if decaybg is None:
+            decaybg = 0
+        irfbg = fp.irfbg
+        if irfbg is None:
+            irfbg = 0
+        start = fp.start
+        if start is None:
+            start = 0
+        else:
+            start = int(start)
+        end = fp.end
+        if end is None:
+            end = np.size(irf)
+        else:
+            end = int(end)
+
+        irf = tcspcfit.colorshift(irf, shift)
+        convd = scipy.signal.convolve(irf, model)
+        convd = convd[start:end]
+        print(start, end)
+        convd = convd / convd.max()
+
+        try:
+            decay = self.parent.currentparticle.histogram.decay
+            decay = decay / decay.max()
+            t = self.parent.currentparticle.histogram.t
+
+            # Start at the first non-zero histogram value
+            decaystart = np.nonzero(decay)[0][0]
+            t -= t[decaystart]
+            t = t[decaystart:]
+            decay = decay[decaystart:]
+            decay = decay[start:end]
+            t = t[start:end]
+            print(start, end)
+
+        except AttributeError:
+            print('No decay!')
+        else:
+            self.MW_fitparam.axes.clear()
+            self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
+            self.MW_fitparam.axes.semilogy(t, convd, color='xkcd:marine blue', linewidth=2)
+            self.MW_fitparam.draw()
 
 
 class FittingParameters:
     def __init__(self, parent):
         self.parent = parent
-        self.fp = self.parent.fitparamdialog
+        self.fpd = self.parent.fitparamdialog
 
         self.irf = None
 
     def getfromdialog(self):
-        if int(self.fp.combNumExp.currentText()) == 1:
+        if int(self.fpd.combNumExp.currentText()) == 1:
             print('1 exp')
             self.numexp = 1
-            self.tau = [[self.get_from_gui(i) for i in [self.fp.line1Init, self.fp.line1Min, self.fp.line1Max, self.fp.check1Fix]]]
-            self.amp = [[self.get_from_gui(i) for i in [self.fp.line1AmpInit, self.fp.line1AmpMin, self.fp.line1AmpMax, self.fp.check1AmpFix]]]
+            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max, self.fpd.check1Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax, self.fpd.check1AmpFix]]]
 
-        elif int(self.fp.combNumExp.currentText()) == 2:
+        elif int(self.fpd.combNumExp.currentText()) == 2:
             print('2 exp')
             self.numexp = 2
-            self.tau = [[self.get_from_gui(i) for i in [self.fp.line2Init1, self.fp.line2Min1, self.fp.line2Max1, self.fp.check2Fix1]],
-                        [self.get_from_gui(i) for i in [self.fp.line2Init2, self.fp.line2Min2, self.fp.line2Max2, self.fp.check2Fix2]]]
-            self.amp = [[self.get_from_gui(i) for i in [self.fp.line2AmpInit1, self.fp.line2AmpMin1, self.fp.line2AmpMax1, self.fp.check2AmpFix1]],
-                        [self.get_from_gui(i) for i in [self.fp.line2AmpInit2, self.fp.line2AmpMin2, self.fp.line2AmpMax2, self.fp.check2AmpFix2]]]
+            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1, self.fpd.check2Fix1]],
+                        [self.get_from_gui(i) for i in [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2, self.fpd.check2Fix2]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line2AmpInit1, self.fpd.line2AmpMin1, self.fpd.line2AmpMax1, self.fpd.check2AmpFix1]],
+                        [self.get_from_gui(i) for i in [self.fpd.line2AmpInit2, self.fpd.line2AmpMin2, self.fpd.line2AmpMax2, self.fpd.check2AmpFix2]]]
 
-        elif int(self.fp.combNumExp.currentText()) == 3:
+        elif int(self.fpd.combNumExp.currentText()) == 3:
             print('3 exp')
             self.numexp = 3
-            self.tau = [[self.get_from_gui(i) for i in [self.fp.line3Init1, self.fp.line3Min1, self.fp.line3Max1, self.fp.check3Fix1]],
-                        [self.get_from_gui(i) for i in [self.fp.line3Init2, self.fp.line3Min2, self.fp.line3Max2, self.fp.check3Fix2]],
-                        [self.get_from_gui(i) for i in [self.fp.line3Init3, self.fp.line3Min3, self.fp.line3Max3, self.fp.check3Fix3]]]
-            self.amp = [[self.get_from_gui(i) for i in [self.fp.line3AmpInit1, self.fp.line3AmpMin1, self.fp.line3AmpMax1, self.fp.check3AmpFix1]],
-                        [self.get_from_gui(i) for i in [self.fp.line3AmpInit2, self.fp.line3AmpMin2, self.fp.line3AmpMax2, self.fp.check3AmpFix2]],
-                        [self.get_from_gui(i) for i in [self.fp.line3AmpInit3, self.fp.line3AmpMin3, self.fp.line3AmpMax3, self.fp.check3AmpFix3]]]
+            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1, self.fpd.check3Fix1]],
+                        [self.get_from_gui(i) for i in [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2, self.fpd.check3Fix2]],
+                        [self.get_from_gui(i) for i in [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3, self.fpd.check3Fix3]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line3AmpInit1, self.fpd.line3AmpMin1, self.fpd.line3AmpMax1, self.fpd.check3AmpFix1]],
+                        [self.get_from_gui(i) for i in [self.fpd.line3AmpInit2, self.fpd.line3AmpMin2, self.fpd.line3AmpMax2, self.fpd.check3AmpFix2]],
+                        [self.get_from_gui(i) for i in [self.fpd.line3AmpInit3, self.fpd.line3AmpMin3, self.fpd.line3AmpMax3, self.fpd.check3AmpFix3]]]
 
-        self.shift = self.get_from_gui(self.fp.lineShift)
-        self.decaybg = self.get_from_gui(self.fp.lineDecayBG)
-        self.irfbg = self.get_from_gui(self.fp.lineIRFBG)
-        self.start = self.get_from_gui(self.fp.lineStartTime)
-        self.end = self.get_from_gui(self.fp.lineEndTime)
+        self.shift = self.get_from_gui(self.fpd.lineShift)
+        self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
+        self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
+        self.start = self.get_from_gui(self.fpd.lineStartTime)
+        self.end = self.get_from_gui(self.fpd.lineEndTime)
 
-        self.addopt = self.get_from_gui(self.fp.lineAddOpt)
+        self.addopt = self.get_from_gui(self.fpd.lineAddOpt)
         
     def get_from_gui(self, guiobj):
         if type(guiobj) == QLineEdit:
