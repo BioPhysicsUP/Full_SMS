@@ -359,23 +359,28 @@ class FittingDialog(QDialog, Ui_Dialog):
         irft = self.parent.fitparam.irft
 
         fp.getfromdialog()
-        if fp.numexp == 1:
-            tau = fp.tau[0][0]
-            model = np.exp(-t/tau)
-        if fp.numexp == 2:
-            tau1 = fp.tau[0][0]
-            tau2 = fp.tau[1][0]
-            amp1 = fp.amp[0][0]
-            amp2 = fp.amp[1][0]
-            model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2)
-        if fp.numexp == 2:
-            tau1 = fp.tau[0][0]
-            tau2 = fp.tau[1][0]
-            tau3 = fp.tau[2][0]
-            amp1 = fp.amp[0][0]
-            amp2 = fp.amp[1][0]
-            amp3 = fp.amp[2][0]
-            model = amp1 * np.exp(-t/tau) + amp2 * np.exp(-t/tau2) + amp3 * np.exp(-t/tau3)
+        try:
+            if fp.numexp == 1:
+                tau = fp.tau[0][0]
+                model = np.exp(-t/tau)
+            if fp.numexp == 2:
+                print(fp.tau, fp.amp)
+                tau1 = fp.tau[0][0]
+                tau2 = fp.tau[1][0]
+                amp1 = fp.amp[0][0]
+                amp2 = fp.amp[1][0]
+                model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2)
+            if fp.numexp == 3:
+                tau1 = fp.tau[0][0]
+                tau2 = fp.tau[1][0]
+                tau3 = fp.tau[2][0]
+                amp1 = fp.amp[0][0]
+                amp2 = fp.amp[1][0]
+                amp3 = fp.amp[2][0]
+                model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2) + amp3 * np.exp(-t/tau3)
+        except Exception as err:
+            print('Error Occured:' + str(err))
+            return
 
         try:
             irf = fp.irf
@@ -405,8 +410,6 @@ class FittingDialog(QDialog, Ui_Dialog):
 
         irf = tcspcfit.colorshift(irf, shift)
         convd = scipy.signal.convolve(irf, model)
-        convd = convd[start:end]
-        print(start, end)
         convd = convd / convd.max()
 
         try:
@@ -421,14 +424,19 @@ class FittingDialog(QDialog, Ui_Dialog):
             decay = decay[decaystart:]
             decay = decay[start:end]
             t = t[start:end]
-            print(start, end)
+
+            irft = irft[start:end]
+            convd = convd[start:end]
+            irft = irft[decaystart:]
+            convd = convd[decaystart:]
 
         except AttributeError:
             print('No decay!')
         else:
             self.MW_fitparam.axes.clear()
             self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
-            self.MW_fitparam.axes.semilogy(t, convd, color='xkcd:marine blue', linewidth=2)
+            self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
+            self.MW_fitparam.axes.set_ylim(bottom=1e-3)
             self.MW_fitparam.draw()
 
 
