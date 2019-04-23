@@ -308,7 +308,7 @@ class FluoFit:
             for ampval in amp:
                 try:
                     self.amp.append(ampval[0])
-                    if tauval[-1]:  # If amp is fixed
+                    if ampval[-1]:  # If amp is fixed
                         self.ampmin.append(ampval[0] - 0.0001)
                         self.ampmax.append(ampval[0] + 0.0001)
                     else:
@@ -335,7 +335,7 @@ class FluoFit:
         except TypeError:  # If shiftval is not a list
             self.shift = shift
             self.shiftmin = -100
-            self.shiftmax = 300
+            self.shiftmax = 2000
 
     def results(self, tau, dtau, shift, amp=1):
 
@@ -403,9 +403,6 @@ class OneExp(FluoFit):
         paramin = [self.taumin[0], self.ampmin, self.shiftmin]
         paramax = [self.taumax[0], self.ampmax, self.shiftmax]
         paraminit = [self.tau[0], self.amp, self.shift]
-        print(paramin)
-        print(paramax)
-        print(paraminit)
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
 
         tau = param[0]
@@ -438,7 +435,14 @@ class TwoExp(FluoFit):
         paramin = self.taumin + self.ampmin + [self.shiftmin]
         paramax = self.taumax + self.ampmax + [self.shiftmax]
         paraminit = self.tau + self.amp + [self.shift]
-        print(paramax, paraminit)
+        print('start')
+        print(paramin)
+        print(paramax)
+        print(paraminit)
+        print(self.startpoint, self.endpoint)
+        print('end')
+        plt.plot(self.t[self.startpoint:self.endpoint], self.measured)
+        plt.show()
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
 
@@ -451,7 +455,6 @@ class TwoExp(FluoFit):
         self.results(tau, dtau, shift, amp)
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift):
-
         model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
         return self.makeconvd(shift, model)
 

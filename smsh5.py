@@ -133,9 +133,10 @@ class Histogram:
         self.t = self.t[:-1]  # Remove last value so the arrays are the same size
         self.convd = None
         self.convd_t = None
+        self.decay = self.decay[self.t > 0]
+        self.t = self.t[self.t > 0]
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
-        print(numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf)
 
         try:
             if numexp == 1:
@@ -143,10 +144,10 @@ class Histogram:
                                       irfbg, start, end)
             elif numexp == 2:
                 print('2 exp')
-                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
+                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift, decaybg,
                                       irfbg, start, end)
             elif numexp == 3:
-                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
+                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift, decaybg,
                                         irfbg, start, end)
         except:
             print('Error while fitting lifetime:')

@@ -213,6 +213,7 @@ class MainWindow(QMainWindow):
 
     def gui_fit_current(self):
         try:
+            print(self.fitparam.amp)
             if self.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
                                                self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
                                                self.fitparam.end, self.fitparam.addopt, self.fitparam.irf):
@@ -358,24 +359,29 @@ class FittingDialog(QDialog, Ui_Dialog):
         t = self.parent.currentparticle.histogram.t
         irft = self.parent.fitparam.irft
 
-        fp.getfromdialog()
-        if fp.numexp == 1:
-            tau = fp.tau[0][0]
-            model = np.exp(-t/tau)
-        if fp.numexp == 2:
-            tau1 = fp.tau[0][0]
-            tau2 = fp.tau[1][0]
-            amp1 = fp.amp[0][0]
-            amp2 = fp.amp[1][0]
-            model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2)
-        if fp.numexp == 2:
-            tau1 = fp.tau[0][0]
-            tau2 = fp.tau[1][0]
-            tau3 = fp.tau[2][0]
-            amp1 = fp.amp[0][0]
-            amp2 = fp.amp[1][0]
-            amp3 = fp.amp[2][0]
-            model = amp1 * np.exp(-t/tau) + amp2 * np.exp(-t/tau2) + amp3 * np.exp(-t/tau3)
+        try:
+            fp.getfromdialog()
+            if fp.numexp == 1:
+                tau = fp.tau[0][0]
+                model = np.exp(-t/tau)
+            elif fp.numexp == 2:
+                tau1 = fp.tau[0][0]
+                tau2 = fp.tau[1][0]
+                amp1 = fp.amp[0][0]
+                amp2 = fp.amp[1][0]
+                print(amp1, amp2, tau1, tau2)
+                model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2)
+            elif fp.numexp == 3:
+                tau1 = fp.tau[0][0]
+                tau2 = fp.tau[1][0]
+                tau3 = fp.tau[2][0]
+                amp1 = fp.amp[0][0]
+                amp2 = fp.amp[1][0]
+                amp3 = fp.amp[2][0]
+                model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2) + amp3 * np.exp(-t/tau3)
+        except Exception as err:
+            print('Error Occured:' + str(err))
+            return
 
         try:
             irf = fp.irf
@@ -405,8 +411,8 @@ class FittingDialog(QDialog, Ui_Dialog):
 
         irf = tcspcfit.colorshift(irf, shift)
         convd = scipy.signal.convolve(irf, model)
-        convd = convd[start:end]
-        print(start, end)
+        convd = convd[:np.size(irf)]
+        # convd = convd[start:end]
         convd = convd / convd.max()
 
         try:
@@ -419,16 +425,18 @@ class FittingDialog(QDialog, Ui_Dialog):
             t -= t[decaystart]
             t = t[decaystart:]
             decay = decay[decaystart:]
-            decay = decay[start:end]
-            t = t[start:end]
-            print(start, end)
+            irft = irft[decaystart:]
+            convd = convd[decaystart:]
+            # decay = decay[start:end]
+            # t = t[start:end]
 
         except AttributeError:
             print('No decay!')
         else:
             self.MW_fitparam.axes.clear()
             self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
-            self.MW_fitparam.axes.semilogy(t, convd, color='xkcd:marine blue', linewidth=2)
+            self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
+            self.MW_fitparam.axes.set_ylim(bottom=1e-3)
             self.MW_fitparam.draw()
 
 
@@ -467,8 +475,8 @@ class FittingParameters:
         self.shift = self.get_from_gui(self.fpd.lineShift)
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
-        self.start = self.get_from_gui(self.fpd.lineStartTime)
-        self.end = self.get_from_gui(self.fpd.lineEndTime)
+        self.start = int(self.get_from_gui(self.fpd.lineStartTime))
+        self.end = int(self.get_from_gui(self.fpd.lineEndTime))
 
         self.addopt = self.get_from_gui(self.fpd.lineAddOpt)
         
@@ -477,7 +485,8 @@ class FittingParameters:
             if guiobj.text() == '':
                 return None
             else:
-                return float(guiobj.text())
+                print(float(guiobj.text()))
+                return(float(guiobj.text()))
         elif type(guiobj) == QCheckBox:
             return float(guiobj.isChecked())
 
