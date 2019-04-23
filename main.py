@@ -304,6 +304,7 @@ class MainWindow(QMainWindow):
             self.ui.MW_Lifetime.axes.semilogy(t, decay, color='xkcd:dull blue')
             self.plot_irf()
             self.plot_convd()
+            self.ui.MW_Lifetime.axes.set_ylim(bottom=1e-3)
             self.ui.MW_Lifetime.draw()
 
     def plot_irf(self):

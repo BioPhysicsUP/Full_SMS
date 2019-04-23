@@ -137,6 +137,12 @@ class Histogram:
         self.t = self.t[self.t > 0]
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
+        # Todo: This should probably happen somewhere else:
+        decaystart = np.nonzero(self.decay)[0][0]
+        irfstart = np.nonzero(irf)[0][0]
+        self.decay = self.decay[decaystart:]
+        self.t = self.t[decaystart:]
+        irf = irf[irfstart:]
 
         try:
             if numexp == 1:
@@ -144,6 +150,7 @@ class Histogram:
                                       irfbg, start, end)
             elif numexp == 2:
                 print('2 exp')
+                print(self.t)
                 fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift, decaybg,
                                       irfbg, start, end)
             elif numexp == 3:

@@ -334,7 +334,7 @@ class FluoFit:
                 self.shiftmax = shift[2]
         except TypeError:  # If shiftval is not a list
             self.shift = shift
-            self.shiftmin = -100
+            self.shiftmin = -2000
             self.shiftmax = 2000
 
     def results(self, tau, dtau, shift, amp=1):
@@ -403,6 +403,15 @@ class OneExp(FluoFit):
         paramin = [self.taumin[0], self.ampmin, self.shiftmin]
         paramax = [self.taumax[0], self.ampmax, self.shiftmax]
         paraminit = [self.tau[0], self.amp, self.shift]
+        print('start')
+        print(paramin)
+        print(paramax)
+        print(paraminit)
+        print(self.startpoint, self.endpoint)
+        print('end')
+        plt.plot(self.t[:np.size(self.irf)], self.irf)
+        plt.plot(self.t[:np.size(self.measured)], self.measured)
+        plt.show()
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
 
         tau = param[0]
@@ -424,6 +433,7 @@ class TwoExp(FluoFit):
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
                  startpoint=None, endpoint=None, ploton=False):
+        print(t)
 
         if tau is None:
             tau = [1, 5]
@@ -441,8 +451,8 @@ class TwoExp(FluoFit):
         print(paraminit)
         print(self.startpoint, self.endpoint)
         print('end')
-        plt.plot(self.t[self.startpoint:self.endpoint], self.measured)
-        plt.show()
+        # plt.plot(self.t[self.startpoint:self.endpoint], self.measured)
+        # plt.show()
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
 
