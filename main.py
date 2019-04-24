@@ -3,19 +3,13 @@
 # ------------------------------------------------------
 
 from PyQt5.QtWidgets import*
-from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, Qt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt
 from platform import system
 
 from PyQt5.QtGui import *
 
-from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as NavigationToolbar)
-from matplotlib.figure import Figure
-from matplotlib.axes._subplots import Axes
-
 import numpy as np
 import scipy
-import random
 
 import matplotlib as mpl
 
@@ -23,6 +17,7 @@ import dbg
 
 import smsh5
 import tcspcfit
+from smsh5 import start_at_nonzero
 
 from ui.mainwindow import Ui_MainWindow
 from ui.fitting_dialog import Ui_Dialog
@@ -162,7 +157,6 @@ class MainWindow(QMainWindow):
         self.end = None
         self.addopt = None
         self.fitparam = FittingParameters(self)
-        self.ui.textBrowser.setText('hello \n world')
 
     def get_bin(self):
         """Returns current GUI value for bin size in ms."""
@@ -213,34 +207,35 @@ class MainWindow(QMainWindow):
 
     def gui_fit_current(self):
         try:
-            print(self.fitparam.amp)
-            if self.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp, self.fitparam.shift,
-                                               self.fitparam.decaybg, self.fitparam.irfbg, self.fitparam.start,
-                                               self.fitparam.end, self.fitparam.addopt, self.fitparam.irf):
-                pass
-            else:
-                return
+            if not self.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
+                                                      self.fitparam.shift, self.fitparam.decaybg, self.fitparam.irfbg,
+                                                      self.fitparam.start, self.fitparam.end, self.fitparam.addopt,
+                                                      self.fitparam.irf):
+                return  # fit unsuccessful
         except AttributeError:
             raise
             print("No decay")
         else:
             self.plot_convd()
-            tau = self.currentparticle.histogram.tau
-            amp = self.currentparticle.histogram.amp
-            shift = self.currentparticle.histogram.shift
-            bg = self.currentparticle.histogram.bg
-            irfbg = self.currentparticle.histogram.irfbg
-            try:
-                taustring = 'Tau = ' + ' '.join('{:#.3g}'.format(F) for F in tau)
-                ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
-            except TypeError:  # only one component
-                taustring = 'Tau = {:#.3g}'.format(tau)
-                ampstring = 'Amp = {:#.3g}'.format(amp)
-            shiftstring = 'Shift = {:#.3g}'.format(shift)
-            bgstring = 'Decay BG = {:#.3g}'.format(bg)
-            irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
-            self.ui.textBrowser.setText(taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
-                                        irfbgstring)
+            self.update_results()
+
+    def update_results(self):
+        tau = self.currentparticle.histogram.tau
+        amp = self.currentparticle.histogram.amp
+        shift = self.currentparticle.histogram.shift
+        bg = self.currentparticle.histogram.bg
+        irfbg = self.currentparticle.histogram.irfbg
+        try:
+            taustring = 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
+            ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
+        except TypeError:  # only one component
+            taustring = 'Tau = {:#.3g} ns'.format(tau)
+            ampstring = 'Amp = {:#.3g}'.format(amp)
+        shiftstring = 'Shift = {:#.3g} ns'.format(shift)
+        bgstring = 'Decay BG = {:#.3g}'.format(bg)
+        irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
+        self.ui.textBrowser.setText(taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
+                                    irfbgstring)
 
     def gui_fit_selected(self):
         print("gui_fit_selected")
@@ -288,35 +283,28 @@ class MainWindow(QMainWindow):
     def plot_decay(self):
         try:
             decay = self.currentparticle.histogram.decay
-            decay = decay / decay.max()
+        except AttributeError:
+            dbg.p(debug_print='No Decay!', debug_from='Main')
+        else:
+
+            # Todo: Normalisation needs to happen in the fitting code
+            decay = decay / decay.max()  # Normalise
             t = self.currentparticle.histogram.t
 
-            # Start at the first non-zero histogram value
-            decaystart = np.nonzero(decay)[0][0]
-            t -= t[decaystart]
-            t = t[decaystart:]
-            decay = decay[decaystart:]
-
-        except AttributeError:
-            print('No decay!')
-        else:
+            decay, t = start_at_nonzero(decay, t)
             self.ui.MW_Lifetime.axes.clear()
             self.ui.MW_Lifetime.axes.semilogy(t, decay, color='xkcd:dull blue')
-            self.plot_irf()
-            self.plot_convd()
             self.ui.MW_Lifetime.axes.set_ylim(bottom=1e-3)
             self.ui.MW_Lifetime.draw()
+            self.plot_irf()
+            self.plot_convd()
 
     def plot_irf(self):
         if self.fitparam.irf is not None:
             irf = self.fitparam.irf / self.fitparam.irf.max()
             t = self.fitparam.irft
 
-            # Start at the first non-zero histogram value
-            decaystart = np.nonzero(irf)[0][0]
-            t -= t[decaystart]
-            t = t[decaystart:]
-            irf = irf[decaystart:]
+            irf, t = start_at_nonzero(irf, t)
 
             self.ui.MW_Lifetime.axes.semilogy(t, irf, color='xkcd:gray')
             self.ui.MW_Lifetime.draw()
@@ -335,7 +323,7 @@ class MainWindow(QMainWindow):
         try:
             trace = self.currentparticle.binnedtrace.intdata
         except AttributeError:
-            print('No trace!')
+            dbg.p(debug_print='No Trace!', debug_from='Main')
         else:
             self.ui.MW_Intensity.axes.clear()
             self.ui.MW_Intensity.axes.plot(trace)
@@ -354,42 +342,59 @@ class FittingDialog(QDialog, Ui_Dialog):
         for widget in self.findChildren(QComboBox):
             widget.currentTextChanged.connect(self.updateplot)
 
+        self.lineStartTime.setValidator(QIntValidator())
+        self.lineEndTime.setValidator(QIntValidator())
+
     def updateplot(self, *args):
 
-        fp = self.parent.fitparam
-        t = self.parent.currentparticle.histogram.t
-        irft = self.parent.fitparam.irft
-
         try:
-            fp.getfromdialog()
-            if fp.numexp == 1:
-                tau = fp.tau[0][0]
-                model = np.exp(-t/tau)
-            elif fp.numexp == 2:
-                tau1 = fp.tau[0][0]
-                tau2 = fp.tau[1][0]
-                amp1 = fp.amp[0][0]
-                amp2 = fp.amp[1][0]
-                print(amp1, amp2, tau1, tau2)
-                model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2)
-            elif fp.numexp == 3:
-                tau1 = fp.tau[0][0]
-                tau2 = fp.tau[1][0]
-                tau3 = fp.tau[2][0]
-                amp1 = fp.amp[0][0]
-                amp2 = fp.amp[1][0]
-                amp3 = fp.amp[2][0]
-                model = amp1 * np.exp(-t/tau1) + amp2 * np.exp(-t/tau2) + amp3 * np.exp(-t/tau3)
+            model = self.make_model()
         except Exception as err:
-            print('Error Occured:' + str(err))
+            dbg.p(debug_print='Error Occured:' + str(err), debug_from='Fitting Parameters')
             return
 
+        fp = self.parent.fitparam
         try:
             irf = fp.irf
-        except:
-            print('No IRF')
+            irft = fp.irft
+        except AttributeError:
+            dbg.p(debug_print='No IRF!', debug_from='Fitting Parameters')
             return
 
+        shift, decaybg, irfbg, start, end = self.getparams()
+
+        irf = tcspcfit.colorshift(irf, shift)
+        convd = scipy.signal.convolve(irf, model)
+        convd = convd[:np.size(irf)]
+        convd = convd / convd.max()
+
+        try:
+            decay = self.parent.currentparticle.histogram.decay
+            decay = decay / decay.max()
+            t = self.parent.currentparticle.histogram.t
+
+            decay, t = start_at_nonzero(decay, t)
+            end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
+
+            convd = convd[irft > 0]
+            irft = irft[irft > 0]
+
+        except AttributeError:
+            dbg.p(debug_print='No Decay!', debug_from='Fitting Parameters')
+        else:
+            self.MW_fitparam.axes.clear()
+            self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
+            self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
+            self.MW_fitparam.axes.set_ylim(bottom=1e-3)
+
+            self.MW_fitparam.axes.axvline(t[start])
+            self.MW_fitparam.axes.axvline(t[end])
+
+            self.MW_fitparam.draw()
+
+    def getparams(self):
+        fp = self.parent.fitparam
+        irf = fp.irf
         shift = fp.shift
         if shift is None:
             shift = 0
@@ -402,70 +407,64 @@ class FittingDialog(QDialog, Ui_Dialog):
         start = fp.start
         if start is None:
             start = 0
-        else:
-            start = int(start)
         end = fp.end
         if end is None:
             end = np.size(irf)
-        else:
-            end = int(end)
+        return shift, decaybg, irfbg, start, end
 
-        irf = tcspcfit.colorshift(irf, shift)
-        convd = scipy.signal.convolve(irf, model)
-        convd = convd[:np.size(irf)]
-        # convd = convd[start:end]
-        convd = convd / convd.max()
-
-        try:
-            decay = self.parent.currentparticle.histogram.decay
-            decay = decay / decay.max()
-            t = self.parent.currentparticle.histogram.t
-
-            # Start at the first non-zero histogram value
-            decaystart = np.nonzero(decay)[0][0]
-            t -= t[decaystart]
-            t = t[decaystart:]
-            decay = decay[decaystart:]
-            irft = irft[decaystart:]
-            convd = convd[decaystart:]
-            # decay = decay[start:end]
-            # t = t[start:end]
-
-        except AttributeError:
-            print('No decay!')
-        else:
-            self.MW_fitparam.axes.clear()
-            self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
-            self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
-            self.MW_fitparam.axes.set_ylim(bottom=1e-3)
-            self.MW_fitparam.draw()
+    def make_model(self):
+        fp = self.parent.fitparam
+        t = self.parent.currentparticle.histogram.t
+        fp.getfromdialog()
+        if fp.numexp == 1:
+            tau = fp.tau[0][0]
+            model = np.exp(-t / tau)
+        elif fp.numexp == 2:
+            tau1 = fp.tau[0][0]
+            tau2 = fp.tau[1][0]
+            amp1 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
+            print(amp1, amp2, tau1, tau2)
+            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2)
+        elif fp.numexp == 3:
+            tau1 = fp.tau[0][0]
+            tau2 = fp.tau[1][0]
+            tau3 = fp.tau[2][0]
+            amp1 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
+            amp3 = fp.amp[2][0]
+            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2) + amp3 * np.exp(-t / tau3)
+        return model
 
 
 class FittingParameters:
     def __init__(self, parent):
         self.parent = parent
         self.fpd = self.parent.fitparamdialog
-
         self.irf = None
+        self.tau = None
+        self.amp = None
+        self.shift = None
+        self.decaybg = None
+        self.irfbg = None
+        self.start = None
+        self.end = None
+        self.numexp = None
+        self.addopt = None
 
     def getfromdialog(self):
-        if int(self.fpd.combNumExp.currentText()) == 1:
-            print('1 exp')
-            self.numexp = 1
+        self.numexp = int(self.fpd.combNumExp.currentText())
+        if self.numexp == 1:
             self.tau = [[self.get_from_gui(i) for i in [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max, self.fpd.check1Fix]]]
             self.amp = [[self.get_from_gui(i) for i in [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax, self.fpd.check1AmpFix]]]
 
-        elif int(self.fpd.combNumExp.currentText()) == 2:
-            print('2 exp')
-            self.numexp = 2
+        elif self.numexp == 2:
             self.tau = [[self.get_from_gui(i) for i in [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1, self.fpd.check2Fix1]],
                         [self.get_from_gui(i) for i in [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2, self.fpd.check2Fix2]]]
             self.amp = [[self.get_from_gui(i) for i in [self.fpd.line2AmpInit1, self.fpd.line2AmpMin1, self.fpd.line2AmpMax1, self.fpd.check2AmpFix1]],
                         [self.get_from_gui(i) for i in [self.fpd.line2AmpInit2, self.fpd.line2AmpMin2, self.fpd.line2AmpMax2, self.fpd.check2AmpFix2]]]
 
-        elif int(self.fpd.combNumExp.currentText()) == 3:
-            print('3 exp')
-            self.numexp = 3
+        elif self.numexp == 3:
             self.tau = [[self.get_from_gui(i) for i in [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1, self.fpd.check3Fix1]],
                         [self.get_from_gui(i) for i in [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2, self.fpd.check3Fix2]],
                         [self.get_from_gui(i) for i in [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3, self.fpd.check3Fix3]]]
@@ -476,18 +475,24 @@ class FittingParameters:
         self.shift = self.get_from_gui(self.fpd.lineShift)
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
-        self.start = int(self.get_from_gui(self.fpd.lineStartTime))
-        self.end = int(self.get_from_gui(self.fpd.lineEndTime))
+        try:
+            self.start = int(self.get_from_gui(self.fpd.lineStartTime))
+        except TypeError:
+            self.start = self.get_from_gui(self.fpd.lineStartTime)
+        try:
+            self.end = int(self.get_from_gui(self.fpd.lineEndTime))
+        except TypeError:
+            self.end = self.get_from_gui(self.fpd.lineEndTime)
 
         self.addopt = self.get_from_gui(self.fpd.lineAddOpt)
-        
-    def get_from_gui(self, guiobj):
+
+    @staticmethod
+    def get_from_gui(guiobj):
         if type(guiobj) == QLineEdit:
             if guiobj.text() == '':
                 return None
             else:
-                print(float(guiobj.text()))
-                return(float(guiobj.text()))
+                return float(guiobj.text())
         elif type(guiobj) == QCheckBox:
             return float(guiobj.isChecked())
 
@@ -514,7 +519,7 @@ class DatasetTreeNode():
         self.dataobj = dataobj
 
     def data(self, in_column):
-        if in_column >= 0 and in_column < len(self._data):
+        if 0 <= in_column < len(self._data):
             return self._data[in_column]
 
     def columnCount(self):

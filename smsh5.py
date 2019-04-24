@@ -6,8 +6,11 @@ University of Pretoria
 """
 import traceback
 import h5py
+import numpy
 import numpy as np
 import tcspcfit
+# from main.MainWindow import start_at_nonzero
+import dbg
 from matplotlib import pyplot as plt
 
 
@@ -138,26 +141,21 @@ class Histogram:
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
         # Todo: This should probably happen somewhere else:
-        decaystart = np.nonzero(self.decay)[0][0]
-        irfstart = np.nonzero(irf)[0][0]
-        self.decay = self.decay[decaystart:]
-        self.t = self.t[decaystart:]
-        irf = irf[irfstart:]
+        self.decay, self.t = start_at_nonzero(self.decay, self.t, neg_t=False)
+        irf, irft = start_at_nonzero(irf, self.t, neg_t=False)
 
         try:
             if numexp == 1:
-                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift, decaybg,
-                                      irfbg, start, end)
+                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift,
+                                      decaybg, irfbg, start, end)
             elif numexp == 2:
-                print('2 exp')
-                print(self.t)
-                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift, decaybg,
-                                      irfbg, start, end)
+                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
+                                      decaybg, irfbg, start, end)
             elif numexp == 3:
-                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift, decaybg,
-                                        irfbg, start, end)
+                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
+                                        decaybg, irfbg, start, end)
         except:
-            print('Error while fitting lifetime:')
+            dbg.p('Error while fitting lifetime:', debug_from='smsh5')
             traceback.print_exc()
             return False
 
@@ -200,3 +198,12 @@ class Levels:
     def __init__(self):
 
         pass  # Change points code called here?
+
+
+def start_at_nonzero(decay, t, neg_t=True):
+    decaystart = np.nonzero(decay)[0][0]
+    if neg_t:
+        t -= t[decaystart]
+    t = t[decaystart:]
+    decay = decay[decaystart:]
+    return decay, t

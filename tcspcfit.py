@@ -245,6 +245,23 @@ class FluoFit:
         self.convd = None
 
     def calculate_boundaries(self, endpoint, measured, startpoint):
+        """Set the start and endpoints
+
+        Sets the values to the given ones or automatically find good ones.
+        The start value is chosen as the maximum point of the IRF, and the end
+        value is chosen as either the point where the decay is 1 % of
+        maximum or 10 times the background value, whichever is highest.
+
+        Parameters
+        ----------
+        endpoint : int
+                End of fitting range
+        measured : ndarray
+            The measured decay data
+        startpoint : int
+                Start of fitting range
+
+        """
         if startpoint is None:
             self.startpoint = np.argmax(self.irf)
         else:
@@ -259,8 +276,24 @@ class FluoFit:
             self.endpoint = endpoint
 
     def calculate_bg(self, bg, irf, irfbg, measured):
+        """Calculate decay and IRF background values
+
+        If not given, the  background value is estimated from the first part
+        of the curve, before the rise.
+
+        Parameters:
+        -----------
+
+        bg : float
+            Decay background value
+        irf : ndarray
+            Instrument response function
+        irfbg : float
+            IRF background value
+        measured : ndarray
+            Measured decay data
+        """
         if irfbg is None:
-            # Estimate background for IRF using average value up to start of the rise
             maxind = np.argmax(irf)
             for i in range(maxind):
                 reverse = maxind - i
@@ -273,7 +306,6 @@ class FluoFit:
         else:
             self.irfbg = irfbg
         if bg is None:
-            # Estimate background for decay in the same way
             maxind = np.argmax(measured)
             for i in range(maxind):
                 reverse = maxind - i
@@ -286,6 +318,23 @@ class FluoFit:
             self.bg = bg
 
     def setup_params(self, amp, shift, tau):
+        """Setup fitting parameters
+
+        This method handles the input of initial parameters for fitting. The
+        input system is flexible, allowing optional input of min and max
+        values as well as choosing to fix a value.
+
+        Parameters
+        ----------
+
+        amp : list or float
+            Amplitude(s)
+        shift : list or float
+            IRF colour shift
+        tau : list or float
+            Lifetime(s)
+
+        """
         try:
             for tauval in tau:
                 try:
@@ -338,6 +387,23 @@ class FluoFit:
             self.shiftmax = 2000
 
     def results(self, tau, dtau, shift, amp=1):
+        """Handle results after fitting
+
+        After fitting, the results are processed. Chi-squared is calculated
+        and optional plotting is done.
+
+        Parameters:
+        -----------
+        tau : ndarray or float
+            Fitted lifetime(s)
+        dtau : ndarray or float
+            Error in fitted lifetimes
+        shift : float
+            Fitted colourshift value
+        amp : ndarray or float
+            Fitted amplitude(s)
+
+        """
 
         self.tau = tau
         self.dtau = dtau
@@ -380,6 +446,17 @@ class FluoFit:
             plt.show()
 
     def makeconvd(self, shift, model):
+        """Makes a convolved decay using IRF and exponential model
+
+        Parameters:
+        -----------
+
+        shift : float
+            IRF colour shift
+        model : ndarray
+            Exponential model function
+
+        """
 
         irf = self.irf
         irf = colorshift(irf, shift)
@@ -409,9 +486,6 @@ class OneExp(FluoFit):
         print(paraminit)
         print(self.startpoint, self.endpoint)
         print('end')
-        plt.plot(self.t[:np.size(self.irf)], self.irf)
-        plt.plot(self.t[:np.size(self.measured)], self.measured)
-        plt.show()
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
 
         tau = param[0]
@@ -423,6 +497,7 @@ class OneExp(FluoFit):
         self.results(tau, dtau, shift)
 
     def fitfunc(self, t, tau1, a, shift):
+        """Function passed to curve_fit, to be fitted to data"""
 
         model = a * np.exp(-t/tau1)
         return self.makeconvd(shift, model)
@@ -451,8 +526,6 @@ class TwoExp(FluoFit):
         print(paraminit)
         print(self.startpoint, self.endpoint)
         print('end')
-        # plt.plot(self.t[self.startpoint:self.endpoint], self.measured)
-        # plt.show()
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
                                 bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
 
@@ -465,6 +538,8 @@ class TwoExp(FluoFit):
         self.results(tau, dtau, shift, amp)
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift):
+        """Function passed to curve_fit, to be fitted to data"""
+
         model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
         return self.makeconvd(shift, model)
 
@@ -497,6 +572,7 @@ class ThreeExp(FluoFit):
         self.results(tau, dtau, shift, amp)
 
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift):
+        """Function passed to curve_fit, to be fitted to data"""
 
         model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + a3 * np.exp(-t / tau3)
         return self.makeconvd(shift, model)
