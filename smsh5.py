@@ -14,8 +14,11 @@ import re
 
 class H5dataset:
 
-    def __init__(self, filename):
+    def __init__(self, filename, progress_sig=None):
 
+        if progress_sig is not None:
+            self.progress_sig = progress_sig
+        # self.main_signals.progress.connect()
         self.name = filename
         self.file = h5py.File(self.name, 'r')
         try:
@@ -45,6 +48,8 @@ class H5dataset:
 
         for particle in self.particles:
             particle.makehistogram()
+            if hasattr(self, 'progress_sig'):
+                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
 
     def binints(self, binsize):
         """Bin the absolute times into traces using binsize
@@ -53,6 +58,8 @@ class H5dataset:
 
         for particle in self.particles:
             particle.binints(binsize)
+            if hasattr(self, 'progress_sig'):
+                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
         print("done binning")
 
 

@@ -5,11 +5,12 @@ University of Pretoria
 2018
 """
 
-__docformat__ = 'reStructuredText'
+__docformat__ = 'NumPy'
 
 import os
 import numpy as np
 import dbg
+from PyQt5.QtCore import pyqtSignal
 # from smsh5 import Particle
 
 
@@ -269,9 +270,9 @@ class ChangePointAnalysis:
 
         max_ind_local = int(wlr.argmax())
 
-        if wlr[max_ind_local] >= self.__tau.get_tau_a(n):
+        if wlr[max_ind_local] >= self._tau.get_tau_a(n):
             self.cpts = np.append(self.cpts, max_ind_local + start_ind)
-            region_all_local = np.where(wlr >= self.__tau.get_tau_b(n))[0]
+            region_all_local = np.where(wlr >= self._tau.get_tau_b(n))[0]
             region_local = [region_all_local[0], region_all_local[-1]]
             region = (region_local[0] + start_ind, region_local[1] + start_ind)
             dt = self._abstimes[region_local[1]] - self._abstimes[region_local[0]]
@@ -349,7 +350,7 @@ class ChangePointAnalysis:
 
         return next_start_ind, next_end_ind
 
-    def _find_all_cpts(self, _seg_inds=None, _side=None):
+    def _find_all_cpts(self, _seg_inds: (int, int) = None, _side: str = None) -> None:
         """
         Find all change points in particle.
 
@@ -362,11 +363,13 @@ class ChangePointAnalysis:
             The top level assigns the number of detected change points to
             the .num_cpts attribute of this instance of ChangePointAnalysis.
 
-        :param _seg_inds: The index of the segment that is to be searched. Calculated by _next_seg_ind method.
-        :type _seg_inds: (int, int)
-        :param _side: Determines current segment is left or right of a previously
+        Parameters
+        ----------
+        _seg_inds : (int, int), optional
+            The index of the segment that is to be searched. Calculated by _next_seg_ind method.
+        _side : str, optional
+            Determines current segment is left or right of a previously
             detected change point. Valid values are 'left' or 'right'.
-        :type _side: str
         """
         is_top_level = False
         # cpt_found = False
@@ -384,6 +387,7 @@ class ChangePointAnalysis:
             # print(seg_inds)
         self._i += 1
         # print(self._i)
+        print(_seg_inds)
 
         if _seg_inds != (None, None):
             cpt_found = self.__weighted_likelihood_ratio(_seg_inds)
@@ -392,7 +396,7 @@ class ChangePointAnalysis:
             if cpt_found:
                 self._find_all_cpts(_seg_inds, _side='left')  # Left side of change point
                 self._find_all_cpts(_seg_inds, _side='right')
-                pass# Right side of change point
+                pass  # Right side of change point
 
             if _seg_inds[1] <= self.num_photons + 9 and _side is None:
                 self._find_all_cpts(_seg_inds)
@@ -403,7 +407,7 @@ class ChangePointAnalysis:
             self.cpts.sort()
             self.num_cpts = len(self.cpts)
 
-    def get_levels(self):
+    def get_levels(self) -> None:
         """
         Creates a list of levels as defined by the detected change points.
 
@@ -448,7 +452,7 @@ class ChangePointAnalysis:
         if confidence is not None:
             assert confidence in [0.99, 0.95, 0.90, 0.69], "ChangePointAnalysis:\tConfidence value given not valid."
             self.confidence = confidence
-            self.__tau = TauData(confidence)
+            self._tau = TauData(confidence)
         else:
             assert self.confidence is not None, "ChangePointAnalysis:\tNo confidence value provided."
 

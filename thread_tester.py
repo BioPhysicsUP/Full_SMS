@@ -3,11 +3,12 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 import time
-import traceback, sys
+import traceback
+import sys
 
 
 class WorkerSignals(QObject):
-    '''
+    """
     Defines the signals available from a running worker thread.
 
     Supported signals are:
@@ -24,7 +25,7 @@ class WorkerSignals(QObject):
     progress
         `int` indicating % progress
 
-    '''
+    """
     finished = pyqtSignal()
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
