@@ -7,7 +7,7 @@ University of Pretoria
 
 __docformat__ = 'NumPy'
 
-from PyQt5.QtWidgets import*
+from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, Qt, QThreadPool, QRunnable, pyqtSlot
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from platform import system
@@ -23,6 +23,7 @@ import dbg
 import traceback
 import smsh5
 from ui.mainwindow import Ui_MainWindow
+
 
 # mpl.use("Qt5Agg")
 
@@ -57,6 +58,7 @@ class WorkerSignals(QObject):
 
 class WorkerOpenFile(QRunnable):
     """ A QRunnable class to create a worker thread for opening h5 file. """
+
     # def __init__(self, fn, *args, **kwargs):
     def __init__(self, fname, openfile_func):
         """
@@ -94,6 +96,45 @@ class WorkerOpenFile(QRunnable):
         finally:
             self.signals.finished.emit()
 
+
+class WorkerBinAll(QRunnable):
+    """ A QRunnable class to create a worker thread for binning all the data. """
+
+    def __init__(self, binall_func, bin_size):
+        """
+        Initiate Open File Worker
+
+        Creates a QRunnable object (worker) to be run by a QThreadPool thread.
+        This worker is intended to call the given function to open a h5 file
+        and populate the tree in the mainwindow gui.
+
+        Parameters
+        ----------
+        fname : str
+            The name of the file.
+        binall_func : function
+            Function to be called that will read the h5 file and populate the tree on the gui.
+        """
+
+        super(WorkerBinAll, self).__init__()
+        self.openfile_func = binall_func
+        self.signals = WorkerSignals()
+        self.bin_size = bin_size
+
+    @pyqtSlot()
+    def run(self) -> None:
+        """ The code that will be run when the thread is started. """
+
+        # print("Hello from thread!!!!")
+        # self.signals.progress.emit()
+        try:
+            self.binall_func(self.bin_size, self.signals.start_progress, self.signals.progress, self.signals.status_message)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        finally:
+            self.signals.finished.emit()
 
 class WorkerResolveLevels(QRunnable):
     """ A QRunnable class to create a worker thread for resolving levels. """
@@ -357,7 +398,7 @@ class MainWindow(QMainWindow):
         """
 
         self.threadpool = QThreadPool()
-        print("Multi-threading with maximum %d threads" % self.threadpool.maxThreadCount())
+        dbg.p("Multi-threading with maximum %d threads" % self.threadpool.maxThreadCount(), "Main")
 
         self.confidence_index = {
             0: 99,
@@ -367,7 +408,7 @@ class MainWindow(QMainWindow):
 
         # Set defaults for figures depending on system
         if system() == "win32" or system() == "win64":
-            dbg.p("System: Windows", "Main")
+            dbg.p("System -> Windows", "Main")
             mpl.rcParams['figure.dpi'] = 120
             mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
             mpl.rcParams['savefig.dpi'] = 400
@@ -377,17 +418,17 @@ class MainWindow(QMainWindow):
             self.fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
             self.fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
         elif system() == "Darwin":
-            dbg.p("System: Unix/Linus", "Main")
+            dbg.p("System -> Unix/Linus", "Main")
             mpl.rcParams['figure.dpi'] = 100
             mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
             mpl.rcParams['savefig.dpi'] = 400
             mpl.rcParams['font.size'] = 10
             mpl.rcParams['lines.linewidth'] = 1.0
-            self.fig_pos = [0.15, 0.12, 0.8, 0.85]  # [left, bottom, right, top]
+            self.fig_pos = [0.1, 0.12, 0.8, 0.85]  # [left, bottom, right, top]
             self.fig_life_int_pos = [0.17, 0.2, 0.8, 0.75]
             self.fig_lifetime_pos = [0.15, 0.22, 0.8, 0.75]
         else:
-            dbg.p("System: Other", "Main")
+            dbg.p("System -> Other", "Main")
             mpl.rcParams['figure.dpi'] = 120
             mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
             mpl.rcParams['savefig.dpi'] = 400
@@ -464,6 +505,7 @@ class MainWindow(QMainWindow):
         self.has_spectra = False
 
         self.reset_gui()
+        dbg.p('Initialising done', 'Main')
 
     """#######################################
     ######## GUI Housekeeping Methods ########
@@ -480,6 +522,10 @@ class MainWindow(QMainWindow):
 
         return self.ui.spbBinSize.value()
 
+    def set_bin(self, new_bin: int):
+
+        self.ui.spbBinSize.setValue(new_bin)
+
     def get_gui_confidence(self):
         """ Return current GUI value for confidence percentage. """
 
@@ -489,23 +535,26 @@ class MainWindow(QMainWindow):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
 
         try:
+            binall_thread = WorkerBinAll(self.bin_all)
             self.currentparticle.binints(self.get_bin())
         except Exception as err:
             print('Error Occured:' + str(err))
         else:
             self.plot_trace()
             self.repaint()
+            dbg.p('Single trace binned', 'Main')
 
     def gui_apply_bin_all(self):
         """ Changes the bin size of the data of all the particles and then displays the new trace of the current particle. """
 
         try:
-            self.currentparticle.dataset.binints(self.get_bin())
+            self.start_binall_thread(self.get_bin())
         except Exception as err:
             print('Error Occured:' + str(err))
         else:
             self.plot_trace()
             self.repaint()
+            dbg.p('All traces binned', 'Main')
 
     def gui_resolve(self):
         """ Resolves the levels of the current particle and displays it. """
@@ -598,46 +647,28 @@ class MainWindow(QMainWindow):
     ############ Internal Methods ############
     #######################################"""
 
-    def open_file_thread_complete(self):
-        """ Is called as soon as one of the threads have finished. """
-
-        if self.data_loaded:
-            msgbx = QMessageBox()
-            msgbx.setIcon(QMessageBox.Question)
-            msgbx.setText("Resolve Levels Now?")
-            msgbx.setInformativeText("Would you like to resolve the levels now?")
-            msgbx.setWindowTitle("Resolve Levels?")
-            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-            msgbx.setDefaultButton(QMessageBox.Yes)
-            if msgbx.exec() == QMessageBox.Yes:
-                confidences = ("0.99", "0.95", "0.90", "0.69")
-                item, ok = QInputDialog.getItem(self, "Choose Confidence",
-                                                "Select confidence interval to use.", confidences, 1, False)
-                if ok:
-                    index = list(self.confidence_index.values()).index(int(float(item)*100))
-                    self.ui.cmbConfIndex.setCurrentIndex(index)
-                    self.start_resolve_thread('all')
-
-        self.reset_gui()
-
-    def display_data(self, current, prev):  # TODO: What is previous for?
+    def display_data(self, current, prev) -> None:  # TODO: What is previous for?
         """ Displays the intensity trace and the histogram of the current particle.
 
         Parameters
         ----------
-        current : int
-            The index of the current selected particle.
-        prev
+        current : QtCore.QModelIndex
+            The index of the current selected particle as defined by QtCore.QModelIndex.
+        prev : QtCore.QModelIndex
+            The index of the previous selected particle as defined by QtCore.QModelIndex.
         """
 
         self.current_ind = current
         self.currentparticle = self.treemodel.data(current, Qt.UserRole)
-        self.plot_trace()
-        if self.level_resolved:
-            self.plot_levels()
-        self.plot_decay()
+        if type(self.currentparticle) is smsh5.Particle:
+            self.set_bin(self.currentparticle.bin_size)
+            self.plot_trace()
+            if self.level_resolved:
+                self.plot_levels()
+            self.plot_decay()
+            dbg.p('Current data displayed', 'Main')
 
-    def plot_decay(self):
+    def plot_decay(self) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
         try:
@@ -658,13 +689,11 @@ class MainWindow(QMainWindow):
             self.ui.MW_Lifetime.axes.semilogy(t, decay)
             self.ui.MW_Lifetime.draw()
 
-
-
-    def plot_trace(self):
+    def plot_trace(self) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
 
         try:
-            # trace = self.
+            # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             trace = self.currentparticle.binnedtrace.intdata
         except AttributeError:
             print('No trace!')
@@ -712,7 +741,7 @@ class MainWindow(QMainWindow):
             The number of iterations or steps that the complete process is made up of.
         """
 
-        assert type(max_num) is int, "MainWindow:\tThe type of the "
+        assert type(max_num) is int, "MainWindow:\tThe type of the 'max_num' parameter is not int."
         self.progress.setMaximum(max_num)
         self.progress.setValue(0)
         self.progress.setVisible(True)
@@ -723,15 +752,15 @@ class MainWindow(QMainWindow):
         # print("Update progress")
         if self.progress.isVisible():
             current_value = self.progress.value()
-            self.progress.setValue(current_value+1)
+            self.progress.setValue(current_value + 1)
             # print(f"Progress: {self.progress.value()} of {self.progress.maximum()} done.")
-            if current_value+1 == self.progress.maximum():
+            if current_value + 1 == self.progress.maximum():
                 self.progress.setVisible(False)
             # self.repaint()
             # self.statusBar().repaint()
             # QApplication.processEvents()
 
-    def open_h5(self, fname, start_progress_sig, progress_sig, status_sig):
+    def open_h5(self, fname, start_progress_sig, progress_sig, status_sig) -> None:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
 
@@ -751,32 +780,92 @@ class MainWindow(QMainWindow):
 
         # print("Open_h5 called from thread")
         try:
-            status_sig.emit("...opening file...")
+            status_sig.emit("Opening file...")
             dataset = smsh5.H5dataset(fname[0], progress_sig)
+            self.bin_all(dataset, 100, start_progress_sig, progress_sig, status_sig)
             start_progress_sig.emit(dataset.numpart)
-            status_sig.emit("...binning traces...")
-            dataset.binints(100)
-            self.ui.spbBinSize.setValue(100)
-            start_progress_sig.emit(dataset.numpart)
-            status_sig.emit("...building decay histograms...")
+            status_sig.emit("Opening file: Building decay histograms...")
             dataset.makehistograms()
 
-            datasetnode = DatasetTreeNode(fname[0][fname[0].rfind('/')+1:-3], dataset, 'dataset')
-            datasetindex = self.treemodel.addChild(datasetnode)
+            datasetnode = DatasetTreeNode(fname[0][fname[0].rfind('/') + 1:-3], dataset, 'dataset')
+            self.datasetindex = self.treemodel.addChild(datasetnode)
             # print(datasetindex)
 
             start_progress_sig.emit(dataset.numpart)
-            status_sig.emit("...adding particles...")
+            status_sig.emit("Opening file: Adding particles...")
             for particle in dataset.particles:
                 particlenode = DatasetTreeNode(particle.name, particle, 'particle')
-                self.treemodel.addChild(particlenode, datasetindex, progress_sig)
+                self.treemodel.addChild(particlenode, self.datasetindex, progress_sig)
             self.treemodel.modelReset.emit()
             status_sig.emit("Done")
             self.data_loaded = True
         except Exception as exc:
             raise RuntimeError("h5 data file was not loaded successfully.") from exc
 
-    def start_resolve_thread(self, current_selected_all: str = 'current') -> None:
+    def open_file_thread_complete(self) -> None:
+        """ Is called as soon as all of the threads have finished. """
+
+        if self.data_loaded:
+            msgbx = QMessageBox()
+            msgbx.setIcon(QMessageBox.Question)
+            msgbx.setText("Resolve Levels Now?")
+            msgbx.setInformativeText("Would you like to resolve the levels now?")
+            msgbx.setWindowTitle("Resolve Levels?")
+            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+            msgbx.setDefaultButton(QMessageBox.Yes)
+            if msgbx.exec() == QMessageBox.Yes:
+                confidences = ("0.99", "0.95", "0.90", "0.69")
+                item, ok = QInputDialog.getItem(self, "Choose Confidence",
+                                                "Select confidence interval to use.", confidences, 1, False)
+                if ok:
+                    index = list(self.confidence_index.values()).index(int(float(item) * 100))
+                    self.ui.cmbConfIndex.setCurrentIndex(index)
+                    self.start_resolve_thread('all')
+        self.reset_gui()
+        dbg.p('File opened', 'Main')
+
+    def start_binall_thread(self, bin_size) -> None:
+        """
+
+        Parameters
+        ----------
+        bin_size
+        """
+
+        dataset = self.treemodel.data(self.datasetindex, Qt.UserRole)
+
+        binall_thread = WorkerBinAll(self.bin_all, bin_size)
+        binall_thread.signals.finished.connect(self.binall_thread_complete)
+        binall_thread.signals.start_progress.connect(self.start_progress)
+        binall_thread.signals.progress.connect(self.update_progress)
+        binall_thread.signals.status_message(self.status_message)
+
+        self.threadpool.start(binall_thread)
+
+    def bin_all(self, dataset, bin_size, start_progress_sig, progress_sig, status_sig) -> None:
+        """
+
+        Parameters
+        ----------
+        dataset
+        start_progress_sig
+        progress_sig
+        status_sig
+        """
+
+        start_progress_sig.emit(dataset.numpart)
+        if self.data_loaded:
+            part = "Opening file: "
+        else:
+            part = ""
+        status_sig.emit(part + "Binning traces...")
+        dataset.binints(bin_size)
+        self.ui.spbBinSize.setValue(bin_size)
+
+    def binall_thread_complete(self):
+        dbg.p('Binnig all levels complete', 'BinAll Thread')
+
+    def start_resolve_thread(self, current_selected_all: str = 'current', thread_finished = None) -> None:
         """
         Creates a worker to resolve levels.
 
@@ -789,15 +878,20 @@ class MainWindow(QMainWindow):
             Possible values are 'current' (default), 'selected', and 'all'.
         """
 
-        if current_selected_all == 'current':
-            resolver_worker = WorkerResolveLevels(self.resolve_levels)
-            resolver_worker.signals.finished.connect(self.open_file_thread_complete)
-            resolver_worker.signals.start_progress.connect(self.start_progress)
-            resolver_worker.signals.progress.connect(self.update_progress)
-            resolver_worker.signals.start_progress.connect(self.start_progress)
-            resolver_worker.signals.status_message.connect(self.status_message)
+        if thread_finished is None
+            if self.data_loaded
+                thread_finished = self.resolve_thread_complete
+            else
+                thread_finished = self.open_file_thread_complete
 
-        self.threadpool.start(resolver_worker)
+        if current_selected_all == 'current':
+            resolver_thread = WorkerResolveLevels(self.resolve_levels)
+            resolver_thread.signals.finished.connect(thread_finished)
+            resolver_thread.signals.start_progress.connect(self.start_progress)
+            resolver_thread.signals.progress.connect(self.update_progress)
+            resolver_thread.signals.status_message.connect(self.status_message)
+
+        self.threadpool.start(resolver_thread)
 
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
@@ -826,13 +920,13 @@ class MainWindow(QMainWindow):
             A list of Particle instances in smsh5, that isn't the current one, to be resolved.
         """
 
-        assert not (resolve_all is not None and resolve_selected is not None),\
+        assert not (resolve_all is not None and resolve_selected is not None), \
             "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
         if resolve_all is None and resolve_selected is None:  # Then resolve current
             data = self.currentparticle
             _, conf = self.get_gui_confidence()
-            data.cpts.run_cpa(confidence=conf/100, run_levels=True)
+            data.cpts.run_cpa(confidence=conf / 100, run_levels=True)
         elif resolve_all is not None and resolve_selected is None:  # Then resolve all
             data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
             try:
@@ -843,6 +937,9 @@ class MainWindow(QMainWindow):
         else:
             pass
         print(1)
+
+    def resolve_thread_complete(self):
+        dbg.p('Resolving levels complete', 'Resolve Thread')
 
     def switching_frequency(self, all_selected: str = None):
         """
@@ -859,7 +956,7 @@ class MainWindow(QMainWindow):
                 all_selected = 'all'
 
             assert all_selected.lower() in ['all', 'selected'], "mode parameter must be either 'all' or 'selected'."
-            
+
             if all_selected is 'all':
                 data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
                 # assert data.
@@ -867,7 +964,6 @@ class MainWindow(QMainWindow):
             print('Switching frequency analysis failed: ' + exc)
         else:
             pass
-
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """

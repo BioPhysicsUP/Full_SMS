@@ -1,10 +1,11 @@
 from PyQt5 import uic
 import fileinput
+import os
 
-with open("/Users/Joshua/Documents/# Code Dev/Full SMS/ui/mainwindow.py", "w") as f:
-    uic.compileUi("/Users/Joshua/Documents/# Code Dev/Full SMS/ui/mainwindow.ui", f)
+with open(os.getcwd() + "/ui/mainwindow.py", "w") as f:
+    uic.compileUi(os.getcwd() + "/ui/mainwindow.ui", f)
 
-for line in fileinput.FileInput("/Users/Joshua/Documents/# Code Dev/Full SMS/ui/mainwindow.py", inplace=1):
+for line in fileinput.FileInput(os.getcwd() + "/ui/mainwindow.py", inplace=1):
     if "from PyQt5 import QtCore, QtGui, QtWidgets" in line:
         line = line.replace(line, line + "\nfrom ui.matplotlibwidget import MatplotlibWidget\n\n")
 

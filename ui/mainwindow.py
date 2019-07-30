@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/Users/Joshua/Documents/# Code Dev/Full SMS/ui/mainwindow.ui'
+# Form implementation generated from reading ui file '/Users/Joshua/OneDrive - University of Pretoria/# Code Dev/Full SMS/ui/mainwindow.ui'
 #
 # Created by: PyQt5 UI code generator 5.12
 #
@@ -137,7 +137,7 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.spbBinSize.sizePolicy().hasHeightForWidth())
         self.spbBinSize.setSizePolicy(sizePolicy)
-        self.spbBinSize.setMinimumSize(QtCore.QSize(60, 30))
+        self.spbBinSize.setMinimumSize(QtCore.QSize(80, 30))
         self.spbBinSize.setPrefix("")
         self.spbBinSize.setMaximum(9999)
         self.spbBinSize.setObjectName("spbBinSize")
@@ -495,7 +495,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuAnalysis.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         MainWindow.setTabOrder(self.tabWidget, self.spbBinSize)
         MainWindow.setTabOrder(self.spbBinSize, self.btnApplyBin)
