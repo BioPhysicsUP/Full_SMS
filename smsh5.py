@@ -4,24 +4,40 @@ Bertus van Heerden
 University of Pretoria
 2018
 """
+
 import h5py
 import numpy as np
 from matplotlib import pyplot as plt
 from change_point import ChangePoints
+import re
 
 
 class H5dataset:
 
-    def __init__(self, filename):
+    def __init__(self, filename, progress_sig=None):
 
+        if progress_sig is not None:
+            self.progress_sig = progress_sig
+        # self.main_signals.progress.connect()
         self.name = filename
         self.file = h5py.File(self.name, 'r')
         try:
             self.version = self.file.attrs['Version']
         except KeyError:
             self.version = '0.1'
+
+        unsorted_names = list(self.file.keys())
+        natural_p_names = [None] * len(unsorted_names)
+        natural_key = []
+        for name in unsorted_names:
+            for seg in re.split('(\d+)', name):
+                if seg.isdigit():
+                    natural_key.append(int(seg))
+        for num, key_num in enumerate(natural_key):
+            natural_p_names[key_num-1] = unsorted_names[num]
+
         self.particles = []
-        for particlename in self.file.keys():
+        for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
         self.numpart = len(self.particles)
         assert self.numpart == self.file.attrs['# Particles']
@@ -32,14 +48,20 @@ class H5dataset:
 
         for particle in self.particles:
             particle.makehistogram()
+            if hasattr(self, 'progress_sig'):
+                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
 
-    def binints(self, binsize):
+    def binints(self, binsize, progress_sig=None):
         """Bin the absolute times into traces using binsize
             binsize is in ms
         """
+        if progress_sig is not None:
+            self.progress_sig = progress_sig
 
         for particle in self.particles:
             particle.binints(binsize)
+            if hasattr(self, 'progress_sig'):
+                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
         print("done binning")
 
 
@@ -80,6 +102,7 @@ class Particle:
         self.bg = False
         self.histogram = None
         self.binnedtrace = None
+        self.bin_size = None
 
     def get_levels(self):
         assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
@@ -99,7 +122,8 @@ class Particle:
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""
 
-        self.binnedtrace = Trace(self, binsize)
+        self.bin_size = binsize
+        self.binnedtrace = Trace(self, self.bin_size)
 
 
 class Trace:
