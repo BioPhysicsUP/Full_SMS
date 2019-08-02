@@ -7,7 +7,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>993</width>
+    <width>1106</width>
     <height>649</height>
    </rect>
   </property>
@@ -18,6 +18,12 @@
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
      <widget class="QSplitter" name="splitter">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
@@ -36,7 +42,7 @@
        </property>
        <property name="minimumSize">
         <size>
-         <width>150</width>
+         <width>180</width>
          <height>0</height>
         </size>
        </property>
@@ -151,7 +157,7 @@
         </attribute>
         <layout class="QGridLayout" name="gridLayout">
          <item row="0" column="0">
-          <widget class="MplWidget" name="MW_Intensity" native="true">
+          <widget class="MatplotlibWidget" name="MW_Intensity" native="true">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -189,22 +195,6 @@
              <property name="verticalSpacing">
               <number>0</number>
              </property>
-             <item row="1" column="3">
-              <spacer name="horizontalSpacer_5">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Expanding</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
              <item row="1" column="1">
               <widget class="QPushButton" name="btnApplyBin">
                <property name="sizePolicy">
@@ -244,7 +234,7 @@
                </property>
                <property name="minimumSize">
                 <size>
-                 <width>60</width>
+                 <width>80</width>
                  <height>30</height>
                 </size>
                </property>
@@ -370,7 +360,7 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="6">
+             <item row="1" column="7">
               <widget class="QPushButton" name="btnResolveAll">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -409,6 +399,51 @@
                </property>
               </widget>
              </item>
+             <item row="1" column="3">
+              <spacer name="horizontalSpacer_5">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Expanding</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item row="1" column="6">
+              <widget class="QPushButton" name="btnResolve_Selected">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Resolve Selected</string>
+               </property>
+               <property name="icon">
+                <iconset>
+                 <normaloff>../icons/013-management-selected.png</normaloff>../icons/013-management-selected.png</iconset>
+               </property>
+               <property name="iconSize">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </widget>
+             </item>
             </layout>
            </item>
           </layout>
@@ -428,7 +463,7 @@
         </attribute>
         <layout class="QGridLayout" name="gridLayout_2">
          <item row="2" column="0">
-          <widget class="MplWidget" name="MW_Lifetime" native="true">
+          <widget class="MatplotlibWidget" name="MW_Lifetime" native="true">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
              <horstretch>0</horstretch>
@@ -497,7 +532,7 @@
             </widget>
            </item>
            <item>
-            <widget class="MplWidget" name="MW_LifetimeInt" native="true">
+            <widget class="MatplotlibWidget" name="MW_LifetimeInt" native="true">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                <horstretch>0</horstretch>
@@ -799,7 +834,7 @@
         </attribute>
         <layout class="QGridLayout" name="gridLayout_7">
          <item row="0" column="0">
-          <widget class="MplWidget" name="MW_Spectra" native="true">
+          <widget class="MatplotlibWidget" name="MW_Spectra" native="true">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
              <horstretch>0</horstretch>
@@ -898,7 +933,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>993</width>
+     <width>1106</width>
      <height>22</height>
     </rect>
    </property>
@@ -928,8 +963,22 @@
     <addaction name="menuIntensity"/>
     <addaction name="actionReset_Analysis"/>
    </widget>
+   <widget class="QMenu" name="menuAnalysis">
+    <property name="title">
+     <string>Analysis</string>
+    </property>
+    <widget class="QMenu" name="menuSwitching_Rates">
+     <property name="title">
+      <string>Switching Rates...</string>
+     </property>
+     <addaction name="actionSwitch_All"/>
+     <addaction name="actionSwitch_Selected"/>
+    </widget>
+    <addaction name="menuSwitching_Rates"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
+   <addaction name="menuAnalysis"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpen_h5">
@@ -967,13 +1016,23 @@
     <string>Reset Analysis</string>
    </property>
   </action>
+  <action name="actionSwitch_All">
+   <property name="text">
+    <string>All</string>
+   </property>
+  </action>
+  <action name="actionSwitch_Selected">
+   <property name="text">
+    <string>Selected</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="9"/>
  <customwidgets>
   <customwidget>
-   <class>MplWidget</class>
+   <class>MatplotlibWidget</class>
    <extends>QWidget</extends>
-   <header>mplwidget.h</header>
+   <header>MatplotlibWidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

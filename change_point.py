@@ -1,17 +1,44 @@
-"""Module for handling analysis of change points and creation of consequent levels
+"""Module for handling analysis of change points and creation of consequent levels.
 
 Joshua Botha
 University of Pretoria
 2018
 """
+
+__docformat__ = 'NumPy'
+
 import os
 import numpy as np
 import dbg
+from PyQt5.QtCore import pyqtSignal
 # from smsh5 import Particle
 
 
 class ChangePoints:
+    """ Contains all the attributes to describe the found change points in an analysed particles. """
+
     def __init__(self, particle=None, confidence=None, run_levels=None):
+        """
+        Creates an instance of ChangePoints for the particle object provided.
+
+        If the confidence argument is given the change point analysis will be run.
+        If run_levels is set to True the analysed change points will be used to define the resulting levels.
+
+
+        .. note::
+            Runs the respective add_levels method of the particle object
+            to add a list of Level instances for each resolved level.
+
+        :param particle: An instance of Particle in the smsh5 module.
+        :type particle: smsh5.Particle
+        :param confidence: Confidence level with which to resolve the
+                change points with. Must be 0.99, 0.95, 0.90 or 0.69.
+        :type confidence: int, optional
+        :param run_levels: If true the change point analysis will be used to
+                add a list of levels to the parent particle object by running its add_levels method.
+        :type run_levels: bool, optional
+        """
+
         self.__particle = particle
         self.cpa = ChangePointAnalysis(particle)
 
@@ -31,6 +58,20 @@ class ChangePoints:
             self.num_cpts = None
 
     def run_cpa(self, confidence=None, run_levels=None):
+        """
+        Run change point analysis.
+
+        Performs the change point analysis on the parent particle object with the confidence
+            either provided as an argument here or in the __init__ method.
+
+        :param confidence: Confidence level with which to resolve the
+                change points with. Must be 0.99, 0.95, 0.90 or 0.69.
+        :type confidence: int, optional
+        :param run_levels: If true the change point analysis will be used to
+                add a list of levels to the parent particle object by running its add_levels method.
+        :type run_levels: bool, optional
+        """
+
         if run_levels is not None:
             self._run_levels = run_levels
         self.confidence = confidence
@@ -41,11 +82,28 @@ class ChangePoints:
             self.get_levels()
 
     def get_levels(self):
+        """ Uses the resolved change points to define the resulting levels and adds
+            them to the parent particle object by means of the add_levels method. """
+
         self.cpa.get_levels()
 
 
 class Level:
+    """ Defines the start, end and intensity of a single level. """
+
     def __init__(self, abstimes=None, level_inds=None):
+        """
+        Initiate Level
+
+        Initiates attributes that define a single resolved level. These attributes
+        are the start and end indexes, the start and end time in ns, the number of
+        photons in the level, the dwell time and the intensity.
+
+        :param abstimes: Dataset of absolute arrival times (ns) in a h5 file as read by h5py.
+        :type abstimes: HDF5 Dataset
+        :param level_inds: A tuples that contain the start and end of the level (ns).
+        :type level_inds: tuple
+        """
         # assert h5file is not None, "No HDF5 has been given"  # To ensure that a h5file is given
         # assert type(particle) is smsh5.Particle, "Level:\tNo Particle object given."
         # self.particle = smsh5.Particle.__copy__(particle)
@@ -60,7 +118,17 @@ class Level:
 
 
 class TauData:
+    """ Loads and stores the tau_a and tau_b files from text files for
+        specific confidence and stores as attributes. """
+
     def __init__(self, confidence=None):
+        """
+        Initialise TauData instance.
+
+        Reads local tau_a and tau_b text files and stores data in attributes for a specific confidence interval.
+        :param confidence: Confidence of tau_a and tau_b to retrieve. Valid values are 0.99, 0.95, 0.90 and 0.69.
+        :type confidence: float
+        """
         tau_data_path = os.getcwd() + os.path.sep + 'tau data'
         assert os.path.isdir(tau_data_path), "TauData:\tTau data directory not found."
         tau_data_files = {'99_a': 'Ta-99.txt',
@@ -94,17 +162,47 @@ class TauData:
                 self._b = data
 
     def get_tau_a(self, num_data_points=None):
+        """
+        Get tau_a value for n = num_data_points.
+
+        Retrieve the a tau data for the given number of data points.
+
+        :param num_data_points: Number of data points that the tau data is needed for.
+            **Note**, only use values up to and smaller than 1000 for accuracy.
+        :return: tau_a value
+        :rtype: float
+        """
+
         assert num_data_points is not None, "TauData:\tNumber of data points not given."
         return self._a[num_data_points]
 
     def get_tau_b(self, num_data_points=None):
+        """
+        Get tau_a value for n = num_data_points.
+
+        Retrieve the a tau data for the given number of data points.
+
+        :param num_data_points: Number of data points that the tau data is needed for.
+            **Note**, only use values up to and smaller than 1000 for accuracy.
+        :return: tau_a value
+        :rtype: float
+        """
+
         assert num_data_points is not None, "TauData:\tNumber of data points not given."
         return self._b[num_data_points]
 
 
 class ChangePointAnalysis:
+    """ Perform analysis of particle abstimes data to resolve change points. """
 
     def __init__(self, particle=None, confidence=None):
+        """
+        Initiate ChangePointAnalysis instance.
+        :param particle: Object contaning particle data
+        :type particle: Class Particle in smsh5 module
+        :param confidence: Confidence interval. Valid values are 0.99, 0.95, 0.90 and 0.69.
+        :type confidence: float
+        """
         # assert h5file is not None, "No HDF5 has been given"  # To ensure that a h5file is given
         # assert type(particle) is smsh5.Particle, "ChangePoints:\tNo Particle object given."
         # assert confidence is not None, "ChangePoints:\tNo confidence parameter given."
@@ -123,17 +221,29 @@ class ChangePointAnalysis:
             self._tau = TauData(self.confidence)
 
     def __weighted_likelihood_ratio(self, seg_inds=None):
-        """ Calculates the Weighted & Standardised Likelihood ratio.
+        """
+        Calculates the Weighted & Standardised Likelihood ratio and detects the possible change point.
 
         Based on 'Detection of Intensity Change Points in Time-Resolved Single-Molecule Measurements'
         from Watkins nad Yang, J. Phys. Chem. B 2005, 109, 617-628 (http://pubs.acs.org/doi/abs/10.1021/jp0467548)
+
+        .. note::
+            If the possible change point is greater than the tau_a value for the corresponding
+            confidence interval and number of data points the detected change points, it's
+            confidence region (as defined by tau_b), and the corresponding uncertainty in time
+            is added to this instance of ChangePointAnalysis.
+
+        :param seg_inds: Segment indexes (start, end).
+        :type seg_inds: (int, int)
+        :return: True if a change point was detected.
+        :rtype: bool
         """
 
         assert type(seg_inds) is tuple, 'ChangePointAnalysis:\tSegment index\'s not given.'
         start_ind, end_ind = seg_inds
         n = end_ind - start_ind
         assert n <= 1000, "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
-        print(start_ind, end_ind)
+        # print(start_ind, end_ind)
         time_data = self._abstimes[start_ind:end_ind]
 
         ini_time = time_data[0]
@@ -160,9 +270,9 @@ class ChangePointAnalysis:
 
         max_ind_local = int(wlr.argmax())
 
-        if wlr[max_ind_local] >= self.__tau.get_tau_a(n):
+        if wlr[max_ind_local] >= self._tau.get_tau_a(n):
             self.cpts = np.append(self.cpts, max_ind_local + start_ind)
-            region_all_local = np.where(wlr >= self.__tau.get_tau_b(n))[0]
+            region_all_local = np.where(wlr >= self._tau.get_tau_b(n))[0]
             region_local = [region_all_local[0], region_all_local[-1]]
             region = (region_local[0] + start_ind, region_local[1] + start_ind)
             dt = self._abstimes[region_local[1]] - self._abstimes[region_local[0]]
@@ -173,14 +283,32 @@ class ChangePointAnalysis:
             cpt_found = False
         return cpt_found
 
-    def __next_seg_ind(self, prev_seg_inds=None, side=None):
+    def _next_seg_ind(self, prev_seg_inds=None, side=None):
+        """
+        Calculates the next segments indexes.
+
+        Uses the indexes of the previous segment, as well as the latest change point
+        to calculate the index values of the next segment.
+
+        .. seealso::
+            See code2flow.com for flow diagram of if statements.
+            https://code2flow.com/svLn85
+
+        :param prev_seg_inds: Contains the start and end of the previous segment (start, end)
+        :type prev_seg_inds:
+        :param side: If a change point was detected in the previous segment choose left
+            or right of it. Possible values are 'left' or 'right'.
+        :type side: str, optional
+        :return: Returns the calculated indexes of the next segment (start, end)
+        :rtype: (int, int)
+        """
+
         last_photon_ind = self.num_photons - 1
-        #  See code2flow.com for tree:
-        #  https://code2flow.com/svLn85
 
         if prev_seg_inds is None:
             # Data sets need to be larger than 200 photons
-            assert self.num_photons >= 200, 'ChangePointAnalysis:\tData set needs to be at least 200 photons for change point detection.'
+            assert self.num_photons >= 200, 'ChangePointAnalysis:\tData set needs to ' \
+                                            'be at least 200 photons for change point detection.'
             if self.num_photons > 1000:
                 next_start_ind, next_end_ind = 0, 1000
             else:
@@ -222,35 +350,56 @@ class ChangePointAnalysis:
 
         return next_start_ind, next_end_ind
 
-    def __find_all_cpts(self, seg_inds=None, side=None):
+    def _find_all_cpts(self, _seg_inds: (int, int) = None, _side: str = None) -> None:
+        """
+        Find all change points in particle.
+
+        Recursive function that finds all change points that meets the confidence criteria.
+
+        .. note::
+            The first call doesn't need to be called with any parameters.
+
+        .. note::
+            The top level assigns the number of detected change points to
+            the .num_cpts attribute of this instance of ChangePointAnalysis.
+
+        Parameters
+        ----------
+        _seg_inds : (int, int), optional
+            The index of the segment that is to be searched. Calculated by _next_seg_ind method.
+        _side : str, optional
+            Determines current segment is left or right of a previously
+            detected change point. Valid values are 'left' or 'right'.
+        """
         is_top_level = False
         # cpt_found = False
 
         if self._finding is False:
             is_top_level = True
             self._finding = True
-            assert seg_inds is None, "ChangePointAnalysis:\tDo not provide seg_inds when calling, it's used for recursive calling only."
+            assert _seg_inds is None, "ChangePointAnalysis:\tDo not provide seg_inds when calling, it's used for recursive calling only."
 
         if is_top_level:
-            seg_inds = self.__next_seg_ind()
+            _seg_inds = self._next_seg_ind()
             self._i = 0
         else:
-            seg_inds = self.__next_seg_ind(prev_seg_inds=seg_inds, side=side)
-            print(seg_inds)
+            _seg_inds = self._next_seg_ind(prev_seg_inds=_seg_inds, side=_side)
+            # print(seg_inds)
         self._i += 1
-        print(self._i)
+        # print(self._i)
+        print(_seg_inds)
 
-        if seg_inds != (None, None):
-            cpt_found = self.__weighted_likelihood_ratio(seg_inds)
+        if _seg_inds != (None, None):
+            cpt_found = self.__weighted_likelihood_ratio(_seg_inds)
             # if seg_inds[1] != self.num_photons - 1:
                 # assert side.lower() in ['left', 'right', 'l', 'r'], "ChangePointAnalysis:\tSide argument needs to be 'left' or 'right'."
             if cpt_found:
-                self.__find_all_cpts(seg_inds, side='left')  # Left side of change point
-                self.__find_all_cpts(seg_inds, side='right')
-                pass# Right side of change point
+                self._find_all_cpts(_seg_inds, _side='left')  # Left side of change point
+                self._find_all_cpts(_seg_inds, _side='right')
+                pass  # Right side of change point
 
-            if seg_inds[1] <= self.num_photons + 9 and side is None:
-                self.__find_all_cpts(seg_inds)
+            if _seg_inds[1] <= self.num_photons + 9 and _side is None:
+                self._find_all_cpts(_seg_inds)
 
         if is_top_level:
             self._finding = False
@@ -258,13 +407,23 @@ class ChangePointAnalysis:
             self.cpts.sort()
             self.num_cpts = len(self.cpts)
 
-    def get_levels(self):
+    def get_levels(self) -> None:
+        """
+        Creates a list of levels as defined by the detected change points.
+
+        Uses the detected change points to create a list of Level instances
+        that contain attributes that define each resolved level.
+
+        .. note::
+            This method populate the .levels attribute of the parent particle
+            instance by using its add_levels method.
+        """
         assert self.found_cpts, "ChangePointAnalysis:\tChange point analysis not done, or found no change points."
         num_levels = self.num_cpts + 1
         levels = [None] * num_levels
 
         for num, cpt in enumerate(self.cpts):
-            print(num)
+            # print(num)
             if num == 0:  # First change point
                 start_ind = 0
                 end_ind = cpt-1
@@ -281,20 +440,26 @@ class ChangePointAnalysis:
         # return levels, num_levels
 
     def run_cpa(self, confidence=None):
+        """
+        Runs the change point analysis.
+
+        If the ChangePointAnalysis wasn't initialised with a confidence interval, or if
+        the analysis is to be rerun with a new confidence interval, this method starts said analysis.
+
+        :param confidence: Confidence interval. Valid values are 0.99, 0.95, 0.90 and 0.69.
+        :type confidence: float
+        """
         if confidence is not None:
             assert confidence in [0.99, 0.95, 0.90, 0.69], "ChangePointAnalysis:\tConfidence value given not valid."
             self.confidence = confidence
-            self.__tau = TauData(confidence)
+            self._tau = TauData(confidence)
         else:
             assert self.confidence is not None, "ChangePointAnalysis:\tNo confidence value provided."
 
-        self.__find_all_cpts()
+        self._find_all_cpts()
 
-        return self.cpts, self.conf_regions, self.dt_uncertainty
+def main():
+    test = ChangePoints()
 
-###### Natural Key Sorting ########
-# natural_keys = []
-# for name in my_list:
-#     for seg in re.split('(\d+)', name):
-#         if seg.isdigit():
-#             natural_keys.append(int(seg))
+if __name__ == '__main__':
+    main()
