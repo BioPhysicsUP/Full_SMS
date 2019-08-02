@@ -51,10 +51,12 @@ class H5dataset:
             if hasattr(self, 'progress_sig'):
                 self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
 
-    def binints(self, binsize):
+    def binints(self, binsize, progress_sig=None):
         """Bin the absolute times into traces using binsize
             binsize is in ms
         """
+        if progress_sig is not None:
+            self.progress_sig = progress_sig
 
         for particle in self.particles:
             particle.binints(binsize)

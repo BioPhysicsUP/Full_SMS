@@ -100,7 +100,7 @@ class WorkerOpenFile(QRunnable):
 class WorkerBinAll(QRunnable):
     """ A QRunnable class to create a worker thread for binning all the data. """
 
-    def __init__(self, binall_func, bin_size):
+    def __init__(self, dataset, binall_func, bin_size):
         """
         Initiate Open File Worker
 
@@ -117,7 +117,8 @@ class WorkerBinAll(QRunnable):
         """
 
         super(WorkerBinAll, self).__init__()
-        self.openfile_func = binall_func
+        self.dataset = dataset
+        self.binall_func = binall_func
         self.signals = WorkerSignals()
         self.bin_size = bin_size
 
@@ -128,7 +129,7 @@ class WorkerBinAll(QRunnable):
         # print("Hello from thread!!!!")
         # self.signals.progress.emit()
         try:
-            self.binall_func(self.bin_size, self.signals.start_progress, self.signals.progress, self.signals.status_message)
+            self.binall_func(self.dataset, self.bin_size, self.signals.start_progress, self.signals.progress, self.signals.status_message)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -535,7 +536,6 @@ class MainWindow(QMainWindow):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
 
         try:
-            binall_thread = WorkerBinAll(self.bin_all)
             self.currentparticle.binints(self.get_bin())
         except Exception as err:
             print('Error Occured:' + str(err))
@@ -834,11 +834,11 @@ class MainWindow(QMainWindow):
 
         dataset = self.treemodel.data(self.datasetindex, Qt.UserRole)
 
-        binall_thread = WorkerBinAll(self.bin_all, bin_size)
+        binall_thread = WorkerBinAll(dataset, self.bin_all, bin_size)
         binall_thread.signals.finished.connect(self.binall_thread_complete)
         binall_thread.signals.start_progress.connect(self.start_progress)
         binall_thread.signals.progress.connect(self.update_progress)
-        binall_thread.signals.status_message(self.status_message)
+        binall_thread.signals.status_message.connect(self.status_message)
 
         self.threadpool.start(binall_thread)
 
@@ -847,6 +847,7 @@ class MainWindow(QMainWindow):
 
         Parameters
         ----------
+        bin_size
         dataset
         start_progress_sig
         progress_sig
@@ -854,15 +855,18 @@ class MainWindow(QMainWindow):
         """
 
         start_progress_sig.emit(dataset.numpart)
-        if self.data_loaded:
+        if not self.data_loaded:
             part = "Opening file: "
         else:
             part = ""
         status_sig.emit(part + "Binning traces...")
-        dataset.binints(bin_size)
+        dataset.binints(bin_size, progress_sig)
         self.ui.spbBinSize.setValue(bin_size)
 
     def binall_thread_complete(self):
+
+        self.status_message('Done')
+        self.plot_trace()
         dbg.p('Binnig all levels complete', 'BinAll Thread')
 
     def start_resolve_thread(self, current_selected_all: str = 'current', thread_finished = None) -> None:
@@ -878,10 +882,10 @@ class MainWindow(QMainWindow):
             Possible values are 'current' (default), 'selected', and 'all'.
         """
 
-        if thread_finished is None
-            if self.data_loaded
+        if thread_finished is None:
+            if self.data_loaded:
                 thread_finished = self.resolve_thread_complete
-            else
+            else:
                 thread_finished = self.open_file_thread_complete
 
         if current_selected_all == 'current':
