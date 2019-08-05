@@ -10,6 +10,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from change_point import ChangePoints
 import re
+from generate_sums import CPSums
 
 
 class H5dataset:
@@ -36,6 +37,7 @@ class H5dataset:
         for num, key_num in enumerate(natural_key):
             natural_p_names[key_num-1] = unsorted_names[num]
 
+        self.all_sums = CPSums()
         self.particles = []
         for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
