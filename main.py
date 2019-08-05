@@ -137,6 +137,7 @@ class WorkerBinAll(QRunnable):
         finally:
             self.signals.finished.emit()
 
+
 class WorkerResolveLevels(QRunnable):
     """ A QRunnable class to create a worker thread for resolving levels. """
 
@@ -181,10 +182,10 @@ class WorkerResolveLevels(QRunnable):
             self.signals.finished.emit()
 
 
-class DatasetTreeNode:
+class DatasetTreeNode(object):
     """ Contains the files with their respective particles. Also seems to house the actual data objects. """
 
-    def __init__(self, name, dataobj, datatype) -> None:
+    def __init__(self, name, dataobj, datatype, checked=False) -> None:
         """
         TODO Docstring
 
@@ -213,6 +214,13 @@ class DatasetTreeNode:
             pass
 
         self.dataobj = dataobj
+        self.setChecked(checked)
+
+    def checked(self):
+        return self._checked
+
+    def setChecked(self, checked=True):
+        self._checked = bool(checked)
 
     def data(self, in_column):
         """ TODO: Docstring """
@@ -273,6 +281,11 @@ class DatasetTreeModel(QAbstractItemModel):
         self._root = DatasetTreeNode(None, None, None)
         # for node in in_nodes:
         #     self._root.addChild(node)
+
+    def flags(self, index):
+        # return self.flags(index) | Qt.ItemIsUserCheckable
+        flags = Qt.ItemIsEnabled | Qt.ItemIsTristate | Qt.ItemIsSelectable | Qt.ItemIsUserCheckable
+        return flags
 
     def rowCount(self, in_index):
         """
@@ -380,7 +393,20 @@ class DatasetTreeModel(QAbstractItemModel):
             return node.data(in_index.column())
         if role == Qt.UserRole:
             return node.dataobj
+        if role == Qt.CheckStateRole:
+            if node.checked():
+                return Qt.Checked
+            return Qt.Unchecked
         return None
+
+    def setData(self, index, value, role=Qt.EditRole):
+
+        if index.isValid():
+            if role == Qt.CheckStateRole:
+                node = index.internalPointer()
+                node.setChecked(not node.checked())
+                return True
+        return False
 
 
 class MainWindow(QMainWindow):
@@ -494,7 +520,7 @@ class MainWindow(QMainWindow):
         # Connect the tree selection to data display
         self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
-        self.statusBar().showMessage('Load File')
+        self.statusBar().showMessage('Ready')
         self.progress = QProgressBar(self)
         self.progress.setMinimumSize(170, 19)
         self.progress.setVisible(False)
@@ -680,12 +706,10 @@ class MainWindow(QMainWindow):
             print('No decay, or no trace!')
         else:
             self.ui.MW_Lifetime.axes.clear()
-
             self.ui.MW_Lifetime.axes.set_xlabel('Time (ns)')
             self.ui.MW_Lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
             self.ui.MW_Lifetime.figure.tight_layout()
             self.ui.MW_Lifetime.axes.set_position(self.fig_lifetime_pos)
-
             self.ui.MW_Lifetime.axes.semilogy(t, decay)
             self.ui.MW_Lifetime.draw()
 
@@ -699,15 +723,22 @@ class MainWindow(QMainWindow):
             print('No trace!')
         else:
             self.ui.MW_Intensity.axes.clear()
-
             self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
             self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/bin)')
             self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
             self.ui.MW_Intensity.figure.tight_layout()
             self.ui.MW_Intensity.axes.set_position(self.fig_pos)
-
             self.ui.MW_Intensity.axes.plot(trace)
             self.ui.MW_Intensity.draw()
+
+            self.ui.MW_LifetimeInt.axes.clear()
+            self.ui.MW_LifetimeInt.axes.set_xlabel('Time (s)')
+            self.ui.MW_LifetimeInt.axes.set_ylabel('Bin Intensity (counts/bin)')
+            self.ui.MW_LifetimeInt.axes.patch.set_linewidth(0.1)
+            self.ui.MW_LifetimeInt.figure.tight_layout()
+            self.ui.MW_LifetimeInt.axes.set_position(self.fig_life_int_pos)
+            self.ui.MW_LifetimeInt.axes.plot(trace)
+            self.ui.MW_LifetimeInt.draw()
 
     def plot_levels(self):
         # self.currentparticle
@@ -760,6 +791,16 @@ class MainWindow(QMainWindow):
             # self.statusBar().repaint()
             # QApplication.processEvents()
 
+    def tree2particle(self, identifier):
+
+        if type(identifier) is int:
+            return self.part_nodes[identifier].dataobj
+        if type(identifier) is DatasetTreeNode:
+            return identifier.dataobj
+
+    def tree2dataset(self):
+        return self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
+
     def open_h5(self, fname, start_progress_sig, progress_sig, status_sig) -> None:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
@@ -793,9 +834,12 @@ class MainWindow(QMainWindow):
 
             start_progress_sig.emit(dataset.numpart)
             status_sig.emit("Opening file: Adding particles...")
-            for particle in dataset.particles:
+            self.part_nodes = dict()
+            for i, particle in enumerate(dataset.particles):
                 particlenode = DatasetTreeNode(particle.name, particle, 'particle')
-                self.treemodel.addChild(particlenode, self.datasetindex, progress_sig)
+                index = self.treemodel.addChild(particlenode, self.datasetindex, progress_sig)
+                self.part_nodes[i] = particlenode
+                # self.treemodel.index(index, self.datasetindex)
             self.treemodel.modelReset.emit()
             status_sig.emit("Done")
             self.data_loaded = True
@@ -869,7 +913,7 @@ class MainWindow(QMainWindow):
         self.plot_trace()
         dbg.p('Binnig all levels complete', 'BinAll Thread')
 
-    def start_resolve_thread(self, current_selected_all: str = 'current', thread_finished = None) -> None:
+    def start_resolve_thread(self, current_selected_all: str = 'current', thread_finished=None) -> None:
         """
         Creates a worker to resolve levels.
 
@@ -878,6 +922,7 @@ class MainWindow(QMainWindow):
 
         Parameters
         ----------
+        thread_finished
         current_selected_all : {'current', 'selected', 'all'}
             Possible values are 'current' (default), 'selected', and 'all'.
         """
@@ -889,13 +934,20 @@ class MainWindow(QMainWindow):
                 thread_finished = self.open_file_thread_complete
 
         if current_selected_all == 'current':
-            resolver_thread = WorkerResolveLevels(self.resolve_levels)
-            resolver_thread.signals.finished.connect(thread_finished)
-            resolver_thread.signals.start_progress.connect(self.start_progress)
-            resolver_thread.signals.progress.connect(self.update_progress)
-            resolver_thread.signals.status_message.connect(self.status_message)
+            sig = WorkerSignals()
+            self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
+            # resolve_thread = WorkerResolveLevels(self.resolve_levels)
+        elif current_selected_all == 'selected':
+            resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_selected=self.get_checked_particles())
+        elif current_selected_all == 'all':
+            resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_all=True)
 
-        self.threadpool.start(resolver_thread)
+        resolve_thread.signals.finished.connect(thread_finished)
+        resolve_thread.signals.start_progress.connect(self.start_progress)
+        resolve_thread.signals.progress.connect(self.update_progress)
+        resolve_thread.signals.status_message.connect(self.status_message)
+
+        self.threadpool.start(resolve_thread)
 
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
@@ -932,7 +984,7 @@ class MainWindow(QMainWindow):
             _, conf = self.get_gui_confidence()
             data.cpts.run_cpa(confidence=conf / 100, run_levels=True)
         elif resolve_all is not None and resolve_selected is None:  # Then resolve all
-            data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
+            data = self.tree2dataset()
             try:
                 for num in range(data.numpart):
                     data.particles[num]
@@ -968,6 +1020,29 @@ class MainWindow(QMainWindow):
             print('Switching frequency analysis failed: ' + exc)
         else:
             pass
+
+    def get_checked(self):
+        checked = list()
+        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+            if self.part_nodes[ind].checked():
+                checked.append((ind, self.part_nodes[ind]))
+                # checked_nums.append(ind)
+                # checked_particles.append(self.part_nodes[ind])
+        return checked
+
+    def get_checked_nums(self):
+        checked_nums = list()
+        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+            if self.part_nodes[ind].checked():
+                checked_nums.append(ind+1)
+        return checked_nums
+
+    def get_checked_particles(self):
+        checked_particles = list()
+        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+            if self.part_nodes[ind].checked():
+                checked_particles.append(self.tree2particle(ind+1))
+        return checked_particles
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """

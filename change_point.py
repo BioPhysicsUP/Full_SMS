@@ -12,6 +12,25 @@ import numpy as np
 import dbg
 from PyQt5.QtCore import pyqtSignal
 # from smsh5 import Particle
+import cProfile, pstats, io
+
+
+def profile(fnc):
+    """A decorator that uses cProfile to profile a function"""
+
+    def inner(*args, **kwargs):
+        pr = cProfile.Profile()
+        pr.enable()
+        retval = fnc(*args, **kwargs)
+        pr.disable()
+        s = io.StringIO()
+        sortby = 'cumulative'
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        print(s.getvalue())
+        return retval
+
+    return inner
 
 
 class ChangePoints:
@@ -206,6 +225,7 @@ class ChangePointAnalysis:
         # assert h5file is not None, "No HDF5 has been given"  # To ensure that a h5file is given
         # assert type(particle) is smsh5.Particle, "ChangePoints:\tNo Particle object given."
         # assert confidence is not None, "ChangePoints:\tNo confidence parameter given."
+        
         self._particle = particle
         self._abstimes = particle.abstimes
         self.num_photons = particle.num_photons
@@ -220,23 +240,27 @@ class ChangePointAnalysis:
         if confidence is not None:
             self._tau = TauData(self.confidence)
 
-    def __weighted_likelihood_ratio(self, seg_inds=None):
+    def __weighted_likelihood_ratio(self, seg_inds=None) -> bool:
         """
         Calculates the Weighted & Standardised Likelihood ratio and detects the possible change point.
 
         Based on 'Detection of Intensity Change Points in Time-Resolved Single-Molecule Measurements'
         from Watkins nad Yang, J. Phys. Chem. B 2005, 109, 617-628 (http://pubs.acs.org/doi/abs/10.1021/jp0467548)
-
-        .. note::
-            If the possible change point is greater than the tau_a value for the corresponding
-            confidence interval and number of data points the detected change points, it's
-            confidence region (as defined by tau_b), and the corresponding uncertainty in time
-            is added to this instance of ChangePointAnalysis.
-
-        :param seg_inds: Segment indexes (start, end).
-        :type seg_inds: (int, int)
-        :return: True if a change point was detected.
-        :rtype: bool
+        
+        If the possible change point is greater than the tau_a value for the corresponding
+        confidence interval and number of data points the detected change points, it's
+        confidence region (as defined by tau_b), and the corresponding uncertainty in time
+        is added to this instance of ChangePointAnalysis.
+        
+        Parameters
+        ----------
+        seg_inds : (int, int), optional
+            Segment indexes (start, end).
+            
+        Returns
+        -------
+        cpt_found : bool
+            True if a change point was detected.
         """
 
         assert type(seg_inds) is tuple, 'ChangePointAnalysis:\tSegment index\'s not given.'
@@ -251,7 +275,8 @@ class ChangePointAnalysis:
 
         wlr = np.zeros(n, float)
 
-        sig_e = np.pi ** 2 / 6 - sum(1 / j ** 2 for j in range(1, (n - 1) + 1))
+        # sig_e = np.pi ** 2 / 6 - sum(1 / j ** 2 for j in range(1, (n - 1) + 1))
+        sig_e = self._particle.dataset.all_sums.get_sig_e(n)
 
         for k in range(2, (n - 2) + 1):  # Remember!!!! range(1, N) = [1, ... , N-1]
             # print(k)
@@ -322,7 +347,7 @@ class ChangePointAnalysis:
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
                 else:
                     next_start_ind, next_end_ind = None, None
-                    dbg.p("Warning, last photon segment smaller than 50 photons and was not tested", "Change Point")
+                    dbg.p("Warning, last photon segment smaller than 10 photons and was not tested", "Change Point")
             elif side is not None:  # or prev_start_ind < self.cpts[-1] < prev_end_ind
                 if side is not None:
                     assert side in ['left', 'right'], "ChangePointAnalysis:\tSide of change point invalid or not specified"
@@ -439,6 +464,7 @@ class ChangePointAnalysis:
         self._particle.add_levels(levels, num_levels)
         # return levels, num_levels
 
+    @profile
     def run_cpa(self, confidence=None):
         """
         Runs the change point analysis.
