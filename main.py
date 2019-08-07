@@ -12,6 +12,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, Q
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from platform import system
 import sys
+import os
 from PyQt5.QtGui import *
 from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
@@ -23,6 +24,7 @@ import dbg
 import traceback
 import smsh5
 from ui.mainwindow import Ui_MainWindow
+from generate_sums import CPSums
 
 
 # mpl.use("Qt5Agg")
@@ -49,6 +51,7 @@ class WorkerSignals(QObject):
     result = pyqtSignal(object)
 
     progress = pyqtSignal()
+    auto_progress = pyqtSignal(int, str)
     start_progress = pyqtSignal(int)
     status_message = pyqtSignal(str)
 
@@ -88,7 +91,8 @@ class WorkerOpenFile(QRunnable):
         # print("Hello from thread!!!!")
         # self.signals.progress.emit()
         try:
-            self.openfile_func(self.fname, self.signals.start_progress, self.signals.progress, self.signals.status_message)
+            self.openfile_func(self.fname, self.signals.start_progress,self.signals.auto_progress,
+                               self.signals.progress, self.signals.status_message)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -520,7 +524,7 @@ class MainWindow(QMainWindow):
         # Connect the tree selection to data display
         self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
-        self.statusBar().showMessage('Ready')
+        self.statusBar().showMessage('Ready...')
         self.progress = QProgressBar(self)
         self.progress.setMinimumSize(170, 19)
         self.progress.setVisible(False)
@@ -532,12 +536,23 @@ class MainWindow(QMainWindow):
         self.has_spectra = False
 
         self.reset_gui()
-        dbg.p('Initialising done', 'Main')
+        
 
     """#######################################
     ######## GUI Housekeeping Methods ########
     #######################################"""
 
+    def check_all_sums(self) -> None:
+        """
+        Check if the all_sums.pickle file exists, and if it doesn't creates it
+        """
+        if (not os.path.exists(os.getcwd()+'\\all_sums.pickle')) and\
+                (not os.path.isfile(os.getcwd()+'\\all_sums.pickle')):
+            self.status_message('Calculating change point sums, this may take several minutes.')
+            create_all_sums = CPSums(only_pickle=True, n_min=10, n_max=1000)
+            del create_all_sums
+            self.status_message('Ready...')
+    
     def get_bin(self) -> int:
         """ Returns current GUI value for bin size in ms.
 
@@ -639,13 +654,14 @@ class MainWindow(QMainWindow):
 
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
-
+        
         fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
             of_worker = WorkerOpenFile(fname, self.open_h5)
             of_worker.signals.finished.connect(self.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.start_progress)
             of_worker.signals.progress.connect(self.update_progress)
+            of_worker.signals.auto_progress.connect(self.update_progress)
             of_worker.signals.start_progress.connect(self.start_progress)
             of_worker.signals.status_message.connect(self.status_message)
 
@@ -673,7 +689,7 @@ class MainWindow(QMainWindow):
     ############ Internal Methods ############
     #######################################"""
 
-    def display_data(self, current, prev) -> None:  # TODO: What is previous for?
+    def display_data(self, current=None, prev=None) -> None:  # TODO: What is previous for?
         """ Displays the intensity trace and the histogram of the current particle.
 
         Parameters
@@ -685,11 +701,14 @@ class MainWindow(QMainWindow):
         """
 
         self.current_ind = current
-        self.currentparticle = self.treemodel.data(current, Qt.UserRole)
+        self.pre_ind = prev
+        if current is not None:
+            self.currentparticle = self.treemodel.data(current, Qt.UserRole)
         if type(self.currentparticle) is smsh5.Particle:
             self.set_bin(self.currentparticle.bin_size)
             self.plot_trace()
-            if self.level_resolved:
+            self.currentparticle
+            if self.currentparticle.has_levels:
                 self.plot_levels()
             self.plot_decay()
             dbg.p('Current data displayed', 'Main')
@@ -724,7 +743,7 @@ class MainWindow(QMainWindow):
         else:
             self.ui.MW_Intensity.axes.clear()
             self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
-            self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/bin)')
+            self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/{0}ms)'.format(self.get_bin()))
             self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
             self.ui.MW_Intensity.figure.tight_layout()
             self.ui.MW_Intensity.axes.set_position(self.fig_pos)
@@ -742,7 +761,8 @@ class MainWindow(QMainWindow):
 
     def plot_levels(self):
         # self.currentparticle
-        pass
+        data = self.currentparticle.levels2data()
+        self.ui.MW_Intensity.axes.plot
 
     def status_message(self, message: str) -> None:
         """
@@ -777,19 +797,30 @@ class MainWindow(QMainWindow):
         self.progress.setValue(0)
         self.progress.setVisible(True)
 
-    def update_progress(self) -> None:
+    def update_progress(self, value: int = None, text: str = None) -> None:
         """ Used to update the progress bar by an increment of one. If at maximum sets progress bars visibility to False """
 
         # print("Update progress")
         if self.progress.isVisible():
-            current_value = self.progress.value()
-            self.progress.setValue(current_value + 1)
-            # print(f"Progress: {self.progress.value()} of {self.progress.maximum()} done.")
-            if current_value + 1 == self.progress.maximum():
-                self.progress.setVisible(False)
+            if value is not None:
+                self.progress.setValue(value)
+                if value == self.progress.maximum():
+                    self.progress.setVisible(False)
+            else:
+                current_value = self.progress.value()
+                self.progress.setValue(current_value + 1)
+                if current_value + 1 == self.progress.maximum():
+                    self.progress.setVisible(False)
             # self.repaint()
             # self.statusBar().repaint()
             # QApplication.processEvents()
+        elif value is not None:
+            if text is None:
+                text = 'Progress.'
+            self.status_message(text)
+            self.progress.setMaximum(100)
+            self.progress.setValue(value)
+            self.progress.setVisible(True)
 
     def tree2particle(self, identifier):
 
@@ -801,7 +832,7 @@ class MainWindow(QMainWindow):
     def tree2dataset(self):
         return self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
 
-    def open_h5(self, fname, start_progress_sig, progress_sig, status_sig) -> None:
+    def open_h5(self, fname, start_progress_sig, auto_prog_sig, progress_sig, status_sig) -> None:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
 
@@ -822,7 +853,7 @@ class MainWindow(QMainWindow):
         # print("Open_h5 called from thread")
         try:
             status_sig.emit("Opening file...")
-            dataset = smsh5.H5dataset(fname[0], progress_sig)
+            dataset = smsh5.H5dataset(fname[0], progress_sig, auto_prog_sig)
             self.bin_all(dataset, 100, start_progress_sig, progress_sig, status_sig)
             start_progress_sig.emit(dataset.numpart)
             status_sig.emit("Opening file: Building decay histograms...")
@@ -934,10 +965,10 @@ class MainWindow(QMainWindow):
                 thread_finished = self.open_file_thread_complete
 
         if current_selected_all == 'current':
-            sig = WorkerSignals()
-            self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
-            # resolve_thread = WorkerResolveLevels(self.resolve_levels)
-        elif current_selected_all == 'selected':
+            # sig = WorkerSignals()
+            # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
+            resolve_thread = WorkerResolveLevels(self.resolve_levels)
+        if current_selected_all == 'selected':
             resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_selected=self.get_checked_particles())
         elif current_selected_all == 'all':
             resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_all=True)
@@ -983,6 +1014,7 @@ class MainWindow(QMainWindow):
             data = self.currentparticle
             _, conf = self.get_gui_confidence()
             data.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+            self.display_data()
         elif resolve_all is not None and resolve_selected is None:  # Then resolve all
             data = self.tree2dataset()
             try:

@@ -32,8 +32,7 @@ def u(debug_print: str, debug_from: str = None, end: bool = False):
 	if not end:
 		print('\r' + print_text, end='', flush=True)
 	else:
-		print('\r', end='', flush=True)
-		print(print_text, end='\n', flush=False)
+		print('\r' + print_text,  flush=True)
 	
 	# sys.stdout.write('\r' + print_text)
 	# sys.stdout.flush()

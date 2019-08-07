@@ -10,41 +10,51 @@ import os
 import numpy as np
 import pickle
 import dbg
+from PyQt5.QtCore import pyqtSignal
 
 
 class CPSums:
     """Calculates, stores and get's sum values."""
     
-    def __init__(self, n_max: int = None, n_min: int = None):
+    def __init__(self, n_max: int = None, n_min: int = None,
+                 only_pickle: bool = False, auto_prog_sig: pyqtSignal = None):
+        self._version = 1.4
+        self.auto_prog_sig = auto_prog_sig
         
         if n_max is None:
             self.n_max = 1000
         else:
             self.n_max = n_max
-            
+
         if n_min is None:
             self.n_min = 10
         else:
             self.n_min = n_min
 
-        n_range = self.n_max - self.n_min
-        self._sums_u_k = np.empty(shape=(self.n_max-self.n_min, n_range), dtype=np.float64)
+        n_range = self.n_max-self.n_min
+        self._sums_u_k = np.empty(shape=(self.n_max, n_range), dtype=np.float64)
         self._sums_u_n_k = np.empty(shape=(self.n_max, n_range), dtype=np.float64)
         self._sums_v2_k = np.empty(shape=(self.n_max, n_range), dtype=np.float64)
         self._sums_v2_n_k = np.empty(shape=(self.n_max, n_range), dtype=np.float64)
-        self._sums_sig_e = np.empty(shape=self.n_max, dtype=np.float64)
+        self._sums_sig_e = np.empty(shape=n_range, dtype=np.float64)
         
-        if os.path.exists(os.getcwd()+'\\all_sums.pickle') and os.path.isfile(os.getcwd()+'\\all_sums.pickle'):
-            all_sums_file = open('all_sums.pickle', 'rb')
-            all_sums = dict(pickle.load(all_sums_file))
-            all_sums_file.close()
-            self._sums_u_k = all_sums['sums_u_k']
-            self._sums_u_n_k = all_sums['sums_u_n_k']
-            self._sums_v2_k = all_sums['sums_v2_k']
-            self._sums_v2_n_k = all_sums['sums_v2_n_k']
-            self._sums_sig_e = all_sums['sums_sig_e']
-        else:
+        if only_pickle:
             self._calc_and_store()
+        else:
+            if os.path.exists(os.getcwd()+'\\all_sums.pickle') and os.path.isfile(os.getcwd()+'\\all_sums.pickle'):
+                all_sums_file = open('all_sums.pickle', 'rb')
+                all_sums = dict(pickle.load(all_sums_file))
+                all_sums_file.close()
+                if ('version' not in all_sums.keys()) or all_sums['version'] != self._version:
+                    self._calc_and_store()
+                else:
+                    self._sums_u_k = all_sums['sums_u_k']
+                    self._sums_u_n_k = all_sums['sums_u_n_k']
+                    self._sums_v2_k = all_sums['sums_v2_k']
+                    self._sums_v2_n_k = all_sums['sums_v2_n_k']
+                    self._sums_sig_e = all_sums['sums_sig_e']
+            else:
+                self._calc_and_store()
     
     def _calc_sums(self) -> None:
         """
@@ -67,6 +77,8 @@ class CPSums:
 
             accum_inds += n-1
             prog = round(100*accum_inds/tot_inds, 1)
+            if self.prog_sig is not None:
+                self.prog_sig.emit(prog, 'Calculating change point sums...')
             prog20 = int(prog//5)
             dbg.u('Calculating sums: [{0}{1}] {2}%'.format('#'*prog20, ' '*(20-prog20), prog),
                   'CPSums', n == self.n_max)
@@ -75,6 +87,7 @@ class CPSums:
     def _calc_and_store(self):
         self._calc_sums()
         all_sums = {
+            'version': self._version,
             'sums_u_k': self._sums_u_k,
             'sums_u_n_k': self._sums_u_n_k,
             'sums_v2_k': self._sums_v2_k,
@@ -200,10 +213,10 @@ class CPSums:
         row = k-1
         column = n-self.n_min-1
         set_sums = {
-            'sums_u_k': self._sums_u_k[row, column],
-            'sums_u_n_k': self._sums_u_n_k[row, column],
-            'sums_v2_k': self._sums_v2_k[row, column],
-            'sums_v2_n_k': self._sums_v2_n_k[row, column]
+            'u_k': self._sums_u_k[row, column],
+            'u_n_k': self._sums_u_n_k[row, column],
+            'v2_k': self._sums_v2_k[row, column],
+            'v2_n_k': self._sums_v2_n_k[row, column]
         }
         return set_sums
 
