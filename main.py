@@ -8,7 +8,8 @@ University of Pretoria
 __docformat__ = 'NumPy'
 
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, Qt, QThreadPool, QRunnable, pyqtSlot
+from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, \
+    QModelIndex, Qt, QThreadPool, QRunnable, pyqtSlot, QItemSelectionModel
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from platform import system
 import sys
@@ -20,6 +21,7 @@ from matplotlib.axes._subplots import Axes
 import numpy as np
 import random
 import matplotlib as mpl
+from matplotlib import figure as Figure
 import dbg
 import traceback
 import smsh5
@@ -740,6 +742,7 @@ class MainWindow(QMainWindow):
         try:
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             trace = self.currentparticle.binnedtrace.intdata
+            times = self.currentparticle.binnedtrace.inttimes / 1E3
         except AttributeError:
             print('No trace!')
         else:
@@ -749,22 +752,28 @@ class MainWindow(QMainWindow):
             self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
             self.ui.MW_Intensity.figure.tight_layout()
             self.ui.MW_Intensity.axes.set_position(self.fig_pos)
-            self.ui.MW_Intensity.axes.plot(trace)
+            self.ui.MW_Intensity.axes.plot(times, trace)
+            self.ui.MW_Intensity.axes.set_xlim(0, times[-1])
             self.ui.MW_Intensity.draw()
 
             self.ui.MW_LifetimeInt.axes.clear()
             self.ui.MW_LifetimeInt.axes.set_xlabel('Time (s)')
-            self.ui.MW_LifetimeInt.axes.set_ylabel('Bin Intensity (counts/bin)')
+            self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/{0}ms)'.format(self.get_bin()))
             self.ui.MW_LifetimeInt.axes.patch.set_linewidth(0.1)
             self.ui.MW_LifetimeInt.figure.tight_layout()
             self.ui.MW_LifetimeInt.axes.set_position(self.fig_life_int_pos)
-            self.ui.MW_LifetimeInt.axes.plot(trace)
+            self.ui.MW_LifetimeInt.axes.plot(times, trace)
+            self.ui.MW_LifetimeInt.axes.set_xlim(0, times[-1])
             self.ui.MW_LifetimeInt.draw()
 
     def plot_levels(self):
         # self.currentparticle
-        data = self.currentparticle.levels2data()
-        self.ui.MW_Intensity.axes.plot
+        data, times = self.currentparticle.levels2data()
+        data = data * self.get_bin()/1E3
+        self.ui.MW_Intensity.axes.step(times, data, where='post')
+        self.ui.MW_Intensity.draw()
+        self.ui.MW_LifetimeInt.axes.step(times, data, where='post')
+        self.ui.MW_LifetimeInt.draw()
 
     def status_message(self, message: str) -> None:
         """
@@ -813,9 +822,7 @@ class MainWindow(QMainWindow):
                 self.progress.setValue(current_value + 1)
                 if current_value + 1 == self.progress.maximum():
                     self.progress.setVisible(False)
-            # self.repaint()
-            # self.statusBar().repaint()
-            # QApplication.processEvents()
+
         elif value is not None:
             if text is None:
                 text = 'Progress.'
@@ -823,6 +830,10 @@ class MainWindow(QMainWindow):
             self.progress.setMaximum(100)
             self.progress.setValue(value)
             self.progress.setVisible(True)
+
+        self.progress.repaint()
+        self.statusBar().repaint()
+        self.repaint()
 
     def tree2particle(self, identifier):
 
@@ -981,10 +992,12 @@ class MainWindow(QMainWindow):
             # self.resolve_levels(resolve_thread.signals.start_progress, resolve_thread.signals.progress,
             #                     resolve_thread.signals.status_message, resolve_all=True, parallel=True)
 
-        resolve_thread.signals.finished.connect(thread_finished)
-        resolve_thread.signals.start_progress.connect(self.start_progress)
-        resolve_thread.signals.progress.connect(self.update_progress)
-        resolve_thread.signals.status_message.connect(self.status_message)
+        # resolve_thread.signals.finished.connect(thread_finished)
+        # resolve_thread.signals.start_progress.connect(self.start_progress)
+        # resolve_thread.signals.progress.connect(self.update_progress)
+        # resolve_thread.signals.status_message.connect(self.status_message)
+        #
+        # self.threadpool.start(resolve_thread)
 
         self.threadpool.start(resolve_thread)
 
@@ -992,7 +1005,7 @@ class MainWindow(QMainWindow):
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
                        resolve_all: bool = None,
-                       resolve_selected=None) -> None:
+                       resolve_selected=None, parallel: bool = True) -> None:
         """
         Resolves the levels in particles by finding the change points in the
         abstimes data of a Particle instance.
@@ -1027,6 +1040,7 @@ class MainWindow(QMainWindow):
             self.display_data()
         elif resolve_all is not None and resolve_selected is None:  # Then resolve all
             data = self.tree2dataset()
+            _, conf = self.get_gui_confidence()
             try:
                 status_sig.emit('Resolving All Particle Levels...')
                 start_progress_sig.emit(data.numpart)
@@ -1052,7 +1066,9 @@ class MainWindow(QMainWindow):
                 raise RuntimeError("Couldn't resolve levels.") from exc
         else:
             pass
-        print(1)
+
+    def run_parallel_cpa(self, particle):
+        particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
 
     def resolve_thread_complete(self):
         dbg.p('Resolving levels complete', 'Resolve Thread')
