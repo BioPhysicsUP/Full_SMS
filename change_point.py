@@ -12,26 +12,6 @@ import numpy as np
 import dbg
 from PyQt5.QtCore import pyqtSignal
 # from smsh5 import Particle
-import cProfile, pstats, io
-
-
-def profile(fnc):
-    """A decorator that uses cProfile to profile a function"""
-
-    def inner(*args, **kwargs):
-        pr = cProfile.Profile()
-        pr.enable()
-        retval = fnc(*args, **kwargs)
-        pr.disable()
-        s = io.StringIO()
-        sortby = 'cumulative'
-        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        ps.print_stats()
-        print(s.getvalue())
-        return retval
-
-    return inner
-
 
 class ChangePoints:
     """ Contains all the attributes to describe the found change points in an analysed particles. """
@@ -58,7 +38,7 @@ class ChangePoints:
         :type run_levels: bool, optional
         """
 
-        self.__particle = particle
+        self._particle = particle
         self.cpa = ChangePointAnalysis(particle)
 
         if run_levels is not None:
@@ -93,8 +73,13 @@ class ChangePoints:
 
         if run_levels is not None:
             self._run_levels = run_levels
+        if confidence > 1:
+            confidence = confidence/100
         self.confidence = confidence
-        self.cpa.run_cpa(confidence) # self.inds, self.conf_regions, self.dt_uncertainty =
+        if self.cpa_has_run:
+            self.remove_cpa_results()
+            self.cpa.prerun_setup(confidence)
+        self.cpa.run_cpa(confidence)  # self.inds, self.conf_regions, self.dt_uncertainty =
         self.num_cpts = self.cpa.num_cpts
         self.cpa_has_run = True
         if self._run_levels:
@@ -105,6 +90,14 @@ class ChangePoints:
             them to the parent particle object by means of the add_levels method. """
 
         self.cpa.get_levels()
+
+    def remove_cpa_results(self):
+        self._particle.remove_cpa_results()
+        self.inds = None
+        self.conf_regions = None
+        self.dt_uncertainty = None
+        self.cpa_has_run = False
+        self.num_cpts = None
 
 
 class Level:
@@ -229,13 +222,16 @@ class ChangePointAnalysis:
         self._particle = particle
         self._abstimes = particle.abstimes
         self.num_photons = particle.num_photons
+        self.prerun_setup()
+
+    def prerun_setup(self, confidence: float = None):
+        self.confidence = confidence
         self.cpt_inds = np.array([], dtype=int)
         self.conf_regions = np.array(tuple())  # [(start, end)]
         self.dt_uncertainty = np.array([])  # dt
         self._finding = False
         self.found_cpts = False
         self.num_cpts = None
-        self.confidence = confidence
         self._i = None
         if confidence is not None:
             self._tau = TauData(self.confidence)
@@ -480,7 +476,7 @@ class ChangePointAnalysis:
         self._particle.add_levels(levels, num_levels)
         # return levels, num_levels
     
-    # @profile
+    # @dbg.profile
     def run_cpa(self, confidence=None):
         """
         Runs the change point analysis.
