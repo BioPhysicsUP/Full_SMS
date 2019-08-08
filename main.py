@@ -25,6 +25,8 @@ import traceback
 import smsh5
 from ui.mainwindow import Ui_MainWindow
 from generate_sums import CPSums
+from joblib import Parallel, delayed
+import copy
 
 
 # mpl.use("Qt5Agg")
@@ -968,10 +970,16 @@ class MainWindow(QMainWindow):
             # sig = WorkerSignals()
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
             resolve_thread = WorkerResolveLevels(self.resolve_levels)
-        if current_selected_all == 'selected':
+        elif current_selected_all == 'selected':
             resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_selected=self.get_checked_particles())
         elif current_selected_all == 'all':
             resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_all=True)
+            # resolve_thread.signals.finished.connect(thread_finished)
+            # resolve_thread.signals.start_progress.connect(self.start_progress)
+            # resolve_thread.signals.progress.connect(self.update_progress)
+            # resolve_thread.signals.status_message.connect(self.status_message)
+            # self.resolve_levels(resolve_thread.signals.start_progress, resolve_thread.signals.progress,
+            #                     resolve_thread.signals.status_message, resolve_all=True, parallel=True)
 
         resolve_thread.signals.finished.connect(thread_finished)
         resolve_thread.signals.start_progress.connect(self.start_progress)
@@ -980,6 +988,7 @@ class MainWindow(QMainWindow):
 
         self.threadpool.start(resolve_thread)
 
+    # @dbg.profile
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
                        resolve_all: bool = None,
@@ -995,6 +1004,7 @@ class MainWindow(QMainWindow):
 
         Parameters
         ----------
+        parallel
         start_progress_sig : pyqtSignal
             Used to call method to set up progress bar on GUI.
         progress_sig : pyqtSignal
@@ -1018,8 +1028,26 @@ class MainWindow(QMainWindow):
         elif resolve_all is not None and resolve_selected is None:  # Then resolve all
             data = self.tree2dataset()
             try:
-                for num in range(data.numpart):
-                    data.particles[num]
+                status_sig.emit('Resolving All Particle Levels...')
+                start_progress_sig.emit(data.numpart)
+                if parallel:
+                    self.conf_parallel = conf
+                    Parallel(n_jobs=-1, backend='threading')(
+                        delayed(self.run_parallel_cpa)(copy.copy(self.tree2particle(num))) for num in range(data.numpart)
+                    )
+                    del self.conf_parallel
+                else:
+                    for num in range(data.numpart):
+                        data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
+                        progress_sig.emit()
+                status_sig.emit('Ready...')
+                # test = self.ui.treeViewParticles.currentIndex()
+                # index = self.ui.treeViewParticles.selectionModel().model().index(1,0)
+                # self.ui.treeViewParticles.selectionModel().setCurrentIndex(index, QItemSelectionModel.NoUpdate)
+                # self.ui.treeViewParticles.repaint()
+                # self.repaint()
+                if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+                    self.display_data()
             except Exception as exc:
                 raise RuntimeError("Couldn't resolve levels.") from exc
         else:
