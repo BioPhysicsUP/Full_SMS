@@ -10,14 +10,18 @@ import numpy as np
 from matplotlib import pyplot as plt
 from change_point import ChangePoints
 import re
+from generate_sums import CPSums
+from PyQt5.QtCore import pyqtSignal
+import dbg
 
 
 class H5dataset:
 
-    def __init__(self, filename, progress_sig=None):
+    def __init__(self, filename, progress_sig: pyqtSignal = None,
+                 auto_prog_sig: pyqtSignal = None):
 
-        if progress_sig is not None:
-            self.progress_sig = progress_sig
+        self.progress_sig = progress_sig
+        self.auto_prog_sig = auto_prog_sig
         # self.main_signals.progress.connect()
         self.name = filename
         self.file = h5py.File(self.name, 'r')
@@ -36,6 +40,7 @@ class H5dataset:
         for num, key_num in enumerate(natural_key):
             natural_p_names[key_num-1] = unsorted_names[num]
 
+        self.all_sums = CPSums(n_min=10, n_max=1000, auto_prog_sig=self.auto_prog_sig)
         self.particles = []
         for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
@@ -62,7 +67,7 @@ class H5dataset:
             particle.binints(binsize)
             if hasattr(self, 'progress_sig'):
                 self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
-        print("done binning")
+        dbg.p('Binning all done', 'H5Dataset')
 
 
 class Particle:
@@ -76,6 +81,8 @@ class Particle:
         self.abstimes = self.datadict['Absolute Times (ns)']
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
+        self.cpt_inds = None
+        self.num_cpts = None
         self.has_levels = False
         self.levels = None
         self.num_levels = None
@@ -109,10 +116,25 @@ class Particle:
         self.add_levels(self.cpts.get_levels())
 
     def add_levels(self, levels=None, num_levels=None):
-        assert levels is not None and num_levels is not None, "Particle:\tBoth arguments need to be non-None to add level."
+        assert levels is not None and num_levels is not None, \
+            "Particle:\tBoth arguments need to be non-None to add level."
         self.levels = levels
         self.num_levels = num_levels
         self.has_levels = True
+        
+    def levels2data(self) -> np.ndarray:
+        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        levels_data = np.empty(shape=(self.num_levels+1, 2))
+        accum_time = 0
+        for num, level in enumerate(self.levels):
+            levels_data[num, 0] = accum_time
+            accum_time += level.dwell_time/1E9
+            levels_data[num, 1] = level.int
+            if num == self.num_levels:
+                levels_data[num+1, 0] = accum_time
+                levels_data[num+1, 1] = level.int
+                
+        return levels_data
 
     def makehistogram(self):
         """Put the arrival times into a histogram"""
@@ -144,7 +166,7 @@ class Trace:
         self.binsize = binsize
         data = self.particle.abstimes[:]
 
-        binsize = binsize * 1000000  # Convert ms to ns
+        binsize = binsize * 1E6  # Convert ms to ns
         endbin = np.int(np.max(data) / binsize)
 
         binned = np.zeros(endbin)
