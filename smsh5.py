@@ -141,14 +141,14 @@ class Particle:
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
         levels_data = np.empty(shape=self.num_levels+1)
         times = np.empty(shape=self.num_levels+1)
-        accum_time = 0
+        # accum_time = 0
         for num, level in enumerate(self.levels):
-            times[num] = accum_time
-            accum_time += level.dwell_time/1E9
+            times[num] = np.float(level.times[0])/1E9
+            # accum_time += level.dwell_time/1E9
             levels_data[num] = level.int
             if num+1 == self.num_levels:
-                levels_data[num+1] = accum_time
-                times[num+1] = level.int
+                levels_data[num+1] = level.int
+                times[num+1] = np.float(level.times[1])/1E9
                 
         return levels_data, times
 

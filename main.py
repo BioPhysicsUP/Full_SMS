@@ -17,7 +17,7 @@ import os
 from PyQt5.QtGui import *
 from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
-from matplotlib.axes._subplots import Axes
+# from matplotlib.axes.subplots import Axes
 import numpy as np
 import random
 import matplotlib as mpl
@@ -569,7 +569,13 @@ class MainWindow(QMainWindow):
         return self.ui.spbBinSize.value()
 
     def set_bin(self, new_bin: int):
+        """ Sets the GUI value for the bin size in ms
 
+        Parameters
+        ----------
+        new_bin: int
+            Value to set bin size to, in ms.
+        """
         self.ui.spbBinSize.setValue(new_bin)
 
     def get_gui_confidence(self):
@@ -585,7 +591,7 @@ class MainWindow(QMainWindow):
         except Exception as err:
             print('Error Occured:' + str(err))
         else:
-            self.plot_trace()
+            self.display_data()
             self.repaint()
             dbg.p('Single trace binned', 'Main')
 
@@ -836,13 +842,28 @@ class MainWindow(QMainWindow):
         self.repaint()
 
     def tree2particle(self, identifier):
+        """ Returns the particle dataset for the identifier given. The identifier could be the number of the particle of the the datasetnode value
 
+        Parameters
+        ----------
+        identifier
+            The integer number or a datasetnode object of the particle in question.
+        Returns
+        -------
+
+        """
         if type(identifier) is int:
             return self.part_nodes[identifier].dataobj
         if type(identifier) is DatasetTreeNode:
             return identifier.dataobj
 
     def tree2dataset(self):
+        """ Returns the H5dataset object of the file loaded.
+
+        Returns
+        -------
+        smsh5.H5dataset
+        """
         return self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
 
     def open_h5(self, fname, start_progress_sig, auto_prog_sig, progress_sig, status_sig) -> None:
@@ -1005,7 +1026,7 @@ class MainWindow(QMainWindow):
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
                        resolve_all: bool = None,
-                       resolve_selected=None, parallel: bool = True) -> None:
+                       resolve_selected=None, parallel: bool = False) -> None:
         """
         Resolves the levels in particles by finding the change points in the
         abstimes data of a Particle instance.
@@ -1017,7 +1038,8 @@ class MainWindow(QMainWindow):
 
         Parameters
         ----------
-        parallel
+        parallel : Bool, False
+            If True, parallel is used.
         start_progress_sig : pyqtSignal
             Used to call method to set up progress bar on GUI.
         progress_sig : pyqtSignal
@@ -1046,8 +1068,9 @@ class MainWindow(QMainWindow):
                 start_progress_sig.emit(data.numpart)
                 if parallel:
                     self.conf_parallel = conf
-                    Parallel(n_jobs=-1, backend='threading')(
-                        delayed(self.run_parallel_cpa)(copy.copy(self.tree2particle(num))) for num in range(data.numpart)
+                    Parallel(n_jobs=-2, backend='threading')(
+                        delayed(self.run_parallel_cpa)
+                        (copy.copy(self.tree2particle(num))) for num in range(data.numpart)
                     )
                     del self.conf_parallel
                 else:
