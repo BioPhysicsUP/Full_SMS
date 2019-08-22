@@ -15,13 +15,13 @@ from platform import system
 import sys
 import os
 from PyQt5.QtGui import *
-from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as NavigationToolbar)
-from matplotlib.figure import Figure
-from matplotlib.axes._subplots import Axes
+# from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as NavigationToolbar)
+# from matplotlib.figure import Figure
+# from matplotlib.axes._subplots import Axes
 import numpy as np
 import random
 import matplotlib as mpl
-from matplotlib import figure as Figure
+# from matplotlib import figure as Figure
 import dbg
 import traceback
 import smsh5
@@ -443,31 +443,31 @@ class MainWindow(QMainWindow):
         # Set defaults for figures depending on system
         if system() == "win32" or system() == "win64":
             dbg.p("System -> Windows", "Main")
-            mpl.rcParams['figure.dpi'] = 120
-            mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            mpl.rcParams['savefig.dpi'] = 400
-            mpl.rcParams['font.size'] = 10
-            mpl.rcParams['lines.linewidth'] = 1.0
+            # mpl.rcParams['figure.dpi'] = 120
+            # mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+            # mpl.rcParams['savefig.dpi'] = 400
+            # mpl.rcParams['font.size'] = 10
+            # mpl.rcParams['lines.linewidth'] = 1.0
             self.fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
             self.fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
             self.fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
         elif system() == "Darwin":
             dbg.p("System -> Unix/Linus", "Main")
-            mpl.rcParams['figure.dpi'] = 100
-            mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            mpl.rcParams['savefig.dpi'] = 400
-            mpl.rcParams['font.size'] = 10
-            mpl.rcParams['lines.linewidth'] = 1.0
+            # mpl.rcParams['figure.dpi'] = 100
+            # mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+            # mpl.rcParams['savefig.dpi'] = 400
+            # mpl.rcParams['font.size'] = 10
+            # mpl.rcParams['lines.linewidth'] = 1.0
             self.fig_pos = [0.1, 0.12, 0.8, 0.85]  # [left, bottom, right, top]
             self.fig_life_int_pos = [0.17, 0.2, 0.8, 0.75]
             self.fig_lifetime_pos = [0.15, 0.22, 0.8, 0.75]
         else:
             dbg.p("System -> Other", "Main")
-            mpl.rcParams['figure.dpi'] = 120
-            mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            mpl.rcParams['savefig.dpi'] = 400
-            mpl.rcParams['font.size'] = 10
-            mpl.rcParams['lines.linewidth'] = 1.0
+            # mpl.rcParams['figure.dpi'] = 120
+            # mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
+            # mpl.rcParams['savefig.dpi'] = 400
+            # mpl.rcParams['font.size'] = 10
+            # mpl.rcParams['lines.linewidth'] = 1.0
             self.fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
             self.fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
             self.fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
@@ -479,27 +479,27 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Full SMS")
 
-        self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
-        self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/bin)')
-        self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
-        self.ui.MW_Intensity.figure.tight_layout()
-        self.ui.MW_Intensity.axes.set_position(self.fig_pos)
+        # self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
+        # self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/bin)')
+        # self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
+        # self.ui.MW_Intensity.figure.tight_layout()
+        # self.ui.MW_Intensity.axes.set_position(self.fig_pos)
         # print(self.MW_Intensity.figure.get_dpi())
 
-        self.ui.MW_LifetimeInt.axes.set_xlabel('Time (s)')
-        self.ui.MW_LifetimeInt.axes.set_ylabel('Bin Intensity\n(counts/bin)')
-        self.ui.MW_LifetimeInt.figure.tight_layout()
-        self.ui.MW_LifetimeInt.axes.set_position(self.fig_life_int_pos)
+        # self.ui.MW_LifetimeInt.axes.set_xlabel('Time (s)')
+        # self.ui.MW_LifetimeInt.axes.set_ylabel('Bin Intensity\n(counts/bin)')
+        # self.ui.MW_LifetimeInt.figure.tight_layout()
+        # self.ui.MW_LifetimeInt.axes.set_position(self.fig_life_int_pos)
 
-        self.ui.MW_Lifetime.axes.set_xlabel('Time (ns)')
-        self.ui.MW_Lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
-        self.ui.MW_Lifetime.figure.tight_layout()
-        self.ui.MW_Lifetime.axes.set_position(self.fig_lifetime_pos)
+        # self.ui.MW_Lifetime.axes.set_xlabel('Time (ns)')
+        # self.ui.MW_Lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
+        # self.ui.MW_Lifetime.figure.tight_layout()
+        # self.ui.MW_Lifetime.axes.set_position(self.fig_lifetime_pos)
 
-        self.ui.MW_Spectra.axes.set_xlabel('Time (s)')
-        self.ui.MW_Spectra.axes.set_ylabel('Wavelength (nm)')
-        self.ui.MW_Spectra.figure.tight_layout()
-        self.ui.MW_Spectra.axes.set_position(self.fig_pos)
+        # self.ui.MW_Spectra.axes.set_xlabel('Time (s)')
+        # self.ui.MW_Spectra.axes.set_ylabel('Wavelength (nm)')
+        # self.ui.MW_Spectra.figure.tight_layout()
+        # self.ui.MW_Spectra.axes.set_position(self.fig_pos)
 
         # Connect all GUI buttons with outside class functions
         self.ui.btnApplyBin.clicked.connect(self.gui_apply_bin)
@@ -727,13 +727,14 @@ class MainWindow(QMainWindow):
         except AttributeError:
             print('No decay, or no trace!')
         else:
-            self.ui.MW_Lifetime.axes.clear()
-            self.ui.MW_Lifetime.axes.set_xlabel('Time (ns)')
-            self.ui.MW_Lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
-            self.ui.MW_Lifetime.figure.tight_layout()
-            self.ui.MW_Lifetime.axes.set_position(self.fig_lifetime_pos)
-            self.ui.MW_Lifetime.axes.semilogy(t, decay)
-            self.ui.MW_Lifetime.draw()
+            # self.ui.MW_Lifetime.axes.clear()
+            # self.ui.MW_Lifetime.axes.set_xlabel('Time (ns)')
+            # self.ui.MW_Lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
+            # self.ui.MW_Lifetime.figure.tight_layout()
+            # self.ui.MW_Lifetime.axes.set_position(self.fig_lifetime_pos)
+            # self.ui.MW_Lifetime.axes.semilogy(t, decay)
+            # self.ui.MW_Lifetime.draw()
+            pass
 
     def plot_trace(self) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
@@ -745,34 +746,35 @@ class MainWindow(QMainWindow):
         except AttributeError:
             print('No trace!')
         else:
-            self.ui.MW_Intensity.axes.clear()
-            self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
-            self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/{0}ms)'.format(self.get_bin()))
-            self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
-            self.ui.MW_Intensity.figure.tight_layout()
-            self.ui.MW_Intensity.axes.set_position(self.fig_pos)
-            self.ui.MW_Intensity.axes.plot(times, trace)
-            self.ui.MW_Intensity.axes.set_xlim(0, times[-1])
-            self.ui.MW_Intensity.draw()
+            # self.ui.MW_Intensity.axes.clear()
+            # self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
+            # self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/{0}ms)'.format(self.get_bin()))
+            # self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
+            # self.ui.MW_Intensity.figure.tight_layout()
+            # self.ui.MW_Intensity.axes.set_position(self.fig_pos)
+            # self.ui.MW_Intensity.axes.plot(times, trace)
+            # self.ui.MW_Intensity.axes.set_xlim(0, times[-1])
+            # self.ui.MW_Intensity.draw()
 
-            self.ui.MW_LifetimeInt.axes.clear()
-            self.ui.MW_LifetimeInt.axes.set_xlabel('Time (s)')
-            self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/{0}ms)'.format(self.get_bin()))
-            self.ui.MW_LifetimeInt.axes.patch.set_linewidth(0.1)
-            self.ui.MW_LifetimeInt.figure.tight_layout()
-            self.ui.MW_LifetimeInt.axes.set_position(self.fig_life_int_pos)
-            self.ui.MW_LifetimeInt.axes.plot(times, trace)
-            self.ui.MW_LifetimeInt.axes.set_xlim(0, times[-1])
-            self.ui.MW_LifetimeInt.draw()
+            # self.ui.MW_LifetimeInt.axes.clear()
+            # self.ui.MW_LifetimeInt.axes.set_xlabel('Time (s)')
+            # self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/{0}ms)'.format(self.get_bin()))
+            # self.ui.MW_LifetimeInt.axes.patch.set_linewidth(0.1)
+            # self.ui.MW_LifetimeInt.figure.tight_layout()
+            # self.ui.MW_LifetimeInt.axes.set_position(self.fig_life_int_pos)
+            # self.ui.MW_LifetimeInt.axes.plot(times, trace)
+            # self.ui.MW_LifetimeInt.axes.set_xlim(0, times[-1])
+            # self.ui.MW_LifetimeInt.draw()
+            pass
 
     def plot_levels(self):
         # self.currentparticle
         data, times = self.currentparticle.levels2data()
         data = data * self.get_bin()/1E3
-        self.ui.MW_Intensity.axes.step(times, data, where='post')
-        self.ui.MW_Intensity.draw()
-        self.ui.MW_LifetimeInt.axes.step(times, data, where='post')
-        self.ui.MW_LifetimeInt.draw()
+        # self.ui.MW_Intensity.axes.step(times, data, where='post')
+        # self.ui.MW_Intensity.draw()
+        # self.ui.MW_LifetimeInt.axes.step(times, data, where='post')
+        # self.ui.MW_LifetimeInt.draw()
 
     def status_message(self, message: str) -> None:
         """

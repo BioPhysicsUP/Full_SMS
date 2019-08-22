@@ -35,7 +35,7 @@
       </property>
       <widget class="QFrame" name="frame">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+        <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -48,7 +48,7 @@
        </property>
        <property name="maximumSize">
         <size>
-         <width>500</width>
+         <width>150</width>
          <height>16777215</height>
         </size>
        </property>
@@ -115,7 +115,7 @@
         <enum>QTabWidget::Rounded</enum>
        </property>
        <property name="currentIndex">
-        <number>0</number>
+        <number>1</number>
        </property>
        <property name="iconSize">
         <size>
@@ -156,22 +156,6 @@
          <string>Intensity</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout">
-         <item row="0" column="0">
-          <widget class="MatplotlibWidget" name="MW_Intensity" native="true">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>682</width>
-             <height>374</height>
-            </size>
-           </property>
-          </widget>
-         </item>
          <item row="1" column="0">
           <widget class="Line" name="line_2">
            <property name="sizePolicy">
@@ -185,7 +169,7 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="0">
+         <item row="3" column="0">
           <layout class="QHBoxLayout" name="horizontalLayout_2">
            <property name="spacing">
             <number>9</number>
@@ -448,6 +432,9 @@
            </item>
           </layout>
          </item>
+         <item row="0" column="0">
+          <widget class="PlotWidget" name="pgIntensity"/>
+         </item>
         </layout>
        </widget>
        <widget class="QWidget" name="tabLifetime">
@@ -462,22 +449,6 @@
          <string>Lifetime</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout_2">
-         <item row="2" column="0">
-          <widget class="MatplotlibWidget" name="MW_Lifetime" native="true">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>682</width>
-             <height>266</height>
-            </size>
-           </property>
-          </widget>
-         </item>
          <item row="0" column="0">
           <layout class="QHBoxLayout" name="horizontalLayout_5">
            <item>
@@ -490,7 +461,7 @@
              </property>
              <property name="sizeHint" stdset="0">
               <size>
-               <width>40</width>
+               <width>10</width>
                <height>20</height>
               </size>
              </property>
@@ -512,7 +483,7 @@
              </property>
              <property name="maximumSize">
               <size>
-               <width>40</width>
+               <width>30</width>
                <height>200</height>
               </size>
              </property>
@@ -532,34 +503,25 @@
             </widget>
            </item>
            <item>
-            <widget class="MatplotlibWidget" name="MW_LifetimeInt" native="true">
+            <widget class="PlotWidget" name="pgLifetime_Int">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
-             <property name="minimumSize">
-              <size>
-               <width>638</width>
-               <height>150</height>
-              </size>
-             </property>
              <property name="maximumSize">
               <size>
-               <width>800</width>
-               <height>250</height>
+               <width>16777215</width>
+               <height>200</height>
               </size>
-             </property>
-             <property name="cursor">
-              <cursorShape>PointingHandCursor</cursorShape>
              </property>
             </widget>
            </item>
            <item>
             <widget class="QPushButton" name="btnNextLevel">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
@@ -572,7 +534,7 @@
              </property>
              <property name="maximumSize">
               <size>
-               <width>40</width>
+               <width>30</width>
                <height>200</height>
               </size>
              </property>
@@ -601,7 +563,7 @@
              </property>
              <property name="sizeHint" stdset="0">
               <size>
-               <width>40</width>
+               <width>10</width>
                <height>20</height>
               </size>
              </property>
@@ -819,6 +781,16 @@
            </property>
           </widget>
          </item>
+         <item row="2" column="0">
+          <widget class="PlotWidget" name="pgLifetime">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>200</height>
+            </size>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
        <widget class="QWidget" name="tabSpectra">
@@ -833,22 +805,6 @@
          <string>Spectra</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout_7">
-         <item row="0" column="0">
-          <widget class="MatplotlibWidget" name="MW_Spectra" native="true">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>682</width>
-             <height>374</height>
-            </size>
-           </property>
-          </widget>
-         </item>
          <item row="2" column="0">
           <layout class="QHBoxLayout" name="horizontalLayout_4">
            <item>
@@ -921,6 +877,9 @@
            </property>
           </widget>
          </item>
+         <item row="0" column="0">
+          <widget class="PlotWidget" name="pgSpectra"/>
+         </item>
         </layout>
        </widget>
       </widget>
@@ -934,7 +893,7 @@
      <x>0</x>
      <y>0</y>
      <width>1106</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -946,6 +905,7 @@
       <string>Open...</string>
      </property>
      <addaction name="actionOpen_h5"/>
+     <addaction name="separator"/>
      <addaction name="actionOpen_pt3"/>
     </widget>
     <addaction name="menuOpen"/>
@@ -1030,10 +990,9 @@
  <layoutdefault spacing="6" margin="9"/>
  <customwidgets>
   <customwidget>
-   <class>MatplotlibWidget</class>
-   <extends>QWidget</extends>
-   <header>MatplotlibWidget.h</header>
-   <container>1</container>
+   <class>PlotWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>pyqtgraph.h</header>
   </customwidget>
  </customwidgets>
  <tabstops>
