@@ -1,18 +1,34 @@
-
 from PyQt5 import uic
 import fileinput
 import os
 
-with open(os.getcwd() + os.sep + "ui" + os.sep + "mainwindow.py", "w") as f:
-    uic.compileUi(os.getcwd() + os.sep + "ui" + os.sep + "mainwindow.ui", f)
 
-for line in fileinput.FileInput(os.getcwd() + os.sep + "ui" + os.sep + "mainwindow.py", inplace=1):
-    if "from PyQt5 import QtCore, QtGui, QtWidgets" in line:
-        line = line.replace(line, line + "\nfrom ui.matplotlibwidget import MatplotlibWidget\n\n")
+def convert_ui(ui_name: str = None, ui_path: str = None, ui_py_name: str = None):
+    """
 
-    if "from MatplotlibWidget import MatplotlibWidget" in line:
-        line = line.replace(line, "")
-
+    Parameters
+    ----------
+    ui_name : str, Optional
+    ui_path : str, Optional
+    ui_py_name : str, Optional
+    """
+    if ui_name is None:
+        ui_name = "mainwindow.ui"
+    if ui_path is None:
+        ui_path = os.getcwd()+os.sep+"ui"
+    if ui_py_name is None:
+        ui_py_name = "mainwindow.py"
+    
+    with open(ui_path+os.sep+ui_py_name, "w") as f:
+        uic.compileUi(ui_path+os.sep+ui_name, f)
+    
+    # for line in fileinput.FileInput(ui_path + os.sep + ui_py_name, inplace=1):
+    #     if "from PyQt5 import QtCore, QtGui, QtWidgets" in line:
+    #         line = line.replace(line, line + "\nfrom ui.matplotlibwidget import MatplotlibWidget\n\n")
+    #
+    #     if "from MatplotlibWidget import MatplotlibWidget" in line:
+    #         line = line.replace(line, "")
+    
     # if "self.MW_Intensity = MplWidget(self.tabIntensity)" in line:
     #     line = line.replace(line, "        self.MW_Intensity = MatplotlibWidget(self.tabIntensity)\n")
     #
@@ -24,5 +40,16 @@ for line in fileinput.FileInput(os.getcwd() + os.sep + "ui" + os.sep + "mainwind
     #
     # if "self.MW_Spectra = MplWidget(self.tabSpectra)" in line:
     #     line = line.replace(line, "        self.MW_Spectra = MatplotlibWidget(self.tabSpectra)\n")
+    
+    # print(line, end='')
 
-    print(line, end='')
+
+def main():
+    """
+    Runs convert_ui, without input parameters.
+    """
+    convert_ui()
+
+
+if __name__ == '__main__':
+    main()

@@ -7,10 +7,11 @@ University of Pretoria
 
 __docformat__ = 'NumPy'
 
+import ui.convert_ui as convert_ui
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, \
     QModelIndex, Qt, QThreadPool, QRunnable, pyqtSlot, QItemSelectionModel
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from platform import system
 import sys
 import os
@@ -20,7 +21,7 @@ from PyQt5.QtGui import *
 # from matplotlib.axes._subplots import Axes
 import numpy as np
 import random
-import matplotlib as mpl
+# import matplotlib as mpl
 # from matplotlib import figure as Figure
 import dbg
 import traceback
@@ -28,21 +29,7 @@ import smsh5
 from ui.mainwindow import Ui_MainWindow
 from generate_sums import CPSums
 from joblib import Parallel, delayed
-
-
-# mpl.use("Qt5Agg")
-
-
-# Default settings for matplotlib plots
-# *************************************
-# mpl.rcParams['figure.dpi'] = 120
-# mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-# mpl.rcParams['savefig.dpi'] = 400
-# mpl.rcParams['font.size'] = 10
-# # mpl.rcParams['legend.fontsize'] = 'small'
-# # mpl.rcParams['legend.fontsize'] = 'small'
-# mpl.rcParams['lines.linewidth'] = 1.0
-# # mpl.rcParams['errorbar.capsize'] = 3
+import pyqtgraph as pg
 
 
 class WorkerSignals(QObject):
@@ -91,8 +78,6 @@ class WorkerOpenFile(QRunnable):
     def run(self) -> None:
         """ The code that will be run when the thread is started. """
 
-        # print("Hello from thread!!!!")
-        # self.signals.progress.emit()
         try:
             self.openfile_func(self.fname, self.signals.start_progress,self.signals.auto_progress,
                                self.signals.progress, self.signals.status_message)
@@ -132,9 +117,7 @@ class WorkerBinAll(QRunnable):
     @pyqtSlot()
     def run(self) -> None:
         """ The code that will be run when the thread is started. """
-
-        # print("Hello from thread!!!!")
-        # self.signals.progress.emit()
+        
         try:
             self.binall_func(self.dataset, self.bin_size, self.signals.start_progress, self.signals.progress, self.signals.status_message)
         except:
@@ -224,6 +207,13 @@ class DatasetTreeNode(object):
         self.setChecked(checked)
 
     def checked(self):
+        """
+        Appears to be used internally.
+        
+        Returns
+        -------
+        Returns check status.
+        """
         return self._checked
 
     def setChecked(self, checked=True):
@@ -440,44 +430,27 @@ class MainWindow(QMainWindow):
             2: 90,
             3: 69}
 
-        # Set defaults for figures depending on system
         if system() == "win32" or system() == "win64":
             dbg.p("System -> Windows", "Main")
-            # mpl.rcParams['figure.dpi'] = 120
-            # mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            # mpl.rcParams['savefig.dpi'] = 400
-            # mpl.rcParams['font.size'] = 10
-            # mpl.rcParams['lines.linewidth'] = 1.0
-            self.fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
-            self.fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
-            self.fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
         elif system() == "Darwin":
             dbg.p("System -> Unix/Linus", "Main")
-            # mpl.rcParams['figure.dpi'] = 100
-            # mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            # mpl.rcParams['savefig.dpi'] = 400
-            # mpl.rcParams['font.size'] = 10
-            # mpl.rcParams['lines.linewidth'] = 1.0
-            self.fig_pos = [0.1, 0.12, 0.8, 0.85]  # [left, bottom, right, top]
-            self.fig_life_int_pos = [0.17, 0.2, 0.8, 0.75]
-            self.fig_lifetime_pos = [0.15, 0.22, 0.8, 0.75]
         else:
             dbg.p("System -> Other", "Main")
-            # mpl.rcParams['figure.dpi'] = 120
-            # mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            # mpl.rcParams['savefig.dpi'] = 400
-            # mpl.rcParams['font.size'] = 10
-            # mpl.rcParams['lines.linewidth'] = 1.0
-            self.fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
-            self.fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
-            self.fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
 
         QMainWindow.__init__(self)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        # print(self.MW_Intensity.figure.get_dpi())
+        
+        self.ui.tabWidget.setCurrentIndex(0)
 
         self.setWindowTitle("Full SMS")
+
+        window_color = self.palette().color(QPalette.Window)
+        rgba_color = (window_color.red()/255, window_color.green()/255, window_color.blue()/255, 1)
+        self.ui.pgIntensity.setBackground(background=None)
+        plot_item = self.ui.pgIntensity.getPlotItem()
+        plot_item.getAxis('left').setLabel('Intensity (counts/100ms)')
+ 
 
         # self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
         # self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/bin)')
@@ -578,7 +551,15 @@ class MainWindow(QMainWindow):
 
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
-
+        
+        
+        self.ui.pgIntensity.getPlotItem()
+        self.ui.pgIntensity.getPlotItem().getAxis('left').setRange(0, 100)
+        window_color = self.palette().color(QPalette.Window)
+        rgba_color = (window_color.red()/255, window_color.green()/255, window_color.blue()/255, 1)
+        self.ui.pgIntensity.setBackground(background=rgba_color)
+        self.ui.pgIntensity.setXRange(0, 10, 0)
+        self.ui.pgIntensity.getPlotItem().plot(y=[1, 2, 3, 4, 5])
         try:
             self.currentparticle.binints(self.get_bin())
         except Exception as err:
@@ -1159,6 +1140,10 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    """
+    Creates QApplication and runs MainWindow().
+    """
+    convert_ui.convert_ui()
     app = QApplication([])
     dbg.p(debug_print='App created', debug_from='Main')
     main_window = MainWindow()
@@ -1171,18 +1156,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-""" Testing
-
-class Test:
-    def __init__(self):
-        self.a = 1
-
-    def new_a(self, value=int):
-        self.a = value
-
-test1 = Test()
-test1_copy = test1
-test1_copy.new_a(2)
-print(test1.a)
-"""

@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\Joshua\OneDrive - University of Pretoria\# Code Dev\Full SMS\ui\mainwindow.ui'
+# Form implementation generated from reading ui file 'C:\Users\User\OneDrive - University of Pretoria\# Code Dev\Full SMS\ui\mainwindow.ui'
 #
 # Created by: PyQt5 UI code generator 5.9.2
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
-from ui.matplotlibwidget import MatplotlibWidget
-
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
