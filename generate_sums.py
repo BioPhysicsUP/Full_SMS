@@ -41,7 +41,7 @@ class CPSums:
         if only_pickle:
             self._calc_and_store()
         else:
-            if os.path.exists(os.getcwd()+'\\all_sums.pickle') and os.path.isfile(os.getcwd()+'\\all_sums.pickle'):
+            if os.path.exists(os.getcwd()+ os.sep + 'all_sums.pickle') and os.path.isfile(os.getcwd()+ os.sep + 'all_sums.pickle'):
                 all_sums_file = open('all_sums.pickle', 'rb')
                 all_sums = dict(pickle.load(all_sums_file))
                 all_sums_file.close()
@@ -77,7 +77,7 @@ class CPSums:
 
             accum_inds += n-1
             prog = round(100*accum_inds/tot_inds, 1)
-            if self.prog_sig is not None:
+            if hasattr(self, 'prog_sig') and self.prog_sig is not None:
                 self.prog_sig.emit(prog, 'Calculating change point sums...')
             prog20 = int(prog//5)
             dbg.u('Calculating sums: [{0}{1}] {2}%'.format('#'*prog20, ' '*(20-prog20), prog),

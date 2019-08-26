@@ -5,3 +5,5 @@ docs/_build/doctrees
 
 __pycache__/
 all_sums\.pickle
+
+ui/mainwindow\.ui\.autosave
