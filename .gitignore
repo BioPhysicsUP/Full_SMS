@@ -4,3 +4,6 @@ docs/_build/doctrees
 \.DS_Store
 
 __pycache__/
+all_sums\.pickle
+
+ui/mainwindow\.ui\.autosave

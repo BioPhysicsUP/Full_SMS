@@ -13,7 +13,6 @@ import dbg
 from PyQt5.QtCore import pyqtSignal
 # from smsh5 import Particle
 
-
 class ChangePoints:
     """ Contains all the attributes to describe the found change points in an analysed particles. """
 
@@ -39,7 +38,7 @@ class ChangePoints:
         :type run_levels: bool, optional
         """
 
-        self.__particle = particle
+        self._particle = particle
         self.cpa = ChangePointAnalysis(particle)
 
         if run_levels is not None:
@@ -74,8 +73,13 @@ class ChangePoints:
 
         if run_levels is not None:
             self._run_levels = run_levels
+        if confidence > 1:
+            confidence = confidence/100
         self.confidence = confidence
-        self.inds, self.conf_regions, self.dt_uncertainty = self.cpa.run_cpa(confidence)
+        if self.cpa_has_run:
+            self.remove_cpa_results()
+            self.cpa.prerun_setup(confidence)
+        self.cpa.run_cpa(confidence)  # self.inds, self.conf_regions, self.dt_uncertainty =
         self.num_cpts = self.cpa.num_cpts
         self.cpa_has_run = True
         if self._run_levels:
@@ -86,6 +90,14 @@ class ChangePoints:
             them to the parent particle object by means of the add_levels method. """
 
         self.cpa.get_levels()
+
+    def remove_cpa_results(self):
+        self._particle.remove_cpa_results()
+        self.inds = None
+        self.conf_regions = None
+        self.dt_uncertainty = None
+        self.cpa_has_run = False
+        self.num_cpts = None
 
 
 class Level:
@@ -206,37 +218,45 @@ class ChangePointAnalysis:
         # assert h5file is not None, "No HDF5 has been given"  # To ensure that a h5file is given
         # assert type(particle) is smsh5.Particle, "ChangePoints:\tNo Particle object given."
         # assert confidence is not None, "ChangePoints:\tNo confidence parameter given."
+        
         self._particle = particle
         self._abstimes = particle.abstimes
         self.num_photons = particle.num_photons
-        self.cpts = np.array([], dtype=int)
+        self.prerun_setup()
+
+    def prerun_setup(self, confidence: float = None):
+        self.confidence = confidence
+        self.cpt_inds = np.array([], dtype=int)
         self.conf_regions = np.array(tuple())  # [(start, end)]
         self.dt_uncertainty = np.array([])  # dt
         self._finding = False
         self.found_cpts = False
         self.num_cpts = None
-        self.confidence = confidence
         self._i = None
         if confidence is not None:
             self._tau = TauData(self.confidence)
 
-    def __weighted_likelihood_ratio(self, seg_inds=None):
+    def __weighted_likelihood_ratio(self, seg_inds=None) -> bool:
         """
         Calculates the Weighted & Standardised Likelihood ratio and detects the possible change point.
 
         Based on 'Detection of Intensity Change Points in Time-Resolved Single-Molecule Measurements'
         from Watkins nad Yang, J. Phys. Chem. B 2005, 109, 617-628 (http://pubs.acs.org/doi/abs/10.1021/jp0467548)
-
-        .. note::
-            If the possible change point is greater than the tau_a value for the corresponding
-            confidence interval and number of data points the detected change points, it's
-            confidence region (as defined by tau_b), and the corresponding uncertainty in time
-            is added to this instance of ChangePointAnalysis.
-
-        :param seg_inds: Segment indexes (start, end).
-        :type seg_inds: (int, int)
-        :return: True if a change point was detected.
-        :rtype: bool
+        
+        If the possible change point is greater than the tau_a value for the corresponding
+        confidence interval and number of data points the detected change points, it's
+        confidence region (as defined by tau_b), and the corresponding uncertainty in time
+        is added to this instance of ChangePointAnalysis.
+        
+        Parameters
+        ----------
+        seg_inds : (int, int), optional
+            Segment indexes (start, end).
+            
+        Returns
+        -------
+        cpt_found : bool
+            True if a change point was detected.
         """
 
         assert type(seg_inds) is tuple, 'ChangePointAnalysis:\tSegment index\'s not given.'
@@ -251,19 +271,30 @@ class ChangePointAnalysis:
 
         wlr = np.zeros(n, float)
 
-        sig_e = np.pi ** 2 / 6 - sum(1 / j ** 2 for j in range(1, (n - 1) + 1))
+        # sig_e = np.pi ** 2 / 6 - sum(1 / j ** 2 for j in range(1, (n - 1) + 1))
+        sig_e = self._particle.dataset.all_sums.get_sig_e(n)
 
         for k in range(2, (n - 2) + 1):  # Remember!!!! range(1, N) = [1, ... , N-1]
-            # print(k)
+            sum_set = self._particle.dataset.all_sums.get_set(n, k)
+            
             cap_v_k = (time_data[k] - ini_time) / period  # Just after eq. 4
-            u_k = -sum(1 / j for j in range(k, (n - 1) + 1))  # Just after eq. 6
-            u_n_k = -sum(1 / j for j in range(n - k, (n - 1) + 1))  # Just after eq. 6
+            
+            # u_k = -sum(1 / j for j in range(k, (n - 1) + 1))  # Just after eq. 6
+            u_k = sum_set['u_k']
+            
+            # u_n_k = -sum(1 / j for j in range(n - k, (n - 1) + 1))  # Just after eq. 6
+            u_n_k = sum_set['u_n_k']
+            
             l0_minus_expec_l0 = -2 * k * np.log(cap_v_k) + 2 * k * u_k - 2 * (n - k) * np.log(1 - cap_v_k) + 2 * (
                     n - k) * u_n_k  # Just after eq. 6
-            v_k2 = sum(1 / j ** 2 for j in range(k, (n - 1) + 1))  # Just before eq. 7
-            v_n_k2 = sum(1 / j ** 2 for j in range(n - k, (n - 1) + 1))  # Just before eq. 7
-            sigma_k = np.sqrt(
-                4 * (k ** 2) * v_k2 + 4 * ((n - k) ** 2) * v_n_k2 - 8 * k * (n - k) * sig_e)  # Just before eq. 7, and note errata
+            
+            # v_k2 = sum(1 / j ** 2 for j in range(k, (n - 1) + 1))  # Just before eq. 7
+            v2_k = sum_set['v2_k']
+            
+            # v2_n_k = sum(1 / j ** 2 for j in range(n - k, (n - 1) + 1))  # Just before eq. 7
+            v2_n_k = sum_set['v2_n_k']
+            
+            sigma_k = np.sqrt(4*(k**2)*v2_k+4*((n-k)**2)*v2_n_k-8*k*(n-k)*sig_e) # Just before eq. 7, and note errata
             w_k = (1 / 2) * np.log((4 * k * (n - k)) / n ** 2)  # Just after eq. 6
 
             wlr.itemset(k, l0_minus_expec_l0 / sigma_k + w_k)  # Eq. 6 and just after eq. 6
@@ -271,7 +302,7 @@ class ChangePointAnalysis:
         max_ind_local = int(wlr.argmax())
 
         if wlr[max_ind_local] >= self._tau.get_tau_a(n):
-            self.cpts = np.append(self.cpts, max_ind_local + start_ind)
+            self.cpt_inds = np.append(self.cpt_inds, max_ind_local+start_ind)
             region_all_local = np.where(wlr >= self._tau.get_tau_b(n))[0]
             region_local = [region_all_local[0], region_all_local[-1]]
             region = (region_local[0] + start_ind, region_local[1] + start_ind)
@@ -315,32 +346,32 @@ class ChangePointAnalysis:
                 next_start_ind, next_end_ind = 0, last_photon_ind
         else:
             prev_start_ind, prev_end_ind = prev_seg_inds
-            if len(self.cpts) == 0:
+            if len(self.cpt_inds) == 0:
                 if last_photon_ind >= prev_end_ind + 800:
                     next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
                 elif last_photon_ind - prev_end_ind >= 10:  # Next segment needs to be at least 10 photons large.
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
                 else:
                     next_start_ind, next_end_ind = None, None
-                    dbg.p("Warning, last photon segment smaller than 50 photons and was not tested", "Change Point")
+                    dbg.p("Warning, last photon segment smaller than 10 photons and was not tested", "Change Point")
             elif side is not None:  # or prev_start_ind < self.cpts[-1] < prev_end_ind
                 if side is not None:
                     assert side in ['left', 'right'], "ChangePointAnalysis:\tSide of change point invalid or not specified"
                 if side == 'left':
-                    next_start_ind, next_end_ind = prev_start_ind, int(self.cpts[-1] - 1)
+                    next_start_ind, next_end_ind = prev_start_ind, int(self.cpt_inds[-1]-1)
                 else:
-                    next_start_ind, next_end_ind = int(self.cpts[-1]), prev_end_ind
+                    next_start_ind, next_end_ind = int(self.cpt_inds[-1]), prev_end_ind
             elif last_photon_ind >= prev_end_ind + 800:
-                if prev_end_ind - 200 < self.cpts[-1] < prev_end_ind:
-                    if last_photon_ind >= self.cpts[-1] + 1000:
-                        next_start_ind, next_end_ind = int(self.cpts[-1]), int(self.cpts[-1]) + 1000
+                if prev_end_ind - 200 < self.cpt_inds[-1] < prev_end_ind:
+                    if last_photon_ind >= self.cpt_inds[-1] + 1000:
+                        next_start_ind, next_end_ind = int(self.cpt_inds[-1]), int(self.cpt_inds[-1])+1000
                     else:
-                        next_start_ind, next_end_ind = int(self.cpts[-1]), last_photon_ind
+                        next_start_ind, next_end_ind = int(self.cpt_inds[-1]), last_photon_ind
                 else:
                     next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
             elif last_photon_ind - prev_end_ind >= 10:  # Next segment needs to be at least 10 photons large.
-                if prev_end_ind - 200 < self.cpts[-1] < prev_end_ind:
-                    next_start_ind, next_end_ind = int(self.cpts[-1]) + 1, last_photon_ind
+                if prev_end_ind - 200 < self.cpt_inds[-1] < prev_end_ind:
+                    next_start_ind, next_end_ind = int(self.cpt_inds[-1])+1, last_photon_ind
                 else:
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
             else:
@@ -387,7 +418,7 @@ class ChangePointAnalysis:
             # print(seg_inds)
         self._i += 1
         # print(self._i)
-        print(_seg_inds)
+        # print(_seg_inds)
 
         if _seg_inds != (None, None):
             cpt_found = self.__weighted_likelihood_ratio(_seg_inds)
@@ -404,8 +435,10 @@ class ChangePointAnalysis:
         if is_top_level:
             self._finding = False
             self.found_cpts = True
-            self.cpts.sort()
-            self.num_cpts = len(self.cpts)
+            self.cpt_inds.sort()
+            self._particle.cpt_inds = self.cpt_inds
+            self.num_cpts = len(self.cpt_inds)
+            self._particle.num_cpts = self.num_cpts
 
     def get_levels(self) -> None:
         """
@@ -422,23 +455,28 @@ class ChangePointAnalysis:
         num_levels = self.num_cpts + 1
         levels = [None] * num_levels
 
-        for num, cpt in enumerate(self.cpts):
+        for num, cpt in enumerate(self.cpt_inds):
             # print(num)
             if num == 0:  # First change point
                 start_ind = 0
                 end_ind = cpt-1
                 levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
-
-            start_ind = cpt
-            if num != self.num_cpts-1:  # Not last change point
-                end_ind = self.cpts[num + 1]
-            else:  # Last photon
-                end_ind = self.num_photons - 1
-            levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
-
+            elif num == self.num_cpts-1:
+                start_ind = self.cpt_inds[num-1]
+                end_ind = cpt
+                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+                start_ind = cpt+1
+                end_ind = self.num_photons-1
+                levels[num+1] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+            else:
+                start_ind = self.cpt_inds[num-1]
+                end_ind = cpt
+                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+            
         self._particle.add_levels(levels, num_levels)
         # return levels, num_levels
-
+    
+    # @dbg.profile
     def run_cpa(self, confidence=None):
         """
         Runs the change point analysis.

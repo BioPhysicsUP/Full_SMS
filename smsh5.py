@@ -10,14 +10,20 @@ import numpy as np
 from matplotlib import pyplot as plt
 from change_point import ChangePoints
 import re
+from generate_sums import CPSums
+from PyQt5.QtCore import pyqtSignal
+import dbg
+from joblib import Parallel, delayed
 
 
 class H5dataset:
 
-    def __init__(self, filename, progress_sig=None):
+    def __init__(self, filename, progress_sig: pyqtSignal = None,
+                 auto_prog_sig: pyqtSignal = None):
 
-        if progress_sig is not None:
-            self.progress_sig = progress_sig
+        self.use_parallel = True
+        self.progress_sig = progress_sig
+        self.auto_prog_sig = auto_prog_sig
         # self.main_signals.progress.connect()
         self.name = filename
         self.file = h5py.File(self.name, 'r')
@@ -36,6 +42,7 @@ class H5dataset:
         for num, key_num in enumerate(natural_key):
             natural_p_names[key_num-1] = unsorted_names[num]
 
+        self.all_sums = CPSums(n_min=10, n_max=1000, auto_prog_sig=self.auto_prog_sig)
         self.particles = []
         for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
@@ -58,12 +65,25 @@ class H5dataset:
         if progress_sig is not None:
             self.progress_sig = progress_sig
 
-        for particle in self.particles:
-            particle.binints(binsize)
+        if self.use_parallel:
+            self.bintsize_parallel = binsize
             if hasattr(self, 'progress_sig'):
-                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
-        print("done binning")
+                self.prog_sig_parallel = progress_sig
+            Parallel(n_jobs=-1, backend='threading')(
+                delayed(self.run_binints_parallel)(particle) for particle in self.particles
+            )
+            del self.bintsize_parallel, self.prog_sig_parallel
+        else:
+            for particle in self.particles:
+                particle.binints(binsize)
+                if hasattr(self, 'progress_sig'):
+                    self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
+        dbg.p('Binning all done', 'H5Dataset')
 
+    def run_binints_parallel(self, particle):
+        particle.binints(self.bintsize_parallel)
+        if hasattr(self, 'self.prog_sig_parallel'):
+            self.prog_sig_parallel.emit()
 
 class Particle:
 
@@ -76,6 +96,8 @@ class Particle:
         self.abstimes = self.datadict['Absolute Times (ns)']
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
+        self.cpt_inds = None
+        self.num_cpts = None
         self.has_levels = False
         self.levels = None
         self.num_levels = None
@@ -109,10 +131,48 @@ class Particle:
         self.add_levels(self.cpts.get_levels())
 
     def add_levels(self, levels=None, num_levels=None):
-        assert levels is not None and num_levels is not None, "Particle:\tBoth arguments need to be non-None to add level."
+        assert levels is not None and num_levels is not None, \
+            "Particle:\tBoth arguments need to be non-None to add level."
         self.levels = levels
         self.num_levels = num_levels
         self.has_levels = True
+        
+    def levels2data(self, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
+        """
+        Uses the Particle objects' levels to generate two arrays for plotting the levels.
+        Parameters
+        ----------
+        plot_type: str, {'line', 'step'}
+
+        Returns
+        -------
+        [np.ndarray, np.ndarray]
+        """
+        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+
+        # ############## Old, for Matplotlib ##############
+        # levels_data = np.empty(shape=self.num_levels+1)
+        # times = np.empty(shape=self.num_levels+1)
+        # accum_time = 0
+        # for num, level in enumerate(self.levels):
+        #     times[num] = accum_time
+        #     accum_time += level.dwell_time/1E9
+        #     levels_data[num] = level.int
+        #     if num+1 == self.num_levels:
+        #         levels_data[num+1] = accum_time
+        #         times[num+1] = level.int
+
+        levels_data = np.empty(shape=self.num_levels*2)
+        times = np.empty(shape=self.num_levels*2)
+        accum_time = 0
+        for num, level in enumerate(self.levels):
+            times[num*2] = accum_time
+            accum_time += level.dwell_time/1E9
+            times[num*2 + 1] = accum_time
+            levels_data[num*2] = level.int
+            levels_data[num*2 + 1] = level.int
+
+        return levels_data, times
 
     def makehistogram(self):
         """Put the arrival times into a histogram"""
@@ -124,6 +184,13 @@ class Particle:
 
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
+
+    def remove_cpa_results(self):
+        self.cpt_inds = None
+        self.levels = None
+        self.num_cpts = None
+        self.num_levels = None
+        self.has_levels = False
 
 
 class Trace:
@@ -138,22 +205,24 @@ class Trace:
         Size of time bin in ms.
     """
 
-    def __init__(self, particle, binsize):
+    def __init__(self, particle, binsize: int):
 
-        self.particle = particle
+        # self.particle = particle
         self.binsize = binsize
-        data = self.particle.abstimes[:]
+        data = particle.abstimes[:]
 
-        binsize = binsize * 1000000  # Convert ms to ns
-        endbin = np.int(np.max(data) / binsize)
+        binsize_ns = binsize * 1E6  # Convert ms to ns
+        endbin = np.int(np.max(data) / binsize_ns)
 
-        binned = np.zeros(endbin)
+        binned = np.zeros(endbin+1, dtype=np.int)
         for step in range(endbin):
-            binned[step] = np.size(data[((step + 1) * binsize > data) * (data > step * binsize)])
+            binned[step+1] = np.size(data[((step+1)*binsize_ns > data)*(data > step*binsize_ns)])
+            if step == 0:
+                binned[step] = binned[step+1]
 
         # binned *= (1000 / 100)
         self.intdata = binned
-
+        self.inttimes = np.array(range(0, binsize+(endbin*binsize), binsize))
 
 class Histogram:
 
