@@ -21,7 +21,7 @@ class H5dataset:
     def __init__(self, filename, progress_sig: pyqtSignal = None,
                  auto_prog_sig: pyqtSignal = None):
 
-        self.use_parallel = True
+        self.use_parallel = False
         self.progress_sig = progress_sig
         self.auto_prog_sig = auto_prog_sig
         # self.main_signals.progress.connect()
