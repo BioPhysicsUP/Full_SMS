@@ -77,8 +77,8 @@ class CPSums:
 
             accum_inds += n-1
             prog = round(100*accum_inds/tot_inds, 1)
-            if self.auto_prog_sig is not None:
-                self.auto_prog_sig.emit(prog, 'Calculating change point sums...')
+            if hasattr(self, 'prog_sig') and self.prog_sig is not None:
+                self.prog_sig.emit(prog, 'Calculating change point sums...')
             prog20 = int(prog//5)
             dbg.u('Calculating sums: [{0}{1}] {2}%'.format('#'*prog20, ' '*(20-prog20), prog),
                   'CPSums', n == self.n_max)

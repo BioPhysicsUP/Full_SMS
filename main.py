@@ -7,10 +7,11 @@ University of Pretoria
 
 __docformat__ = 'NumPy'
 
+import ui.convert_ui as convert_ui
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, \
-    QModelIndex, Qt, QThreadPool, QRunnable, pyqtSlot, QItemSelectionModel
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    QModelIndex, Qt, QThreadPool, QRunnable, pyqtSlot, QItemSelectionModel, QSize
+# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from platform import system
 import sys
 import os
@@ -20,30 +21,15 @@ from matplotlib.figure import Figure
 # from matplotlib.axes.subplots import Axes
 import numpy as np
 import random
-import matplotlib as mpl
-from matplotlib import figure as Figure
+# import matplotlib as mpl
+# from matplotlib import figure as Figure
 import dbg
 import traceback
 import smsh5
 from ui.mainwindow import Ui_MainWindow
 from generate_sums import CPSums
 from joblib import Parallel, delayed
-import copy
-
-
-# mpl.use("Qt5Agg")
-
-
-# Default settings for matplotlib plots
-# *************************************
-# mpl.rcParams['figure.dpi'] = 120
-# mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-# mpl.rcParams['savefig.dpi'] = 400
-# mpl.rcParams['font.size'] = 10
-# # mpl.rcParams['legend.fontsize'] = 'small'
-# # mpl.rcParams['legend.fontsize'] = 'small'
-# mpl.rcParams['lines.linewidth'] = 1.0
-# # mpl.rcParams['errorbar.capsize'] = 3
+import pyqtgraph as pg
 
 
 class WorkerSignals(QObject):
@@ -92,8 +78,6 @@ class WorkerOpenFile(QRunnable):
     def run(self) -> None:
         """ The code that will be run when the thread is started. """
 
-        # print("Hello from thread!!!!")
-        # self.signals.progress.emit()
         try:
             self.openfile_func(self.fname, self.signals.start_progress,self.signals.auto_progress,
                                self.signals.progress, self.signals.status_message)
@@ -133,9 +117,7 @@ class WorkerBinAll(QRunnable):
     @pyqtSlot()
     def run(self) -> None:
         """ The code that will be run when the thread is started. """
-
-        # print("Hello from thread!!!!")
-        # self.signals.progress.emit()
+        
         try:
             self.binall_func(self.dataset, self.bin_size, self.signals.start_progress, self.signals.progress, self.signals.status_message)
         except:
@@ -225,6 +207,13 @@ class DatasetTreeNode(object):
         self.setChecked(checked)
 
     def checked(self):
+        """
+        Appears to be used internally.
+        
+        Returns
+        -------
+        Returns check status.
+        """
         return self._checked
 
     def setChecked(self, checked=True):
@@ -441,66 +430,62 @@ class MainWindow(QMainWindow):
             2: 90,
             3: 69}
 
-        # Set defaults for figures depending on system
         if system() == "win32" or system() == "win64":
             dbg.p("System -> Windows", "Main")
-            mpl.rcParams['figure.dpi'] = 120
-            mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            mpl.rcParams['savefig.dpi'] = 400
-            mpl.rcParams['font.size'] = 10
-            mpl.rcParams['lines.linewidth'] = 1.0
-            self.fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
-            self.fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
-            self.fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
         elif system() == "Darwin":
             dbg.p("System -> Unix/Linus", "Main")
-            mpl.rcParams['figure.dpi'] = 100
-            mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            mpl.rcParams['savefig.dpi'] = 400
-            mpl.rcParams['font.size'] = 10
-            mpl.rcParams['lines.linewidth'] = 1.0
-            self.fig_pos = [0.1, 0.12, 0.8, 0.85]  # [left, bottom, right, top]
-            self.fig_life_int_pos = [0.17, 0.2, 0.8, 0.75]
-            self.fig_lifetime_pos = [0.15, 0.22, 0.8, 0.75]
         else:
             dbg.p("System -> Other", "Main")
-            mpl.rcParams['figure.dpi'] = 120
-            mpl.rcParams['axes.linewidth'] = 1.0  # set  the value globally
-            mpl.rcParams['savefig.dpi'] = 400
-            mpl.rcParams['font.size'] = 10
-            mpl.rcParams['lines.linewidth'] = 1.0
-            self.fig_pos = [0.09, 0.12, 0.89, 0.85]  # [left, bottom, right, top]
-            self.fig_life_int_pos = [0.12, 0.2, 0.85, 0.75]
-            self.fig_lifetime_pos = [0.12, 0.22, 0.85, 0.75]
 
         QMainWindow.__init__(self)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        # print(self.MW_Intensity.figure.get_dpi())
+        
+        self.ui.tabWidget.setCurrentIndex(0)
 
         self.setWindowTitle("Full SMS")
 
-        self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
-        self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/bin)')
-        self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
-        self.ui.MW_Intensity.figure.tight_layout()
-        self.ui.MW_Intensity.axes.set_position(self.fig_pos)
-        # print(self.MW_Intensity.figure.get_dpi())
+        self.ui.pgIntensity.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.ui.pgIntensity.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        self.ui.pgIntensity.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.MW_LifetimeInt.axes.set_xlabel('Time (s)')
-        self.ui.MW_LifetimeInt.axes.set_ylabel('Bin Intensity\n(counts/bin)')
-        self.ui.MW_LifetimeInt.figure.tight_layout()
-        self.ui.MW_LifetimeInt.axes.set_position(self.fig_life_int_pos)
+        self.ui.pgLifetime_Int.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.ui.pgLifetime_Int.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        # self.ui.pgLifetime_Int.getPlotItem().getViewBox()\
+        #     .setYLink(self.ui.pgIntensity.getPlotItem().getAxis('left').getViewBox())
+        # self.ui.pgLifetime_Int.getPlotItem().getViewBox()\
+        #     .setXLink(self.ui.pgIntensity.getPlotItem().getAxis('bottom').getViewBox())
+        self.ui.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.MW_Lifetime.axes.set_xlabel('Time (ns)')
-        self.ui.MW_Lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
-        self.ui.MW_Lifetime.figure.tight_layout()
-        self.ui.MW_Lifetime.axes.set_position(self.fig_lifetime_pos)
+        self.ui.pgLifetime.getPlotItem().getAxis('left').setLabel('Num. of occur.', 'counts/bin')
+        self.ui.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
+        self.ui.pgLifetime.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.MW_Spectra.axes.set_xlabel('Time (s)')
-        self.ui.MW_Spectra.axes.set_ylabel('Wavelength (nm)')
-        self.ui.MW_Spectra.figure.tight_layout()
-        self.ui.MW_Spectra.axes.set_position(self.fig_pos)
+        self.ui.pgSpectra.getPlotItem().getAxis('left').setLabel('X Range', 'um')
+        self.ui.pgSpectra.getPlotItem().getAxis('bottom').setLabel('Y Range', '<span>&#181;</span>m')
+        self.ui.pgSpectra.getPlotItem().getViewBox().setAspectLocked(lock=True, ratio=1)
+        self.ui.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+
+        plots = [self.ui.pgIntensity, self.ui.pgLifetime_Int, self.ui.pgLifetime, self.ui.pgSpectra]
+        axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
+        for plot in plots:
+            # Set background and axis line width
+            plot.setBackground(background=None)
+            plot_item = plot.getPlotItem()
+            plot_item.getAxis('left').setPen(axis_line_pen)
+            plot_item.getAxis('bottom').setPen(axis_line_pen)
+
+            # Set axis label bold and size
+            font = plot_item.getAxis('left').label.font()
+            font.setBold(True)
+            if plot == self.ui.pgLifetime_Int:
+                font.setPointSize(8)
+            else:
+                font.setPointSize(12)
+            plot_item.getAxis('left').label.setFont(font)
+            plot_item.getAxis('bottom').label.setFont(font)
+
+            plot.setAntialiasing(True)
 
         # Connect all GUI buttons with outside class functions
         self.ui.btnApplyBin.clicked.connect(self.gui_apply_bin)
@@ -539,12 +524,27 @@ class MainWindow(QMainWindow):
         self.irf_loaded = False
         self.has_spectra = False
 
+        self.ui.tabWidget.currentChanged.connect(self.tab_change)
+
         self.reset_gui()
-        
+        self.repaint()
 
     """#######################################
     ######## GUI Housekeeping Methods ########
     #######################################"""
+
+    def after_show(self):
+        self.ui.pgSpectra.resize(self.ui.tabSpectra.size().height(),
+                                 self.ui.tabSpectra.size().height()-self.ui.btnSubBackground.size().height()-40)
+
+    def resizeEvent(self, a0: QResizeEvent):
+        if self.ui.tabSpectra.size().height() <= self.ui.tabSpectra.size().width():
+            self.ui.pgSpectra.resize(self.ui.tabSpectra.size().height(),
+                                     self.ui.tabSpectra.size().height()-self.ui.btnSubBackground.size().height()-40)
+        else:
+            self.ui.pgSpectra.resize(self.ui.tabSpectra.size().width(),
+                                     self.ui.tabSpectra.size().width()-40)
+
 
     def check_all_sums(self) -> None:
         """
@@ -585,7 +585,17 @@ class MainWindow(QMainWindow):
 
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
-
+        
+        # self.ui.pgSpectra.centralWidget
+        #
+        # self.ui.pgIntensity.getPlotItem().setFixedWidth(500)
+        # self.ui.pgSpectra.resize(100, 200)
+        # self.ui.pgIntensity.getPlotItem().getAxis('left').setRange(0, 100)
+        # window_color = self.palette().color(QPalette.Window)
+        # rgba_color = (window_color.red()/255, window_color.green()/255, window_color.blue()/255, 1)
+        # self.ui.pgIntensity.setBackground(background=rgba_color)
+        # self.ui.pgIntensity.setXRange(0, 10, 0)
+        # self.ui.pgIntensity.getPlotItem().plot(y=[1, 2, 3, 4, 5])
         try:
             self.currentparticle.binints(self.get_bin())
         except Exception as err:
@@ -699,6 +709,10 @@ class MainWindow(QMainWindow):
     ############ Internal Methods ############
     #######################################"""
 
+    def tab_change(self, active_tab_index:int):
+        if self.data_loaded and hasattr(self, 'currentparticle'):
+            self.display_data()
+
     def display_data(self, current=None, prev=None) -> None:  # TODO: What is previous for?
         """ Displays the intensity trace and the histogram of the current particle.
 
@@ -720,27 +734,36 @@ class MainWindow(QMainWindow):
             self.currentparticle
             if self.currentparticle.has_levels:
                 self.plot_levels()
-            self.plot_decay()
+            self.plot_decay(remove_empty=True)
             dbg.p('Current data displayed', 'Main')
 
-    def plot_decay(self) -> None:
+    def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
         try:
             decay = self.currentparticle.histogram.decay
             t = self.currentparticle.histogram.t
-
-            trace = self.currentparticle.binnedtrace.intdata
         except AttributeError:
-            print('No decay, or no trace!')
+            print('No decay!')
         else:
-            self.ui.MW_Lifetime.axes.clear()
-            self.ui.MW_Lifetime.axes.set_xlabel('Time (ns)')
-            self.ui.MW_Lifetime.axes.set_ylabel('Bin frequency\n(counts/bin)')
-            self.ui.MW_Lifetime.figure.tight_layout()
-            self.ui.MW_Lifetime.axes.set_position(self.fig_lifetime_pos)
-            self.ui.MW_Lifetime.axes.semilogy(t, decay)
-            self.ui.MW_Lifetime.draw()
+            if self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
+                plot_item = self.ui.pgLifetime.getPlotItem()
+                plot_pen = QPen()
+                plot_pen.setWidthF(1.5)
+                plot_pen.setJoinStyle(Qt.RoundJoin)
+                plot_pen.setColor(QColor('blue'))
+                plot_pen.setCosmetic(True)
+
+                if remove_empty:
+                    first = (decay > 4).argmax(axis=0)
+                    t = t[first:-1] - t[first]
+                    decay = decay[first:-1]
+
+                plot_item.clear()
+                plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+                unit = 'ns with ' + str(self.currentparticle.channelwidth) + 'ns bins'
+                plot_item.getAxis('bottom').setLabel('Decay time', unit)
+                plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
 
     def plot_trace(self) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
@@ -752,34 +775,59 @@ class MainWindow(QMainWindow):
         except AttributeError:
             print('No trace!')
         else:
-            self.ui.MW_Intensity.axes.clear()
-            self.ui.MW_Intensity.axes.set_xlabel('Time (s)')
-            self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/{0}ms)'.format(self.get_bin()))
-            self.ui.MW_Intensity.axes.patch.set_linewidth(0.1)
-            self.ui.MW_Intensity.figure.tight_layout()
-            self.ui.MW_Intensity.axes.set_position(self.fig_pos)
-            self.ui.MW_Intensity.axes.plot(times, trace)
-            self.ui.MW_Intensity.axes.set_xlim(0, times[-1])
-            self.ui.MW_Intensity.draw()
+            if self.ui.tabWidget.currentWidget().objectName() == 'tabIntensity':
+                plot_item = self.ui.pgIntensity.getPlotItem()
+                pen_width = 1.5
+            elif self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
+                plot_item = self.ui.pgLifetime_Int.getPlotItem()
+                pen_width = 1.1
+            else:
+                return
 
-            self.ui.MW_LifetimeInt.axes.clear()
-            self.ui.MW_LifetimeInt.axes.set_xlabel('Time (s)')
-            self.ui.MW_Intensity.axes.set_ylabel('Bin Intensity (counts/{0}ms)'.format(self.get_bin()))
-            self.ui.MW_LifetimeInt.axes.patch.set_linewidth(0.1)
-            self.ui.MW_LifetimeInt.figure.tight_layout()
-            self.ui.MW_LifetimeInt.axes.set_position(self.fig_life_int_pos)
-            self.ui.MW_LifetimeInt.axes.plot(times, trace)
-            self.ui.MW_LifetimeInt.axes.set_xlim(0, times[-1])
-            self.ui.MW_LifetimeInt.draw()
+            plot_pen = QPen()
+            plot_pen.setWidthF(pen_width)
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setColor(QColor('green'))
+            plot_pen.setCosmetic(True)
+
+            plot_item.clear()
+            plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
+            unit = 'counts/' + str(self.get_bin()) + 'ms'
+            plot_item.getAxis('left').setLabel('Intensity', unit)
+            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
 
     def plot_levels(self):
-        # self.currentparticle
-        data, times = self.currentparticle.levels2data()
-        data = data * self.get_bin()/1E3
-        self.ui.MW_Intensity.axes.step(times, data, where='post')
-        self.ui.MW_Intensity.draw()
-        self.ui.MW_LifetimeInt.axes.step(times, data, where='post')
-        self.ui.MW_LifetimeInt.draw()
+        """ Used to plot the resolved intensity levels of the current particle. """
+        try:
+            # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
+            data, times = self.currentparticle.levels2data()
+            data = data*self.get_bin()/1E3
+        except AttributeError:
+            print('No levels!')
+        else:
+            if self.ui.tabIntensity.isActiveWindow():
+                plot_item = self.ui.pgIntensity.getPlotItem()
+            elif self.ui.tabLifetime.isActiveWindow():
+                plot_item = self.ui.pgLifetime_Int.getPlotItem()
+            else:
+                return
+
+        plot_pen = QPen()
+        plot_pen.setWidthF(2.5)
+        plot_pen.brush()
+        plot_pen.setJoinStyle(Qt.RoundJoin)
+        plot_pen.setColor(QColor('green'))
+        plot_pen.setCosmetic(True)
+
+        plot_item.clear()
+        # plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
+        unit = 'counts/'+str(self.get_bin())+'ms'
+        plot_item.getAxis('left').setLabel('Intensity', unit)
+
+        # self.ui.MW_Intensity.axes.step(times, data, where='post')
+        # self.ui.MW_Intensity.draw()
+        # self.ui.MW_LifetimeInt.axes.step(times, data, where='post')
+        # self.ui.MW_LifetimeInt.draw()
 
     def status_message(self, message: str) -> None:
         """
@@ -1190,11 +1238,17 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    """
+    Creates QApplication and runs MainWindow().
+    """
+    convert_ui.convert_ui()
     app = QApplication([])
     dbg.p(debug_print='App created', debug_from='Main')
     main_window = MainWindow()
     dbg.p(debug_print='Main Window created', debug_from='Main')
     main_window.show()
+    main_window.after_show()
+    main_window.ui.tabSpectra.repaint()
     dbg.p(debug_print='Main Window shown', debug_from='Main')
     app.exec_()
     dbg.p(debug_print='App excuted', debug_from='Main')
@@ -1202,18 +1256,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-""" Testing
-
-class Test:
-    def __init__(self):
-        self.a = 1
-
-    def new_a(self, value=int):
-        self.a = value
-
-test1 = Test()
-test1_copy = test1
-test1_copy.new_a(2)
-print(test1.a)
-"""
