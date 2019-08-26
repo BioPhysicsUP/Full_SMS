@@ -119,7 +119,8 @@ class WorkerBinAll(QRunnable):
         """ The code that will be run when the thread is started. """
         
         try:
-            self.binall_func(self.dataset, self.bin_size, self.signals.start_progress, self.signals.progress, self.signals.status_message)
+            self.binall_func(self.dataset, self.bin_size, self.signals.start_progress,
+                             self.signals.progress, self.signals.status_message)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -620,17 +621,17 @@ class MainWindow(QMainWindow):
     def gui_resolve(self):
         """ Resolves the levels of the current particle and displays it. """
 
-        self.start_resolve_thread()
+        self.start_resolve_thread(mode='current')
 
     def gui_resolve_selected(self):
         """ Resolves the levels of the selected particles and displays the levels of the current particle. """
 
-        self.start_resolve_thread('selected')
+        self.start_resolve_thread(mode='selected')
 
     def gui_resolve_all(self):
         """ Resolves the levels of the all the particles and then displays the levels of the current particle. """
 
-        self.start_resolve_thread('all')
+        self.start_resolve_thread(mode='all')
 
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """
@@ -745,6 +746,7 @@ class MainWindow(QMainWindow):
             t = self.currentparticle.histogram.t
         except AttributeError:
             print('No decay!')
+            return 
         else:
             if self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
                 plot_item = self.ui.pgLifetime.getPlotItem()
@@ -774,6 +776,7 @@ class MainWindow(QMainWindow):
             times = self.currentparticle.binnedtrace.inttimes / 1E3
         except AttributeError:
             print('No trace!')
+            return
         else:
             if self.ui.tabWidget.currentWidget().objectName() == 'tabIntensity':
                 plot_item = self.ui.pgIntensity.getPlotItem()
@@ -800,10 +803,11 @@ class MainWindow(QMainWindow):
         """ Used to plot the resolved intensity levels of the current particle. """
         try:
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
-            data, times = self.currentparticle.levels2data()
-            data = data*self.get_bin()/1E3
+            level_ints, times = self.currentparticle.levels2data()
+            level_ints = level_ints*self.get_bin()/1E3
         except AttributeError:
             print('No levels!')
+            return
         else:
             if self.ui.tabIntensity.isActiveWindow():
                 plot_item = self.ui.pgIntensity.getPlotItem()
@@ -816,18 +820,10 @@ class MainWindow(QMainWindow):
         plot_pen.setWidthF(2.5)
         plot_pen.brush()
         plot_pen.setJoinStyle(Qt.RoundJoin)
-        plot_pen.setColor(QColor('green'))
+        plot_pen.setColor(QColor('black'))
         plot_pen.setCosmetic(True)
 
-        plot_item.clear()
-        # plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
-        unit = 'counts/'+str(self.get_bin())+'ms'
-        plot_item.getAxis('left').setLabel('Intensity', unit)
-
-        # self.ui.MW_Intensity.axes.step(times, data, where='post')
-        # self.ui.MW_Intensity.draw()
-        # self.ui.MW_LifetimeInt.axes.step(times, data, where='post')
-        # self.ui.MW_LifetimeInt.draw()
+        plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
 
     def status_message(self, message: str) -> None:
         """
@@ -1026,7 +1022,7 @@ class MainWindow(QMainWindow):
         self.plot_trace()
         dbg.p('Binnig all levels complete', 'BinAll Thread')
 
-    def start_resolve_thread(self, current_selected_all: str = 'current', thread_finished=None) -> None:
+    def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
         """
         Creates a worker to resolve levels.
 
@@ -1036,7 +1032,7 @@ class MainWindow(QMainWindow):
         Parameters
         ----------
         thread_finished
-        current_selected_all : {'current', 'selected', 'all'}
+        mode : {'current', 'selected', 'all'}
             Possible values are 'current' (default), 'selected', and 'all'.
         """
 
@@ -1046,13 +1042,13 @@ class MainWindow(QMainWindow):
             else:
                 thread_finished = self.open_file_thread_complete
 
-        if current_selected_all == 'current':
+        if mode == 'current':
             # sig = WorkerSignals()
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
             resolve_thread = WorkerResolveLevels(self.resolve_levels)
-        elif current_selected_all == 'selected':
+        elif mode == 'selected':
             resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_selected=self.get_checked_particles())
-        elif current_selected_all == 'all':
+        elif mode == 'all':
             resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_all=True)
             # resolve_thread.signals.finished.connect(thread_finished)
             # resolve_thread.signals.start_progress.connect(self.start_progress)
@@ -1061,12 +1057,10 @@ class MainWindow(QMainWindow):
             # self.resolve_levels(resolve_thread.signals.start_progress, resolve_thread.signals.progress,
             #                     resolve_thread.signals.status_message, resolve_all=True, parallel=True)
 
-        # resolve_thread.signals.finished.connect(thread_finished)
-        # resolve_thread.signals.start_progress.connect(self.start_progress)
-        # resolve_thread.signals.progress.connect(self.update_progress)
-        # resolve_thread.signals.status_message.connect(self.status_message)
-        #
-        # self.threadpool.start(resolve_thread)
+        resolve_thread.signals.finished.connect(thread_finished)
+        resolve_thread.signals.start_progress.connect(self.start_progress)
+        resolve_thread.signals.progress.connect(self.update_progress)
+        resolve_thread.signals.status_message.connect(self.status_message)
 
         self.threadpool.start(resolve_thread)
 
@@ -1074,7 +1068,7 @@ class MainWindow(QMainWindow):
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
                        resolve_all: bool = None,
-                       resolve_selected=None, parallel: bool = False) -> None:
+                       resolve_selected=None) -> None:  #  parallel: bool = False
         """
         Resolves the levels in particles by finding the change points in the
         abstimes data of a Particle instance.
@@ -1114,17 +1108,17 @@ class MainWindow(QMainWindow):
             try:
                 status_sig.emit('Resolving All Particle Levels...')
                 start_progress_sig.emit(data.numpart)
-                if parallel:
-                    self.conf_parallel = conf
-                    Parallel(n_jobs=-2, backend='threading')(
-                        delayed(self.run_parallel_cpa)
-                        (copy.copy(self.tree2particle(num))) for num in range(data.numpart)
-                    )
-                    del self.conf_parallel
-                else:
-                    for num in range(data.numpart):
-                        data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
-                        progress_sig.emit()
+                                    # if parallel:
+                                    #     self.conf_parallel = conf
+                                    #     Parallel(n_jobs=-2, backend='threading')(
+                                    #         delayed(self.run_parallel_cpa)
+                                    #         (self.tree2particle(num)) for num in range(data.numpart)
+                                    #     )
+                                    #     del self.conf_parallel
+                                    # else:
+                for num in range(data.numpart):
+                    data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
+                    progress_sig.emit()
                 status_sig.emit('Ready...')
                 # test = self.ui.treeViewParticles.currentIndex()
                 # index = self.ui.treeViewParticles.selectionModel().model().index(1,0)
