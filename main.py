@@ -374,6 +374,21 @@ class DatasetTreeModel(QAbstractItemModel):
             return in_index.internalPointer().columnCount()
         return self._root.columnCount()
 
+    def get_particle(self, ind: int) -> smsh5.Particle:
+        """
+        Returns the smsh5.Particle object of the ind'th tree particle.
+
+        Parameters
+        ----------
+        ind: int
+            The index of the particle.
+
+        Returns
+        -------
+        smsh5.Particle
+        """
+        return self.data(ind, Qt.UserRole)
+
     def data(self, in_index, role):
         """
         TODO: Docstring
@@ -462,12 +477,21 @@ class MainWindow(QMainWindow):
         self.ui.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
         self.ui.pgLifetime.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
+        self.ui.pgGroups.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.ui.pgGroups.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        self.ui.pgGroups.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+
+        self.ui.pgBIC.getPlotItem().getAxis('left').setLabel('BIC')
+        self.ui.pgBIC.getPlotItem().getAxis('bottom').setLabel('Number of State')
+        self.ui.pgBIC.getPlotItem().getViewBox().setLimits(xMin=0)
+
         self.ui.pgSpectra.getPlotItem().getAxis('left').setLabel('X Range', 'um')
         self.ui.pgSpectra.getPlotItem().getAxis('bottom').setLabel('Y Range', '<span>&#181;</span>m')
         self.ui.pgSpectra.getPlotItem().getViewBox().setAspectLocked(lock=True, ratio=1)
         self.ui.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        plots = [self.ui.pgIntensity, self.ui.pgLifetime_Int, self.ui.pgLifetime, self.ui.pgSpectra]
+        plots = [self.ui.pgIntensity, self.ui.pgLifetime_Int, self.ui.pgLifetime,
+                 self.ui.pgGroups, self.ui.pgBIC, self.ui.pgSpectra]
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
         for plot in plots:
             # Set background and axis line width
@@ -481,6 +505,8 @@ class MainWindow(QMainWindow):
             font.setBold(True)
             if plot == self.ui.pgLifetime_Int:
                 font.setPointSize(8)
+            elif plot == self.ui.pgGroups:
+                font.setPointSize(10)
             else:
                 font.setPointSize(12)
             plot_item.getAxis('left').label.setFont(font)
@@ -728,13 +754,19 @@ class MainWindow(QMainWindow):
         self.current_ind = current
         self.pre_ind = prev
         if current is not None:
-            self.currentparticle = self.treemodel.data(current, Qt.UserRole)
+            self.currentparticle = self.treemodel.get_particle(current)
         if type(self.currentparticle) is smsh5.Particle:
             self.set_bin(self.currentparticle.bin_size)
             self.plot_trace()
-            self.currentparticle
             if self.currentparticle.has_levels:
                 self.plot_levels()
+                self.ui.btnGroup.setEnabled(True)
+                self.ui.btnGroup_Selected.setEnabled(True)
+                self.ui.btnGroup_All.setEnabled(True)
+            else:
+                self.ui.btnGroup.setEnabled(False)
+                self.ui.btnGroup_Selected.setEnabled(False)
+                self.ui.btnGroup_All.setEnabled(False)
             self.plot_decay(remove_empty=True)
             dbg.p('Current data displayed', 'Main')
 
@@ -746,7 +778,6 @@ class MainWindow(QMainWindow):
             t = self.currentparticle.histogram.t
         except AttributeError:
             print('No decay!')
-            return 
         else:
             if self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
                 plot_item = self.ui.pgLifetime.getPlotItem()
@@ -776,28 +807,31 @@ class MainWindow(QMainWindow):
             times = self.currentparticle.binnedtrace.inttimes / 1E3
         except AttributeError:
             print('No trace!')
-            return
         else:
-            if self.ui.tabWidget.currentWidget().objectName() == 'tabIntensity':
-                plot_item = self.ui.pgIntensity.getPlotItem()
-                pen_width = 1.5
-            elif self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
-                plot_item = self.ui.pgLifetime_Int.getPlotItem()
-                pen_width = 1.1
-            else:
-                return
-
             plot_pen = QPen()
-            plot_pen.setWidthF(pen_width)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setColor(QColor('green'))
             plot_pen.setCosmetic(True)
+            cur_tab_name = self.ui.tabWidget.currentWidget().objectName()
+            if cur_tab_name != 'tabSpectra':
+                if cur_tab_name == 'tabIntensity':
+                    plot_item = self.ui.pgIntensity.getPlotItem()
+                    plot_pen.setWidthF(1.5)
+                    plot_pen.setColor(QColor('green'))
+                elif cur_tab_name == 'tabLifetime':
+                    plot_item = self.ui.pgLifetime_Int.getPlotItem()
+                    plot_pen.setWidthF(1.1)
+                    plot_pen.setColor(QColor('green'))
+                elif cur_tab_name == 'tabGrouping':
+                    plot_item = self.ui.pgGroups
+                    plot_pen.setWidthF(1.1)
+                    plot_pen.setColor(QColor(0, 0, 0, 50))
 
-            plot_item.clear()
-            plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
-            unit = 'counts/' + str(self.get_bin()) + 'ms'
-            plot_item.getAxis('left').setLabel('Intensity', unit)
-            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
+                plot_pen.setJoinStyle(Qt.RoundJoin)
+
+                plot_item.clear()
+                unit = 'counts/'+str(self.get_bin())+'ms'
+                plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
+                plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
+                plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
 
     def plot_levels(self):
         """ Used to plot the resolved intensity levels of the current particle. """
@@ -807,7 +841,6 @@ class MainWindow(QMainWindow):
             level_ints = level_ints*self.get_bin()/1E3
         except AttributeError:
             print('No levels!')
-            return
         else:
             if self.ui.tabIntensity.isActiveWindow():
                 plot_item = self.ui.pgIntensity.getPlotItem()
@@ -817,7 +850,7 @@ class MainWindow(QMainWindow):
                 return
 
         plot_pen = QPen()
-        plot_pen.setWidthF(2.5)
+        plot_pen.setWidthF(2)
         plot_pen.brush()
         plot_pen.setJoinStyle(Qt.RoundJoin)
         plot_pen.setColor(QColor('black'))
@@ -886,7 +919,8 @@ class MainWindow(QMainWindow):
         self.repaint()
 
     def tree2particle(self, identifier):
-        """ Returns the particle dataset for the identifier given. The identifier could be the number of the particle of the the datasetnode value
+        """ Returns the particle dataset for the identifier given.
+        The identifier could be the number of the particle of the the datasetnode value.
 
         Parameters
         ----------
@@ -901,7 +935,7 @@ class MainWindow(QMainWindow):
         if type(identifier) is DatasetTreeNode:
             return identifier.dataobj
 
-    def tree2dataset(self):
+    def tree2dataset(self) -> smsh5.H5dataset:
         """ Returns the H5dataset object of the file loaded.
 
         Returns
@@ -976,6 +1010,7 @@ class MainWindow(QMainWindow):
                     self.start_resolve_thread('all')
         self.reset_gui()
         dbg.p('File opened', 'Main')
+
 
     def start_binall_thread(self, bin_size) -> None:
         """
@@ -1098,45 +1133,54 @@ class MainWindow(QMainWindow):
             "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
         if resolve_all is None and resolve_selected is None:  # Then resolve current
-            data = self.currentparticle
             _, conf = self.get_gui_confidence()
-            data.cpts.run_cpa(confidence=conf / 100, run_levels=True)
-            self.display_data()
+            self.currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+
         elif resolve_all is not None and resolve_selected is None:  # Then resolve all
             data = self.tree2dataset()
             _, conf = self.get_gui_confidence()
             try:
                 status_sig.emit('Resolving All Particle Levels...')
                 start_progress_sig.emit(data.numpart)
-                                    # if parallel:
-                                    #     self.conf_parallel = conf
-                                    #     Parallel(n_jobs=-2, backend='threading')(
-                                    #         delayed(self.run_parallel_cpa)
-                                    #         (self.tree2particle(num)) for num in range(data.numpart)
-                                    #     )
-                                    #     del self.conf_parallel
-                                    # else:
+                # if parallel:
+                #     self.conf_parallel = conf
+                #     Parallel(n_jobs=-2, backend='threading')(
+                #         delayed(self.run_parallel_cpa)
+                #         (self.tree2particle(num)) for num in range(data.numpart)
+                #     )
+                #     del self.conf_parallel
+                # else:
                 for num in range(data.numpart):
                     data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
                     progress_sig.emit()
                 status_sig.emit('Ready...')
-                # test = self.ui.treeViewParticles.currentIndex()
-                # index = self.ui.treeViewParticles.selectionModel().model().index(1,0)
-                # self.ui.treeViewParticles.selectionModel().setCurrentIndex(index, QItemSelectionModel.NoUpdate)
-                # self.ui.treeViewParticles.repaint()
-                # self.repaint()
-                if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
-                    self.display_data()
             except Exception as exc:
                 raise RuntimeError("Couldn't resolve levels.") from exc
-        else:
-            pass
+        elif resolve_selected is not None:  # Then resolve selected
+            try:
+                _, conf = self.get_gui_confidence()
+                status_sig.emit('Resolving Selected Particle Levels...')
+                start_progress_sig.emit(len(resolve_selected))
+                for particle in resolve_selected:
+                    particle.cpts.run_cpa(confidence=conf, run_levels=True)
+                    progress_sig.emit()
+                status_sig.emit('Ready...')
+            except Exception as exc:
+                raise RuntimeError("Couldn't resolve levels.") from exc
 
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
 
     def resolve_thread_complete(self):
+        if self.tree2dataset().cpa_has_run:
+            self.ui.tabGrouping.setEnabled(True)
+        if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+            self.display_data()
         dbg.p('Resolving levels complete', 'Resolve Thread')
+
+        ###############################################################################################################
+        self.currentparticle.ahca.run_grouping()
+        ###############################################################################################################
 
     def switching_frequency(self, all_selected: str = None):
         """
@@ -1182,7 +1226,7 @@ class MainWindow(QMainWindow):
         checked_particles = list()
         for ind in range(self.treemodel.rowCount(self.datasetindex)):
             if self.part_nodes[ind].checked():
-                checked_particles.append(self.tree2particle(ind+1))
+                checked_particles.append(self.tree2particle(ind))
         return checked_particles
 
     def reset_gui(self):
