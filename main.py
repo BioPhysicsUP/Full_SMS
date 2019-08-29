@@ -734,6 +734,7 @@ class MainWindow(QMainWindow):
             self.plot_trace()
             self.currentparticle
             if self.currentparticle.has_levels:
+                print('bla')
                 self.plot_levels()
             self.plot_decay(remove_empty=True)
             dbg.p('Current data displayed', 'Main')
@@ -809,10 +810,20 @@ class MainWindow(QMainWindow):
             print('No levels!')
             return
         else:
-            if self.ui.tabIntensity.isActiveWindow():
+            # if self.ui.tabIntensity.isActiveWindow():
+            #     plot_item = self.ui.pgIntensity.getPlotItem()
+            #     print('int')
+            # elif self.ui.tabLifetime.isActiveWindow():
+            #     print('life')
+            #     plot_item = self.ui.pgLifetime_Int.getPlotItem()
+            # else:
+            #     return
+            if self.ui.tabWidget.currentWidget().objectName() == 'tabIntensity':
                 plot_item = self.ui.pgIntensity.getPlotItem()
-            elif self.ui.tabLifetime.isActiveWindow():
+                # pen_width = 1.5
+            elif self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
                 plot_item = self.ui.pgLifetime_Int.getPlotItem()
+                # pen_width = 1.1
             else:
                 return
 
