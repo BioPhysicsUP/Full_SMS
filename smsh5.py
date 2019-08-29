@@ -13,6 +13,7 @@ import re
 from generate_sums import CPSums
 from PyQt5.QtCore import pyqtSignal
 import dbg
+from grouping import AHCA
 from joblib import Parallel, delayed
 
 
@@ -21,6 +22,7 @@ class H5dataset:
     def __init__(self, filename, progress_sig: pyqtSignal = None,
                  auto_prog_sig: pyqtSignal = None):
 
+        self.cpa_has_run = False
         self.use_parallel = False
         self.progress_sig = progress_sig
         self.auto_prog_sig = auto_prog_sig
@@ -33,7 +35,7 @@ class H5dataset:
             self.version = '0.1'
 
         unsorted_names = list(self.file.keys())
-        natural_p_names = [None] * len(unsorted_names)
+        natural_p_names = [None]*len(unsorted_names)
         natural_key = []
         for name in unsorted_names:
             for seg in re.split('(\d+)', name):
@@ -85,10 +87,29 @@ class H5dataset:
         if hasattr(self, 'self.prog_sig_parallel'):
             self.prog_sig_parallel.emit()
 
+
 class Particle:
+    """
+    Class for particle in H5dataset.
+    """
 
-    def __init__(self, name, dataset, tmin=None, tmax=None, channelwidth=None):#, number, irf, tmin, tmax, channelwidth=None):
+    def __init__(self, name, dataset, tmin=None, tmax=None,
+                 channelwidth=None):  # , number, irf, tmin, tmax, channelwidth=None):
+        """
+        Creates an instance of Particle
 
+        Parameters
+        ----------
+        name: str
+            The name of the particle
+        dataset: H5dataset
+            The instance of the dataset to which this particle belongs
+        tmin: int, Optional
+            TODO
+        tmax: int, Optional
+            TODO
+        channelwidth: TODO
+        """
         self.name = name
         self.dataset = dataset
         self.datadict = self.dataset.file[self.name]
@@ -96,6 +117,7 @@ class Particle:
         self.abstimes = self.datadict['Absolute Times (ns)']
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
+        self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
         self.cpt_inds = None
         self.num_cpts = None
         self.has_levels = False
@@ -136,7 +158,7 @@ class Particle:
         self.levels = levels
         self.num_levels = num_levels
         self.has_levels = True
-        
+
     def levels2data(self, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for plotting the levels.
@@ -168,9 +190,9 @@ class Particle:
         for num, level in enumerate(self.levels):
             times[num*2] = accum_time
             accum_time += level.dwell_time/1E9
-            times[num*2 + 1] = accum_time
+            times[num*2+1] = accum_time
             levels_data[num*2] = level.int
-            levels_data[num*2 + 1] = level.int
+            levels_data[num*2+1] = level.int
 
         return levels_data, times
 
@@ -211,8 +233,8 @@ class Trace:
         self.binsize = binsize
         data = particle.abstimes[:]
 
-        binsize_ns = binsize * 1E6  # Convert ms to ns
-        endbin = np.int(np.max(data) / binsize_ns)
+        binsize_ns = binsize*1E6  # Convert ms to ns
+        endbin = np.int(np.max(data)/binsize_ns)
 
         binned = np.zeros(endbin+1, dtype=np.int)
         for step in range(endbin):
@@ -224,15 +246,15 @@ class Trace:
         self.intdata = binned
         self.inttimes = np.array(range(0, binsize+(endbin*binsize), binsize))
 
+
 class Histogram:
 
     def __init__(self, particle):
-
         self.particle = particle
         tmin = min(self.particle.tmin, self.particle.microtimes[:].min())
         tmax = max(self.particle.tmax, self.particle.microtimes[:].max())
-        window = tmax - tmin
-        numpoints = int(window // self.particle.channelwidth)
+        window = tmax-tmin
+        numpoints = int(window//self.particle.channelwidth)
 
         t = np.linspace(0, window, numpoints)
         # particle.microtimes -= particle.microtimes.min()
@@ -249,19 +271,17 @@ class RasterScan:
         try:
             self.image = self.particle.datadict['Raster Scan']
         except KeyError:
-            print("Problem loading raster scan for " + self.name)
+            print("Problem loading raster scan for "+self.name)
             self.image = None
 
 
 class Spectra:
 
     def __init__(self, particle):
-
         self.particle = particle
         self.spectra = self.particle.datadict['Spectra (counts\s)']
         self.wavelengths = self.spectra.attrs['Wavelengths']
         self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
-
 
 # Level class has been defined in change_point.py
 # class Levels:
