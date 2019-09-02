@@ -46,7 +46,11 @@ class WorkerSignals(QObject):
     status_message = pyqtSignal(str)
 
     add_datasetindex = pyqtSignal(object)
-    add_particlenode = pyqtSignal(object)
+    add_particlenode = pyqtSignal(object, object, int)
+
+    reset_tree = pyqtSignal()
+    data_loaded = pyqtSignal()
+    bin_size = pyqtSignal(int)
 
 
 class WorkerOpenFile(QRunnable):
@@ -79,14 +83,93 @@ class WorkerOpenFile(QRunnable):
         """ The code that will be run when the thread is started. """
 
         try:
-            self.openfile_func(self.fname, self.signals.start_progress,self.signals.auto_progress,
-                               self.signals.progress, self.signals.status_message)
+            self.openfile_func(self.fname, self.signals)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
             self.signals.finished.emit()
+
+
+def open_h5(fname, signals) -> None:
+    """
+    Read the selected h5 file and populates the tree on the gui with the file and the particles.
+
+    Accepts a function that will be used to indicate the current progress.
+
+    As this function is designed to be called from a thread other than the main one, no GUI code
+    should be called here.
+
+    Parameters
+    ----------
+    fname : str
+        Path name to h5 file.
+    start_progress_sig : pyqtSignal
+        Used to call method to set up progress bar on GUI.
+    progress_sig : pyqtSignal
+        Used to call method to increment progress bar on GUI.
+    status_sig : pyqtSignal
+        Used to call method to show status bar message on GUI.
+    """
+
+    # print("Open_h5 called from thread")
+
+    start_progress_sig = signals.start_progress
+    auto_prog_sig = signals.auto_progress
+    progress_sig = signals.progress
+    status_sig = signals.status_message
+    add_dataset_sig = signals.add_datasetindex
+    add_node_sig = signals.add_particlenode
+    reset_tree_sig = signals.reset_tree
+    data_loaded_sig = signals.data_loaded
+    bin_size_sig = signals.bin_size
+
+    try:
+        status_sig.emit("Opening file...")
+        dataset = smsh5.H5dataset(fname[0], progress_sig, auto_prog_sig)
+        bin_all(dataset, 100, start_progress_sig, progress_sig, status_sig, bin_size_sig)
+        start_progress_sig.emit(dataset.numpart)
+        status_sig.emit("Opening file: Building decay histograms...")
+        dataset.makehistograms()
+
+        datasetnode = DatasetTreeNode(fname[0][fname[0].rfind('/') + 1:-3], dataset, 'dataset')
+        add_dataset_sig.emit(datasetnode)
+
+        start_progress_sig.emit(dataset.numpart)
+        status_sig.emit("Opening file: Adding particles...")
+        for i, particle in enumerate(dataset.particles):
+            particlenode = DatasetTreeNode(particle.name, particle, 'particle')
+            add_node_sig.emit(particlenode, progress_sig, i)
+            progress_sig.emit()
+        reset_tree_sig.emit()
+        status_sig.emit("Done")
+        data_loaded_sig.emit()
+    except Exception as exc:
+        raise RuntimeError("h5 data file was not loaded successfully.") from exc
+
+
+def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin_size_sig) -> None:
+    """
+
+    Parameters
+    ----------
+    bin_size
+    dataset
+    start_progress_sig
+    progress_sig
+    status_sig
+    """
+
+    start_progress_sig.emit(dataset.numpart)
+    # if not self.data_loaded:
+    #     part = "Opening file: "
+    # else:
+    #     part = ""
+    # status_sig.emit(part + "Binning traces...")
+    status_sig.emit("Binning traces...")
+    dataset.binints(bin_size, progress_sig)
+    bin_size_sig.emit(bin_size)
 
 
 class WorkerBinAll(QRunnable):
@@ -317,8 +400,8 @@ class DatasetTreeModel(QAbstractItemModel):
         row = parent.addChild(in_node)
         self.layoutChanged.emit()
         self.modelReset.emit()
-        if progress_sig is not None:
-            progress_sig.emit()  # Increment progress bar on MainWindow GUI
+        # if progress_sig is not None:
+        #     progress_sig.emit()  # Increment progress bar on MainWindow GUI
         return self.index(row, 0)
 
     def index(self, in_row, in_column, in_parent=None):
@@ -540,6 +623,8 @@ class MainWindow(QMainWindow):
         # Connect the tree selection to data display
         self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
+        self.part_nodes = dict()
+
         self.statusBar().showMessage('Ready...')
         self.progress = QProgressBar(self)
         self.progress.setMinimumSize(170, 19)
@@ -704,13 +789,18 @@ class MainWindow(QMainWindow):
         
         fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
-            of_worker = WorkerOpenFile(fname, self.open_h5)
+            of_worker = WorkerOpenFile(fname, open_h5)
             of_worker.signals.finished.connect(self.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.start_progress)
             of_worker.signals.progress.connect(self.update_progress)
             of_worker.signals.auto_progress.connect(self.update_progress)
             of_worker.signals.start_progress.connect(self.start_progress)
             of_worker.signals.status_message.connect(self.status_message)
+            of_worker.signals.add_datasetindex.connect(self.add_dataset)
+            of_worker.signals.add_particlenode.connect(self.add_node)
+            of_worker.signals.reset_tree.connect(lambda: self.treemodel.modelReset.emit())
+            of_worker.signals.data_loaded.connect(self.set_data_loaded)
+            of_worker.signals.bin_size.connect(self.ui.spbBinSize.setValue)
 
             self.threadpool.start(of_worker)
 
@@ -735,6 +825,15 @@ class MainWindow(QMainWindow):
     """#######################################
     ############ Internal Methods ############
     #######################################"""
+
+    def add_dataset(self, datasetnode):
+
+        self.datasetindex = self.treemodel.addChild(datasetnode)
+
+    def add_node(self, particlenode, progress_sig, i):
+
+        index = self.treemodel.addChild(particlenode, self.datasetindex, progress_sig)
+        self.part_nodes[i] = particlenode
 
     def tab_change(self, active_tab_index:int):
         if self.data_loaded and hasattr(self, 'currentparticle'):
@@ -988,6 +1087,9 @@ class MainWindow(QMainWindow):
             self.data_loaded = True
         except Exception as exc:
             raise RuntimeError("h5 data file was not loaded successfully.") from exc
+
+    def set_data_loaded(self):
+        self.data_loaded = True
 
     def open_file_thread_complete(self) -> None:
         """ Is called as soon as all of the threads have finished. """
