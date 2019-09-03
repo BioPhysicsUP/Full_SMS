@@ -100,7 +100,7 @@ class ChangePoints:
 class Level:
     """ Defines the start, end and intensity of a single level. """
 
-    def __init__(self, abstimes=None, level_inds=None):
+    def __init__(self, abstimes=None, level_inds=None, microtimes=None):
         """
         Initiate Level
 
@@ -122,6 +122,7 @@ class Level:
         self.level_inds = level_inds  # (first_ind, last_ind)
         self.num_photons = self.level_inds[1]-self.level_inds[0]+1
         self.times = (abstimes[self.level_inds[0]], abstimes[self.level_inds[1]])
+        self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
         self.dwell_time = self.times[1]-self.times[0]
         self.int = self.num_photons/(self.dwell_time/1e9)
 
@@ -219,6 +220,7 @@ class ChangePointAnalysis:
 
         self._particle = particle
         self._abstimes = particle.abstimes
+        self._microtimes = particle.microtimes
         self.num_photons = particle.num_photons
         self.prerun_setup()
 
@@ -459,19 +461,19 @@ class ChangePointAnalysis:
             if num == 0:  # First change point
                 start_ind = 0
                 end_ind = cpt-1
-                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind), microtimes=self._microtimes)
             elif num == self.num_cpts-1:
                 start_ind = self.cpt_inds[num-1]
                 end_ind = cpt-1
-                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind), microtimes=self._microtimes)
 
                 start_ind = cpt
                 end_ind = self.num_photons-1
-                levels[num+1] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+                levels[num+1] = Level(self._abstimes, level_inds=(start_ind, end_ind), microtimes=self._microtimes)
             else:
                 start_ind = self.cpt_inds[num-1]
                 end_ind = cpt
-                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind), microtimes=self._microtimes)
 
         self._particle.add_levels(levels, num_levels)
         # return levels, num_levels

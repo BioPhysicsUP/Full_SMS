@@ -196,6 +196,38 @@ class Particle:
 
         return levels_data, times
 
+    def current2data(self, num, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
+        """
+        Uses the Particle objects' levels to generate two arrays for plotting level num.
+        Parameters
+        ----------
+        plot_type: str, {'line', 'step'}
+
+        Returns
+        -------
+        [np.ndarray, np.ndarray]
+        """
+        # TODO: Cleanup this function anc the one above it
+        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+
+        # ############## Old, for Matplotlib ##############
+        # levels_data = np.empty(shape=self.num_levels+1)
+        # times = np.empty(shape=self.num_levels+1)
+        # accum_time = 0
+        # for num, level in enumerate(self.levels):
+        #     times[num] = accum_time
+        #     accum_time += level.dwell_time/1E9
+        #     levels_data[num] = level.int
+        #     if num+1 == self.num_levels:
+        #         levels_data[num+1] = accum_time
+        #         times[num+1] = level.int
+
+        level = self.levels[num]
+        times = np.array(level.times) / 1E9
+        levels_data = np.array([level.int, level.int])
+
+        return levels_data, times
+
     def makehistogram(self):
         """Put the arrival times into a histogram"""
 
@@ -261,6 +293,18 @@ class Histogram:
 
         self.decay, self.t = np.histogram(self.particle.microtimes[:], bins=t)
         self.t = self.t[:-1]  # Remove last value so the arrays are the same size
+
+    def levelhist(self, level):
+        levelobj = self.particle.levels[level]
+        tmin = levelobj.microtimes[:].min()
+        tmax = levelobj.microtimes[:].max()
+        window = tmax-tmin
+        numpoints = int(window//self.particle.channelwidth)
+        t = np.linspace(0, window, numpoints)
+
+        decay, t = np.histogram(levelobj.microtimes[:], bins=t)
+        t = t[:-1]  # Remove last value so the arrays are the same size
+        return decay, t
 
 
 class RasterScan:

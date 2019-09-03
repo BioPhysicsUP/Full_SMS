@@ -636,6 +636,8 @@ class MainWindow(QMainWindow):
         self.irf_loaded = False
         self.has_spectra = False
 
+        self.current_level = None
+
         self.ui.tabWidget.currentChanged.connect(self.tab_change)
 
         self.reset_gui()
@@ -747,12 +749,24 @@ class MainWindow(QMainWindow):
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """
 
-        print("gui_prev_lev")
+        if self.current_level is None:
+            pass
+        elif self.current_level == 0:
+            self.current_level = None
+        else:
+            self.current_level -= 1
+        self.plot_levels()
+        self.plot_decay()
 
     def gui_next_lev(self):
         """ Moves to the next resolves level and displays its decay curve. """
 
-        print("gui_next_lev")
+        if self.current_level is None:
+            self.current_level = 0
+        else:
+            self.current_level += 1
+        self.plot_levels()
+        self.plot_decay()
 
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
@@ -850,6 +864,7 @@ class MainWindow(QMainWindow):
             The index of the previous selected particle as defined by QtCore.QModelIndex.
         """
 
+        self.current_level = None
         self.current_ind = current
         self.pre_ind = prev
         if current is not None:
@@ -873,30 +888,37 @@ class MainWindow(QMainWindow):
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        try:
-            decay = self.currentparticle.histogram.decay
-            t = self.currentparticle.histogram.t
-        except AttributeError:
-            print('No decay!')
+        if self.current_level is None:
+            try:
+                decay = self.currentparticle.histogram.decay
+                t = self.currentparticle.histogram.t
+            except AttributeError:
+                print('No decay!')
+                return
         else:
-            if self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
-                plot_item = self.ui.pgLifetime.getPlotItem()
-                plot_pen = QPen()
-                plot_pen.setWidthF(1.5)
-                plot_pen.setJoinStyle(Qt.RoundJoin)
-                plot_pen.setColor(QColor('blue'))
-                plot_pen.setCosmetic(True)
+            try:
+                decay, t = self.currentparticle.histogram.levelhist(self.current_level)
+            except ValueError:
+                return
 
-                if remove_empty:
-                    first = (decay > 4).argmax(axis=0)
-                    t = t[first:-1] - t[first]
-                    decay = decay[first:-1]
+        if self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
+            plot_item = self.ui.pgLifetime.getPlotItem()
+            plot_pen = QPen()
+            plot_pen.setWidthF(1.5)
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setColor(QColor('blue'))
+            plot_pen.setCosmetic(True)
 
-                plot_item.clear()
-                plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
-                unit = 'ns with ' + str(self.currentparticle.channelwidth) + 'ns bins'
-                plot_item.getAxis('bottom').setLabel('Decay time', unit)
-                plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            if remove_empty:
+                first = (decay > 4).argmax(axis=0)
+                t = t[first:-1] - t[first]
+                decay = decay[first:-1]
+
+            plot_item.clear()
+            plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+            unit = 'ns with ' + str(self.currentparticle.channelwidth) + 'ns bins'
+            plot_item.getAxis('bottom').setLabel('Decay time', unit)
+            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
 
     def plot_trace(self) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
@@ -939,6 +961,8 @@ class MainWindow(QMainWindow):
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             level_ints, times = self.currentparticle.levels2data()
             level_ints = level_ints*self.get_bin()/1E3
+            print(level_ints, times)
+
         except AttributeError:
             print('No levels!')
         else:
@@ -967,6 +991,18 @@ class MainWindow(QMainWindow):
         plot_pen.setCosmetic(True)
 
         plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
+
+        if self.current_level is not None:
+            current_ints, current_times = self.currentparticle.current2data(self.current_level)
+            current_ints = current_ints*self.get_bin()/1E3
+            print(current_ints, current_times)
+
+            if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
+                plot_pen.setColor(QColor('red'))
+                plot_pen.setWidthF(3)
+                plot_item.plot(x=current_times, y=current_ints, pen=plot_pen, symbol=None)
+            else:
+                print('infinity in level')
 
     def status_message(self, message: str) -> None:
         """
@@ -1281,6 +1317,9 @@ class MainWindow(QMainWindow):
             except Exception as exc:
                 raise RuntimeError("Couldn't resolve levels.") from exc
 
+        self.level_resolved = True
+        self.reset_gui()
+
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
 
@@ -1379,6 +1418,7 @@ class MainWindow(QMainWindow):
         self.ui.btnFitSelected.setEnabled(enable_fitting)
         self.ui.btnNextLevel.setEnabled(enable_levels)
         self.ui.btnPrevLevel.setEnabled(enable_levels)
+        print(enable_levels)
 
         # Spectral
         if self.has_spectra:
