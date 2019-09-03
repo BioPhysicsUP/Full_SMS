@@ -4,9 +4,12 @@ Bertus van Heerden
 University of Pretoria
 2018
 """
-
+import traceback
 import h5py
 import numpy as np
+import tcspcfit
+# from main.MainWindow import start_at_nonzero
+import dbg
 from matplotlib import pyplot as plt
 from change_point import ChangePoints
 import re
@@ -127,7 +130,7 @@ class Particle:
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
         self.description = self.datadict.attrs['Discription']
-        # self.irf = irf
+        self.irf = None
         if channelwidth is None:
             differences = np.diff(np.sort(self.microtimes[:]))
             channelwidth = np.unique(differences)[1]
@@ -289,10 +292,44 @@ class Histogram:
         numpoints = int(window//self.particle.channelwidth)
 
         t = np.linspace(0, window, numpoints)
-        # particle.microtimes -= particle.microtimes.min()
 
         self.decay, self.t = np.histogram(self.particle.microtimes[:], bins=t)
         self.t = self.t[:-1]  # Remove last value so the arrays are the same size
+        self.convd = None
+        self.convd_t = None
+        self.decay = self.decay[self.t > 0]
+        self.t = self.t[self.t > 0]
+
+    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
+        # Todo: This should probably happen somewhere else:
+        self.decay, self.t = start_at_nonzero(self.decay, self.t, neg_t=False)
+        irf, irft = start_at_nonzero(irf, self.t, neg_t=False)
+
+        try:
+            if numexp == 1:
+                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift,
+                                      decaybg, irfbg, start, end)
+            elif numexp == 2:
+                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
+                                      decaybg, irfbg, start, end)
+            elif numexp == 3:
+                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
+                                        decaybg, irfbg, start, end)
+        except:
+            dbg.p('Error while fitting lifetime:', debug_from='smsh5')
+            traceback.print_exc()
+            return False
+
+        else:
+            self.convd = fit.convd
+            self.convd_t = fit.t
+            self.tau = fit.tau
+            self.amp = fit.amp
+            self.shift = fit.shift
+            self.bg = fit.bg
+            self.irfbg = fit.irfbg
+
+        return True
 
     def levelhist(self, level):
         levelobj = self.particle.levels[level]
@@ -333,3 +370,12 @@ class Spectra:
 #     def __init__(self):
 #
 #         pass  # Change points code called here?
+
+
+def start_at_nonzero(decay, t, neg_t=True):
+    decaystart = np.nonzero(decay)[0][0]
+    if neg_t:
+        t -= t[decaystart]
+    t = t[decaystart:]
+    decay = decay[decaystart:]
+    return decay, t

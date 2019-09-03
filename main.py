@@ -20,13 +20,21 @@ from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as Navigati
 from matplotlib.figure import Figure
 # from matplotlib.axes.subplots import Axes
 import numpy as np
+import scipy
+
+import matplotlib as mpl
+
 import random
 # import matplotlib as mpl
 # from matplotlib import figure as Figure
 import dbg
 import traceback
 import smsh5
+import tcspcfit
+from smsh5 import start_at_nonzero
+
 from ui.mainwindow import Ui_MainWindow
+from ui.fitting_dialog import Ui_Dialog
 from generate_sums import CPSums
 from joblib import Parallel, delayed
 import pyqtgraph as pg
@@ -200,7 +208,7 @@ class WorkerBinAll(QRunnable):
     @pyqtSlot()
     def run(self) -> None:
         """ The code that will be run when the thread is started. """
-        
+
         try:
             self.binall_func(self.dataset, self.bin_size, self.signals.start_progress,
                              self.signals.progress, self.signals.status_message)
@@ -293,7 +301,7 @@ class DatasetTreeNode(object):
     def checked(self):
         """
         Appears to be used internally.
-        
+
         Returns
         -------
         Returns check status.
@@ -539,7 +547,9 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        
+        self.fitparamdialog = FittingDialog(self)
+        # print(self.MW_Intensity.figure.get_dpi())
+
         self.ui.tabWidget.setCurrentIndex(0)
 
         self.setWindowTitle("Full SMS")
@@ -623,6 +633,18 @@ class MainWindow(QMainWindow):
         # Connect the tree selection to data display
         self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
+        self.tauparam = None
+        self.ampparam = None
+        self.shift = None
+        self.decaybg = None
+        self.irfbg = None
+        self.start = None
+        self.end = None
+        self.addopt = None
+        self.fitparam = FittingParameters(self)
+
+    def get_bin(self):
+        """Returns current GUI value for bin size in ms."""
         self.part_nodes = dict()
 
         self.statusBar().showMessage('Ready...')
@@ -670,7 +692,7 @@ class MainWindow(QMainWindow):
             create_all_sums = CPSums(only_pickle=True, n_min=10, n_max=1000)
             del create_all_sums
             self.status_message('Ready...')
-    
+
     def get_bin(self) -> int:
         """ Returns current GUI value for bin size in ms.
 
@@ -699,7 +721,7 @@ class MainWindow(QMainWindow):
 
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
-        
+
         # self.ui.pgSpectra.centralWidget
         #
         # self.ui.pgIntensity.getPlotItem().setFixedWidth(500)
@@ -772,16 +794,52 @@ class MainWindow(QMainWindow):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
 
         print("gui_load_irf")
+        dataset, fname = self.open_h5_dataset()
+        self.fitparam.irf = dataset.particles[0].histogram.decay
+        self.fitparam.irft = dataset.particles[0].histogram.t
+        self.plot_irf()
 
     def gui_fit_param(self):
         """ Opens a dialog to choose the setting with which the decay curve will be fitted. """
 
         print("gui_fit_param")
+        if self.fitparamdialog.exec():
+            self.fitparam.getfromdialog()
 
     def gui_fit_current(self):
         """ Fits the all the levels decay curves in the current particle using the provided settings. """
 
         print("gui_fit_current")
+        try:
+            if not self.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
+                                                      self.fitparam.shift, self.fitparam.decaybg, self.fitparam.irfbg,
+                                                      self.fitparam.start, self.fitparam.end, self.fitparam.addopt,
+                                                      self.fitparam.irf):
+                return  # fit unsuccessful
+        except AttributeError:
+            raise
+            print("No decay")
+        else:
+            self.plot_convd()
+            self.update_results()
+
+    def update_results(self):
+        tau = self.currentparticle.histogram.tau
+        amp = self.currentparticle.histogram.amp
+        shift = self.currentparticle.histogram.shift
+        bg = self.currentparticle.histogram.bg
+        irfbg = self.currentparticle.histogram.irfbg
+        try:
+            taustring = 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
+            ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
+        except TypeError:  # only one component
+            taustring = 'Tau = {:#.3g} ns'.format(tau)
+            ampstring = 'Amp = {:#.3g}'.format(amp)
+        shiftstring = 'Shift = {:#.3g} ns'.format(shift)
+        bgstring = 'Decay BG = {:#.3g}'.format(bg)
+        irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
+        self.ui.textBrowser.setText(taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
+                                    irfbgstring)
 
     def gui_fit_selected(self):
         """ Fits the all the levels decay curves in the all the selected particles using the provided settings. """
@@ -800,7 +858,7 @@ class MainWindow(QMainWindow):
 
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
-        
+
         fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
             of_worker = WorkerOpenFile(fname, open_h5)
@@ -891,9 +949,9 @@ class MainWindow(QMainWindow):
         if self.current_level is None:
             try:
                 decay = self.currentparticle.histogram.decay
-                t = self.currentparticle.histogram.t
+
             except AttributeError:
-                print('No decay!')
+                dbg.p(debug_print='No Decay!', debug_from='Main')
                 return
         else:
             try:
@@ -1262,21 +1320,180 @@ class MainWindow(QMainWindow):
         will be resolved. If the ``resolve_selected`` parameter is provided
         the selection of particles will be resolved.
 
-        Parameters
-        ----------
-        parallel : Bool, False
-            If True, parallel is used.
-        start_progress_sig : pyqtSignal
-            Used to call method to set up progress bar on GUI.
-        progress_sig : pyqtSignal
-            Used to call method to increment progress bar on GUI.
-        status_sig : pyqtSignal
-            Used to call method to show status bar message on GUI.
-        resolve_all : bool
-            If True all the particle instances available will be resolved.
-        resolve_selected : list[smsh5.Partilce]
-            A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-        """
+class FittingDialog(QDialog, Ui_Dialog):
+    def __init__(self, parent):
+        self.parent = parent
+        QDialog.__init__(self, parent)
+        self.setupUi(self)
+        for widget in self.findChildren(QLineEdit):
+            widget.textChanged.connect(self.updateplot)
+        for widget in self.findChildren(QCheckBox):
+            widget.stateChanged.connect(self.updateplot)
+        for widget in self.findChildren(QComboBox):
+            widget.currentTextChanged.connect(self.updateplot)
+
+        self.lineStartTime.setValidator(QIntValidator())
+        self.lineEndTime.setValidator(QIntValidator())
+
+    def updateplot(self, *args):
+
+        try:
+            model = self.make_model()
+        except Exception as err:
+            dbg.p(debug_print='Error Occured:' + str(err), debug_from='Fitting Parameters')
+            return
+
+        fp = self.parent.fitparam
+        try:
+            irf = fp.irf
+            irft = fp.irft
+        except AttributeError:
+            dbg.p(debug_print='No IRF!', debug_from='Fitting Parameters')
+            return
+
+        shift, decaybg, irfbg, start, end = self.getparams()
+
+        irf = tcspcfit.colorshift(irf, shift)
+        convd = scipy.signal.convolve(irf, model)
+        convd = convd[:np.size(irf)]
+        convd = convd / convd.max()
+
+        try:
+            decay = self.parent.currentparticle.histogram.decay
+            decay = decay / decay.max()
+            t = self.parent.currentparticle.histogram.t
+
+            decay, t = start_at_nonzero(decay, t)
+            end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
+
+            convd = convd[irft > 0]
+            irft = irft[irft > 0]
+
+        except AttributeError:
+            dbg.p(debug_print='No Decay!', debug_from='Fitting Parameters')
+        else:
+            self.MW_fitparam.axes.clear()
+            self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
+            self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
+            self.MW_fitparam.axes.set_ylim(bottom=1e-3)
+
+            self.MW_fitparam.axes.axvline(t[start])
+            self.MW_fitparam.axes.axvline(t[end])
+
+            self.MW_fitparam.draw()
+
+    def getparams(self):
+        fp = self.parent.fitparam
+        irf = fp.irf
+        shift = fp.shift
+        if shift is None:
+            shift = 0
+        decaybg = fp.decaybg
+        if decaybg is None:
+            decaybg = 0
+        irfbg = fp.irfbg
+        if irfbg is None:
+            irfbg = 0
+        start = fp.start
+        if start is None:
+            start = 0
+        end = fp.end
+        if end is None:
+            end = np.size(irf)
+        return shift, decaybg, irfbg, start, end
+
+    def make_model(self):
+        fp = self.parent.fitparam
+        t = self.parent.currentparticle.histogram.t
+        fp.getfromdialog()
+        if fp.numexp == 1:
+            tau = fp.tau[0][0]
+            model = np.exp(-t / tau)
+        elif fp.numexp == 2:
+            tau1 = fp.tau[0][0]
+            tau2 = fp.tau[1][0]
+            amp1 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
+            print(amp1, amp2, tau1, tau2)
+            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2)
+        elif fp.numexp == 3:
+            tau1 = fp.tau[0][0]
+            tau2 = fp.tau[1][0]
+            tau3 = fp.tau[2][0]
+            amp1 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
+            amp3 = fp.amp[2][0]
+            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2) + amp3 * np.exp(-t / tau3)
+        return model
+
+
+class FittingParameters:
+    def __init__(self, parent):
+        self.parent = parent
+        self.fpd = self.parent.fitparamdialog
+        self.irf = None
+        self.tau = None
+        self.amp = None
+        self.shift = None
+        self.decaybg = None
+        self.irfbg = None
+        self.start = None
+        self.end = None
+        self.numexp = None
+        self.addopt = None
+
+    def getfromdialog(self):
+        self.numexp = int(self.fpd.combNumExp.currentText())
+        if self.numexp == 1:
+            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max, self.fpd.check1Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax, self.fpd.check1AmpFix]]]
+
+        elif self.numexp == 2:
+            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1, self.fpd.check2Fix1]],
+                        [self.get_from_gui(i) for i in [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2, self.fpd.check2Fix2]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line2AmpInit1, self.fpd.line2AmpMin1, self.fpd.line2AmpMax1, self.fpd.check2AmpFix1]],
+                        [self.get_from_gui(i) for i in [self.fpd.line2AmpInit2, self.fpd.line2AmpMin2, self.fpd.line2AmpMax2, self.fpd.check2AmpFix2]]]
+
+        elif self.numexp == 3:
+            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1, self.fpd.check3Fix1]],
+                        [self.get_from_gui(i) for i in [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2, self.fpd.check3Fix2]],
+                        [self.get_from_gui(i) for i in [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3, self.fpd.check3Fix3]]]
+            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line3AmpInit1, self.fpd.line3AmpMin1, self.fpd.line3AmpMax1, self.fpd.check3AmpFix1]],
+                        [self.get_from_gui(i) for i in [self.fpd.line3AmpInit2, self.fpd.line3AmpMin2, self.fpd.line3AmpMax2, self.fpd.check3AmpFix2]],
+                        [self.get_from_gui(i) for i in [self.fpd.line3AmpInit3, self.fpd.line3AmpMin3, self.fpd.line3AmpMax3, self.fpd.check3AmpFix3]]]
+
+        self.shift = self.get_from_gui(self.fpd.lineShift)
+        self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
+        self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
+        try:
+            self.start = int(self.get_from_gui(self.fpd.lineStartTime))
+        except TypeError:
+            self.start = self.get_from_gui(self.fpd.lineStartTime)
+        try:
+            self.end = int(self.get_from_gui(self.fpd.lineEndTime))
+        except TypeError:
+            self.end = self.get_from_gui(self.fpd.lineEndTime)
+
+        self.addopt = self.get_from_gui(self.fpd.lineAddOpt)
+
+    @staticmethod
+    def get_from_gui(guiobj):
+        if type(guiobj) == QLineEdit:
+            if guiobj.text() == '':
+                return None
+            else:
+                return float(guiobj.text())
+        elif type(guiobj) == QCheckBox:
+            return float(guiobj.isChecked())
+
+
+class DatasetTreeNode():
+    def __init__(self, name, dataobj, datatype):
+        self._data = name
+        if type(name) == tuple:
+            self._data = list(name)
+        if type(name) in (str, bytes) or not hasattr(name, '__getitem__'):
+            self._data = [name]
 
         assert not (resolve_all is not None and resolve_selected is not None), \
             "'resolve_all' and 'resolve_selected' can not both be given as parameters."

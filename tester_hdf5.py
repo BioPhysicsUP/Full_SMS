@@ -2,7 +2,7 @@ from matplotlib import rc
 from tcspcfit import *
 import h5py
 
-rc('text', usetex=True)
+# rc('text', usetex=True)
 
 irf_file = h5py.File('IRF_680nm.h5', 'r')
 meas_file = h5py.File('LHCII_630nW.h5', 'r')
@@ -44,12 +44,11 @@ tau = [[3, 0.01, 10, 0],
 
 shift = [3, -100, 2000, 0]  # Units are number of channels
 
-# [init (amp1 %), fix]
-amp = [30, 30, 0]
+amp = [30, 30]
 
 # Object orientated interface: Each fit is an object
 # fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=800, ploton=True)
-# fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=0, ploton=True)
+fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, startpoint=0, ploton=True)
 fit1 = OneExp(irf, measured, t, channelwidth, tau=3, shift=shift, startpoint=800, ploton=True)
 # Initial guess not necessarily needed:
 # fit2 = OneExp(irf, measured, t, channelwidth, ploton=True)
