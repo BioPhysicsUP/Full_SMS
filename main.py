@@ -104,6 +104,7 @@ class WorkerOpenFile(QRunnable):
             self.signals.finished.emit()
 
 
+# TODO: These functions should probably be in a class since they share the signals.
 def open_h5(fname, signals) -> None:
     """
     Read the selected h5 file and populates the tree on the gui with the file and the particles.
@@ -240,6 +241,72 @@ def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin
     bin_size_sig.emit(bin_size)
 
 
+def resolve_levels(start_progress_sig: pyqtSignal,
+                   progress_sig: pyqtSignal, status_sig: pyqtSignal,
+                   conf, data, currentparticle, resolve_all: bool = None,
+                   resolve_selected=None) -> None:  #  parallel: bool = False
+    """
+    Resolves the levels in particles by finding the change points in the
+    abstimes data of a Particle instance.
+
+    If no parameter are given the current particle will be resolved. If
+    the ``resolve_all`` parameter is given **all** the loaded particles
+    will be resolved. If the ``resolve_selected`` parameter is provided
+    the selection of particles will be resolved.
+
+    Parameters
+    ----------
+    parallel : Bool, False
+        If True, parallel is used.
+    start_progress_sig : pyqtSignal
+        Used to call method to set up progress bar on GUI.
+    progress_sig : pyqtSignal
+        Used to call method to increment progress bar on GUI.
+    status_sig : pyqtSignal
+        Used to call method to show status bar message on GUI.
+    resolve_all : bool
+        If True all the particle instances available will be resolved.
+    resolve_selected : list[smsh5.Partilce]
+        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+    """
+
+    print(currentparticle)
+    assert not (resolve_all is not None and resolve_selected is not None), \
+        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+
+    if resolve_all is None and resolve_selected is None:  # Then resolve current
+        currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+
+    elif resolve_all is not None and resolve_selected is None:  # Then resolve all
+        try:
+            status_sig.emit('Resolving All Particle Levels...')
+            start_progress_sig.emit(data.numpart)
+            # if parallel:
+            #     self.conf_parallel = conf
+            #     Parallel(n_jobs=-2, backend='threading')(
+            #         delayed(self.run_parallel_cpa)
+            #         (self.tree2particle(num)) for num in range(data.numpart)
+            #     )
+            #     del self.conf_parallel
+            # else:
+            for num in range(data.numpart):
+                data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
+                progress_sig.emit()
+            status_sig.emit('Ready...')
+        except Exception as exc:
+            raise RuntimeError("Couldn't resolve levels.") from exc
+    elif resolve_selected is not None:  # Then resolve selected
+        try:
+            status_sig.emit('Resolving Selected Particle Levels...')
+            start_progress_sig.emit(len(resolve_selected))
+            for particle in resolve_selected:
+                particle.cpts.run_cpa(confidence=conf, run_levels=True)
+                progress_sig.emit()
+            status_sig.emit('Ready...')
+        except Exception as exc:
+            raise RuntimeError("Couldn't resolve levels.") from exc
+
+
 class WorkerBinAll(QRunnable):
     """ A QRunnable class to create a worker thread for binning all the data. """
 
@@ -283,7 +350,7 @@ class WorkerBinAll(QRunnable):
 class WorkerResolveLevels(QRunnable):
     """ A QRunnable class to create a worker thread for resolving levels. """
 
-    def __init__(self, resolve_levels_func,
+    def __init__(self, resolve_levels_func, conf, data, currentparticle,
                  resolve_all: bool = None,
                  resolve_selected=None) -> None:
         """
@@ -308,6 +375,10 @@ class WorkerResolveLevels(QRunnable):
         self.resolve_levels_func = resolve_levels_func
         self.resolve_all = resolve_all
         self.resolve_selected = resolve_selected
+        self.conf = conf
+        self.data = data
+        self.currentparticle = currentparticle
+        print(self.currentparticle)
 
     @pyqtSlot()
     def run(self) -> None:
@@ -315,8 +386,8 @@ class WorkerResolveLevels(QRunnable):
 
         try:
             self.resolve_levels_func(self.signals.start_progress, self.signals.progress,
-                                     self.signals.status_message, self.signals.reset_gui, self.resolve_all,
-                                     self.resolve_selected)
+                                     self.signals.status_message, self.conf, self.data, self.currentparticle,
+                                     self.resolve_all, self.resolve_selected)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -1247,6 +1318,7 @@ class MainWindow(QMainWindow):
         """
 
         # print("Open_h5 called from thread")
+        # TODO: Remove this method as it is not needed
         try:
             status_sig.emit("Opening file...")
             dataset = smsh5.H5dataset(fname[0], progress_sig, auto_prog_sig)
@@ -1364,14 +1436,19 @@ class MainWindow(QMainWindow):
             else:
                 thread_finished = self.open_file_thread_complete
 
+        _, conf = self.get_gui_confidence()
+        data = self.tree2dataset()
+        currentparticle = self.currentparticle
+        print(currentparticle)
+
         if mode == 'current':
             # sig = WorkerSignals()
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
-            resolve_thread = WorkerResolveLevels(self.resolve_levels)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle)
         elif mode == 'selected':
-            resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_selected=self.get_checked_particles())
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, resolve_selected=self.get_checked_particles())
         elif mode == 'all':
-            resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_all=True)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, resolve_all=True)
             # resolve_thread.signals.finished.connect(thread_finished)
             # resolve_thread.signals.start_progress.connect(self.start_progress)
             # resolve_thread.signals.progress.connect(self.update_progress)
