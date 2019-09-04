@@ -55,13 +55,13 @@ class H5dataset:
         assert self.numpart == self.file.attrs['# Particles']
         self.channelwidth = None
 
-    def makehistograms(self):
+    def makehistograms(self, progress=True):
         """Put the arrival times into histograms"""
 
         for particle in self.particles:
             particle.makehistogram()
             particle.makelevelhists()
-            if hasattr(self, 'progress_sig'):
+            if progress and hasattr(self, 'progress_sig'):  # TODO: this is a hack and should be make cleaner
                 self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
 
     def binints(self, binsize, progress_sig=None):
@@ -303,19 +303,25 @@ class Histogram:
         else:
             self.microtimes = self.level.microtimes[:]
 
-        tmin = min(self.particle.tmin, self.microtimes[:].min())
-        tmax = max(self.particle.tmax, self.microtimes[:].max())
-        window = tmax-tmin
-        numpoints = int(window//self.particle.channelwidth)
+        if self.microtimes.size == 0:
+            self.decay = np.empty(1)
+            self.t = np.empty(1)
+        else:
+            print(self.microtimes)
+            tmin = min(self.particle.tmin, self.microtimes.min())
+            tmax = max(self.particle.tmax, self.microtimes.max())
+            window = tmax-tmin
+            numpoints = int(window//self.particle.channelwidth)
 
-        t = np.linspace(0, window, numpoints)
+            t = np.linspace(0, window, numpoints)
 
-        self.decay, self.t = np.histogram(self.microtimes[:], bins=t)
-        self.t = self.t[:-1]  # Remove last value so the arrays are the same size
+            self.decay, self.t = np.histogram(self.microtimes, bins=t)
+            self.t = self.t[:-1]  # Remove last value so the arrays are the same size
+            self.decay = self.decay[self.t > 0]
+            self.t = self.t[self.t > 0]
+
         self.convd = None
         self.convd_t = None
-        self.decay = self.decay[self.t > 0]
-        self.t = self.t[self.t > 0]
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
         # Todo: This should probably happen somewhere else:

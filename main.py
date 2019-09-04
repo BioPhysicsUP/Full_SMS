@@ -38,6 +38,7 @@ from ui.fitting_dialog import Ui_Dialog
 from generate_sums import CPSums
 from joblib import Parallel, delayed
 import pyqtgraph as pg
+import pydevd
 
 
 class WorkerSignals(QObject):
@@ -62,6 +63,7 @@ class WorkerSignals(QObject):
 
     add_irf = pyqtSignal(np.ndarray, np.ndarray)
 
+    level_resolved = pyqtSignal()
     reset_gui = pyqtSignal()
 
 
@@ -241,8 +243,8 @@ def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin
     bin_size_sig.emit(bin_size)
 
 
-def resolve_levels(start_progress_sig: pyqtSignal,
-                   progress_sig: pyqtSignal, status_sig: pyqtSignal,
+def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
+                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
                    conf, data, currentparticle, resolve_all: bool = None,
                    resolve_selected=None) -> None:  #  parallel: bool = False
     """
@@ -276,6 +278,7 @@ def resolve_levels(start_progress_sig: pyqtSignal,
 
     if resolve_all is None and resolve_selected is None:  # Then resolve current
         currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+        print('hier')
 
     elif resolve_all is not None and resolve_selected is None:  # Then resolve all
         try:
@@ -305,6 +308,10 @@ def resolve_levels(start_progress_sig: pyqtSignal,
             status_sig.emit('Ready...')
         except Exception as exc:
             raise RuntimeError("Couldn't resolve levels.") from exc
+
+    level_resolved_sig.emit()
+    data.makehistograms(progress=False)
+    reset_gui_sig.emit()
 
 
 class WorkerBinAll(QRunnable):
@@ -371,6 +378,7 @@ class WorkerResolveLevels(QRunnable):
         """
 
         super(WorkerResolveLevels, self).__init__()
+        # pydevd.settrace(suspend=True, trace_only_current_thread=True)
         self.signals = WorkerSignals()
         self.resolve_levels_func = resolve_levels_func
         self.resolve_all = resolve_all
@@ -386,7 +394,8 @@ class WorkerResolveLevels(QRunnable):
 
         try:
             self.resolve_levels_func(self.signals.start_progress, self.signals.progress,
-                                     self.signals.status_message, self.conf, self.data, self.currentparticle,
+                                     self.signals.status_message, self.signals.reset_gui, self.signals.level_resolved,
+                                     self.conf, self.data, self.currentparticle,
                                      self.resolve_all, self.resolve_selected)
         except:
             traceback.print_exc()
@@ -1110,6 +1119,10 @@ class MainWindow(QMainWindow):
             except ValueError:
                 return
 
+        print(decay)
+        if decay.size == 0:
+            return  # some levels have no photons
+
         if self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
             plot_item = self.ui.pgLifetime.getPlotItem()
             plot_pen = QPen()
@@ -1461,6 +1474,7 @@ class MainWindow(QMainWindow):
         resolve_thread.signals.progress.connect(self.update_progress)
         resolve_thread.signals.status_message.connect(self.status_message)
         resolve_thread.signals.reset_gui.connect(self.reset_gui)
+        resolve_thread.signals.level_resolved.connect(self.set_level_resolved)
 
         self.threadpool.start(resolve_thread)
 
@@ -1584,10 +1598,13 @@ class MainWindow(QMainWindow):
                 checked_particles.append(self.tree2particle(ind))
         return checked_particles
 
+    def set_level_resolved(self):
+        self.level_resolved = True
+
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
 
-        print('reset')
+        dbg.p('Reset GUI', 'Main')
         if self.data_loaded:
             enabled = True
         else:
