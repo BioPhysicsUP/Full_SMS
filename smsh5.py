@@ -60,6 +60,7 @@ class H5dataset:
 
         for particle in self.particles:
             particle.makehistogram()
+            particle.makelevelhists()
             if hasattr(self, 'progress_sig'):
                 self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
 
@@ -231,6 +232,16 @@ class Particle:
 
         return levels_data, times
 
+    def makelevelhists(self):
+        """Make level histograms"""
+
+        if not self.has_levels:
+            print('No levels.')
+            return
+
+        for level in self.levels:
+            level.histogram = Histogram(self, level)
+
     def makehistogram(self):
         """Put the arrival times into a histogram"""
 
@@ -284,16 +295,22 @@ class Trace:
 
 class Histogram:
 
-    def __init__(self, particle):
+    def __init__(self, particle, level=None):
         self.particle = particle
-        tmin = min(self.particle.tmin, self.particle.microtimes[:].min())
-        tmax = max(self.particle.tmax, self.particle.microtimes[:].max())
+        self.level = level
+        if level is None:
+            self.microtimes = self.particle.microtimes[:]
+        else:
+            self.microtimes = self.level.microtimes[:]
+
+        tmin = min(self.particle.tmin, self.microtimes[:].min())
+        tmax = max(self.particle.tmax, self.microtimes[:].max())
         window = tmax-tmin
         numpoints = int(window//self.particle.channelwidth)
 
         t = np.linspace(0, window, numpoints)
 
-        self.decay, self.t = np.histogram(self.particle.microtimes[:], bins=t)
+        self.decay, self.t = np.histogram(self.microtimes[:], bins=t)
         self.t = self.t[:-1]  # Remove last value so the arrays are the same size
         self.convd = None
         self.convd_t = None

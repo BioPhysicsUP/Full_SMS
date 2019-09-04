@@ -60,6 +60,10 @@ class WorkerSignals(QObject):
     data_loaded = pyqtSignal()
     bin_size = pyqtSignal(int)
 
+    add_irf = pyqtSignal(np.ndarray, np.ndarray)
+
+    reset_gui = pyqtSignal()
+
 
 class WorkerOpenFile(QRunnable):
     """ A QRunnable class to create a worker thread for opening h5 file. """
@@ -153,6 +157,62 @@ def open_h5(fname, signals) -> None:
         reset_tree_sig.emit()
         status_sig.emit("Done")
         data_loaded_sig.emit()
+    except Exception as exc:
+        raise RuntimeError("h5 data file was not loaded successfully.") from exc
+
+
+def open_irf(fname, signals) -> None:
+    """
+    Read the selected h5 file and populates the tree on the gui with the file and the particles.
+
+    Accepts a function that will be used to indicate the current progress.
+
+    As this function is designed to be called from a thread other than the main one, no GUI code
+    should be called here.
+
+    Parameters
+    ----------
+    fname : str
+        Path name to h5 file.
+    start_progress_sig : pyqtSignal
+        Used to call method to set up progress bar on GUI.
+    progress_sig : pyqtSignal
+        Used to call method to increment progress bar on GUI.
+    status_sig : pyqtSignal
+        Used to call method to show status bar message on GUI.
+    """
+
+    # print("Open_h5 called from thread")
+    # TODO: cleanup this function and the one above to remove duplicate code
+
+    start_progress_sig = signals.start_progress
+    auto_prog_sig = signals.auto_progress
+    progress_sig = signals.progress
+    status_sig = signals.status_message
+    bin_size_sig = signals.bin_size
+    add_irf_sig = signals.add_irf
+
+    try:
+        status_sig.emit("Opening file...")
+        dataset = smsh5.H5dataset(fname[0], progress_sig, auto_prog_sig)
+        bin_all(dataset, 100, start_progress_sig, progress_sig, status_sig, bin_size_sig)
+        start_progress_sig.emit(dataset.numpart)
+        status_sig.emit("Opening file: Building decay histograms...")
+        dataset.makehistograms()
+
+        # datasetnode = DatasetTreeNode(fname[0][fname[0].rfind('/') + 1:-3], dataset, 'dataset')
+        # add_dataset_sig.emit(datasetnode)
+        irfhist = dataset.particles[0].histogram
+        add_irf_sig.emit(irfhist.decay, irfhist.t)
+
+        start_progress_sig.emit(dataset.numpart)
+        status_sig.emit("Opening file: Adding particles...")
+        # for i, particle in enumerate(dataset.particles):
+        #     particlenode = DatasetTreeNode(particle.name, particle, 'particle')
+        #     add_node_sig.emit(particlenode, progress_sig, i)
+        #     progress_sig.emit()
+        # reset_tree_sig.emit()
+        status_sig.emit("Done")
     except Exception as exc:
         raise RuntimeError("h5 data file was not loaded successfully.") from exc
 
@@ -255,7 +315,8 @@ class WorkerResolveLevels(QRunnable):
 
         try:
             self.resolve_levels_func(self.signals.start_progress, self.signals.progress,
-                                     self.signals.status_message, self.resolve_all, self.resolve_selected)
+                                     self.signals.status_message, self.signals.reset_gui, self.resolve_all,
+                                     self.resolve_selected)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -633,6 +694,8 @@ class MainWindow(QMainWindow):
         # Connect the tree selection to data display
         self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
+        self.part_nodes = dict()
+
         self.tauparam = None
         self.ampparam = None
         self.shift = None
@@ -642,10 +705,6 @@ class MainWindow(QMainWindow):
         self.end = None
         self.addopt = None
         self.fitparam = FittingParameters(self)
-
-    def get_bin(self):
-        """Returns current GUI value for bin size in ms."""
-        self.part_nodes = dict()
 
         self.statusBar().showMessage('Ready...')
         self.progress = QProgressBar(self)
@@ -793,11 +852,23 @@ class MainWindow(QMainWindow):
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
 
-        print("gui_load_irf")
-        dataset, fname = self.open_h5_dataset()
-        self.fitparam.irf = dataset.particles[0].histogram.decay
-        self.fitparam.irft = dataset.particles[0].histogram.t
-        self.plot_irf()
+        fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
+        if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
+            of_worker = WorkerOpenFile(fname, open_irf)
+            of_worker.signals.finished.connect(self.open_file_thread_complete)
+            of_worker.signals.start_progress.connect(self.start_progress)
+            of_worker.signals.progress.connect(self.update_progress)
+            of_worker.signals.auto_progress.connect(self.update_progress)
+            of_worker.signals.start_progress.connect(self.start_progress)
+            of_worker.signals.status_message.connect(self.status_message)
+            of_worker.signals.add_datasetindex.connect(self.add_dataset)
+            of_worker.signals.add_particlenode.connect(self.add_node)
+            of_worker.signals.reset_tree.connect(lambda: self.treemodel.modelReset.emit())
+            of_worker.signals.data_loaded.connect(self.set_data_loaded)
+            of_worker.signals.bin_size.connect(self.ui.spbBinSize.setValue)
+            of_worker.signals.add_irf.connect(self.add_irf)
+
+            self.threadpool.start(of_worker)
 
     def gui_fit_param(self):
         """ Opens a dialog to choose the setting with which the decay curve will be fitted. """
@@ -898,6 +969,13 @@ class MainWindow(QMainWindow):
     ############ Internal Methods ############
     #######################################"""
 
+    def add_irf(self, decay, t):
+
+        self.fitparam.irf = decay
+        self.fitparam.irft = t
+        self.irf_loaded = True
+        self.reset_gui
+
     def add_dataset(self, datasetnode):
 
         self.datasetindex = self.treemodel.addChild(datasetnode)
@@ -949,13 +1027,15 @@ class MainWindow(QMainWindow):
         if self.current_level is None:
             try:
                 decay = self.currentparticle.histogram.decay
+                t = self.currentparticle.histogram.t
 
             except AttributeError:
                 dbg.p(debug_print='No Decay!', debug_from='Main')
                 return
         else:
             try:
-                decay, t = self.currentparticle.histogram.levelhist(self.current_level)
+                decay = self.currentparticle.levels[self.current_level].histogram.decay
+                t = self.currentparticle.levels[self.current_level].histogram.t
             except ValueError:
                 return
 
@@ -1303,13 +1383,14 @@ class MainWindow(QMainWindow):
         resolve_thread.signals.start_progress.connect(self.start_progress)
         resolve_thread.signals.progress.connect(self.update_progress)
         resolve_thread.signals.status_message.connect(self.status_message)
+        resolve_thread.signals.reset_gui.connect(self.reset_gui)
 
         self.threadpool.start(resolve_thread)
 
     # @dbg.profile
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
-                       resolve_all: bool = None,
+                       reset_gui_sig: pyqtSignal, resolve_all: bool = None,
                        resolve_selected=None) -> None:  #  parallel: bool = False
         """
         Resolves the levels in particles by finding the change points in the
@@ -1319,6 +1400,160 @@ class MainWindow(QMainWindow):
         the ``resolve_all`` parameter is given **all** the loaded particles
         will be resolved. If the ``resolve_selected`` parameter is provided
         the selection of particles will be resolved.
+        """
+        assert not (resolve_all is not None and resolve_selected is not None), \
+            "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+
+        data = self.tree2dataset()
+        if resolve_all is None and resolve_selected is None:  # Then resolve current
+            _, conf = self.get_gui_confidence()
+            self.currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+            print('resolved')
+
+        elif resolve_all is not None and resolve_selected is None:  # Then resolve all
+            _, conf = self.get_gui_confidence()
+            try:
+                status_sig.emit('Resolving All Particle Levels...')
+                start_progress_sig.emit(data.numpart)
+                # if parallel:
+                #     self.conf_parallel = conf
+                #     Parallel(n_jobs=-2, backend='threading')(
+                #         delayed(self.run_parallel_cpa)
+                #         (self.tree2particle(num)) for num in range(data.numpart)
+                #     )
+                #     del self.conf_parallel
+                # else:
+                for num in range(data.numpart):
+                    data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
+                    progress_sig.emit()
+                status_sig.emit('Ready...')
+            except Exception as exc:
+                raise RuntimeError("Couldn't resolve levels.") from exc
+        elif resolve_selected is not None:  # Then resolve selected
+            try:
+                _, conf = self.get_gui_confidence()
+                status_sig.emit('Resolving Selected Particle Levels...')
+                start_progress_sig.emit(len(resolve_selected))
+                for particle in resolve_selected:
+                    particle.cpts.run_cpa(confidence=conf, run_levels=True)
+                    progress_sig.emit()
+                status_sig.emit('Ready...')
+            except Exception as exc:
+                raise RuntimeError("Couldn't resolve levels.") from exc
+
+        # print('bla')
+        self.level_resolved = True
+        data.makehistograms()
+        reset_gui_sig.emit()
+
+    def run_parallel_cpa(self, particle):
+        particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
+
+    def resolve_thread_complete(self):
+        if self.tree2dataset().cpa_has_run:
+            self.ui.tabGrouping.setEnabled(True)
+        if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+            self.display_data()
+        dbg.p('Resolving levels complete', 'Resolve Thread')
+
+        ###############################################################################################################
+        self.currentparticle.ahca.run_grouping()
+        ###############################################################################################################
+
+    def switching_frequency(self, all_selected: str = None):
+        """
+        Calculates and exports the accumulated switching frequency of either
+        all the particles, or only the selected.
+
+        Parameters
+        ----------
+        all_selected : {'all', 'selected'}
+            Possible values are 'all' (default) or 'selected'.
+        """
+        try:
+            if all_selected is None:
+                all_selected = 'all'
+
+            assert all_selected.lower() in ['all', 'selected'], "mode parameter must be either 'all' or 'selected'."
+
+            if all_selected is 'all':
+                data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
+                # assert data.
+        except Exception as exc:
+            print('Switching frequency analysis failed: ' + exc)
+        else:
+            pass
+
+    def get_checked(self):
+        checked = list()
+        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+            if self.part_nodes[ind].checked():
+                checked.append((ind, self.part_nodes[ind]))
+                # checked_nums.append(ind)
+                # checked_particles.append(self.part_nodes[ind])
+        return checked
+
+    def get_checked_nums(self):
+        checked_nums = list()
+        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+            if self.part_nodes[ind].checked():
+                checked_nums.append(ind+1)
+        return checked_nums
+
+    def get_checked_particles(self):
+        checked_particles = list()
+        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+            if self.part_nodes[ind].checked():
+                checked_particles.append(self.tree2particle(ind))
+        return checked_particles
+
+    def reset_gui(self):
+        """ Sets the GUI elements to enabled if it should be accessible. """
+
+        print('reset')
+        if self.data_loaded:
+            enabled = True
+        else:
+            enabled = False
+
+        # Intensity
+        self.ui.tabIntensity.setEnabled(enabled)
+        self.ui.btnApplyBin.setEnabled(enabled)
+        self.ui.btnApplyBinAll.setEnabled(enabled)
+        self.ui.btnResolve.setEnabled(enabled)
+        self.ui.btnResolve_Selected.setEnabled(enabled)
+        self.ui.btnResolveAll.setEnabled(enabled)
+        self.ui.cmbConfIndex.setEnabled(enabled)
+        self.ui.spbBinSize.setEnabled(enabled)
+        self.ui.actionReset_Analysis.setEnabled(enabled)
+        if enabled:
+            enable_levels = self.level_resolved
+        else:
+            enable_levels = enabled
+        self.ui.actionTrim_Dead_Traces.setEnabled(enable_levels)
+
+        # Lifetime
+        self.ui.tabLifetime.setEnabled(enabled)
+        self.ui.btnFitParameters.setEnabled(enabled)
+        self.ui.btnLoadIRF.setEnabled(enabled)
+        if enabled:
+            enable_fitting = self.irf_loaded
+        else:
+            enable_fitting = enabled
+        self.ui.btnFit.setEnabled(enable_fitting)
+        self.ui.btnFitAll.setEnabled(enable_fitting)
+        self.ui.btnFitSelected.setEnabled(enable_fitting)
+        self.ui.btnNextLevel.setEnabled(enable_levels)
+        self.ui.btnPrevLevel.setEnabled(enable_levels)
+        print(enable_levels)
+
+        # Spectral
+        if self.has_spectra:
+            self.ui.tabSpectra.setEnabled(True)
+            self.ui.btnSubBackground.setEnabled(enabled)
+        else:
+            self.ui.tabSpectra.setEnabled(False)
+
 
 class FittingDialog(QDialog, Ui_Dialog):
     def __init__(self, parent):
@@ -1487,162 +1722,14 @@ class FittingParameters:
             return float(guiobj.isChecked())
 
 
-class DatasetTreeNode():
-    def __init__(self, name, dataobj, datatype):
-        self._data = name
-        if type(name) == tuple:
-            self._data = list(name)
-        if type(name) in (str, bytes) or not hasattr(name, '__getitem__'):
-            self._data = [name]
-
-        assert not (resolve_all is not None and resolve_selected is not None), \
-            "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-
-        if resolve_all is None and resolve_selected is None:  # Then resolve current
-            _, conf = self.get_gui_confidence()
-            self.currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
-
-        elif resolve_all is not None and resolve_selected is None:  # Then resolve all
-            data = self.tree2dataset()
-            _, conf = self.get_gui_confidence()
-            try:
-                status_sig.emit('Resolving All Particle Levels...')
-                start_progress_sig.emit(data.numpart)
-                # if parallel:
-                #     self.conf_parallel = conf
-                #     Parallel(n_jobs=-2, backend='threading')(
-                #         delayed(self.run_parallel_cpa)
-                #         (self.tree2particle(num)) for num in range(data.numpart)
-                #     )
-                #     del self.conf_parallel
-                # else:
-                for num in range(data.numpart):
-                    data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
-                    progress_sig.emit()
-                status_sig.emit('Ready...')
-            except Exception as exc:
-                raise RuntimeError("Couldn't resolve levels.") from exc
-        elif resolve_selected is not None:  # Then resolve selected
-            try:
-                _, conf = self.get_gui_confidence()
-                status_sig.emit('Resolving Selected Particle Levels...')
-                start_progress_sig.emit(len(resolve_selected))
-                for particle in resolve_selected:
-                    particle.cpts.run_cpa(confidence=conf, run_levels=True)
-                    progress_sig.emit()
-                status_sig.emit('Ready...')
-            except Exception as exc:
-                raise RuntimeError("Couldn't resolve levels.") from exc
-
-        self.level_resolved = True
-        self.reset_gui()
-
-    def run_parallel_cpa(self, particle):
-        particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
-
-    def resolve_thread_complete(self):
-        if self.tree2dataset().cpa_has_run:
-            self.ui.tabGrouping.setEnabled(True)
-        if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
-            self.display_data()
-        dbg.p('Resolving levels complete', 'Resolve Thread')
-
-        ###############################################################################################################
-        self.currentparticle.ahca.run_grouping()
-        ###############################################################################################################
-
-    def switching_frequency(self, all_selected: str = None):
-        """
-        Calculates and exports the accumulated switching frequency of either
-        all the particles, or only the selected.
-
-        Parameters
-        ----------
-        all_selected : {'all', 'selected'}
-            Possible values are 'all' (default) or 'selected'.
-        """
-        try:
-            if all_selected is None:
-                all_selected = 'all'
-
-            assert all_selected.lower() in ['all', 'selected'], "mode parameter must be either 'all' or 'selected'."
-
-            if all_selected is 'all':
-                data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
-                # assert data.
-        except Exception as exc:
-            print('Switching frequency analysis failed: ' + exc)
-        else:
-            pass
-
-    def get_checked(self):
-        checked = list()
-        for ind in range(self.treemodel.rowCount(self.datasetindex)):
-            if self.part_nodes[ind].checked():
-                checked.append((ind, self.part_nodes[ind]))
-                # checked_nums.append(ind)
-                # checked_particles.append(self.part_nodes[ind])
-        return checked
-
-    def get_checked_nums(self):
-        checked_nums = list()
-        for ind in range(self.treemodel.rowCount(self.datasetindex)):
-            if self.part_nodes[ind].checked():
-                checked_nums.append(ind+1)
-        return checked_nums
-
-    def get_checked_particles(self):
-        checked_particles = list()
-        for ind in range(self.treemodel.rowCount(self.datasetindex)):
-            if self.part_nodes[ind].checked():
-                checked_particles.append(self.tree2particle(ind))
-        return checked_particles
-
-    def reset_gui(self):
-        """ Sets the GUI elements to enabled if it should be accessible. """
-
-        if self.data_loaded:
-            enabled = True
-        else:
-            enabled = False
-
-        # Intensity
-        self.ui.tabIntensity.setEnabled(enabled)
-        self.ui.btnApplyBin.setEnabled(enabled)
-        self.ui.btnApplyBinAll.setEnabled(enabled)
-        self.ui.btnResolve.setEnabled(enabled)
-        self.ui.btnResolve_Selected.setEnabled(enabled)
-        self.ui.btnResolveAll.setEnabled(enabled)
-        self.ui.cmbConfIndex.setEnabled(enabled)
-        self.ui.spbBinSize.setEnabled(enabled)
-        self.ui.actionReset_Analysis.setEnabled(enabled)
-        if enabled:
-            enable_levels = self.level_resolved
-        else:
-            enable_levels = enabled
-        self.ui.actionTrim_Dead_Traces.setEnabled(enable_levels)
-
-        # Lifetime
-        self.ui.tabLifetime.setEnabled(enabled)
-        self.ui.btnFitParameters.setEnabled(enabled)
-        self.ui.btnLoadIRF.setEnabled(enabled)
-        if enabled:
-            enable_fitting = self.irf_loaded
-        else:
-            enable_fitting = enabled
-        self.ui.btnFit.setEnabled(enable_fitting)
-        self.ui.btnFitAll.setEnabled(enable_fitting)
-        self.ui.btnFitSelected.setEnabled(enable_fitting)
-        self.ui.btnNextLevel.setEnabled(enable_levels)
-        self.ui.btnPrevLevel.setEnabled(enable_levels)
-        print(enable_levels)
-
-        # Spectral
-        if self.has_spectra:
-            self.ui.tabSpectra.setEnabled(True)
-            self.ui.btnSubBackground.setEnabled(enabled)
-        else:
-            self.ui.tabSpectra.setEnabled(False)
+# class DatasetTreeNode():
+#     def __init__(self, name, dataobj, datatype):
+#         self._data = name
+#         if type(name) == tuple:
+#             self._data = list(name)
+#         if type(name) in (str, bytes) or not hasattr(name, '__getitem__'):
+#             self._data = [name]
+#
 
 
 def main():
