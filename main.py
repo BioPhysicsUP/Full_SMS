@@ -45,7 +45,7 @@ class WorkerSignals(QObject):
     """ A QObject with attributes  of pyqtSignal's that can be used
     to communicate between worker threads and the main thread. """
 
-    finished = pyqtSignal()
+    finished = pyqtSignal(bool)
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
 
@@ -71,7 +71,7 @@ class WorkerOpenFile(QRunnable):
     """ A QRunnable class to create a worker thread for opening h5 file. """
 
     # def __init__(self, fn, *args, **kwargs):
-    def __init__(self, fname, openfile_func):
+    def __init__(self, fname, openfile_func, irf=False):
         """
         Initiate Open File Worker
 
@@ -85,12 +85,15 @@ class WorkerOpenFile(QRunnable):
             The name of the file.
         openfile_func : function
             Function to be called that will read the h5 file and populate the tree on the gui.
+        irf : bool
+            Whether the thread is loading an IRF or not.
         """
 
         super(WorkerOpenFile, self).__init__()
         self.openfile_func = openfile_func
         self.signals = WorkerSignals()
         self.fname = fname
+        self.irf = irf
 
     @pyqtSlot()
     def run(self) -> None:
@@ -103,7 +106,7 @@ class WorkerOpenFile(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit()
+            self.signals.finished.emit(self.irf)
 
 
 # TODO: These functions should probably be in a class since they share the signals.
@@ -402,7 +405,7 @@ class WorkerResolveLevels(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit()
+            self.signals.finished.emit(False)
 
 
 class DatasetTreeNode(object):
@@ -761,6 +764,7 @@ class MainWindow(QMainWindow):
         self.ui.btnFit.clicked.connect(self.gui_fit_current)
         self.ui.btnFitSelected.clicked.connect(self.gui_fit_selected)
         self.ui.btnFitAll.clicked.connect(self.gui_fit_all)
+        self.ui.btnFitLevels.clicked.connect(self.gui_fit_levels)
         self.ui.btnSubBackground.clicked.connect(self.gui_sub_bkg)
         self.ui.actionOpen_h5.triggered.connect(self.act_open_h5)
         self.ui.actionOpen_pt3.triggered.connect(self.act_open_pt3)
@@ -926,15 +930,16 @@ class MainWindow(QMainWindow):
             self.current_level = 0
         else:
             self.current_level += 1
-        self.plot_levels()
-        self.plot_decay()
+        # self.plot_levels()
+        # self.plot_decay()
+        self.display_data()
 
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
 
         fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
-            of_worker = WorkerOpenFile(fname, open_irf)
+            of_worker = WorkerOpenFile(fname, open_irf, irf=True)
             of_worker.signals.finished.connect(self.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.start_progress)
             of_worker.signals.progress.connect(self.update_progress)
@@ -975,11 +980,21 @@ class MainWindow(QMainWindow):
             self.update_results()
 
     def update_results(self):
-        tau = self.currentparticle.histogram.tau
-        amp = self.currentparticle.histogram.amp
-        shift = self.currentparticle.histogram.shift
-        bg = self.currentparticle.histogram.bg
-        irfbg = self.currentparticle.histogram.irfbg
+        try:
+            if self.current_level is None:
+                tau = self.currentparticle.histogram.tau
+                amp = self.currentparticle.histogram.amp
+                shift = self.currentparticle.histogram.shift
+                bg = self.currentparticle.histogram.bg
+                irfbg = self.currentparticle.histogram.irfbg
+            else:
+                tau = self.currentparticle.levels[self.current_level].histogram.tau
+                amp = self.currentparticle.levels[self.current_level].histogram.amp
+                shift = self.currentparticle.levels[self.current_level].histogram.shift
+                bg = self.currentparticle.levels[self.current_level].histogram.bg
+                irfbg = self.currentparticle.levels[self.current_level].histogram.irfbg
+        except AttributeError:  # No results
+            return
         try:
             taustring = 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
             ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
@@ -1001,6 +1016,23 @@ class MainWindow(QMainWindow):
         """ Fits the all the levels decay curves in the all the particles using the provided settings. """
 
         print("gui_fit_all")
+
+    def gui_fit_levels(self):
+        """ Fits the all the levels decay curves for the current particle. """
+
+        for level in self.currentparticle.levels:
+            print('level')
+            try:
+                if not level.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
+                                           self.fitparam.shift, self.fitparam.decaybg, self.fitparam.irfbg,
+                                           self.fitparam.start, self.fitparam.end, self.fitparam.addopt,
+                                           self.fitparam.irf):
+                    pass  # fit unsuccessful
+            except AttributeError:
+                print("No decay")
+        self.display_data()
+        self.update_results()
+
 
     def gui_sub_bkg(self):
         """ Used to subtract the background TODO: Explain the sub_background """
@@ -1080,7 +1112,7 @@ class MainWindow(QMainWindow):
             The index of the previous selected particle as defined by QtCore.QModelIndex.
         """
 
-        self.current_level = None
+        # self.current_level = None
         self.current_ind = current
         self.pre_ind = prev
         if current is not None:
@@ -1089,7 +1121,6 @@ class MainWindow(QMainWindow):
             self.set_bin(self.currentparticle.bin_size)
             self.plot_trace()
             if self.currentparticle.has_levels:
-                print('bla')
                 self.plot_levels()
                 self.ui.btnGroup.setEnabled(True)
                 self.ui.btnGroup_Selected.setEnabled(True)
@@ -1098,30 +1129,40 @@ class MainWindow(QMainWindow):
                 self.ui.btnGroup.setEnabled(False)
                 self.ui.btnGroup_Selected.setEnabled(False)
                 self.ui.btnGroup_All.setEnabled(False)
-            self.plot_decay(remove_empty=True)
+            self.plot_decay(remove_empty=False)
+            self.plot_convd()
+            self.update_results()
             dbg.p('Current data displayed', 'Main')
 
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
         if self.current_level is None:
-            try:
-                decay = self.currentparticle.histogram.decay
-                t = self.currentparticle.histogram.t
+            if self.currentparticle.histogram.fitted:
+                decay = self.currentparticle.histogram.fit_decay
+                t = self.currentparticle.histogram.convd_t
+            else:
+                try:
+                    decay = self.currentparticle.histogram.decay
+                    t = self.currentparticle.histogram.t
 
-            except AttributeError:
-                dbg.p(debug_print='No Decay!', debug_from='Main')
-                return
+                except AttributeError:
+                    dbg.p(debug_print='No Decay!', debug_from='Main')
+                    return
         else:
-            try:
-                decay = self.currentparticle.levels[self.current_level].histogram.decay
-                t = self.currentparticle.levels[self.current_level].histogram.t
-            except ValueError:
-                return
+            if self.currentparticle.levels[self.current_level].histogram.fitted:
+                decay = self.currentparticle.levels[self.current_level].histogram.fit_decay
+                t = self.currentparticle.levels[self.current_level].histogram.convd_t
+            else:
+                try:
+                    decay = self.currentparticle.levels[self.current_level].histogram.decay
+                    t = self.currentparticle.levels[self.current_level].histogram.t
+                except ValueError:
+                    return
 
-        print(decay)
         if decay.size == 0:
             return  # some levels have no photons
+
 
         if self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
             plot_item = self.ui.pgLifetime.getPlotItem()
@@ -1132,12 +1173,63 @@ class MainWindow(QMainWindow):
             plot_pen.setCosmetic(True)
 
             if remove_empty:
-                first = (decay > 4).argmax(axis=0)
-                t = t[first:-1] - t[first]
-                decay = decay[first:-1]
+                self.first = (decay > 4).argmax(axis=0)
+                t = t[self.first:-1] - t[self.first]
+                decay = decay[self.first:-1]
+            else:
+                self.first = 0
 
+            # try:
+            #     decay = decay / decay.max()
+            # except ValueError:  # Empty decay
+            #     return
+            # print(decay.max())
             plot_item.clear()
             plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+            unit = 'ns with ' + str(self.currentparticle.channelwidth) + 'ns bins'
+            plot_item.getAxis('bottom').setLabel('Decay time', unit)
+            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+
+    def plot_convd(self, remove_empty: bool = False) -> None:
+        """ Used to display the histogram of the decay data of the current particle. """
+
+        if self.current_level is None:
+            try:
+                convd = self.currentparticle.histogram.convd
+                t = self.currentparticle.histogram.convd_t
+
+            except AttributeError:
+                dbg.p(debug_print='No Decay!', debug_from='Main')
+                return
+        else:
+            try:
+                print('hier')
+                convd = self.currentparticle.levels[self.current_level].histogram.convd
+                t = self.currentparticle.levels[self.current_level].histogram.convd_t
+            except ValueError:
+                return
+
+        if convd is None or t is None:
+            return
+
+        # convd = convd / convd.max()
+
+        if self.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
+            plot_item = self.ui.pgLifetime.getPlotItem()
+            plot_pen = QPen()
+            plot_pen.setWidthF(4)
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setColor(QColor('dark blue'))
+            plot_pen.setCosmetic(True)
+
+            # if remove_empty:
+            #     first = (decay > 4).argmax(axis=0)
+            #     t = t[first:-1] - t[first]
+            #     decay = decay[first:-1]
+            # convd = convd[self.first:-1]
+
+            # plot_item.clear()
+            plot_item.plot(x=t, y=convd, pen=plot_pen, symbol=None)
             unit = 'ns with ' + str(self.currentparticle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
             plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
@@ -1361,10 +1453,10 @@ class MainWindow(QMainWindow):
     def set_data_loaded(self):
         self.data_loaded = True
 
-    def open_file_thread_complete(self) -> None:
+    def open_file_thread_complete(self, irf=False) -> None:
         """ Is called as soon as all of the threads have finished. """
 
-        if self.data_loaded:
+        if self.data_loaded and not irf:
             msgbx = QMessageBox()
             msgbx.setIcon(QMessageBox.Question)
             msgbx.setText("Resolve Levels Now?")

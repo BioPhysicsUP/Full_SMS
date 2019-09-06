@@ -121,7 +121,7 @@
         <enum>QTabWidget::Rounded</enum>
        </property>
        <property name="currentIndex">
-        <number>1</number>
+        <number>2</number>
        </property>
        <property name="iconSize">
         <size>
@@ -658,7 +658,41 @@
          <string>Lifetime</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout_2">
-         <item row="0" column="0">
+         <item row="2" column="1" colspan="2">
+          <layout class="QVBoxLayout" name="verticalLayout_5">
+           <item>
+            <widget class="QLabel" name="label_4">
+             <property name="text">
+              <string>Fit Results</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser">
+             <property name="minimumSize">
+              <size>
+               <width>250</width>
+               <height>0</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="2" column="0">
+          <widget class="PlotWidget" name="pgLifetime">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>200</height>
+            </size>
+           </property>
+           <property name="renderHints">
+            <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0" colspan="3">
           <layout class="QHBoxLayout" name="horizontalLayout_5">
            <item>
             <spacer name="horizontalSpacer_6">
@@ -783,7 +817,36 @@
            </item>
           </layout>
          </item>
-         <item row="4" column="0">
+         <item row="1" column="0" colspan="3">
+          <widget class="Line" name="line">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="frameShadow">
+            <enum>QFrame::Sunken</enum>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0" colspan="3">
+          <widget class="Line" name="line_3">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0" colspan="3">
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <item>
             <widget class="QPushButton" name="btnLoadIRF">
@@ -934,6 +997,25 @@
             </widget>
            </item>
            <item>
+            <widget class="QPushButton" name="btnFitLevels">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>40</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Fit All Levels</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QPushButton" name="btnFitAll">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -948,7 +1030,7 @@
               </size>
              </property>
              <property name="text">
-              <string>Fit All</string>
+              <string>Fit All Particles</string>
              </property>
              <property name="icon">
               <iconset>
@@ -963,48 +1045,6 @@
             </widget>
            </item>
           </layout>
-         </item>
-         <item row="1" column="0">
-          <widget class="Line" name="line">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="frameShadow">
-            <enum>QFrame::Sunken</enum>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="Line" name="line_3">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="PlotWidget" name="pgLifetime">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>200</height>
-            </size>
-           </property>
-           <property name="renderHints">
-            <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
-           </property>
-          </widget>
          </item>
         </layout>
        </widget>
@@ -1183,7 +1223,7 @@
      <x>0</x>
      <y>0</y>
      <width>1117</width>
-     <height>21</height>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -1297,7 +1337,6 @@
   <tabstop>btnFitParameters</tabstop>
   <tabstop>btnFit</tabstop>
   <tabstop>btnFitSelected</tabstop>
-  <tabstop>btnFitAll</tabstop>
   <tabstop>btnSubBackground</tabstop>
   <tabstop>btnPrevLevel</tabstop>
   <tabstop>treeViewParticles</tabstop>

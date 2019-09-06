@@ -322,12 +322,18 @@ class Histogram:
 
         self.convd = None
         self.convd_t = None
+        self.fitted = False
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
+
         # Todo: This should probably happen somewhere else:
-        self.decay, self.t = start_at_nonzero(self.decay, self.t, neg_t=False)
+        try:
+            self.decay, self.t = start_at_nonzero(self.decay, self.t, neg_t=False)
+        except IndexError:  # Empty decay
+            return False
         irf, irft = start_at_nonzero(irf, self.t, neg_t=False)
 
+        # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
             if numexp == 1:
                 fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift,
@@ -344,6 +350,7 @@ class Histogram:
             return False
 
         else:
+            self.fit_decay = fit.measured
             self.convd = fit.convd
             self.convd_t = fit.t
             self.tau = fit.tau
@@ -351,6 +358,7 @@ class Histogram:
             self.shift = fit.shift
             self.bg = fit.bg
             self.irfbg = fit.irfbg
+            self.fitted = True
 
         return True
 
