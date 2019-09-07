@@ -920,8 +920,9 @@ class MainWindow(QMainWindow):
             self.current_level = None
         else:
             self.current_level -= 1
-        self.plot_levels()
-        self.plot_decay()
+        # self.plot_levels()
+        # self.plot_decay()
+        self.display_data()
 
     def gui_next_lev(self):
         """ Moves to the next resolves level and displays its decay curve. """
@@ -976,8 +977,7 @@ class MainWindow(QMainWindow):
             raise
             print("No decay")
         else:
-            self.plot_convd()
-            self.update_results()
+            self.display_data()
 
     def update_results(self):
         try:
@@ -1031,7 +1031,6 @@ class MainWindow(QMainWindow):
             except AttributeError:
                 print("No decay")
         self.display_data()
-        self.update_results()
 
 
     def gui_sub_bkg(self):
@@ -1101,8 +1100,10 @@ class MainWindow(QMainWindow):
         if self.data_loaded and hasattr(self, 'currentparticle'):
             self.display_data()
 
-    def display_data(self, current=None, prev=None) -> None:  # TODO: What is previous for?
+    def display_data(self, current=None, prev=None) -> None:
         """ Displays the intensity trace and the histogram of the current particle.
+
+            Directly called by the tree signal currentChanged, thus the two arguments.
 
         Parameters
         ----------
@@ -1117,6 +1118,7 @@ class MainWindow(QMainWindow):
         self.pre_ind = prev
         if current is not None:
             self.currentparticle = self.treemodel.get_particle(current)
+            self.current_level = None  # Reset current level when particle changes.
         if type(self.currentparticle) is smsh5.Particle:
             self.set_bin(self.currentparticle.bin_size)
             self.plot_trace()
@@ -1742,6 +1744,7 @@ class MainWindow(QMainWindow):
 
 
 class FittingDialog(QDialog, Ui_Dialog):
+    """Class for dialog that is used to choose lifetime fit parameters."""
     def __init__(self, parent):
         self.parent = parent
         QDialog.__init__(self, parent)

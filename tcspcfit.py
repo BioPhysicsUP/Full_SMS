@@ -527,7 +527,7 @@ class TwoExp(FluoFit):
         print(self.startpoint, self.endpoint)
         print('end')
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
-                                bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
+                                bounds=(paramin, paramax), p0=paraminit)
 
         tau = param[0:2]
         amp = np.append(param[2], param[3])
@@ -561,7 +561,7 @@ class ThreeExp(FluoFit):
         paramax = self.taumax + self.ampmax + [self.shiftmax]
         paraminit = self.tau + self.amp + [self.shift]
         param, pcov = curve_fit(self.fitfunc, self.t, self.measured,
-                                bounds=(paramin, paramax), p0=paraminit, ftol=1e-16, gtol=1e-16, xtol=1e-16)
+                                bounds=(paramin, paramax), p0=paraminit)
 
         tau = param[0:3]
         amp = param[3:6]
