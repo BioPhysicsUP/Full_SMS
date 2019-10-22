@@ -2,12 +2,11 @@
 
 # Form implementation generated from reading ui file 'C:\Users\User\OneDrive - University of Pretoria\# Code Dev\UP PC\Full SMS\ui\mainwindow.ui'
 #
-# Created by: PyQt5 UI code generator 5.12
+# Created by: PyQt5 UI code generator 5.9.2
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -651,6 +650,5 @@ class Ui_MainWindow(object):
         self.actionReset_Analysis.setText(_translate("MainWindow", "Reset Analysis"))
         self.actionSwitch_All.setText(_translate("MainWindow", "All"))
         self.actionSwitch_Selected.setText(_translate("MainWindow", "Selected"))
-
 
 from pyqtgraph import PlotWidget
