@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\User\OneDrive - University of Pretoria\# Code Dev\UP PC\Full SMS\ui\mainwindow.ui'
+# Form implementation generated from reading ui file '/Users/Joshua/OneDrive - University of Pretoria/# Code Dev/Full SMS/ui/mainwindow.ui'
 #
 # Created by: PyQt5 UI code generator 5.12
 #
