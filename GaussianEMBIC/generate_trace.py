@@ -90,21 +90,24 @@ def quasi_trace(max_int: Optional[float] = 350,
                                     num_ph_theory)
         else:
             new_times = np.array([tot_time])
+            avg_dt = 1/level_int
             while new_times[-1] <= tot_time + dwell:
                 if noise_type is 'poisson':
                     # Poisson noise based on num_photons
-                    noise_int = np.random.poisson(level_int**2/snr)\
-                                - ((level_int/snr)-1)*level_int
-                    noise_int = (abs(noise_int)+noise_int)/2
+                    # noise_int = np.random.poisson(max_int**2/snr)\
+                    #             - ((max_int/snr)-1)*level_int
+                    noisy_int = np.random.poisson(level_int)
+                    noisy_dt = 1/noisy_int
+                    noisy_dt = (abs(noisy_dt)+noisy_dt)/2
                     # print(noise_int)
-                    # noise_int = np.random.poisson(int_levels[i])
                 else:  # Then Gaussian
                     # Gaussian noise based on level intensity
-                    noise_int = np.random.normal(level_int)
+                    noisy_dt = 1/np.random.normal(level_int,
+                                                 level_int/snr)
                 # dt =  1/noise
-                if noise_int != 0:
+                if noisy_dt != 0:
                     new_times = np.append(new_times,
-                                      new_times[-1] + (1 / noise_int))
+                                      new_times[-1] + noisy_dt)
             # End while
             if new_times[-1] >= tot_time:
                 # Remove last photon to prevent overlap with next level
@@ -132,8 +135,8 @@ def quasi_trace(max_int: Optional[float] = 350,
 
 
 if __name__ == '__main__':
-    trace = quasi_trace(max_int=3500, min_int=400, noise_type='poisson',
-                        snr=10)
+    trace = quasi_trace(max_int=3500, min_int=400, noise_type='gaussian',
+                        snr=5)
     
     if PLOT_ON:
         data = trace['times']
@@ -154,6 +157,7 @@ if __name__ == '__main__':
                 binned[step - 1] = binned[step]
         binned_p_s = binned * 1 / (binsize_ms * 1E-3)
 
+        plt.figure()
         plt.plot(bin_times, binned_p_s)
         plt.xlabel('Times (s)')
         plt.ylabel('Intensity (counts/s)')
@@ -175,3 +179,50 @@ if __name__ == '__main__':
         #     if step == 1:
         #         binned[step - 1] = binned[step]
         # binned_ps = binned * 1 / (binsize_ms * 1E-3)
+
+
+
+
+
+    # Getting the noise right!!!!!!!
+    
+    # import numpy as np
+    # import matplotlib.pyplot as plt
+    #
+    # level = 500
+    # dwell = 60
+    # snr = 5
+    #
+    # print('std should be: ', level/snr)
+    #
+    # times_dt = np.array([0])
+    # avg_dt = 1/level
+    # while times_dt[-1] <= dwell:
+    #     new_dt = np.random.wald(avg_dt, avg_dt/(snr))
+    #     new_dt = (np.abs(new_dt)+new_dt)/2
+    #     times_dt = np.append(times_dt, times_dt[-1]+new_dt)
+    #
+    # # times_int = np.array([0])
+    # # while times_int[-1] <= dwell:
+    # #     new_dt = 1/np.random.normal(level, 2*level/snr)
+    # #     new_dt = (np.abs(new_dt)+new_dt)/2
+    # #     times_int = np.append(times_int, times_int[-1] + new_dt)
+    #
+    # trace_dt, bin_times_dt = bin_data(times_dt*1E9, 100)
+    # # trace_int, bin_times_int = bin_data(times_int* 1E9,100)
+    #
+    # plt.figure()
+    # plt.plot(bin_times_dt, trace_dt)
+    #
+    # # plt.figure()
+    # # plt.plot(bin_times_int,trace_int)
+    #
+    # print('dt Mean: ', np.mean(trace_dt))
+    # # print('int Mean: ', np.mean(trace_int))
+    #
+    # print('dt Std: ', np.std(trace_dt))
+    # # print('int Std: ', np.std(trace_int))
+    #
+    # print('dt SNR: ', np.mean(trace_dt)/np.std(
+    #     trace_dt))  # print('int SNR: ', np.mean(trace_int)/np.std(trace_int))
+    
