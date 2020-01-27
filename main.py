@@ -775,7 +775,7 @@ class MainWindow(QMainWindow):
         self.irf_loaded = False
         self.has_spectra = False
 
-        self.current_level = None
+        self._current_level = None
 
         self.ui.tabWidget.currentChanged.connect(self.tab_change)
 
@@ -1136,6 +1136,18 @@ class MainWindow(QMainWindow):
         else:
             self.ui.tabSpectra.setEnabled(False)
 
+    @property
+    def current_level(self):
+        return self._current_level
+
+    @current_level.setter
+    def current_level(self, value):
+        print('lala')
+        try:
+            print(self.currentparticle.current2data(value))
+            self._current_level = value
+        except:
+            print('poep')
 
 class IntController(QObject):
 
@@ -1409,7 +1421,7 @@ class LifetimeController(QObject):
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
 
-        fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
+        fname = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
             of_worker = WorkerOpenFile(fname, irf=True)
             of_worker.signals.finished.connect(self.mainwindow.open_file_thread_complete)
