@@ -11,12 +11,12 @@ import tcspcfit
 # from main.MainWindow import start_at_nonzero
 import dbg
 from matplotlib import pyplot as plt
-from change_point import ChangePoints
+from ChangePoint import ChangePoints
 import re
 from generate_sums import CPSums
 from PyQt5.QtCore import pyqtSignal
 import dbg
-from grouping import AHCA
+from ClusteringGrouping import AHCA
 from joblib import Parallel, delayed
 
 
@@ -122,11 +122,14 @@ class Particle:
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
-        self.cpt_inds = None
-        self.num_cpts = None
+        # self.cpt_inds = None  # Needs to move to ChangePoints()
+        # self.num_cpts = None  # Needs to move to ChangePoints()
         self.has_levels = False
         self.levels = None
         self.num_levels = None
+        self.avg_int_weighted = None
+        self.int_std_weighted = None
+        self.burst_std_factor = 1.5
 
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
@@ -152,16 +155,32 @@ class Particle:
         self.binnedtrace = None
         self.bin_size = None
 
-    def get_levels(self):
-        assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
-        self.add_levels(self.cpts.get_levels())
+    # def get_levels(self):
+    #     assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
+    #     self.add_levels(self.cpts.get_levels())
 
-    def add_levels(self, levels=None, num_levels=None):
-        assert levels is not None and num_levels is not None, \
-            "Particle:\tBoth arguments need to be non-None to add level."
-        self.levels = levels
-        self.num_levels = num_levels
-        self.has_levels = True
+    # def add_levels(self, levels=None, num_levels=None):
+    #     assert levels is not None and num_levels is not None, \
+    #         "Particle:\tBoth arguments need to be non-None to add level."
+    #     self.levels = levels
+    #     self.num_levels = num_levels
+    #     self.has_levels = True
+
+    @property
+    def has_burst(self) -> bool:
+        return self.cpts.has_burst
+
+    @property
+    def burst_levels(self) -> np.ndarray:
+        return self.cpts.burst_levels
+
+    @has_burst.setter
+    def has_burst(self, value: bool):
+        self.cpts.has_burst = value
+
+    @burst_levels.setter
+    def burst_levels(self, value: np.ndarray):
+        self.cpts.burst_levels = value
 
     def levels2data(self, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
         """
@@ -253,12 +272,12 @@ class Particle:
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
 
-    def remove_cpa_results(self):
-        self.cpt_inds = None
+    def remove_levels(self):
         self.levels = None
-        self.num_cpts = None
         self.num_levels = None
         self.has_levels = False
+        self.has_burst = False
+        self.burst_levels = np.array([])
 
 
 class Trace:
@@ -383,7 +402,7 @@ class RasterScan:
         try:
             self.image = self.particle.datadict['Raster Scan']
         except KeyError:
-            print("Problem loading raster scan for "+self.name)
+            print("Problem loading raster scan for " + self.particle.name)
             self.image = None
 
 
@@ -395,7 +414,7 @@ class Spectra:
         self.wavelengths = self.spectra.attrs['Wavelengths']
         self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
 
-# Level class has been defined in change_point.py
+# Level class has been defined in ChangePoint.py
 # class Levels:
 #
 #     def __init__(self):
