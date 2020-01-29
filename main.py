@@ -884,6 +884,7 @@ class MainWindow(QMainWindow):
         if current is not None:
             self.currentparticle = self.treemodel.get_particle(current)
             self.current_level = None  # Reset current level when particle changes.
+            print('hier1')
         if type(self.currentparticle) is smsh5.Particle:
             self.int_controller.set_bin(self.currentparticle.bin_size)
             self.int_controller.plot_trace()
@@ -1142,12 +1143,14 @@ class MainWindow(QMainWindow):
 
     @current_level.setter
     def current_level(self, value):
-        print('lala')
-        try:
-            print(self.currentparticle.current2data(value))
-            self._current_level = value
-        except:
-            print('poep')
+        if value is None:
+            self._current_level = None
+        else:
+            try:
+                print(self.currentparticle.current2data(value))
+                self._current_level = value
+            except:
+                pass
 
 class IntController(QObject):
 
@@ -1388,7 +1391,7 @@ class LifetimeController(QObject):
         super().__init__()
 
         self.mainwindow = mainwindow
-        self.fitparamdialog = FittingDialog(self.mainwindow)
+        self.fitparamdialog = FittingDialog(self.mainwindow, self)
         self.fitparam = FittingParameters(self)
         self.irf_loaded = False
 
@@ -1527,6 +1530,7 @@ class LifetimeController(QObject):
         """ Used to display the histogram of the decay data of the current particle. """
 
         currentlevel = self.mainwindow.current_level
+        print(currentlevel)
         currentparticle = self.mainwindow.currentparticle
         if currentlevel is None:
             if currentparticle.histogram.fitted:
@@ -1642,9 +1646,10 @@ class SpectraController(QObject):
 
 class FittingDialog(QDialog, Ui_Dialog):
     """Class for dialog that is used to choose lifetime fit parameters."""
-    def __init__(self, parent):
-        self.parent = parent
-        QDialog.__init__(self, parent)
+    def __init__(self, mainwindow, lifetime_controller):
+        self.mainwindow = mainwindow
+        QDialog.__init__(self, mainwindow)
+        self.lifetime_controller = lifetime_controller
         self.setupUi(self)
         for widget in self.findChildren(QLineEdit):
             widget.textChanged.connect(self.updateplot)
@@ -1664,7 +1669,7 @@ class FittingDialog(QDialog, Ui_Dialog):
             dbg.p(debug_print='Error Occured:' + str(err), debug_from='Fitting Parameters')
             return
 
-        fp = self.parent.fitparam
+        fp = self.lifetime_controller.fitparam
         try:
             irf = fp.irf
             irft = fp.irft
@@ -1680,9 +1685,9 @@ class FittingDialog(QDialog, Ui_Dialog):
         convd = convd / convd.max()
 
         try:
-            decay = self.parent.currentparticle.histogram.decay
+            decay = self.mainwindow.currentparticle.histogram.decay
             decay = decay / decay.max()
-            t = self.parent.currentparticle.histogram.t
+            t = self.mainwindow.currentparticle.histogram.t
 
             decay, t = start_at_nonzero(decay, t)
             end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
@@ -1704,7 +1709,7 @@ class FittingDialog(QDialog, Ui_Dialog):
             self.MW_fitparam.draw()
 
     def getparams(self):
-        fp = self.parent.fitparam
+        fp = self.lifetime_controller.fitparam
         irf = fp.irf
         shift = fp.shift
         if shift is None:
@@ -1724,8 +1729,8 @@ class FittingDialog(QDialog, Ui_Dialog):
         return shift, decaybg, irfbg, start, end
 
     def make_model(self):
-        fp = self.parent.fitparam
-        t = self.parent.currentparticle.histogram.t
+        fp = self.lifetime_controller.fitparam
+        t = self.mainwindow.currentparticle.histogram.t
         fp.getfromdialog()
         if fp.numexp == 1:
             tau = fp.tau[0][0]

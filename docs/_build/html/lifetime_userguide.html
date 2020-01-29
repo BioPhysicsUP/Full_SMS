@@ -36,7 +36,7 @@
 <p>A fit is performed by creating an instance of a class. Currently the available classes are
 <a class="reference internal" href="tcspcfit.html#tcspcfit.OneExp" title="tcspcfit.OneExp"><code class="xref py py-class docutils literal notranslate"><span class="pre">tcspcfit.OneExp</span></code></a>, <a class="reference internal" href="tcspcfit.html#tcspcfit.TwoExp" title="tcspcfit.TwoExp"><code class="xref py py-class docutils literal notranslate"><span class="pre">tcspcfit.TwoExp</span></code></a> and <a class="reference internal" href="tcspcfit.html#tcspcfit.ThreeExp" title="tcspcfit.ThreeExp"><code class="xref py py-class docutils literal notranslate"><span class="pre">tcspcfit.ThreeExp</span></code></a>.</p>
 <p>A very simple usage would be:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">tcspcfit</span> <span class="k">import</span> <span class="o">*</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">tcspcfit</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="n">fit1</span> <span class="o">=</span> <span class="n">OneExp</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -101,10 +101,10 @@ fixed, the min and max values are ignored).</p>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
@@ -126,7 +126,7 @@ fixed, the min and max values are ignored).</p>
       &copy;2019, Bertus van Heerden, Joshua Botha.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
