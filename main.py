@@ -1171,6 +1171,11 @@ class MainWindow(QMainWindow):
                 for particle in particles:
                     particle.cpts.remove_bursts()
 
+=========
+    def run_parallel_cpa(self, particle):
+        particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
+
+>>>>>>>>> Temporary merge branch 2
     def switching_frequency(self, all_selected: str = None):
         """
         Calculates and exports the accumulated switching frequency of either
