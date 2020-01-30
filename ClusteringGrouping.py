@@ -49,7 +49,7 @@ class Calcs:
         """
         assert hasattr(particle, 'levels'), 'No levels have been resolved to merge.'
 
-        self.cap_j = particle.num_cpts
+        self.cap_j = particle.cpts.num_cpts
         self.p_mj = np.identity(particle.num_levels)
         self.em_p_mj = np.identity(particle.num_levels)
         self.cap_g = particle.num_levels
@@ -285,7 +285,7 @@ class AHCA:
 
         log_l_em = np.sum(np.sum(log_l_em_mj))
         n_g = self._calcs.cap_g
-        cap_n_cp = np.float(self.particle.num_cpts)
+        cap_n_cp = np.float(self.particle.cpts.num_cpts)
         cap_n = self.particle.num_photons
 
         # TODO Calculate n_g using sum of row -> less 1E-10 = 0 -> count non-zero elements

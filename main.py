@@ -45,8 +45,8 @@ class WorkerSignals(QObject):
     """ A QObject with attributes of pyqtSignal's that can be used
     to communicate between worker threads and the main thread. """
 
-    finished = pyqtSignal(str)
-    finished = pyqtSignal(bool)
+    resolve_finished = pyqtSignal(str)
+    openfile_finished = pyqtSignal(bool)
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
 
@@ -108,8 +108,94 @@ class WorkerOpenFile(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit('all')
+            self.signals.openfile_finished.emit(self.irf)
 
+    def open_h5(self, fname) -> None:
+        """
+        Read the selected h5 file and populates the tree on the gui with the file and the particles.
+
+        Accepts a function that will be used to indicate the current progress.
+
+        As this function is designed to be called from a thread other than the main one, no GUI code
+        should be called here.
+
+        Parameters
+        ----------
+        fname : str
+            Path name to h5 file.
+        """
+
+        start_progress_sig = self.signals.start_progress
+        progress_sig = self.signals.progress
+        status_sig = self.signals.status_message
+        add_dataset_sig = self.signals.add_datasetindex
+        add_node_sig = self.signals.add_particlenode
+        reset_tree_sig = self.signals.reset_tree
+        data_loaded_sig = self.signals.data_loaded
+
+        try:
+            dataset = self.load_data(fname)
+
+            datasetnode = DatasetTreeNode(fname[0][fname[0].rfind('/') + 1:-3], dataset, 'dataset')
+            add_dataset_sig.emit(datasetnode)
+
+            start_progress_sig.emit(dataset.numpart)
+            status_sig.emit("Opening file: Adding particles...")
+            for i, particle in enumerate(dataset.particles):
+                particlenode = DatasetTreeNode(particle.name, particle, 'particle')
+                add_node_sig.emit(particlenode, progress_sig, i)
+                progress_sig.emit()
+            reset_tree_sig.emit()
+            status_sig.emit("Done")
+            data_loaded_sig.emit()
+        except Exception as exc:
+            raise RuntimeError("h5 data file was not loaded successfully.") from exc
+
+    def open_irf(self, fname) -> None:
+        """
+        Read the selected h5 file and populates the tree on the gui with the file and the particles.
+
+        Accepts a function that will be used to indicate the current progress.
+
+        As this function is designed to be called from a thread other than the main one, no GUI code
+        should be called here.
+
+        Parameters
+        ----------
+        fname : str
+            Path name to h5 file.
+        """
+
+        start_progress_sig = self.signals.start_progress
+        status_sig = self.signals.status_message
+        add_irf_sig = self.signals.add_irf
+
+        try:
+            dataset = self.load_data(fname)
+
+            irfhist = dataset.particles[0].histogram
+            add_irf_sig.emit(irfhist.decay, irfhist.t)
+
+            start_progress_sig.emit(dataset.numpart)
+            status_sig.emit("Done")
+        except Exception as exc:
+            raise RuntimeError("h5 data file was not loaded successfully.") from exc
+
+    def load_data(self, fname):
+
+        auto_prog_sig = self.signals.auto_progress
+        bin_size_sig = self.signals.bin_size
+        progress_sig = self.signals.progress
+        start_progress_sig = self.signals.start_progress
+        status_sig = self.signals.status_message
+
+        status_sig.emit("Opening file...")
+        dataset = smsh5.H5dataset(fname[0], progress_sig, auto_prog_sig)
+        bin_all(dataset, 100, start_progress_sig, progress_sig, status_sig, bin_size_sig)
+        start_progress_sig.emit(dataset.numpart)
+        status_sig.emit("Opening file: Building decay histograms...")
+        dataset.makehistograms()
+        return dataset
 
 class WorkerBinAll(QRunnable):
     """ A QRunnable class to create a worker thread for binning all the data. """
@@ -148,7 +234,7 @@ class WorkerBinAll(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit(False)
+            self.signals.resolve_finished.emit(False)
 
 
 def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin_size_sig) -> None:
@@ -221,8 +307,78 @@ class WorkerResolveLevels(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit(self.mode)
+            self.signals.resolve_finished.emit(self.mode)
 
+
+def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
+                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
+                   conf, data, currentparticle, resolve_all: bool = None,
+                   resolve_selected=None) -> None:  #  parallel: bool = False
+    """
+    Resolves the levels in particles by finding the change points in the
+    abstimes data of a Particle instance.
+
+    If no parameter are given the current particle will be resolved. If
+    the ``resolve_all`` parameter is given **all** the loaded particles
+    will be resolved. If the ``resolve_selected`` parameter is provided
+    the selection of particles will be resolved.
+
+    Parameters
+    ----------
+    parallel : Bool, False
+        If True, parallel is used.
+    start_progress_sig : pyqtSignal
+        Used to call method to set up progress bar on GUI.
+    progress_sig : pyqtSignal
+        Used to call method to increment progress bar on GUI.
+    status_sig : pyqtSignal
+        Used to call method to show status bar message on GUI.
+    resolve_all : bool
+        If True all the particle instances available will be resolved.
+    resolve_selected : list[smsh5.Partilce]
+        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+    """
+
+    print(currentparticle)
+    assert not (resolve_all is not None and resolve_selected is not None), \
+        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+
+    if resolve_all is None and resolve_selected is None:  # Then resolve current
+        currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+        print('hier')
+
+    elif resolve_all is not None and resolve_selected is None:  # Then resolve all
+        try:
+            status_sig.emit('Resolving All Particle Levels...')
+            start_progress_sig.emit(data.numpart)
+            # if parallel:
+            #     self.conf_parallel = conf
+            #     Parallel(n_jobs=-2, backend='threading')(
+            #         delayed(self.run_parallel_cpa)
+            #         (self.tree2particle(num)) for num in range(data.numpart)
+            #     )
+            #     del self.conf_parallel
+            # else:
+            for num in range(data.numpart):
+                data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
+                progress_sig.emit()
+            status_sig.emit('Ready...')
+        except Exception as exc:
+            raise RuntimeError("Couldn't resolve levels.") from exc
+    elif resolve_selected is not None:  # Then resolve selected
+        try:
+            status_sig.emit('Resolving Selected Particle Levels...')
+            start_progress_sig.emit(len(resolve_selected))
+            for particle in resolve_selected:
+                particle.cpts.run_cpa(confidence=conf, run_levels=True)
+                progress_sig.emit()
+            status_sig.emit('Ready...')
+        except Exception as exc:
+            raise RuntimeError("Couldn't resolve levels.") from exc
+
+    level_resolved_sig.emit()
+    data.makehistograms(progress=False)
+    reset_gui_sig.emit()
 
 class DatasetTreeNode(object):
     """ Contains the files with their respective particles. Also seems to house the actual data objects. """
@@ -657,7 +813,7 @@ class MainWindow(QMainWindow):
         fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
             of_worker = WorkerOpenFile(fname)
-            of_worker.signals.finished.connect(self.open_file_thread_complete)
+            of_worker.signals.openfile_finished.connect(self.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.start_progress)
             of_worker.signals.progress.connect(self.update_progress)
             of_worker.signals.auto_progress.connect(self.update_progress)
@@ -865,7 +1021,7 @@ class MainWindow(QMainWindow):
         dataset = self.treemodel.data(self.datasetindex, Qt.UserRole)
 
         binall_thread = WorkerBinAll(dataset, bin_all, bin_size)
-        binall_thread.signals.finished.connect(self.binall_thread_complete)
+        binall_thread.signals.resolve_finished.connect(self.binall_thread_complete)
         binall_thread.signals.start_progress.connect(self.start_progress)
         binall_thread.signals.progress.connect(self.update_progress)
         binall_thread.signals.status_message.connect(self.status_message)
@@ -1322,11 +1478,11 @@ class IntController(QObject):
         if mode == 'current':
             # sig = WorkerSignals()
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode)
         elif mode == 'selected':
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, resolve_selected=self.get_checked_particles())
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, resolve_selected=self.get_checked_particles())
         elif mode == 'all':
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, resolve_all=True)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, resolve_all=True)
             # resolve_thread.signals.finished.connect(thread_finished)
             # resolve_thread.signals.start_progress.connect(self.start_progress)
             # resolve_thread.signals.progress.connect(self.update_progress)
@@ -1334,7 +1490,7 @@ class IntController(QObject):
             # self.resolve_levels(resolve_thread.signals.start_progress, resolve_thread.signals.progress,
             #                     resolve_thread.signals.status_message, resolve_all=True, parallel=True)
 
-        resolve_thread.signals.finished.connect(thread_finished)
+        resolve_thread.signals.resolve_finished.connect(thread_finished)
         resolve_thread.signals.start_progress.connect(self.mainwindow.start_progress)
         resolve_thread.signals.progress.connect(self.mainwindow.update_progress)
         resolve_thread.signals.status_message.connect(self.mainwindow.status_message)
@@ -1402,7 +1558,7 @@ class LifetimeController(QObject):
         fname = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
             of_worker = WorkerOpenFile(fname, irf=True)
-            of_worker.signals.finished.connect(self.mainwindow.open_file_thread_complete)
+            of_worker.signals.openfile_finished.connect(self.mainwindow.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
             of_worker.signals.progress.connect(self.mainwindow.update_progress)
             of_worker.signals.auto_progress.connect(self.mainwindow.update_progress)
