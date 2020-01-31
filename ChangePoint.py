@@ -11,12 +11,17 @@ University of Pretoria
 __docformat__ = 'NumPy'
 
 import os
+from typing import Tuple, Optional, Any, List
+
 import numpy as np
-import dbg
 from statsmodels.stats.weightstats import DescrStatsW
-from typing import Tuple, Optional
+from h5py import Dataset
+
+import dbg
 
 MIN_PHOTONS = 10
+BURST_MIN_DWELL = 0.1  # Seconds
+BURST_INT_SIGMA = 3
 
 
 class ChangePoints:
@@ -37,13 +42,8 @@ class ChangePoints:
         run_levels
         """
         self._particle = particle
-        self._cpa = ChangePointAnalysis(particle)
-        self.confidence = None
-        self.inds = None
-        self.num_cpts = None
-        self.conf_regions = None
-        self.dt_uncertainty = None
-        self.cpa_has_run = False
+        # self.cpa_has_run = False
+        self._cpa = ChangePointAnalysis(particle, confidence)
         self.has_burst = False
         self.burst_levels = None
 
@@ -54,6 +54,84 @@ class ChangePoints:
 
         if confidence is not None:
             self.run_cpa()
+
+    @property
+    def has_levels(self):
+        return self._cpa.has_levels
+
+    @property
+    def levels(self):
+        return self._cpa.levels
+
+    @property
+    def num_levels(self):
+        return self._cpa.num_levels
+
+    @property
+    def level_ints(self):
+        return self._cpa.level_ints
+
+    @property
+    def level_dwelltimes(self):
+        return self._cpa.level_dwelltimes
+
+    @property
+    def cpa_has_run(self):
+        return self._cpa.has_run
+
+    #  Confidence property
+    ######################
+    @property
+    def confidence(self):
+        return self._cpa.confidence
+
+    @confidence.setter
+    def confidence(self, confidence):
+        self._cpa.confidence = confidence
+
+    #  Change Point Indexes property
+    ################################
+    @property
+    def cpt_inds(self):
+        return self._cpa.cpt_inds
+
+    @cpt_inds.setter
+    def cpt_inds(self, cpt_inds):
+        self._cpa.cpt_inds = cpt_inds
+
+    #  Number of change points property
+    ##############################
+    @property
+    def num_cpts(self):
+        return self._cpa.num_cpts
+
+    @num_cpts.setter
+    def num_cpts(self, num_cpts):
+        self._cpa.num_cpts = num_cpts
+
+    #  Confidence regions property
+    ##############################
+    @property
+    def conf_regions(self):
+        return self._cpa.conf_regions
+
+    @conf_regions.setter
+    def conf_regions(self, conf_regions):
+        self._cpa.cpt_inds = conf_regions
+
+    #  Time uncertainty property
+    ##############################
+    # @property
+    # def dt_uncertainty(self):
+    #     if self.cpa_has_run:
+    #         return self._cpa.dt_uncertainty
+    #     else:
+    #         return None
+    #
+    # @dt_uncertainty.setter
+    # def dt_uncertainty(self, dt_uncertainty):
+    #     if self.cpa_has_run:
+    #         self._cpa.dt_uncertainty = dt_uncertainty
 
     def run_cpa(self, confidence=None, run_levels=None):
         """
@@ -72,50 +150,43 @@ class ChangePoints:
 
         if run_levels is not None:
             self._run_levels = run_levels
-        if confidence > 1:
-            confidence = confidence / 100
-        self.confidence = confidence
+        if confidence is not None:
+            if confidence in [69, 90, 95, 99]:
+                confidence = confidence / 100
+            self.confidence = confidence
+        assert self.confidence is not None, "ChangePoint\tConfidence not set, can not run cpa"
+
         if self.cpa_has_run:
-            self.remove_cpa_results()
-            self._cpa.prerun_setup(confidence)
+            self._cpa.reset(confidence)
         self._cpa.run_cpa(confidence)
-        self.num_cpts = self._cpa.num_cpts
-        self.inds = self._cpa.cpt_inds
-        self.conf_regions = self._cpa.conf_regions
-        self.dt_uncertainty = self._cpa.dt_uncertainty
-        self.cpa_has_run = True
+        # self.cpa_has_run = True
+        # self.num_cpts = self._cpa.num_cpts
+        # self.cpt_inds = self._cpa.cpt_inds
+        # self.conf_regions = self._cpa.conf_regions
+        # self.dt_uncertainty = self._cpa.dt_uncertainty
         if self._run_levels:
             self._cpa.define_levels()
-            if self._particle.has_levels:
-                intensities = np.array([level.int for level in self._particle.levels])
-                self.calc_mean_std(intensities)
-                self.check_burst(intensities)
+            if self.has_levels:
+                self.calc_mean_std()  # self.level_ints
+                self.check_burst()  # self.level_ints, self.level_dwelltimes
 
-    def remove_cpa_results(self):
-        self._particle.remove_levels()
-        self.inds = None
-        self.conf_regions = None
-        self.dt_uncertainty = None
-        self.cpa_has_run = False
-        self.num_cpts = None
-
-    def calc_mean_std(self, intensities: np.ndarray = None):
-        assert self._particle.has_levels, "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."
+    def calc_mean_std(self):  # , intensities: np.ndarray = None
+        assert self.has_levels, "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."
         # num_levels = self._particle.num_levels
-        if intensities is None:
-            intensities = np.array([level.int for level in self._particle.levels])
-        dwell_weights = np.array([level.dwell_time for level in self._particle.levels])
-        dwell_weights = dwell_weights / dwell_weights.sum()
-        weighted_stats = DescrStatsW(intensities, dwell_weights)
+        # if intensities is None:
+        #     intensities = np.array([level.int_p_s for level in self._particle.levels])
+        dwell_weights = np.array(self.level_dwelltimes) / np.sum(self.level_dwelltimes)
+        weighted_stats = DescrStatsW(self.level_ints, dwell_weights)
         self._particle.avg_int_weighted = weighted_stats.mean
         self._particle.int_std_weighted = weighted_stats.std
 
-    def check_burst(self, intensities: np.ndarray = None):
+    def check_burst(self):  # , intensities: np.ndarray = None, dwell_times: list = None
         assert self._particle.has_levels, "ChangePoints\tNeeds to have levels to check photon bursts."
-        if intensities is None:
-            intensities = np.array([level.int for level in self._particle.levels])
-        burst_def = self._particle.avg_int_weighted + (self._particle.int_std_weighted * self._particle.burst_std_factor)
-        burst_levels = np.where(intensities > burst_def)[0]
+        # if intensities is None or dwell_times is None:
+            # intensities, dwell_times = np.array([(level.int_p_s, level.dwell_time_s) for level in self._particle.levels])
+        burst_def = self._particle.avg_int_weighted + (self._particle.int_std_weighted * BURST_INT_SIGMA)
+        burst_bools = np.logical_and(self.level_ints > burst_def, np.array(self.level_dwelltimes) < BURST_MIN_DWELL)
+        burst_levels = np.where(burst_bools)[0]
         if len(burst_levels):
             self.has_burst = True
             self.burst_levels = burst_levels
@@ -123,39 +194,46 @@ class ChangePoints:
     def remove_bursts(self):
         assert self.has_burst, "Particle\tNo bursts to remove."
         for burst_ind in np.flip(self.burst_levels):
+            # print(burst_ind)
             merge_left = bool()
-            if burst_ind == self._particle.num_levels:
+            if burst_ind == self.num_levels - 1:
                 merge_left = True
             elif burst_ind == 0:
                 merge_left = False
-            elif self._particle.levels[burst_ind + 1].int > self._particle.levels[burst_ind - 1].int:
+            elif self.level_ints[burst_ind + 1] > self.level_ints[burst_ind - 1]:
                 merge_left = False
             else:
                 merge_left = True
 
             merge_ind = 0
             if merge_left:
-                merge_ind = burst_ind - 1
-                delta_ind = self.inds[burst_ind] - self.inds[merge_ind]
-                self._cpa.cpt_inds = np.delete(self._cpa.cpt_inds, merge_ind)
-                del (self._cpa.conf_regions[burst_ind])
-                conf_region = np.array(self._cpa.conf_regions[merge_ind])
-                conf_region = conf_region + delta_ind
-                self._cpa.conf_regions[merge_ind] = conf_region.tolist()
-                dt = self._particle.abstimes[conf_region[1]] - self._particle.abstimes[conf_region[0]]
-                self._cpa.dt_uncertainty = np.delete(self._cpa.dt_uncertainty, burst_ind)
+                del_ind = burst_ind - 1
             else:
-                merge_ind + burst_ind + 1
+                del_ind = burst_ind
 
-            # self.cpts.num_cpts
-            # self.cpts.inds
-            # self.cpts.
+            self.cpt_inds = np.delete(self.cpt_inds, del_ind)
+            del(self.conf_regions[del_ind])
+
+        self.num_cpts = len(self.cpt_inds)
+        self._cpa.define_levels(remove_prev=True)
+        # self.cpts.num_cpts
+        # self.cpts.inds
+        # self.cpts.
+
+
+class Err:
+    def __init__(self, lower: float, upper: float):
+        self.lower = lower
+        self.upper = upper
+        self.sum = lower + upper
 
 
 class Level:
     """ Defines the start, end and intensity of a single level. """
 
-    def __init__(self, abstimes=None, level_inds=None):
+    def __init__(self, abs_times: Dataset,
+                 level_inds: Tuple[int, int]):
+                # conf_regions: Any[List[Tuple[int, int], Tuple[int, int]], Tuple[int, int]]
         """
         Initiate Level
 
@@ -163,22 +241,45 @@ class Level:
         are the start and end indexes, the start and end time in ns, the number of
         photons in the level, the dwell time and the intensity.
 
-        :param abstimes: Dataset of absolute arrival times (ns) in a h5 file as read by h5py.
-        :type abstimes: HDF5 Dataset
+        :param abs_times: Dataset of absolute arrival times (ns) in a h5 file as read by h5py.
+        :type abs_times: HDF5 Dataset
         :param level_inds: A tuples that contain the start and end of the level (ns).
         :type level_inds: tuple
         """
-        # assert h5file is not None, "No HDF5 has been given"  # To ensure that a h5file is given
-        # assert type(particle) is smsh5.Particle, "Level:\tNo Particle object given."
-        # self.particle = smsh5.Particle.__copy__(particle)
-        assert abstimes is not None, "Levels:\tParameter 'abstimes' not given."
+
+        assert abs_times is not None, "Levels:\tParameter 'abstimes' not given."
         assert level_inds is not None, "Levels:\tParameter 'level_inds' not given."
         assert type(level_inds) is tuple, "Level:\tLevel indexes argument is not a tuple (start, end)."
         self.level_inds = level_inds  # (first_ind, last_ind)
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
-        self.times = (abstimes[self.level_inds[0]], abstimes[self.level_inds[1]])
-        self.dwell_time = self.times[1] - self.times[0]
-        self.int = 1e9 * (self.num_photons / self.dwell_time)
+        self.times_ns = (abs_times[self.level_inds[0]], abs_times[self.level_inds[1]])
+        self.dwell_time_ns = self.times_ns[1] - self.times_ns[0]
+        self.int_p_s = self.num_photons / self.dwell_time_s
+
+        # TODO: Incorporate error margins
+        # conf_ind_lower = conf_regions[0]
+        # conf_ind_upper = conf_regions[1]
+        #
+        # dwell_err_lower = abs_times[conf_ind_lower] - self.times_ns[0]
+        # dwell_err_upper = abs_times[conf_ind_upper] - self.times_ns[0]
+        # self.dwell_err_ns = Err(lower=dwell_err_lower, upper=dwell_err_upper)
+        #
+        # num_ph_err_lower = conf_ind_lower - self.level_inds[0]  # + 1
+        # num_ph_err_upper = conf_ind_upper - self.level_inds[0]  # + 1
+        # int_err_lower = self.int_p_s - (1E9 * num_ph_err_lower / dwell_err_lower)
+        # int_err_upper = self.int_p_s - (1E9 * num_ph_err_upper / dwell_err_upper)
+        # self.int_err_p_s = Err(lower=int_err_lower, upper=int_err_upper)
+
+    @property
+    def times_s(self):
+        return (self.times_ns[0]/1E9, self.times_ns[1]/1E9)
+
+    @property
+    def dwell_time_s(self):
+        if self.dwell_time_ns is not None:
+            return self.dwell_time_ns / 1e9
+        else:
+            return None
 
 
 class TauData:
@@ -274,11 +375,31 @@ class ChangePointAnalysis:
 
         self._particle = particle
         self._abstimes = particle.abstimes
+        self.has_run = False
         self.num_photons = particle.num_photons
         self.confidence = confidence
         self.cpt_inds = np.array([], dtype=int)
         self.conf_regions = list(tuple())  # [(start, end)]
-        self.dt_uncertainty = np.array([])  # dt
+        # self.dt_uncertainty = np.array([])  # dt
+        self._finding = False
+        self.found_cpts = False
+        self.num_cpts = None
+        self.has_levels = False
+        self.levels = None
+        self.num_levels = None
+        self._i = None
+        if confidence is not None:
+            self._tau = TauData(self.confidence)
+
+    def reset(self, confidence: float = None):
+        self.has_run = False
+        self.confidence = confidence
+        self.cpt_inds = np.array([], dtype=int)
+        self.conf_regions = list(tuple())  # [(start, end)]
+        # self.dt_uncertainty = np.array([])  # dt
+        self.has_levels = False
+        self.levels = None
+        self.num_levels = None
         self._finding = False
         self.found_cpts = False
         self.num_cpts = None
@@ -286,17 +407,20 @@ class ChangePointAnalysis:
         if confidence is not None:
             self._tau = TauData(self.confidence)
 
-    def prerun_setup(self, confidence: float = None):
-        self.confidence = confidence
-        self.cpt_inds = np.array([], dtype=int)
-        self.conf_regions = list(tuple())  # [(start, end)]
-        self.dt_uncertainty = np.array([])  # dt
-        self._finding = False
-        self.found_cpts = False
-        self.num_cpts = None
-        self._i = None
-        if confidence is not None:
-            self._tau = TauData(self.confidence)
+    @property
+    def level_ints(self):
+        if self.has_run:
+            return np.array([level.int_p_s for level in self.levels])
+        else:
+            return None
+
+    @property
+    def level_dwelltimes(self):
+        if self.has_run:
+            return [level.dwell_time_s for level in self.levels]
+        else:
+            return None
+
 
     def __weighted_likelihood_ratio(self, seg_inds=None) -> Tuple[bool, Optional[int]]:
         """
@@ -377,7 +501,7 @@ class ChangePointAnalysis:
             region = (region_all_local[0] + start_ind, region_all_local[-1] + start_ind)
             dt = self._abstimes[region[1]] - self._abstimes[region[0]]
             self.conf_regions.append(region)  # list, not ndarray
-            self.dt_uncertainty = np.append(self.dt_uncertainty, dt)
+            # self.dt_uncertainty = np.append(self.dt_uncertainty, dt)
             cpt_found = True
         else:
             cpt_found = False
@@ -497,8 +621,7 @@ class ChangePointAnalysis:
         if self._finding is False:
             is_top_level = True
             self._finding = True
-            assert _seg_inds is None, "ChangePointAnalysis:\tDo not provide " \
-                                      "seg_inds when calling, it's used for " \
+            assert _seg_inds is None, "ChangePointAnalysis:\tDo not provide seg_inds when calling, it's used for " \
                                       "recursive calling only. "
 
         if is_top_level:
@@ -526,63 +649,72 @@ class ChangePointAnalysis:
             sort_inds = np.argsort(self.cpt_inds)
             cpt_inds = np.zeros_like(self.cpt_inds)
             conf_regions = list()
-            dt_uncertainty = np.zeros_like(cpt_inds)
+            # dt_uncertainty = np.zeros_like(cpt_inds)
             for i, sort_i in enumerate(sort_inds):
                 cpt_inds[i] = self.cpt_inds[sort_i]
                 conf_regions.append(self.conf_regions[sort_i])
-                dt_uncertainty[i] = self.dt_uncertainty[sort_i]
+                # dt_uncertainty[i] = self.dt_uncertainty[sort_i]
 
+            # TODO: Revisit necessity of duplicate removal
             cpt_inds, unique_inds = np.unique(cpt_inds, return_inverse=True)
             dups = np.append([False], [unique_inds[i] == unique_inds[i - 1] for i in range(len(unique_inds)) if i > 0])
             dups = np.where(dups)[0].tolist()
             for i in dups:
                 del (conf_regions[i])
-            dt_uncertainty = np.delete(dt_uncertainty, dups)
+            # dt_uncertainty = np.delete(dt_uncertainty, dups)
 
             self.num_cpts = len(cpt_inds)
             self.cpt_inds = cpt_inds
             self.conf_regions = conf_regions
-            self.dt_uncertainty = dt_uncertainty
+            # self.dt_uncertainty = dt_uncertainty
 
-    def define_levels(self) -> None:
+    def define_levels(self, remove_prev: bool = None) -> None:
         """
         Creates a list of levels as defined by the detected change points.
 
         Uses the detected change points to create a list of Level instances
         that contain attributes that define each resolved level.
 
-        .. note::
-            This method populate the .levels attribute of the parent particle
-            instance by using its add_levels method.
+        This method populate the .levels attribute of the parent particle
+        instance by using its add_levels method.
+
+        Parameters
+        ----------
+        remove_prev : bool, Optional
+            If true, previous levels will be removed.
         """
-        assert self.found_cpts, "ChangePointAnalysis:\tChange point analysis " \
-                                "not done, or found no change points. "
-        num_levels = self.num_cpts + 1
-        levels = [object()] * num_levels
 
-        for num, cpt in enumerate(self.cpt_inds):
-            if num == 0:  # First change point
-                start_ind = 0
-                end_ind = cpt - 1
-                levels[num] = Level(self._abstimes,
-                                    level_inds=(start_ind, end_ind))
-            elif num == self.num_cpts - 1:  # Last change point
-                start_ind = self.cpt_inds[num - 1]
-                end_ind = cpt - 1
-                levels[num] = Level(self._abstimes,
-                                    level_inds=(start_ind, end_ind))
+        if len(self.cpt_inds) != 0:
+            if remove_prev is None:
+                remove_prev = False
 
-                start_ind = cpt
-                end_ind = self.num_photons - 1
-                levels[num + 1] = Level(self._abstimes, level_inds=(start_ind, end_ind))
-            else:
-                start_ind = self.cpt_inds[num - 1]
-                end_ind = cpt
-                levels[num] = Level(self._abstimes, level_inds=(start_ind, end_ind))
+            if remove_prev:
+                self.levels = None
+                self.num_levels = None
 
-        self._particle.levels = levels
-        self._particle.num_levels = num_levels
-        self._particle.has_levels = True
+            assert self.found_cpts, "ChangePointAnalysis:\tChange point analysis " \
+                                    "not done, or found no change points. "
+            self.num_levels = self.num_cpts + 1
+            self.levels = [object()] * self.num_levels
+
+            for num, cpt in enumerate(self.cpt_inds):
+                if num == 0:  # First change point
+                    level_inds = (0, cpt - 1)
+                elif num == self.num_cpts - 1:  # Last change point
+                    level_inds = (cpt, self.num_photons - 1)
+                    self.levels[num + 1] = Level(self._abstimes,
+                                            level_inds=level_inds)
+                                    # conf_regions=self.conf_regions[num + 1]
+
+                    level_inds = (self.cpt_inds[num - 1], cpt - 1)
+                else:
+                    level_inds = (self.cpt_inds[num - 1], cpt)
+
+                self.levels[num] = Level(self._abstimes,
+                                    level_inds=level_inds)
+                                # conf_regions=self.conf_regions[num]
+
+            self.has_levels = True
 
     # @dbg.profile
     def run_cpa(self, confidence=None):
@@ -616,6 +748,7 @@ class ChangePointAnalysis:
             assert self.confidence is not None, "ChangePointAnalysis:\tNo confidence value provided."
 
         self._find_all_cpts()
+        self.has_run = True
 
 
 def main():

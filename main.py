@@ -7,29 +7,25 @@ University of Pretoria
 
 __docformat__ = 'NumPy'
 
-import ui.convert_ui as convert_ui
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, \
-    QModelIndex, Qt, QThreadPool, QRunnable, pyqtSlot, QItemSelectionModel, QSize
-# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from platform import system
-import sys
 import os
-from PyQt5.QtGui import *
-from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as NavigationToolbar)
-from matplotlib.figure import Figure
-# from matplotlib.axes.subplots import Axes
-import numpy as np
-import random
-# import matplotlib as mpl
-# from matplotlib import figure as Figure
-import dbg
+import sys
 import traceback
-import smsh5
-from ui.mainwindow import Ui_MainWindow
-from generate_sums import CPSums
-from joblib import Parallel, delayed
+from platform import system
+
 import pyqtgraph as pg
+from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex,\
+    Qt, QThreadPool, QRunnable, pyqtSlot, QDir
+from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor
+from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog,\
+    QApplication, QLineEdit, QComboBox
+import csv
+
+import dbg
+import smsh5
+from ui import convert_ui as convert_ui
+from generate_sums import CPSums
+from ui.TimedMessageBox import TimedMessageBox
+from ui.mainwindow import Ui_MainWindow
 
 
 class WorkerSignals(QObject):
@@ -456,6 +452,8 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+
+        self.setWindowIcon(QIcon('Full-SMS.ico'))
         
         self.ui.tabWidget.setCurrentIndex(0)
 
@@ -533,6 +531,9 @@ class MainWindow(QMainWindow):
         self.ui.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
         self.ui.actionSwitch_All.triggered.connect(self.act_switch_all)
         self.ui.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
+        self.ui.btnEx_Current.clicked.connect(self.gui_export_current)
+        self.ui.btnEx_Selected.clicked.connect(self.gui_export_selected)
+        self.ui.btnEx_All.clicked.connect(self.gui_export_all)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()
@@ -699,9 +700,21 @@ class MainWindow(QMainWindow):
 
         print("gui_sub_bkg")
 
+    def gui_export_current(self):
+
+        self.export(mode='current')
+
+    def gui_export_selected(self):
+
+        self.export(mode='selected')
+
+    def gui_export_all(self):
+
+        self.export(mode='all')
+
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
-        
+
         fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
             of_worker = WorkerOpenFile(fname, self.open_h5)
@@ -738,7 +751,8 @@ class MainWindow(QMainWindow):
 
     def tab_change(self, active_tab_index:int):
         if self.data_loaded and hasattr(self, 'currentparticle'):
-            self.display_data()
+            if self.ui.tabWidget.currentIndex() in [0, 1, 2, 3]:
+                self.display_data()
 
     def display_data(self, current=None, prev=None) -> None:  # TODO: What is previous for?
         """ Displays the intensity trace and the histogram of the current particle.
@@ -754,8 +768,10 @@ class MainWindow(QMainWindow):
         self.current_ind = current
         self.pre_ind = prev
         if current is not None:
-            self.currentparticle = self.treemodel.get_particle(current)
-        if type(self.currentparticle) is smsh5.Particle:
+            if hasattr(self, 'currentparticle'):
+                self.currentparticle = self.treemodel.get_particle(current)
+
+        if hasattr(self, 'currentparticle') and type(self.currentparticle) is smsh5.Particle:
             self.set_bin(self.currentparticle.bin_size)
             self.plot_trace()
             if self.currentparticle.has_levels:
@@ -811,7 +827,7 @@ class MainWindow(QMainWindow):
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
             cur_tab_name = self.ui.tabWidget.currentWidget().objectName()
-            if cur_tab_name != 'tabSpectra':
+            if cur_tab_name != 'tabSpectra' and cur_tab_name != 'tabExport':
                 if cur_tab_name == 'tabIntensity':
                     plot_item = self.ui.pgIntensity.getPlotItem()
                     plot_pen.setWidthF(1.5)
@@ -828,7 +844,7 @@ class MainWindow(QMainWindow):
                 plot_pen.setJoinStyle(Qt.RoundJoin)
 
                 plot_item.clear()
-                unit = 'counts/'+str(self.get_bin())+'ms'
+                unit = f'counts/{self.get_bin()}ms'
                 plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
                 plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                 plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
@@ -978,12 +994,21 @@ class MainWindow(QMainWindow):
             start_progress_sig.emit(dataset.numpart)
             status_sig.emit("Opening file: Adding particles...")
             self.part_nodes = dict()
+            first_index = None
             for i, particle in enumerate(dataset.particles):
                 particlenode = DatasetTreeNode(particle.name, particle, 'particle')
                 index = self.treemodel.addChild(particlenode, self.datasetindex, progress_sig)
+                if i == 1:
+                    first_index = index
                 self.part_nodes[i] = particlenode
                 # self.treemodel.index(index, self.datasetindex)
             self.treemodel.modelReset.emit()
+
+            self.ui.treeViewParticles.expand(self.datasetindex)
+            self.ui.treeViewParticles.setCurrentIndex(first_index)
+
+            self.currentparticle = self.tree2particle(0)
+
             status_sig.emit("Done")
             self.data_loaded = True
         except Exception as exc:
@@ -993,22 +1018,28 @@ class MainWindow(QMainWindow):
         """ Is called as soon as all of the threads have finished. """
 
         if self.data_loaded:
-            msgbx = QMessageBox()
+            msgbx = TimedMessageBox(30)
             msgbx.setIcon(QMessageBox.Question)
-            msgbx.setText("Resolve Levels Now?")
-            msgbx.setInformativeText("Would you like to resolve the levels now?")
+            msgbx.setText("Would you like to resolve levels now?")
+            msgbx.set_timeout_text(message_pretime="(Resolving levels in ", message_posttime=" seconds)")
             msgbx.setWindowTitle("Resolve Levels?")
             msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
             msgbx.setDefaultButton(QMessageBox.Yes)
-            if msgbx.exec() == QMessageBox.Yes:
+            msgbx_result, timed_out = msgbx.exec()
+            if msgbx_result == QMessageBox.Yes:
                 confidences = ("0.99", "0.95", "0.90", "0.69")
-                item, ok = QInputDialog.getItem(self, "Choose Confidence",
-                                                "Select confidence interval to use.", confidences, 1, False)
-                if ok:
-                    index = list(self.confidence_index.values()).index(int(float(item) * 100))
-                    self.ui.cmbConfIndex.setCurrentIndex(index)
-                    self.start_resolve_thread('all')
+                if timed_out:
+                    index = 0
+                else:
+                    item, ok = QInputDialog.getItem(self, "Choose Confidence",
+                                                    "Select confidence interval to use.", confidences, 0, False)
+                    if ok:
+                        index = list(self.confidence_index.values()).index(int(float(item) * 100))
+                self.ui.cmbConfIndex.setCurrentIndex(index)
+                self.start_resolve_thread('all')
         self.reset_gui()
+        self.ui.gbxExport_Int.setEnabled(True)
+        self.ui.chbEx_Trace.setEnabled(True)
         dbg.p('File opened', 'Main')
 
 
@@ -1117,7 +1148,7 @@ class MainWindow(QMainWindow):
 
         if mode == 'current':  # Then resolve current
             _, conf = self.get_gui_confidence()
-            self.currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+            self.currentparticle.cpts.run_cpa(confidence=conf, run_levels=True)
 
         elif mode == 'all':  # Then resolve all
             data = self.tree2dataset()
@@ -1134,6 +1165,7 @@ class MainWindow(QMainWindow):
                 #     del self.conf_parallel
                 # else:
                 for num in range(data.numpart):
+                    # print(num)
                     data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
                     progress_sig.emit()
                 status_sig.emit('Ready...')
@@ -1173,26 +1205,36 @@ class MainWindow(QMainWindow):
             self.display_data()
         dbg.p('Resolving levels complete', 'Resolve Thread')
         self.check_remove_bursts(mode=mode)
+        self.ui.chbEx_Levels.setEnabled(True)
 
     def check_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
-            particles = (self.currentparticle,)
+            particles = [self.currentparticle]
         elif mode == 'selected':
             particles = self.get_checked_particles()
         else:
             particles = self.tree2dataset().particles
 
-        if sum([particle.has_burst for particle in particles]):
-            msgbx = QMessageBox()
+        removed_bursts = False
+        has_burst = [particle.has_burst for particle in particles]
+        if sum(has_burst):
+            if not removed_bursts:
+                removed_bursts = True
+            msgbx = TimedMessageBox(30)
             msgbx.setIcon(QMessageBox.Question)
-            msgbx.setText("Photon bursts detected")
-            msgbx.setInformativeText("Would you like to remove the photon bursts?")
-            msgbx.setWindowTitle("Remove Photon Bursts?")
+            msgbx.setText("Would you like to remove the photon bursts?")
+            msgbx.set_timeout_text(message_pretime="(Removing photon bursts in ", message_posttime=" seconds)")
+            msgbx.setWindowTitle("Photon bursts detected")
             msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
             msgbx.setDefaultButton(QMessageBox.Yes)
-            if msgbx.exec() == QMessageBox.Yes:
-                for particle in particles:
-                    particle.cpts.remove_bursts()
+            msgbx.show()
+            msgbx_result, _ = msgbx.exec()
+            if msgbx_result == QMessageBox.Yes:
+                for num, particle in enumerate(particles):
+                    if has_burst[num]:
+                        particle.cpts.remove_bursts()
+
+            self.display_data()
 
     def switching_frequency(self, all_selected: str = None):
         """
@@ -1240,6 +1282,69 @@ class MainWindow(QMainWindow):
             if self.part_nodes[ind].checked():
                 checked_particles.append(self.tree2particle(ind))
         return checked_particles
+
+    def export(self, mode: str = None):
+
+        assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
+
+        if mode == 'current':
+            particles = [self.currentparticle]
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        else:
+            particles = self.tree2dataset().particles
+
+        # save_dlg = QFileDialog(self)
+        # save_dlg.setAcceptMode(QFileDialog.AcceptSave)
+        # save_dlg.setFileMode(QFileDialog.DirectoryOnly)
+        # save_dlg.setViewMode(QFileDialog.List)
+        # save_dlg.setOption(QFileDialog.DontUseNativeDialog)
+        # save_dlg.findChild(QLineEdit, 'fileNameEdit').setProperty('Visable', False)
+        # save_dlg.findChild(QComboBox, 'fileTypeCombo').setProperty('enabled', True)
+        # # filters = QDir.Filter("Comma delimited (*.csv)")  #;;Space delimited (*.txt);;Tab delimited (.*txt)
+        # save_dlg.setNameFilter("Comma delimited (*.csv);;Space delimited (*.txt);;Tab delimited (.*txt)")
+        # test2 = save_dlg.exec()
+
+        f_dir = QFileDialog.getExistingDirectory(self)
+
+        if f_dir:
+            ex_traces = self.ui.chbEx_Trace.isChecked()
+            ex_levels = self.ui.chbEx_Levels.isChecked()
+            for num, p in enumerate(particles):
+                if ex_traces:
+                    tr_path = os.path.join(f_dir, p.name + ' trace.csv')
+                    ints = p.binnedtrace.intdata
+                    times = p.binnedtrace.inttimes / 1E3
+                    rows = list()
+                    rows.append(['Bin #', 'Bin Time (s)', f'Bin Int (counts/{p.bin_size}ms)'])
+                    for i in range(len(ints)):
+                        rows.append([str(i), str(times[i]), str(ints[i])])
+                    with open(tr_path, 'w') as f:
+                        writer = csv.writer(f, dialect=csv.excel)
+                        writer.writerows(rows)
+
+                if ex_levels:
+                    if p.has_levels:
+                        lvl_tr_path = os.path.join(f_dir, p.name + ' levels-plot.csv')
+                        ints, times = p.levels2data()
+                        rows = list()
+                        rows.append(['Level #', 'Time (s)', 'Int (counts/s)'])
+                        for i in range(len(ints)):
+                            rows.append([str(i//2), str(times[i]), str(ints[i])])
+                        with open(lvl_tr_path, 'w') as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                        lvl_path = os.path.join(f_dir, p.name + ' levels.csv')
+                        rows = list()
+                        rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
+                                     'Int (counts/s)', 'Num of Photons'])
+                        for i, l in enumerate(p.levels):
+                            rows.append([str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
+                                         str(l.int_p_s), str(l.num_photons)])
+                        with open(lvl_path, 'w') as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
@@ -1291,7 +1396,7 @@ def main():
     """
     Creates QApplication and runs MainWindow().
     """
-    convert_ui.convert_ui()
+    # convert_ui.convert_ui()
     app = QApplication([])
     dbg.p(debug_print='App created', debug_from='Main')
     main_window = MainWindow()

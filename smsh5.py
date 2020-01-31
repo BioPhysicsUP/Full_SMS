@@ -5,16 +5,19 @@ University of Pretoria
 2018
 """
 
+import re
+
 import h5py
 import numpy as np
-from matplotlib import pyplot as plt
-from ChangePoint import ChangePoints
-import re
-from generate_sums import CPSums
 from PyQt5.QtCore import pyqtSignal
+
 import dbg
+from ChangePoint import ChangePoints
 from ClusteringGrouping import AHCA
-from joblib import Parallel, delayed
+from generate_sums import CPSums
+
+
+# from joblib import Parallel, delayed
 
 
 class H5dataset:
@@ -68,13 +71,14 @@ class H5dataset:
             self.progress_sig = progress_sig
 
         if self.use_parallel:
-            self.bintsize_parallel = binsize
-            if hasattr(self, 'progress_sig'):
-                self.prog_sig_parallel = progress_sig
-            Parallel(n_jobs=-1, backend='threading')(
-                delayed(self.run_binints_parallel)(particle) for particle in self.particles
-            )
-            del self.bintsize_parallel, self.prog_sig_parallel
+            pass
+            # self.bintsize_parallel = binsize
+            # if hasattr(self, 'progress_sig'):
+            #     self.prog_sig_parallel = progress_sig
+            # Parallel(n_jobs=-1, backend='threading')(
+            #     delayed(self.run_binints_parallel)(particle) for particle in self.particles
+            # )
+            # del self.bintsize_parallel, self.prog_sig_parallel
         else:
             for particle in self.particles:
                 particle.binints(binsize)
@@ -120,12 +124,12 @@ class Particle:
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
         # self.cpt_inds = None  # Needs to move to ChangePoints()
         # self.num_cpts = None  # Needs to move to ChangePoints()
-        self.has_levels = False
-        self.levels = None
-        self.num_levels = None
+        # self.has_levels = False
+        # self.levels = None
+        # self.num_levels = None
         self.avg_int_weighted = None
         self.int_std_weighted = None
-        self.burst_std_factor = 1.5
+        # self.burst_std_factor = 3
 
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
@@ -161,6 +165,26 @@ class Particle:
     #     self.levels = levels
     #     self.num_levels = num_levels
     #     self.has_levels = True
+
+    @property
+    def has_levels(self):
+        return self.cpts.has_levels
+
+    @property
+    def levels(self):
+        return self.cpts.levels
+
+    @property
+    def num_levels(self):
+        return self.cpts.num_levels
+
+    @property
+    def level_ints(self):
+        return self.cpts.level_ints
+
+    @property
+    def level_dwelltimes(self):
+        return self.cpts.level_dwelltimes
 
     @property
     def has_burst(self) -> bool:
@@ -208,10 +232,10 @@ class Particle:
         accum_time = 0
         for num, level in enumerate(self.levels):
             times[num*2] = accum_time
-            accum_time += level.dwell_time/1E9
+            accum_time += level.dwell_time_s
             times[num*2+1] = accum_time
-            levels_data[num*2] = level.int
-            levels_data[num*2+1] = level.int
+            levels_data[num*2] = level.int_p_s
+            levels_data[num*2+1] = level.int_p_s
 
         return levels_data, times
 
@@ -225,13 +249,6 @@ class Particle:
 
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
-
-    def remove_levels(self):
-        self.levels = None
-        self.num_levels = None
-        self.has_levels = False
-        self.has_burst = False
-        self.burst_levels = np.array([])
 
 
 class Trace:
