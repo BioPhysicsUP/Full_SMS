@@ -285,6 +285,7 @@ class WorkerResolveLevels(QRunnable):
 
         super(WorkerResolveLevels, self).__init__()
         self.mode = mode
+        print(self.mode)
         self.signals = WorkerSignals()
         self.resolve_levels_func = resolve_levels_func
         self.resolve_selected = resolve_selected
@@ -298,6 +299,7 @@ class WorkerResolveLevels(QRunnable):
         """ The code that will be run when the thread is started. """
 
         try:
+            print(self.mode)
             self.resolve_levels_func(self.signals.start_progress, self.signals.progress,
                                      self.signals.status_message, self.signals.reset_gui, self.signals.level_resolved,
                                      self.conf, self.data, self.currentparticle,
@@ -311,43 +313,36 @@ class WorkerResolveLevels(QRunnable):
 
 
 def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
-                   conf, data, currentparticle, resolve_all: bool = None,
-                   resolve_selected=None) -> None:  #  parallel: bool = False
+                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig:pyqtSignal,
+                   conf, data, currentparticle, mode: str,
+                   resolve_selected=None) -> None:  # parallel: bool = False
     """
+    TODO: edit the docstring
     Resolves the levels in particles by finding the change points in the
     abstimes data of a Particle instance.
 
-    If no parameter are given the current particle will be resolved. If
-    the ``resolve_all`` parameter is given **all** the loaded particles
-    will be resolved. If the ``resolve_selected`` parameter is provided
-    the selection of particles will be resolved.
-
     Parameters
     ----------
-    parallel : Bool, False
-        If True, parallel is used.
     start_progress_sig : pyqtSignal
         Used to call method to set up progress bar on GUI.
     progress_sig : pyqtSignal
         Used to call method to increment progress bar on GUI.
     status_sig : pyqtSignal
         Used to call method to show status bar message on GUI.
-    resolve_all : bool
-        If True all the particle instances available will be resolved.
+    mode : {'current', 'selected', 'all'}
+        Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
     resolve_selected : list[smsh5.Partilce]
         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
     """
 
-    print(currentparticle)
-    assert not (resolve_all is not None and resolve_selected is not None), \
+    print(mode)
+    assert mode in ['current', 'selected', 'all'], \
         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
-    if resolve_all is None and resolve_selected is None:  # Then resolve current
+    if mode == 'current':  # Then resolve current
         currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
-        print('hier')
 
-    elif resolve_all is not None and resolve_selected is None:  # Then resolve all
+    elif mode == 'all':  # Then resolve all
         try:
             status_sig.emit('Resolving All Particle Levels...')
             start_progress_sig.emit(data.numpart)
@@ -360,12 +355,16 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
             #     del self.conf_parallel
             # else:
             for num in range(data.numpart):
+                print(num)
                 data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
                 progress_sig.emit()
             status_sig.emit('Ready...')
         except Exception as exc:
             raise RuntimeError("Couldn't resolve levels.") from exc
-    elif resolve_selected is not None:  # Then resolve selected
+
+    elif mode == 'selected':  # Then resolve selected
+        assert resolve_selected is not None, \
+            'No selected particles provided.'
         try:
             status_sig.emit('Resolving Selected Particle Levels...')
             start_progress_sig.emit(len(resolve_selected))
@@ -376,9 +375,77 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         except Exception as exc:
             raise RuntimeError("Couldn't resolve levels.") from exc
 
-    level_resolved_sig.emit()
-    data.makehistograms(progress=False)
-    reset_gui_sig.emit()
+
+# def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
+#                    status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
+#                    conf, data, currentparticle, resolve_all: bool = None,
+#                    resolve_selected=None) -> None:  #  parallel: bool = False
+#     """
+#     Resolves the levels in particles by finding the change points in the
+#     abstimes data of a Particle instance.
+#
+#     If no parameter are given the current particle will be resolved. If
+#     the ``resolve_all`` parameter is given **all** the loaded particles
+#     will be resolved. If the ``resolve_selected`` parameter is provided
+#     the selection of particles will be resolved.
+#
+#     Parameters
+#     ----------
+#     parallel : Bool, False
+#         If True, parallel is used.
+#     start_progress_sig : pyqtSignal
+#         Used to call method to set up progress bar on GUI.
+#     progress_sig : pyqtSignal
+#         Used to call method to increment progress bar on GUI.
+#     status_sig : pyqtSignal
+#         Used to call method to show status bar message on GUI.
+#     resolve_all : bool
+#         If True all the particle instances available will be resolved.
+#     resolve_selected : list[smsh5.Partilce]
+#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+#     """
+#
+#     print(currentparticle)
+#     assert not (resolve_all is not None and resolve_selected is not None), \
+#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+#
+#     if resolve_all is None and resolve_selected is None:  # Then resolve current
+#         currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+#         print('hier')
+#
+#     elif resolve_all is not None and resolve_selected is None:  # Then resolve all
+#         try:
+#             status_sig.emit('Resolving All Particle Levels...')
+#             start_progress_sig.emit(data.numpart)
+#             # if parallel:
+#             #     self.conf_parallel = conf
+#             #     Parallel(n_jobs=-2, backend='threading')(
+#             #         delayed(self.run_parallel_cpa)
+#             #         (self.tree2particle(num)) for num in range(data.numpart)
+#             #     )
+#             #     del self.conf_parallel
+#             # else:
+#             for num in range(data.numpart):
+#                 data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
+#                 progress_sig.emit()
+#             status_sig.emit('Ready...')
+#         except Exception as exc:
+#             raise RuntimeError("Couldn't resolve levels.") from exc
+#     elif resolve_selected is not None:  # Then resolve selected
+#         try:
+#             status_sig.emit('Resolving Selected Particle Levels...')
+#             start_progress_sig.emit(len(resolve_selected))
+#             for particle in resolve_selected:
+#                 particle.cpts.run_cpa(confidence=conf, run_levels=True)
+#                 progress_sig.emit()
+#             status_sig.emit('Ready...')
+#         except Exception as exc:
+#             raise RuntimeError("Couldn't resolve levels.") from exc
+#
+#     level_resolved_sig.emit()
+#     data.makehistograms(progress=False)
+#     reset_gui_sig.emit()
+
 
 class DatasetTreeNode(object):
     """ Contains the files with their respective particles. Also seems to house the actual data objects. """
@@ -1067,6 +1134,7 @@ class MainWindow(QMainWindow):
         self.threadpool.start(resolve_thread)
 
     # @dbg.profile
+    # TODO: remove this method as it has been replaced by function
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
                        mode: str,
@@ -1171,11 +1239,9 @@ class MainWindow(QMainWindow):
                 for particle in particles:
                     particle.cpts.remove_bursts()
 
-=========
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
 
->>>>>>>>> Temporary merge branch 2
     def switching_frequency(self, all_selected: str = None):
         """
         Calculates and exports the accumulated switching frequency of either
@@ -1480,6 +1546,7 @@ class IntController(QObject):
         currentparticle = self.mainwindow.currentparticle
         print(currentparticle)
 
+        print(mode)
         if mode == 'current':
             # sig = WorkerSignals()
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
@@ -1487,7 +1554,7 @@ class IntController(QObject):
         elif mode == 'selected':
             resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, resolve_selected=self.get_checked_particles())
         elif mode == 'all':
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, resolve_all=True)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode)
             # resolve_thread.signals.finished.connect(thread_finished)
             # resolve_thread.signals.start_progress.connect(self.start_progress)
             # resolve_thread.signals.progress.connect(self.update_progress)
