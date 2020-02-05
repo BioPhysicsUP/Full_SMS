@@ -10,7 +10,7 @@ University of Pretoria
 from typing import Any, Union
 
 import numpy as np
-from change_point import ChangePoints
+from ChangePoint import ChangePoints
 from PyQt5.QtCore import pyqtSignal
 import dbg
 from math import lgamma

@@ -36,7 +36,7 @@ class WorkerSignals(QObject):
     """ A QObject with attributes  of pyqtSignal's that can be used
     to communicate between worker threads and the main thread. """
 
-    finished = pyqtSignal()
+    finished = pyqtSignal(str)
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
 
@@ -89,7 +89,7 @@ class WorkerOpenFile(QRunnable):
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit()
+            self.signals.finished.emit('all')
 
 
 def open_h5(fname, signals) -> None:
@@ -216,7 +216,7 @@ class WorkerResolveLevels(QRunnable):
     """ A QRunnable class to create a worker thread for resolving levels. """
 
     def __init__(self, resolve_levels_func,
-                 resolve_all: bool = None,
+                 mode: str,
                  resolve_selected=None) -> None:
         """
         Initiate Resolve Levels Worker
@@ -229,16 +229,16 @@ class WorkerResolveLevels(QRunnable):
         ----------
         resolve_levels_func : function
             The function that will be called to perform the resolving of the levels.
-        resolve_all : bool, optional
-            If true then all particle levels will be resolved.
+        mode : {'current', 'selected', 'all'}
+            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
         resolve_selected : list[smsh5.Particle], optional
             The provided instances of the class Particle in smsh5 will be resolved.
         """
 
         super(WorkerResolveLevels, self).__init__()
+        self.mode = mode
         self.signals = WorkerSignals()
         self.resolve_levels_func = resolve_levels_func
-        self.resolve_all = resolve_all
         self.resolve_selected = resolve_selected
 
     @pyqtSlot()
@@ -247,13 +247,13 @@ class WorkerResolveLevels(QRunnable):
 
         try:
             self.resolve_levels_func(self.signals.start_progress, self.signals.progress,
-                                     self.signals.status_message, self.resolve_all, self.resolve_selected)
+                                     self.signals.status_message, self.mode, self.resolve_selected)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.finished.emit()
+            self.signals.finished.emit(self.mode)
 
 
 class DatasetTreeNode(object):
@@ -1179,21 +1179,11 @@ class MainWindow(QMainWindow):
             else:
                 thread_finished = self.open_file_thread_complete
 
-        if mode == 'current':
-            # sig = WorkerSignals()
-            # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
-            resolve_thread = WorkerResolveLevels(self.resolve_levels)
-        elif mode == 'selected':
-            resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_selected=self.get_checked_particles())
-        elif mode == 'all':
-            resolve_thread = WorkerResolveLevels(self.resolve_levels, resolve_all=True)
-            # resolve_thread.signals.finished.connect(thread_finished)
-            # resolve_thread.signals.start_progress.connect(self.start_progress)
-            # resolve_thread.signals.progress.connect(self.update_progress)
-            # resolve_thread.signals.status_message.connect(self.status_message)
-            # self.resolve_levels(resolve_thread.signals.start_progress, resolve_thread.signals.progress,
-            #                     resolve_thread.signals.status_message, resolve_all=True, parallel=True)
+        selected = None
+        if mode == 'selected':
+            selected = self.get_checked_particles()
 
+        resolve_thread = WorkerResolveLevels(self.resolve_levels, mode=mode, resolve_selected=selected)
         resolve_thread.signals.finished.connect(thread_finished)
         resolve_thread.signals.start_progress.connect(self.start_progress)
         resolve_thread.signals.progress.connect(self.update_progress)
@@ -1204,41 +1194,34 @@ class MainWindow(QMainWindow):
     # @dbg.profile
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
-                       resolve_all: bool = None,
+                       mode: str,
                        resolve_selected=None) -> None:  #  parallel: bool = False
         """
         Resolves the levels in particles by finding the change points in the
         abstimes data of a Particle instance.
 
-        If no parameter are given the current particle will be resolved. If
-        the ``resolve_all`` parameter is given **all** the loaded particles
-        will be resolved. If the ``resolve_selected`` parameter is provided
-        the selection of particles will be resolved.
-
         Parameters
         ----------
-        parallel : Bool, False
-            If True, parallel is used.
         start_progress_sig : pyqtSignal
             Used to call method to set up progress bar on GUI.
         progress_sig : pyqtSignal
             Used to call method to increment progress bar on GUI.
         status_sig : pyqtSignal
             Used to call method to show status bar message on GUI.
-        resolve_all : bool
-            If True all the particle instances available will be resolved.
+        mode : {'current', 'selected', 'all'}
+            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
         resolve_selected : list[smsh5.Partilce]
             A list of Particle instances in smsh5, that isn't the current one, to be resolved.
         """
 
-        assert not (resolve_all is not None and resolve_selected is not None), \
+        assert mode in ['current', 'selected', 'all'], \
             "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
-        if resolve_all is None and resolve_selected is None:  # Then resolve current
+        if mode == 'current':  # Then resolve current
             _, conf = self.get_gui_confidence()
             self.currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
 
-        elif resolve_all is not None and resolve_selected is None:  # Then resolve all
+        elif mode == 'all':  # Then resolve all
             data = self.tree2dataset()
             _, conf = self.get_gui_confidence()
             try:
@@ -1258,7 +1241,10 @@ class MainWindow(QMainWindow):
                 status_sig.emit('Ready...')
             except Exception as exc:
                 raise RuntimeError("Couldn't resolve levels.") from exc
-        elif resolve_selected is not None:  # Then resolve selected
+
+        elif mode == 'selected':  # Then resolve selected
+            assert resolve_selected is not None,\
+                'No selected particles provided.'
             try:
                 _, conf = self.get_gui_confidence()
                 status_sig.emit('Resolving Selected Particle Levels...')
@@ -1273,16 +1259,42 @@ class MainWindow(QMainWindow):
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
 
-    def resolve_thread_complete(self):
+    def resolve_thread_complete(self, mode: str):
+        """
+        Is performed after thread has been terminated.
+
+        Parameters
+        ----------
+        mode : {'current', 'selected', 'all'}
+            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+        """
+
         if self.tree2dataset().cpa_has_run:
             self.ui.tabGrouping.setEnabled(True)
         if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.display_data()
         dbg.p('Resolving levels complete', 'Resolve Thread')
+        self.check_remove_bursts(mode=mode)
 
-        ###############################################################################################################
-        self.currentparticle.ahca.run_grouping()
-        ###############################################################################################################
+    def check_remove_bursts(self, mode: str = None) -> None:
+        if mode == 'current':
+            particles = (self.currentparticle,)
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        else:
+            particles = self.tree2dataset().particles
+
+        if sum([particle.has_burst for particle in particles]):
+            msgbx = QMessageBox()
+            msgbx.setIcon(QMessageBox.Question)
+            msgbx.setText("Photon bursts detected")
+            msgbx.setInformativeText("Would you like to remove the photon bursts?")
+            msgbx.setWindowTitle("Remove Photon Bursts?")
+            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+            msgbx.setDefaultButton(QMessageBox.Yes)
+            if msgbx.exec() == QMessageBox.Yes:
+                for particle in particles:
+                    particle.cpts.remove_bursts()
 
     def switching_frequency(self, all_selected: str = None):
         """
