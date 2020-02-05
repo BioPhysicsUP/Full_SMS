@@ -38,16 +38,17 @@ class H5dataset:
             self.version = '0.1'
 
         unsorted_names = list(self.file.keys())
-        natural_p_names = [None]*len(unsorted_names)
+        natural_p_names = [None] * len(unsorted_names)
         natural_key = []
         for name in unsorted_names:
             for seg in re.split('(\d+)', name):
                 if seg.isdigit():
                     natural_key.append(int(seg))
         for num, key_num in enumerate(natural_key):
-            natural_p_names[key_num-1] = unsorted_names[num]
+            natural_p_names[key_num - 1] = unsorted_names[num]
 
-        self.all_sums = CPSums(n_min=10, n_max=1000, auto_prog_sig=self.auto_prog_sig)
+        self.all_sums = CPSums(n_min=10, n_max=1000,
+                               auto_prog_sig=self.auto_prog_sig)
         self.particles = []
         for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
@@ -76,14 +77,16 @@ class H5dataset:
             if hasattr(self, 'progress_sig'):
                 self.prog_sig_parallel = progress_sig
             Parallel(n_jobs=-1, backend='threading')(
-                delayed(self.run_binints_parallel)(particle) for particle in self.particles
+                delayed(self.run_binints_parallel)(particle) for particle in
+                self.particles
             )
             del self.bintsize_parallel, self.prog_sig_parallel
         else:
             for particle in self.particles:
                 particle.binints(binsize)
                 if hasattr(self, 'progress_sig'):
-                    self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
+                    self.progress_sig.emit()  # Increments the progress bar
+                    # on the MainWindow GUI
         dbg.p('Binning all done', 'H5Dataset')
 
     def run_binints_parallel(self, particle):
@@ -98,7 +101,8 @@ class Particle:
     """
 
     def __init__(self, name, dataset, tmin=None, tmax=None,
-                 channelwidth=None):  # , number, irf, tmin, tmax, channelwidth=None):
+                 channelwidth=None):  # , number, irf, tmin, tmax,
+        # channelwidth=None):
         """
         Creates an instance of Particle
 
@@ -120,10 +124,14 @@ class Particle:
         self.microtimes = self.datadict['Micro Times (s)']
         self.abstimes = self.datadict['Absolute Times (ns)']
         self.num_photons = len(self.abstimes)
-        self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
-        self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
-        # self.cpt_inds = None  # Needs to move to ChangePoints()
-        # self.num_cpts = None  # Needs to move to ChangePoints()
+        self.cpts = ChangePoints(
+            self)  # Added by Josh: creates an object for Change Point
+        # Analysis (cpa)
+        self.ahca = AHCA(
+            self)  # Added by Josh: creates an object for Agglomerative
+        # Hierarchical Clustering Algorithm
+        self.cpt_inds = None
+        self.num_cpts = None
         self.has_levels = False
         self.levels = None
         self.num_levels = None
@@ -155,36 +163,23 @@ class Particle:
         self.binnedtrace = None
         self.bin_size = None
 
-    # def get_levels(self):
-    #     assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
-    #     self.add_levels(self.cpts.get_levels())
+    def get_levels(self):
+        assert self.cpts.cpa_has_run, "Particle:\tChange point analysis " \
+                                      "needs to run before levels can be " \
+                                      "defined."
+        self.add_levels(self.cpts.get_levels())
 
-    # def add_levels(self, levels=None, num_levels=None):
-    #     assert levels is not None and num_levels is not None, \
-    #         "Particle:\tBoth arguments need to be non-None to add level."
-    #     self.levels = levels
-    #     self.num_levels = num_levels
-    #     self.has_levels = True
-
-    @property
-    def has_burst(self) -> bool:
-        return self.cpts.has_burst
-
-    @property
-    def burst_levels(self) -> np.ndarray:
-        return self.cpts.burst_levels
-
-    @has_burst.setter
-    def has_burst(self, value: bool):
-        self.cpts.has_burst = value
-
-    @burst_levels.setter
-    def burst_levels(self, value: np.ndarray):
-        self.cpts.burst_levels = value
+    def add_levels(self, levels=None, num_levels=None):
+        assert levels is not None and num_levels is not None,\
+            "Particle:\tBoth arguments need to be non-None to add level."
+        self.levels = levels
+        self.num_levels = num_levels
+        self.has_levels = True
 
     def levels2data(self, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
         """
-        Uses the Particle objects' levels to generate two arrays for plotting the levels.
+        Uses the Particle objects' levels to generate two arrays for
+        plotting the levels.
         Parameters
         ----------
         plot_type: str, {'line', 'step'}
@@ -193,7 +188,8 @@ class Particle:
         -------
         [np.ndarray, np.ndarray]
         """
-        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert ' \
+                                'to data.'
 
         # ############## Old, for Matplotlib ##############
         # levels_data = np.empty(shape=self.num_levels+1)
@@ -207,15 +203,15 @@ class Particle:
         #         levels_data[num+1] = accum_time
         #         times[num+1] = level.int
 
-        levels_data = np.empty(shape=self.num_levels*2)
-        times = np.empty(shape=self.num_levels*2)
+        levels_data = np.empty(shape=self.num_levels * 2)
+        times = np.empty(shape=self.num_levels * 2)
         accum_time = 0
         for num, level in enumerate(self.levels):
-            times[num*2] = accum_time
-            accum_time += level.dwell_time/1E9
-            times[num*2+1] = accum_time
-            levels_data[num*2] = level.int
-            levels_data[num*2+1] = level.int
+            times[num * 2] = accum_time
+            accum_time += level.dwell_time / 1E9
+            times[num * 2 + 1] = accum_time
+            levels_data[num * 2] = level.int
+            levels_data[num * 2 + 1] = level.int
 
         return levels_data, times
 
@@ -272,7 +268,8 @@ class Particle:
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
 
-    def remove_levels(self):
+    def remove_cpa_results(self):
+        self.cpt_inds = None
         self.levels = None
         self.num_levels = None
         self.has_levels = False
@@ -298,18 +295,22 @@ class Trace:
         self.binsize = binsize
         data = particle.abstimes[:]
 
-        binsize_ns = binsize*1E6  # Convert ms to ns
-        endbin = np.int(np.max(data)/binsize_ns)
+        binsize_ns = binsize * 1E6  # Convert ms to ns
+        endbin = np.int(np.max(data) / binsize_ns)
 
-        binned = np.zeros(endbin+1, dtype=np.int)
+        binned = np.zeros(endbin + 1, dtype=np.int)
         for step in range(endbin):
-            binned[step+1] = np.size(data[((step+1)*binsize_ns > data)*(data > step*binsize_ns)])
+            binned[step + 1] = np.size(data[
+                                           ((step + 1) * binsize_ns > data) * (
+                                                       data > step *
+                                                       binsize_ns)])
             if step == 0:
-                binned[step] = binned[step+1]
+                binned[step] = binned[step + 1]
 
         # binned *= (1000 / 100)
         self.intdata = binned
-        self.inttimes = np.array(range(0, binsize+(endbin*binsize), binsize))
+        self.inttimes = np.array(
+            range(0, binsize + (endbin * binsize), binsize))
 
 
 class Histogram:
@@ -402,6 +403,7 @@ class RasterScan:
         try:
             self.image = self.particle.datadict['Raster Scan']
         except KeyError:
+            print("Problem loading raster scan for " + self.name)
             print("Problem loading raster scan for " + self.particle.name)
             self.image = None
 
