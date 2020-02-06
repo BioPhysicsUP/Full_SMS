@@ -375,6 +375,9 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         except Exception as exc:
             raise RuntimeError("Couldn't resolve levels.") from exc
 
+    level_resolved_sig.emit()
+    data.makehistograms(progress=False)
+    reset_gui_sig.emit()
 
 # def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 #                    status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
@@ -1475,10 +1478,11 @@ class IntController(QObject):
     def plot_levels(self):
         """ Used to plot the resolved intensity levels of the current particle. """
         currentparticle = self.mainwindow.currentparticle
+        print('levels plto')
         try:
             level_ints, times = currentparticle.levels2data()
             level_ints = level_ints*self.get_bin()/1E3
-            print(level_ints, times)
+            print(level_ints)
 
         except AttributeError:
             print('No levels!')
@@ -1552,7 +1556,8 @@ class IntController(QObject):
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
             resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode)
         elif mode == 'selected':
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, resolve_selected=self.get_checked_particles())
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode,
+                                                 resolve_selected=self.mainwindow.get_checked_particles())
         elif mode == 'all':
             resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode)
             # resolve_thread.signals.finished.connect(thread_finished)
@@ -1615,6 +1620,7 @@ class LifetimeController(QObject):
 
     def gui_next_lev(self):
         """ Moves to the next resolves level and displays its decay curve. """
+        print('bla')
 
         if self.mainwindow.current_level is None:
             self.mainwindow.current_level = 0

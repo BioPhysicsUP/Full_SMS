@@ -11,7 +11,7 @@ import tcspcfit
 # from main.MainWindow import start_at_nonzero
 import dbg
 from matplotlib import pyplot as plt
-from ChangePoint import ChangePoints
+from change_point import ChangePoints
 import re
 from generate_sums import CPSums
 from PyQt5.QtCore import pyqtSignal
@@ -416,7 +416,7 @@ class Spectra:
         self.wavelengths = self.spectra.attrs['Wavelengths']
         self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
 
-# Level class has been defined in ChangePoint.py
+# Level class has been defined in change_point.py
 # class Levels:
 #
 #     def __init__(self):

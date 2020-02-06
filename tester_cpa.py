@@ -1,5 +1,5 @@
 from smsh5 import H5dataset, Particle
-from ChangePoint import ChangePoints
+from change_point import ChangePoints
 
 
 file = H5dataset("LHCII_630nW.h5")
