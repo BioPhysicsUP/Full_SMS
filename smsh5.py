@@ -5,19 +5,25 @@ University of Pretoria
 2018
 """
 import traceback
+
+import re
+
 import h5py
 import numpy as np
 import tcspcfit
 # from main.MainWindow import start_at_nonzero
 import dbg
 from matplotlib import pyplot as plt
-from change_point import ChangePoints
 import re
 from generate_sums import CPSums
 from PyQt5.QtCore import pyqtSignal
 import dbg
+from ChangePoint import ChangePoints
 from ClusteringGrouping import AHCA
-from joblib import Parallel, delayed
+from generate_sums import CPSums
+
+
+# from joblib import Parallel, delayed
 
 
 class H5dataset:
@@ -38,17 +44,16 @@ class H5dataset:
             self.version = '0.1'
 
         unsorted_names = list(self.file.keys())
-        natural_p_names = [None] * len(unsorted_names)
+        natural_p_names = [None]*len(unsorted_names)
         natural_key = []
         for name in unsorted_names:
             for seg in re.split('(\d+)', name):
                 if seg.isdigit():
                     natural_key.append(int(seg))
         for num, key_num in enumerate(natural_key):
-            natural_p_names[key_num - 1] = unsorted_names[num]
+            natural_p_names[key_num-1] = unsorted_names[num]
 
-        self.all_sums = CPSums(n_min=10, n_max=1000,
-                               auto_prog_sig=self.auto_prog_sig)
+        self.all_sums = CPSums(n_min=10, n_max=1000, auto_prog_sig=self.auto_prog_sig)
         self.particles = []
         for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
@@ -73,20 +78,19 @@ class H5dataset:
             self.progress_sig = progress_sig
 
         if self.use_parallel:
-            self.bintsize_parallel = binsize
-            if hasattr(self, 'progress_sig'):
-                self.prog_sig_parallel = progress_sig
-            Parallel(n_jobs=-1, backend='threading')(
-                delayed(self.run_binints_parallel)(particle) for particle in
-                self.particles
-            )
-            del self.bintsize_parallel, self.prog_sig_parallel
+            pass
+            # self.bintsize_parallel = binsize
+            # if hasattr(self, 'progress_sig'):
+            #     self.prog_sig_parallel = progress_sig
+            # Parallel(n_jobs=-1, backend='threading')(
+            #     delayed(self.run_binints_parallel)(particle) for particle in self.particles
+            # )
+            # del self.bintsize_parallel, self.prog_sig_parallel
         else:
             for particle in self.particles:
                 particle.binints(binsize)
                 if hasattr(self, 'progress_sig'):
-                    self.progress_sig.emit()  # Increments the progress bar
-                    # on the MainWindow GUI
+                    self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
         dbg.p('Binning all done', 'H5Dataset')
 
     def run_binints_parallel(self, particle):
@@ -101,8 +105,7 @@ class Particle:
     """
 
     def __init__(self, name, dataset, tmin=None, tmax=None,
-                 channelwidth=None):  # , number, irf, tmin, tmax,
-        # channelwidth=None):
+                 channelwidth=None):  # , number, irf, tmin, tmax, channelwidth=None):
         """
         Creates an instance of Particle
 
@@ -124,20 +127,16 @@ class Particle:
         self.microtimes = self.datadict['Micro Times (s)']
         self.abstimes = self.datadict['Absolute Times (ns)']
         self.num_photons = len(self.abstimes)
-        self.cpts = ChangePoints(
-            self)  # Added by Josh: creates an object for Change Point
-        # Analysis (cpa)
-        self.ahca = AHCA(
-            self)  # Added by Josh: creates an object for Agglomerative
-        # Hierarchical Clustering Algorithm
-        self.cpt_inds = None
-        self.num_cpts = None
-        self.has_levels = False
-        self.levels = None
-        self.num_levels = None
+        self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
+        self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
+        # self.cpt_inds = None  # Needs to move to ChangePoints()
+        # self.num_cpts = None  # Needs to move to ChangePoints()
+        # self.has_levels = False
+        # self.levels = None
+        # self.num_levels = None
         self.avg_int_weighted = None
         self.int_std_weighted = None
-        self.burst_std_factor = 1.5
+        # self.burst_std_factor = 3
 
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
@@ -163,18 +162,52 @@ class Particle:
         self.binnedtrace = None
         self.bin_size = None
 
-    def get_levels(self):
-        assert self.cpts.cpa_has_run, "Particle:\tChange point analysis " \
-                                      "needs to run before levels can be " \
-                                      "defined."
-        self.add_levels(self.cpts.get_levels())
+    # def get_levels(self):
+    #     assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
+    #     self.add_levels(self.cpts.get_levels())
 
-    def add_levels(self, levels=None, num_levels=None):
-        assert levels is not None and num_levels is not None,\
-            "Particle:\tBoth arguments need to be non-None to add level."
-        self.levels = levels
-        self.num_levels = num_levels
-        self.has_levels = True
+    # def add_levels(self, levels=None, num_levels=None):
+    #     assert levels is not None and num_levels is not None, \
+    #         "Particle:\tBoth arguments need to be non-None to add level."
+    #     self.levels = levels
+    #     self.num_levels = num_levels
+    #     self.has_levels = True
+
+    @property
+    def has_levels(self):
+        return self.cpts.has_levels
+
+    @property
+    def levels(self):
+        return self.cpts.levels
+
+    @property
+    def num_levels(self):
+        return self.cpts.num_levels
+
+    @property
+    def level_ints(self):
+        return self.cpts.level_ints
+
+    @property
+    def level_dwelltimes(self):
+        return self.cpts.level_dwelltimes
+
+    @property
+    def has_burst(self) -> bool:
+        return self.cpts.has_burst
+
+    @property
+    def burst_levels(self) -> np.ndarray:
+        return self.cpts.burst_levels
+
+    @has_burst.setter
+    def has_burst(self, value: bool):
+        self.cpts.has_burst = value
+
+    @burst_levels.setter
+    def burst_levels(self, value: np.ndarray):
+        self.cpts.burst_levels = value
 
     def levels2data(self, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
         """
@@ -188,8 +221,7 @@ class Particle:
         -------
         [np.ndarray, np.ndarray]
         """
-        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert ' \
-                                'to data.'
+        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
 
         # ############## Old, for Matplotlib ##############
         # levels_data = np.empty(shape=self.num_levels+1)
@@ -208,44 +240,18 @@ class Particle:
         accum_time = 0
         for num, level in enumerate(self.levels):
             times[num * 2] = accum_time
-            accum_time += level.dwell_time / 1E9
+            accum_time += level.dwell_time_s
             times[num * 2 + 1] = accum_time
-            levels_data[num * 2] = level.int
-            levels_data[num * 2 + 1] = level.int
+            levels_data[num * 2] = level.int_p_s
+            levels_data[num * 2 + 1] = level.int_p_s
 
         return levels_data, times
 
-    def current2data(self, num, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
-        """
-        Uses the Particle objects' levels to generate two arrays for plotting level num.
-        Parameters
-        ----------
-        plot_type: str, {'line', 'step'}
+    def makehistogram(self):
+        """Put the arrival times into a histogram"""
 
-        Returns
-        -------
-        [np.ndarray, np.ndarray]
-        """
-        # TODO: Cleanup this function anc the one above it
-        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        self.histogram = Histogram(self)
 
-        # ############## Old, for Matplotlib ##############
-        # levels_data = np.empty(shape=self.num_levels+1)
-        # times = np.empty(shape=self.num_levels+1)
-        # accum_time = 0
-        # for num, level in enumerate(self.levels):
-        #     times[num] = accum_time
-        #     accum_time += level.dwell_time/1E9
-        #     levels_data[num] = level.int
-        #     if num+1 == self.num_levels:
-        #         levels_data[num+1] = accum_time
-        #         times[num+1] = level.int
-
-        level = self.levels[num]
-        times = np.array(level.times) / 1E9
-        levels_data = np.array([level.int, level.int])
-
-        return levels_data, times
 
     def makelevelhists(self):
         """Make level histograms"""
@@ -257,24 +263,12 @@ class Particle:
         for level in self.levels:
             level.histogram = Histogram(self, level)
 
-    def makehistogram(self):
-        """Put the arrival times into a histogram"""
-
-        self.histogram = Histogram(self)
 
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""
 
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
-
-    def remove_cpa_results(self):
-        self.cpt_inds = None
-        self.levels = None
-        self.num_levels = None
-        self.has_levels = False
-        self.has_burst = False
-        self.burst_levels = np.array([])
 
 
 class Trace:
@@ -300,10 +294,7 @@ class Trace:
 
         binned = np.zeros(endbin + 1, dtype=np.int)
         for step in range(endbin):
-            binned[step + 1] = np.size(data[
-                                           ((step + 1) * binsize_ns > data) * (
-                                                       data > step *
-                                                       binsize_ns)])
+            binned[step+1] = np.size(data[((step+1)*binsize_ns > data)*(data > step*binsize_ns)])
             if step == 0:
                 binned[step] = binned[step + 1]
 
@@ -403,7 +394,6 @@ class RasterScan:
         try:
             self.image = self.particle.datadict['Raster Scan']
         except KeyError:
-            print("Problem loading raster scan for " + self.name)
             print("Problem loading raster scan for " + self.particle.name)
             self.image = None
 
@@ -416,7 +406,7 @@ class Spectra:
         self.wavelengths = self.spectra.attrs['Wavelengths']
         self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
 
-# Level class has been defined in change_point.py
+# Level class has been defined in ChangePoint.py
 # class Levels:
 #
 #     def __init__(self):
