@@ -7,14 +7,11 @@ Joshua Botha
 University of Pretoria
 2018
 """
-from typing import Any, Union
+
+from math import lgamma
 
 import numpy as np
-from ChangePoint import ChangePoints
-from PyQt5.QtCore import pyqtSignal
-import dbg
-from math import lgamma
-from matplotlib import  pyplot as plt
+from matplotlib import pyplot as plt
 
 
 class Calcs:
@@ -54,7 +51,7 @@ class Calcs:
         self.em_p_mj = np.identity(particle.num_levels)
         self.cap_g = particle.num_levels
         self.n = np.array([l.num_photons for l in particle.levels])
-        self.cap_t = np.array([l.dwell_time/1E9 for l in particle.levels])
+        self.cap_t = np.array([l.dwell_time / 1E9 for l in particle.levels])
         self.tot_t = np.sum(self.cap_t)
         self.merged = list()
         self.bic = list()

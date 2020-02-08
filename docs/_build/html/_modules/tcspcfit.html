@@ -1,11 +1,9 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
     <title>tcspcfit &#8212; UP Biophysics SMS Analysis 0.1 documentation</title>
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -43,10 +41,10 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">scipy.fftpack</span> <span class="k">import</span> <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span>
-<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="k">import</span> <span class="n">curve_fit</span><span class="p">,</span> <span class="n">nnls</span>
-<span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="k">import</span> <span class="n">convolve</span>
-<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="k">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">from</span> <span class="nn">scipy.fftpack</span> <span class="kn">import</span> <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span>
+<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">curve_fit</span><span class="p">,</span> <span class="n">nnls</span>
+<span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="kn">import</span> <span class="n">convolve</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
 
 
 <div class="viewcode-block" id="makerow"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.makerow">[docs]</a><span class="k">def</span> <span class="nf">makerow</span><span class="p">(</span><span class="n">vector</span><span class="p">):</span>
@@ -237,7 +235,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">startpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">channelwidth</span> <span class="o">=</span> <span class="n">channelwidth</span>
@@ -279,7 +277,24 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">residuals</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">calculate_boundaries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">startpoint</span><span class="p">):</span>
+<div class="viewcode-block" id="FluoFit.calculate_boundaries"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.FluoFit.calculate_boundaries">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_boundaries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">startpoint</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the start and endpoints</span>
+
+<span class="sd">        Sets the values to the given ones or automatically find good ones.</span>
+<span class="sd">        The start value is chosen as the maximum point of the IRF, and the end</span>
+<span class="sd">        value is chosen as either the point where the decay is 1 % of</span>
+<span class="sd">        maximum or 10 times the background value, whichever is highest.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        endpoint : int</span>
+<span class="sd">                End of fitting range</span>
+<span class="sd">        measured : ndarray</span>
+<span class="sd">            The measured decay data</span>
+<span class="sd">        startpoint : int</span>
+<span class="sd">                Start of fitting range</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">startpoint</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">irf</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -291,11 +306,27 @@
             <span class="n">max2</span> <span class="o">=</span> <span class="n">hundredth_of_peak</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">max1</span><span class="p">,</span> <span class="n">max2</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span> <span class="o">=</span> <span class="n">endpoint</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span> <span class="o">=</span> <span class="n">endpoint</span></div>
 
-    <span class="k">def</span> <span class="nf">calculate_bg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bg</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">irfbg</span><span class="p">,</span> <span class="n">measured</span><span class="p">):</span>
+<div class="viewcode-block" id="FluoFit.calculate_bg"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.FluoFit.calculate_bg">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_bg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bg</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">irfbg</span><span class="p">,</span> <span class="n">measured</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate decay and IRF background values</span>
+
+<span class="sd">        If not given, the  background value is estimated from the first part</span>
+<span class="sd">        of the curve, before the rise.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        bg : float</span>
+<span class="sd">            Decay background value</span>
+<span class="sd">        irf : ndarray</span>
+<span class="sd">            Instrument response function</span>
+<span class="sd">        irfbg : float</span>
+<span class="sd">            IRF background value</span>
+<span class="sd">        measured : ndarray</span>
+<span class="sd">            Measured decay data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">irfbg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># Estimate background for IRF using average value up to start of the rise</span>
             <span class="n">maxind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">irf</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">maxind</span><span class="p">):</span>
                 <span class="n">reverse</span> <span class="o">=</span> <span class="n">maxind</span> <span class="o">-</span> <span class="n">i</span>
@@ -308,7 +339,6 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">irfbg</span> <span class="o">=</span> <span class="n">irfbg</span>
         <span class="k">if</span> <span class="n">bg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># Estimate background for decay in the same way</span>
             <span class="n">maxind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">measured</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">maxind</span><span class="p">):</span>
                 <span class="n">reverse</span> <span class="o">=</span> <span class="n">maxind</span> <span class="o">-</span> <span class="n">i</span>
@@ -318,9 +348,26 @@
 
             <span class="bp">self</span><span class="o">.</span><span class="n">bg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">measured</span><span class="p">[:</span><span class="n">bglim</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bg</span> <span class="o">=</span> <span class="n">bg</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bg</span> <span class="o">=</span> <span class="n">bg</span></div>
 
-    <span class="k">def</span> <span class="nf">setup_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
+<div class="viewcode-block" id="FluoFit.setup_params"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.FluoFit.setup_params">[docs]</a>    <span class="k">def</span> <span class="nf">setup_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Setup fitting parameters</span>
+
+<span class="sd">        This method handles the input of initial parameters for fitting. The</span>
+<span class="sd">        input system is flexible, allowing optional input of min and max</span>
+<span class="sd">        values as well as choosing to fix a value.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+
+<span class="sd">        amp : list or float</span>
+<span class="sd">            Amplitude(s)</span>
+<span class="sd">        shift : list or float</span>
+<span class="sd">            IRF colour shift</span>
+<span class="sd">        tau : list or float</span>
+<span class="sd">            Lifetime(s)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">tauval</span> <span class="ow">in</span> <span class="n">tau</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
@@ -343,7 +390,7 @@
             <span class="k">for</span> <span class="n">ampval</span> <span class="ow">in</span> <span class="n">amp</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">amp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-                    <span class="k">if</span> <span class="n">tauval</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>  <span class="c1"># If amp is fixed</span>
+                    <span class="k">if</span> <span class="n">ampval</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>  <span class="c1"># If amp is fixed</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.0001</span><span class="p">)</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ampval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.0001</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
@@ -369,10 +416,27 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span> <span class="o">=</span> <span class="n">shift</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># If shiftval is not a list</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">shift</span> <span class="o">=</span> <span class="n">shift</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span> <span class="o">=</span> <span class="o">-</span><span class="mi">100</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span> <span class="o">=</span> <span class="mi">300</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2000</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span> <span class="o">=</span> <span class="mi">2000</span></div>
 
-    <span class="k">def</span> <span class="nf">results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<div class="viewcode-block" id="FluoFit.results"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.FluoFit.results">[docs]</a>    <span class="k">def</span> <span class="nf">results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handle results after fitting</span>
+
+<span class="sd">        After fitting, the results are processed. Chi-squared is calculated</span>
+<span class="sd">        and optional plotting is done.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -----------</span>
+<span class="sd">        tau : ndarray or float</span>
+<span class="sd">            Fitted lifetime(s)</span>
+<span class="sd">        dtau : ndarray or float</span>
+<span class="sd">            Error in fitted lifetimes</span>
+<span class="sd">        shift : float</span>
+<span class="sd">            Fitted colourshift value</span>
+<span class="sd">        amp : ndarray or float</span>
+<span class="sd">            Fitted amplitude(s)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">=</span> <span class="n">tau</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dtau</span> <span class="o">=</span> <span class="n">dtau</span>
@@ -412,21 +476,32 @@
             <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Time (ns)&#39;</span><span class="p">)</span>
             <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Weighted residual&#39;</span><span class="p">)</span>
             <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Number of photons in channel&#39;</span><span class="p">)</span>
-            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">makeconvd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+<div class="viewcode-block" id="FluoFit.makeconvd"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.FluoFit.makeconvd">[docs]</a>    <span class="k">def</span> <span class="nf">makeconvd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Makes a convolved decay using IRF and exponential model</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        shift : float</span>
+<span class="sd">            IRF colour shift</span>
+<span class="sd">        model : ndarray</span>
+<span class="sd">            Exponential model function</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="n">irf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">irf</span>
         <span class="n">irf</span> <span class="o">=</span> <span class="n">colorshift</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">shift</span><span class="p">)</span>
         <span class="n">convd</span> <span class="o">=</span> <span class="n">convolve</span><span class="p">(</span><span class="n">irf</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
         <span class="n">convd</span> <span class="o">=</span> <span class="n">convd</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">convd</span></div>
+        <span class="k">return</span> <span class="n">convd</span></div></div>
 
 
 <div class="viewcode-block" id="OneExp"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.OneExp">[docs]</a><span class="k">class</span> <span class="nc">OneExp</span><span class="p">(</span><span class="n">FluoFit</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;&quot;Single exponential fit. Takes exact same arguments as Fluofit&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">startpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 
         <span class="k">if</span> <span class="n">tau</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -435,9 +510,15 @@
             <span class="n">amp</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="n">FluoFit</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">bg</span><span class="p">,</span> <span class="n">irfbg</span><span class="p">,</span> <span class="n">startpoint</span><span class="p">,</span> <span class="n">endpoint</span><span class="p">,</span> <span class="n">ploton</span><span class="p">)</span>
 
-        <span class="n">paramin</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">taumin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span><span class="p">]</span>
-        <span class="n">paramax</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">taumax</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span><span class="p">]</span>
-        <span class="n">paraminit</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">tau</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">amp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shift</span><span class="p">]</span>
+        <span class="n">paramin</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">taumin</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span><span class="p">]</span>
+        <span class="n">paramax</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">taumax</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span><span class="p">]</span>
+        <span class="n">paraminit</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">tau</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">amp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shift</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">paramin</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">paramax</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">paraminit</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;end&#39;</span><span class="p">)</span>
         <span class="n">param</span><span class="p">,</span> <span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">paramin</span><span class="p">,</span> <span class="n">paramax</span><span class="p">),</span> <span class="n">p0</span><span class="o">=</span><span class="n">paraminit</span><span class="p">)</span>
 
         <span class="n">tau</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -448,17 +529,19 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">amp</span><span class="p">,</span> <span class="n">shift</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+<div class="viewcode-block" id="OneExp.fitfunc"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.OneExp.fitfunc">[docs]</a>    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Function passed to curve_fit, to be fitted to data&quot;&quot;&quot;</span>
 
         <span class="n">model</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span><span class="o">/</span><span class="n">tau1</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="TwoExp"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.TwoExp">[docs]</a><span class="k">class</span> <span class="nc">TwoExp</span><span class="p">(</span><span class="n">FluoFit</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;&quot;Double exponential fit. Takes exact same arguments as Fluofit&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">startpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">tau</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">tau</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
@@ -470,9 +553,14 @@
         <span class="n">paramin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">taumin</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmin</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shiftmin</span><span class="p">]</span>
         <span class="n">paramax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span><span class="p">]</span>
         <span class="n">paraminit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">amp</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shift</span><span class="p">]</span>
-        <span class="nb">print</span><span class="p">(</span><span class="n">paramax</span><span class="p">,</span> <span class="n">paraminit</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;start&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">paramin</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">paramax</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">paraminit</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">startpoint</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">endpoint</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;end&#39;</span><span class="p">)</span>
         <span class="n">param</span><span class="p">,</span> <span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="p">,</span>
-                                <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">paramin</span><span class="p">,</span> <span class="n">paramax</span><span class="p">),</span> <span class="n">p0</span><span class="o">=</span><span class="n">paraminit</span><span class="p">,</span> <span class="n">ftol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">,</span> <span class="n">gtol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">,</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">)</span>
+                                <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">paramin</span><span class="p">,</span> <span class="n">paramax</span><span class="p">),</span> <span class="n">p0</span><span class="o">=</span><span class="n">paraminit</span><span class="p">)</span>
 
         <span class="n">tau</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
         <span class="n">amp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">param</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">param</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
@@ -482,16 +570,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="n">tau</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tau</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">shift</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">amp</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">tau2</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+<div class="viewcode-block" id="TwoExp.fitfunc"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.TwoExp.fitfunc">[docs]</a>    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">tau2</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Function passed to curve_fit, to be fitted to data&quot;&quot;&quot;</span>
 
         <span class="n">model</span> <span class="o">=</span> <span class="n">a1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau1</span><span class="p">)</span> <span class="o">+</span> <span class="n">a2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau2</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="ThreeExp"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.ThreeExp">[docs]</a><span class="k">class</span> <span class="nc">ThreeExp</span><span class="p">(</span><span class="n">FluoFit</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;&quot;Triple exponential fit. Takes exact same arguments as Fluofit&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">irf</span><span class="p">,</span> <span class="n">measured</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">channelwidth</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">amp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">irfbg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                  <span class="n">startpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ploton</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 
         <span class="k">if</span> <span class="n">tau</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -505,7 +594,7 @@
         <span class="n">paramax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">taumax</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ampmax</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shiftmax</span><span class="p">]</span>
         <span class="n">paraminit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">amp</span> <span class="o">+</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">shift</span><span class="p">]</span>
         <span class="n">param</span><span class="p">,</span> <span class="n">pcov</span> <span class="o">=</span> <span class="n">curve_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measured</span><span class="p">,</span>
-                                <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">paramin</span><span class="p">,</span> <span class="n">paramax</span><span class="p">),</span> <span class="n">p0</span><span class="o">=</span><span class="n">paraminit</span><span class="p">,</span> <span class="n">ftol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">,</span> <span class="n">gtol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">,</span> <span class="n">xtol</span><span class="o">=</span><span class="mf">1e-16</span><span class="p">)</span>
+                                <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="n">paramin</span><span class="p">,</span> <span class="n">paramax</span><span class="p">),</span> <span class="n">p0</span><span class="o">=</span><span class="n">paraminit</span><span class="p">)</span>
 
         <span class="n">tau</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
         <span class="n">amp</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">6</span><span class="p">]</span>
@@ -515,10 +604,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">convd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="n">tau</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tau</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">tau</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">amp</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">shift</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">dtau</span><span class="p">,</span> <span class="n">shift</span><span class="p">,</span> <span class="n">amp</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">tau2</span><span class="p">,</span> <span class="n">tau3</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">a3</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+<div class="viewcode-block" id="ThreeExp.fitfunc"><a class="viewcode-back" href="../tcspcfit.html#tcspcfit.ThreeExp.fitfunc">[docs]</a>    <span class="k">def</span> <span class="nf">fitfunc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">tau1</span><span class="p">,</span> <span class="n">tau2</span><span class="p">,</span> <span class="n">tau3</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">,</span> <span class="n">a3</span><span class="p">,</span> <span class="n">shift</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Function passed to curve_fit, to be fitted to data&quot;&quot;&quot;</span>
 
         <span class="n">model</span> <span class="o">=</span> <span class="n">a1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau1</span><span class="p">)</span> <span class="o">+</span> <span class="n">a2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau2</span><span class="p">)</span> <span class="o">+</span> <span class="n">a3</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span> <span class="o">/</span> <span class="n">tau3</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">makeconvd</span><span class="p">(</span><span class="n">shift</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span></div></div>
 
 
 </pre></div>
@@ -550,13 +640,11 @@
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
     </div>
 </div>
@@ -577,7 +665,7 @@
       &copy;2019, Bertus van Heerden, Joshua Botha.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.4</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>
