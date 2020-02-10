@@ -7,39 +7,29 @@ University of Pretoria
 
 __docformat__ = 'NumPy'
 
+import csv
 import os
 import sys
 import traceback
 from platform import system
 
-import pyqtgraph as pg
-from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex,\
-    Qt, QThreadPool, QRunnable, pyqtSlot
-from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor, QIntValidator
-from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog,\
-    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox
-import csv
-
-from matplotlib.backends.backend_qt5agg import (NavigationToolbar2QT as NavigationToolbar)
-from matplotlib.figure import Figure
 # from matplotlib.axes.subplots import Axes
 import numpy as np
 import scipy
+from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, \
+    Qt, QThreadPool, QRunnable, pyqtSlot
+from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor, QIntValidator
+from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
+    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox
+import pyqtgraph as pg
 
-import matplotlib as mpl
-
-import random
 import dbg
-import traceback
 import smsh5
 import tcspcfit
-from smsh5 import start_at_nonzero
-
-from ui.mainwindow import Ui_MainWindow
-from ui.fitting_dialog import Ui_Dialog
-from ui import convert_ui as convert_ui
 from generate_sums import CPSums
+from smsh5 import start_at_nonzero
 from ui.TimedMessageBox import TimedMessageBox
+from ui.fitting_dialog import Ui_Dialog
 from ui.mainwindow import Ui_MainWindow
 
 
