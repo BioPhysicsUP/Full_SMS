@@ -22,6 +22,7 @@ from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor, QIntValidator
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QLineEdit, QComboBox, QDialog, QCheckBox
 import pyqtgraph as pg
+from typing import Union
 
 import dbg
 import smsh5
@@ -31,6 +32,7 @@ from smsh5 import start_at_nonzero
 from ui.TimedMessageBox import TimedMessageBox
 from ui.fitting_dialog import Ui_Dialog
 from ui.mainwindow import Ui_MainWindow
+from smsh5 import H5dataset, Particle
 
 
 class WorkerSignals(QObject):
@@ -220,13 +222,15 @@ class WorkerBinAll(QRunnable):
 
         try:
             self.binall_func(self.dataset, self.bin_size, self.signals.start_progress,
-                             self.signals.progress, self.signals.status_message)
+                             self.signals.progress, self.signals.status_message,
+                             self.signals.bin_size)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
-            self.signals.resolve_finished.emit(False)
+            # self.signals.resolve_finished.emit(False)  ?????
+            pass
 
 
 def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin_size_sig) -> None:
@@ -248,14 +252,15 @@ def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin
     #     part = ""
     # status_sig.emit(part + "Binning traces...")
     status_sig.emit("Binning traces...")
-    dataset.binints(bin_size, progress_sig)
+    dataset.bin_all_ints(bin_size, progress_sig)
     bin_size_sig.emit(bin_size)
+    status_sig.emit("Done")
 
 
 class WorkerResolveLevels(QRunnable):
     """ A QRunnable class to create a worker thread for resolving levels. """
 
-    def __init__(self, resolve_levels_func, conf, data, currentparticle,
+    def __init__(self, resolve_levels_func, conf: Union[int, float], data: H5dataset, currentparticle: Particle,
                  mode: str,
                  resolve_selected=None) -> None:
         """
@@ -283,7 +288,7 @@ class WorkerResolveLevels(QRunnable):
         self.conf = conf
         self.data = data
         self.currentparticle = currentparticle
-        print(self.currentparticle)
+        # print(self.currentparticle)
 
     @pyqtSlot()
     def run(self) -> None:
@@ -303,9 +308,9 @@ class WorkerResolveLevels(QRunnable):
 
 
 def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig:pyqtSignal,
-                   conf, data, currentparticle, mode: str,
-                   resolve_selected=None) -> None:  # parallel: bool = False
+                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
+                   conf: Union[int, float], data: H5dataset, currentparticle: Particle, mode: str,
+                   resolve_selected=None) -> None:
     """
     TODO: edit the docstring
     Resolves the levels in particles by finding the change points in the
@@ -313,6 +318,11 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 
     Parameters
     ----------
+    currentparticle : Particle
+    conf
+    level_resolved_sig
+    reset_gui_sig
+    data : H5dataset
     start_progress_sig : pyqtSignal
         Used to call method to set up progress bar on GUI.
     progress_sig : pyqtSignal
@@ -325,119 +335,38 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
     """
 
-    print(mode)
+    # print(mode)
     assert mode in ['current', 'selected', 'all'], \
         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
     if mode == 'current':  # Then resolve current
         currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
 
-    elif mode == 'all':  # Then resolve all
-        try:
-            status_sig.emit('Resolving All Particle Levels...')
-            start_progress_sig.emit(data.numpart)
-            # if parallel:
-            #     self.conf_parallel = conf
-            #     Parallel(n_jobs=-2, backend='threading')(
-            #         delayed(self.run_parallel_cpa)
-            #         (self.tree2particle(num)) for num in range(data.numpart)
-            #     )
-            #     del self.conf_parallel
-            # else:
-            for num in range(data.numpart):
-                print(num)
-                data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
-                progress_sig.emit()
-            status_sig.emit('Ready...')
-        except Exception as exc:
-            raise RuntimeError("Couldn't resolve levels.") from exc
+    else:
+        if mode == 'all':  # Then resolve all
+            status_text = 'Resolving All Particle Levels...'
+            parts = data.particles
 
-    elif mode == 'selected':  # Then resolve selected
-        assert resolve_selected is not None, \
-            'No selected particles provided.'
+        elif mode == 'selected':  # Then resolve selected
+            assert resolve_selected is not None, \
+                'No selected particles provided.'
+            status_text = 'Resolving Selected Particle Levels...'
+            parts = resolve_selected
+
         try:
-            status_sig.emit('Resolving Selected Particle Levels...')
-            start_progress_sig.emit(len(resolve_selected))
-            for particle in resolve_selected:
-                particle.cpts.run_cpa(confidence=conf, run_levels=True)
+            status_sig.emit(status_text)
+            start_progress_sig.emit(len(parts))
+            for num, part in enumerate(parts):
+                dbg.p(f'Busy Resolving Particle {num+1}')
+                part.cpts.run_cpa(confidence=conf, run_levels=True)
                 progress_sig.emit()
-            status_sig.emit('Ready...')
+            status_sig.emit('Done')
         except Exception as exc:
             raise RuntimeError("Couldn't resolve levels.") from exc
 
     level_resolved_sig.emit()
     data.makehistograms(progress=False)
     reset_gui_sig.emit()
-
-# def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-#                    status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
-#                    conf, data, currentparticle, resolve_all: bool = None,
-#                    resolve_selected=None) -> None:  #  parallel: bool = False
-#     """
-#     Resolves the levels in particles by finding the change points in the
-#     abstimes data of a Particle instance.
-#
-#     If no parameter are given the current particle will be resolved. If
-#     the ``resolve_all`` parameter is given **all** the loaded particles
-#     will be resolved. If the ``resolve_selected`` parameter is provided
-#     the selection of particles will be resolved.
-#
-#     Parameters
-#     ----------
-#     parallel : Bool, False
-#         If True, parallel is used.
-#     start_progress_sig : pyqtSignal
-#         Used to call method to set up progress bar on GUI.
-#     progress_sig : pyqtSignal
-#         Used to call method to increment progress bar on GUI.
-#     status_sig : pyqtSignal
-#         Used to call method to show status bar message on GUI.
-#     resolve_all : bool
-#         If True all the particle instances available will be resolved.
-#     resolve_selected : list[smsh5.Partilce]
-#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-#     """
-#
-#     print(currentparticle)
-#     assert not (resolve_all is not None and resolve_selected is not None), \
-#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-#
-#     if resolve_all is None and resolve_selected is None:  # Then resolve current
-#         currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
-#         print('hier')
-#
-#     elif resolve_all is not None and resolve_selected is None:  # Then resolve all
-#         try:
-#             status_sig.emit('Resolving All Particle Levels...')
-#             start_progress_sig.emit(data.numpart)
-#             # if parallel:
-#             #     self.conf_parallel = conf
-#             #     Parallel(n_jobs=-2, backend='threading')(
-#             #         delayed(self.run_parallel_cpa)
-#             #         (self.tree2particle(num)) for num in range(data.numpart)
-#             #     )
-#             #     del self.conf_parallel
-#             # else:
-#             for num in range(data.numpart):
-#                 data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
-#                 progress_sig.emit()
-#             status_sig.emit('Ready...')
-#         except Exception as exc:
-#             raise RuntimeError("Couldn't resolve levels.") from exc
-#     elif resolve_selected is not None:  # Then resolve selected
-#         try:
-#             status_sig.emit('Resolving Selected Particle Levels...')
-#             start_progress_sig.emit(len(resolve_selected))
-#             for particle in resolve_selected:
-#                 particle.cpts.run_cpa(confidence=conf, run_levels=True)
-#                 progress_sig.emit()
-#             status_sig.emit('Ready...')
-#         except Exception as exc:
-#             raise RuntimeError("Couldn't resolve levels.") from exc
-#
-#     level_resolved_sig.emit()
-#     data.makehistograms(progress=False)
-#     reset_gui_sig.emit()
 
 
 class DatasetTreeNode(object):
@@ -689,6 +618,7 @@ class DatasetTreeModel(QAbstractItemModel):
         return False
 
 
+# noinspection PyUnresolvedReferences
 class MainWindow(QMainWindow):
     """
     Class for Full SMS application that returns QMainWindow object.
@@ -705,7 +635,7 @@ class MainWindow(QMainWindow):
         """
 
         self.threadpool = QThreadPool()
-        dbg.p("Multi-threading with maximum %d threads" % self.threadpool.maxThreadCount(), "Main")
+        dbg.p("Multi-threading with maximum %d threads" % self.threadpool.maxThreadCount(), "MainWindow")
 
         self.confidence_index = {
             0: 99,
@@ -713,12 +643,12 @@ class MainWindow(QMainWindow):
             2: 90,
             3: 69}
 
-        if system() == "win32" or system() == "win64":
-            dbg.p("System -> Windows", "Main")
+        if system() == "Windows":
+            dbg.p("System -> Windows", "MainWindow")
         elif system() == "Darwin":
-            dbg.p("System -> Unix/Linus", "Main")
+            dbg.p("System -> Unix/Linus", "MainWindow")
         else:
-            dbg.p("System -> Other", "Main")
+            dbg.p("System -> Other", "MainWindow")
 
         QMainWindow.__init__(self)
         self.ui = Ui_MainWindow()
@@ -808,6 +738,7 @@ class MainWindow(QMainWindow):
 
         self.ui.actionOpen_h5.triggered.connect(self.act_open_h5)
         self.ui.actionOpen_pt3.triggered.connect(self.act_open_pt3)
+        self.ui.actionSave_Selected.triggered.connect(self.act_save_selected)
         self.ui.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
         self.ui.actionSwitch_All.triggered.connect(self.act_switch_all)
         self.ui.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
@@ -821,7 +752,8 @@ class MainWindow(QMainWindow):
         # Connect the tree selection to data display
         self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
-        self.part_nodes = dict()
+        self.part_nodes = list()
+        self.part_index = list()
 
         self.tauparam = None
         self.ampparam = None
@@ -830,7 +762,7 @@ class MainWindow(QMainWindow):
         self.irfbg = None
         self.start = None
         self.end = None
-        self.addopt = None
+        self.adopt = None
 
         self.statusBar().showMessage('Ready...')
         self.progress = QProgressBar(self)
@@ -895,7 +827,7 @@ class MainWindow(QMainWindow):
 
         fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
-            of_worker = WorkerOpenFile(fname)
+            of_worker = WorkerOpenFile(fname, irf=False)
             of_worker.signals.openfile_finished.connect(self.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.start_progress)
             of_worker.signals.progress.connect(self.update_progress)
@@ -914,6 +846,43 @@ class MainWindow(QMainWindow):
         """ Allows a user to load a group of .pt3 files that are in a folder and loads them. NOT YET IMPLEMENTED. """
 
         print("act_open_pt3")
+
+    def act_save_selected(self):
+        """" Saves selected particles into a new HDF5 file."""
+
+        selected_nums = self.get_checked_nums()
+
+        if not len(selected_nums):
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle('Save Error')
+            msg.setText('No particles selected.')
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
+            return
+
+        fname, _ = QFileDialog.getSaveFileName(self, 'New or Existing HDF5 file', '',
+                                               'HDF5 files (*.h5)', options=QFileDialog.DontConfirmOverwrite)
+        if os.path.exists(fname[0]):
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Question)
+            msg.setWindowTitle('Add To Existing File')
+            msg.setText('Do you want to add selected particles to existing file?')
+            msg.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+            if msg.exec() == QMessageBox.Cancel:
+                return
+
+        if self.tree2dataset().name == fname:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle('Save Error')
+            msg.setText('Can''t add particles to currently opened file.')
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
+            return
+
+        self.tree2dataset().save_particles(fname, selected_nums)
+
 
     def act_trim(self):
         """ Used to trim the 'dead' part of a trace as defined by two parameters. """
@@ -943,7 +912,8 @@ class MainWindow(QMainWindow):
             self.ui.treeViewParticles.expand(self.datasetindex)
             self.ui.treeViewParticles.setCurrentIndex(index)
 
-        self.part_nodes[i] = particlenode
+        self.part_nodes.append(particlenode)
+        self.part_index.append(index)
 
     def tab_change(self, active_tab_index:int):
         if self.data_loaded and hasattr(self, 'currentparticle'):
@@ -986,7 +956,7 @@ class MainWindow(QMainWindow):
             self.lifetime_controller.plot_decay(remove_empty=False)
             self.lifetime_controller.plot_convd()
             self.lifetime_controller.update_results()
-            dbg.p('Current data displayed', 'Main')
+            dbg.p('Current data displayed', 'MainWindow')
 
     def status_message(self, message: str) -> None:
         """
@@ -1081,6 +1051,10 @@ class MainWindow(QMainWindow):
         """ Is called as soon as all of the threads have finished. """
 
         if self.data_loaded and not irf:
+            self.currentparticle = self.tree2particle(0)
+            self.ui.treeViewParticles.expandAll()
+            self.ui.treeViewParticles.setCurrentIndex(self.part_index[0])
+            self.display_data(self.part_index[1])
 
             msgbx = TimedMessageBox(30)
             msgbx.setIcon(QMessageBox.Question)
@@ -1104,8 +1078,7 @@ class MainWindow(QMainWindow):
         self.reset_gui()
         self.ui.gbxExport_Int.setEnabled(True)
         self.ui.chbEx_Trace.setEnabled(True)
-        self.currentparticle = self.tree2particle(0)
-        dbg.p('File opened', 'Main')
+        dbg.p('File opened', 'MainWindow')
 
 
     def start_binall_thread(self, bin_size) -> None:
@@ -1116,7 +1089,7 @@ class MainWindow(QMainWindow):
         bin_size
         """
 
-        dataset = self.treemodel.data(self.datasetindex, Qt.UserRole)
+        dataset = self.tree2dataset()
 
         binall_thread = WorkerBinAll(dataset, bin_all, bin_size)
         binall_thread.signals.resolve_finished.connect(self.binall_thread_complete)
@@ -1130,7 +1103,7 @@ class MainWindow(QMainWindow):
 
         self.status_message('Done')
         self.plot_trace()
-        dbg.p('Binnig all levels complete', 'BinAll Thread')
+        dbg.p('Binnig all levels complete', 'MainWindow')
 
     def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
         """
@@ -1156,9 +1129,14 @@ class MainWindow(QMainWindow):
         if mode == 'selected':
             selected = self.get_checked_particles()
 
-        resolve_thread = WorkerResolveLevels(self.resolve_levels, mode=mode, resolve_selected=selected)
-        resolve_thread.signals.finished.connect(thread_finished)
-        resolve_thread.signals.start_progress.connect(self.start_progress)
+        resolve_thread = WorkerResolveLevels(resolve_levels,
+                                             conf=self.confidence_index[self.ui.cmbConfIndex.currentIndex()],
+                                             data=self.tree2dataset(),
+                                             currentparticle=self.currentparticle,
+                                             mode=mode,
+                                             resolve_selected=selected)
+        resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
+        resolve_thread.signals. start_progress.connect(self.start_progress)
         resolve_thread.signals.progress.connect(self.update_progress)
         resolve_thread.signals.status_message.connect(self.status_message)
 
@@ -1212,7 +1190,7 @@ class MainWindow(QMainWindow):
                 for num in range(data.numpart):
                     data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
                     progress_sig.emit()
-                status_sig.emit('Ready...')
+                status_sig.emit('Done')
             except Exception as exc:
                 raise RuntimeError("Couldn't resolve levels.") from exc
 
@@ -1226,7 +1204,7 @@ class MainWindow(QMainWindow):
                 for particle in resolve_selected:
                     particle.cpts.run_cpa(confidence=conf, run_levels=True)
                     progress_sig.emit()
-                status_sig.emit('Ready...')
+                status_sig.emit('Done')
             except Exception as exc:
                 raise RuntimeError("Couldn't resolve levels.") from exc
 
@@ -1248,7 +1226,7 @@ class MainWindow(QMainWindow):
             self.ui.tabGrouping.setEnabled(True)
         if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.display_data()
-        dbg.p('Resolving levels complete', 'Resolve Thread')
+        dbg.p('Resolving levels complete', 'MainWindow')
         self.check_remove_bursts(mode=mode)
         self.ui.chbEx_Levels.setEnabled(True)
 
@@ -1304,7 +1282,7 @@ class MainWindow(QMainWindow):
                 data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
                 # assert data.
         except Exception as exc:
-            print('Switching frequency analysis failed: ' + exc)
+            dbg.p('Switching frequency analysis failed: ' + exc, "MainWidnow")
         else:
             pass
 
@@ -1400,36 +1378,37 @@ class MainWindow(QMainWindow):
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
 
-        dbg.p('Reset GUI', 'Main')
+        dbg.p('Reset GUI', 'MainWindow')
         if self.data_loaded:
-            enabled = True
+            new_state = True
         else:
-            enabled = False
+            new_state = False
 
         # Intensity
-        self.ui.tabIntensity.setEnabled(enabled)
-        self.ui.btnApplyBin.setEnabled(enabled)
-        self.ui.btnApplyBinAll.setEnabled(enabled)
-        self.ui.btnResolve.setEnabled(enabled)
-        self.ui.btnResolve_Selected.setEnabled(enabled)
-        self.ui.btnResolveAll.setEnabled(enabled)
-        self.ui.cmbConfIndex.setEnabled(enabled)
-        self.ui.spbBinSize.setEnabled(enabled)
-        self.ui.actionReset_Analysis.setEnabled(enabled)
-        if enabled:
+        self.ui.tabIntensity.setEnabled(new_state)
+        self.ui.btnApplyBin.setEnabled(new_state)
+        self.ui.btnApplyBinAll.setEnabled(new_state)
+        self.ui.btnResolve.setEnabled(new_state)
+        self.ui.btnResolve_Selected.setEnabled(new_state)
+        self.ui.btnResolveAll.setEnabled(new_state)
+        self.ui.cmbConfIndex.setEnabled(new_state)
+        self.ui.spbBinSize.setEnabled(new_state)
+        self.ui.actionReset_Analysis.setEnabled(new_state)
+        self.ui.actionSave_Selected.setEnabled(new_state)
+        if new_state:
             enable_levels = self.level_resolved
         else:
-            enable_levels = enabled
+            enable_levels = new_state
         self.ui.actionTrim_Dead_Traces.setEnabled(enable_levels)
 
         # Lifetime
-        self.ui.tabLifetime.setEnabled(enabled)
-        self.ui.btnFitParameters.setEnabled(enabled)
-        self.ui.btnLoadIRF.setEnabled(enabled)
-        if enabled:
+        self.ui.tabLifetime.setEnabled(new_state)
+        self.ui.btnFitParameters.setEnabled(new_state)
+        self.ui.btnLoadIRF.setEnabled(new_state)
+        if new_state:
             enable_fitting = self.irf_loaded
         else:
-            enable_fitting = enabled
+            enable_fitting = new_state
         self.ui.btnFit.setEnabled(enable_fitting)
         self.ui.btnFitAll.setEnabled(enable_fitting)
         self.ui.btnFitSelected.setEnabled(enable_fitting)
@@ -1439,7 +1418,7 @@ class MainWindow(QMainWindow):
         # Spectral
         if self.has_spectra:
             self.ui.tabSpectra.setEnabled(True)
-            self.ui.btnSubBackground.setEnabled(enabled)
+            self.ui.btnSubBackground.setEnabled(new_state)
         else:
             self.ui.tabSpectra.setEnabled(False)
 
@@ -1453,7 +1432,7 @@ class MainWindow(QMainWindow):
             self._current_level = None
         else:
             try:
-                print(self.currentparticle.current2data(value))
+                # print(self.currentparticle.current2data(value))
                 self._current_level = value
             except:
                 pass
@@ -1487,11 +1466,11 @@ class IntController(QObject):
         try:
             self.mainwindow.currentparticle.binints(self.get_bin())
         except Exception as err:
-            print('Error Occured:' + str(err))
+            dbg.p('Error Occured:' + str(err), "IntController")
         else:
             self.mainwindow.display_data()
             self.mainwindow.repaint()
-            dbg.p('Single trace binned', 'Main')
+            dbg.p('Single trace binned', 'IntController')
 
     def get_bin(self) -> int:
         """ Returns current GUI value for bin size in ms.
@@ -1520,11 +1499,11 @@ class IntController(QObject):
         try:
             self.mainwindow.start_binall_thread(self.get_bin())
         except Exception as err:
-            print('Error Occured:' + str(err))
+            dbg.p('Error Occured:' + str(err), "IntController")
         else:
             self.plot_trace()
             self.mainwindow.repaint()
-            dbg.p('All traces binned', 'Main')
+            dbg.p('All traces binned', 'IntController')
 
     def gui_resolve(self):
         """ Resolves the levels of the current particle and displays it. """
@@ -1549,7 +1528,7 @@ class IntController(QObject):
             trace = self.mainwindow.currentparticle.binnedtrace.intdata
             times = self.mainwindow.currentparticle.binnedtrace.inttimes / 1E3
         except AttributeError:
-            print('No trace!')
+            dbg.p('No trace!', 'IntController')
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
@@ -1579,14 +1558,14 @@ class IntController(QObject):
     def plot_levels(self):
         """ Used to plot the resolved intensity levels of the current particle. """
         currentparticle = self.mainwindow.currentparticle
-        print('levels plto')
+        # print('levels plto')
         try:
             level_ints, times = currentparticle.levels2data()
             level_ints = level_ints*self.get_bin()/1E3
-            print(level_ints)
+            # print(level_ints)
 
         except AttributeError:
-            print('No levels!')
+            dbg.p('No levels!', 'IntController')
         else:
             # if self.ui.tabIntensity.isActiveWindow():
             #     plot_item = self.ui.pgIntensity.getPlotItem()
@@ -1617,14 +1596,14 @@ class IntController(QObject):
         if self.mainwindow.current_level is not None:
             current_ints, current_times = currentparticle.current2data(self.mainwindow.current_level)
             current_ints = current_ints*self.get_bin()/1E3
-            print(current_ints, current_times)
+            # print(current_ints, current_times)
 
             if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
                 plot_pen.setColor(QColor('red'))
                 plot_pen.setWidthF(3)
                 plot_item.plot(x=current_times, y=current_ints, pen=plot_pen, symbol=None)
             else:
-                print('infinity in level')
+                dbg.p('Infinity in level', 'IntController')
 
     def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
         """
@@ -1649,9 +1628,9 @@ class IntController(QObject):
         _, conf = self.get_gui_confidence()
         data = self.mainwindow.tree2dataset()
         currentparticle = self.mainwindow.currentparticle
-        print(currentparticle)
+        # print(currentparticle)
 
-        print(mode)
+        # print(mode)
         if mode == 'current':
             # sig = WorkerSignals()
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
@@ -1684,7 +1663,7 @@ class IntController(QObject):
             self.mainwindow.display_data()
         self.mainwindow.check_remove_bursts(mode=mode)
         self.mainwindow.ui.chbEx_Levels.setEnabled(True)
-        dbg.p('Resolving levels complete', 'Resolve Thread')
+        dbg.p('Resolving levels complete', 'IntController')
 
         ###############################################################################################################
         # self.mainwindow.currentparticle.ahca.run_grouping()
@@ -1723,7 +1702,6 @@ class LifetimeController(QObject):
 
     def gui_next_lev(self):
         """ Moves to the next resolves level and displays its decay curve. """
-        print('bla')
 
         if self.mainwindow.current_level is None:
             self.mainwindow.current_level = 0
@@ -1770,7 +1748,7 @@ class LifetimeController(QObject):
     def gui_fit_current(self):
         """ Fits the all the levels decay curves in the current particle using the provided settings. """
 
-        print("gui_fit_current")
+        # print("gui_fit_current")
         try:
             if not self.mainwindow.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
                                                                  self.fitparam.shift, self.fitparam.decaybg, self.fitparam.irfbg,
@@ -1779,7 +1757,7 @@ class LifetimeController(QObject):
                 return  # fit unsuccessful
         except AttributeError:
             raise
-            print("No decay")
+            dgb.p("No decay", "Main")
         else:
             self.mainwindow.display_data()
 
@@ -1827,7 +1805,7 @@ class LifetimeController(QObject):
         """ Fits the all the levels decay curves for the current particle. """
 
         for level in self.mainwindow.currentparticle.levels:
-            print('level')
+            # print('level')
             try:
                 if not level.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
                                            self.fitparam.shift, self.fitparam.decaybg, self.fitparam.irfbg,
@@ -1835,14 +1813,14 @@ class LifetimeController(QObject):
                                            self.fitparam.irf):
                     pass  # fit unsuccessful
             except AttributeError:
-                print("No decay")
+                dbg.p("No decay", "LifetimeController")
         self.mainwindow.display_data()
 
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
         currentlevel = self.mainwindow.current_level
-        print(currentlevel)
+        # print(currentlevel)
         currentparticle = self.mainwindow.currentparticle
         if currentlevel is None:
             if currentparticle.histogram.fitted:
@@ -1854,7 +1832,7 @@ class LifetimeController(QObject):
                     t = currentparticle.histogram.t
 
                 except AttributeError:
-                    dbg.p(debug_print='No Decay!', debug_from='Main')
+                    dbg.p(debug_print='No Decay!', debug_from='LifetimeController')
                     return
         else:
             if currentparticle.levels[currentlevel].histogram.fitted:
@@ -1907,11 +1885,10 @@ class LifetimeController(QObject):
                 t = currentparticle.histogram.convd_t
 
             except AttributeError:
-                dbg.p(debug_print='No Decay!', debug_from='Main')
+                dbg.p(debug_print='No Decay!', debug_from='LifetimeController')
                 return
         else:
             try:
-                print('hier')
                 convd = currentparticle.levels[currentlevel].histogram.convd
                 t = currentparticle.levels[currentlevel].histogram.convd_t
             except ValueError:
@@ -1978,7 +1955,7 @@ class FittingDialog(QDialog, Ui_Dialog):
         try:
             model = self.make_model()
         except Exception as err:
-            dbg.p(debug_print='Error Occured:' + str(err), debug_from='Fitting Parameters')
+            dbg.p(debug_print='Error Occured:' + str(err), debug_from='FittingDialog')
             return
 
         fp = self.lifetime_controller.fitparam
@@ -1986,7 +1963,7 @@ class FittingDialog(QDialog, Ui_Dialog):
             irf = fp.irf
             irft = fp.irft
         except AttributeError:
-            dbg.p(debug_print='No IRF!', debug_from='Fitting Parameters')
+            dbg.p(debug_print='No IRF!', debug_from='FittingDialog')
             return
 
         shift, decaybg, irfbg, start, end = self.getparams()
@@ -2008,7 +1985,7 @@ class FittingDialog(QDialog, Ui_Dialog):
             irft = irft[irft > 0]
 
         except AttributeError:
-            dbg.p(debug_print='No Decay!', debug_from='Fitting Parameters')
+            dbg.p(debug_print='No Decay!', debug_from='FittingDialog')
         else:
             self.MW_fitparam.axes.clear()
             self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
@@ -2052,7 +2029,7 @@ class FittingDialog(QDialog, Ui_Dialog):
             tau2 = fp.tau[1][0]
             amp1 = fp.amp[0][0]
             amp2 = fp.amp[1][0]
-            print(amp1, amp2, tau1, tau2)
+            # print(amp1, amp2, tau1, tau2)
             model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2)
         elif fp.numexp == 3:
             tau1 = fp.tau[0][0]

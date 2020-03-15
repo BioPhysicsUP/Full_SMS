@@ -5,10 +5,12 @@ University of Pretoria
 2018
 """
 import traceback
+import os
 
 import re
 
 import h5py
+from typing import List
 import numpy as np
 import tcspcfit
 # from main.MainWindow import start_at_nonzero
@@ -70,33 +72,47 @@ class H5dataset:
             if progress and hasattr(self, 'progress_sig'):  # TODO: this is a hack and should be make cleaner
                 self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
 
-    def binints(self, binsize, progress_sig=None):
+    def bin_all_ints(self, binsize, progress_sig=None):
         """Bin the absolute times into traces using binsize
             binsize is in ms
         """
+
         if progress_sig is not None:
             self.progress_sig = progress_sig
 
-        if self.use_parallel:
-            pass
-            # self.bintsize_parallel = binsize
-            # if hasattr(self, 'progress_sig'):
-            #     self.prog_sig_parallel = progress_sig
-            # Parallel(n_jobs=-1, backend='threading')(
-            #     delayed(self.run_binints_parallel)(particle) for particle in self.particles
-            # )
-            # del self.bintsize_parallel, self.prog_sig_parallel
-        else:
-            for particle in self.particles:
-                particle.binints(binsize)
-                if hasattr(self, 'progress_sig'):
-                    self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
+        for particle in self.particles:
+            particle.binints(binsize)
+            if hasattr(self, 'progress_sig'):
+                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
         dbg.p('Binning all done', 'H5Dataset')
 
-    def run_binints_parallel(self, particle):
-        particle.binints(self.bintsize_parallel)
-        if hasattr(self, 'self.prog_sig_parallel'):
-            self.prog_sig_parallel.emit()
+    def save_particles(self, file_path, selected_nums: List[int]):
+        """ Save selected particle to a new or existing HDF5 file.
+
+        Parameters
+        ----------
+        file_path : str
+            Path to existing file, or to file that will be created.
+        selected_nums : List[int]
+            Particle numbers to be written to HDF5 file.
+        """
+
+        add = os.path.exists(file_path)
+        if add:
+            new_h5file = h5py.File(file_path, mode='r+')
+            num_existing = new_h5file.attrs.get('# Particles')
+        else:
+            new_h5file = h5py.File(file_path, mode='w')
+            num_existing = 0
+
+        for i, selected in enumerate(selected_nums):
+            new_h5file.copy(self.file[f'/Particle {selected}'], new_h5file, name=f'/Particle {num_existing+i+1}')
+
+        if add:
+            new_h5file.attrs.modify('# Particles', num_existing+len(selected_nums))
+        else:
+            new_h5file.attrs.create('# Particles', len(selected_nums))
+        new_h5file.close()
 
 
 class Particle:
@@ -252,17 +268,12 @@ class Particle:
 
         self.histogram = Histogram(self)
 
-
     def makelevelhists(self):
         """Make level histograms"""
 
-        if not self.has_levels:
-            print('No levels.')
-            return
-
-        for level in self.levels:
-            level.histogram = Histogram(self, level)
-
+        if self.has_levels:
+            for level in self.levels:
+                level.histogram = Histogram(self, level)
 
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""
@@ -318,7 +329,7 @@ class Histogram:
             self.decay = np.empty(1)
             self.t = np.empty(1)
         else:
-            print(self.microtimes)
+            # print(self.microtimes)
             tmin = min(self.particle.tmin, self.microtimes.min())
             tmax = max(self.particle.tmax, self.microtimes.max())
             window = tmax-tmin
@@ -394,7 +405,7 @@ class RasterScan:
         try:
             self.image = self.particle.datadict['Raster Scan']
         except KeyError:
-            print("Problem loading raster scan for " + self.particle.name)
+            dbg.p("Problem loading raster scan for " + self.particle.name, 'RasterScan')
             self.image = None
 
 
