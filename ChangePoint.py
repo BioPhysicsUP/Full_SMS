@@ -159,11 +159,6 @@ class ChangePoints:
         if self.cpa_has_run:
             self._cpa.reset(confidence)
         self._cpa.run_cpa(confidence)
-        # self.cpa_has_run = True
-        # self.num_cpts = self._cpa.num_cpts
-        # self.cpt_inds = self._cpa.cpt_inds
-        # self.conf_regions = self._cpa.conf_regions
-        # self.dt_uncertainty = self._cpa.dt_uncertainty
         if self._run_levels:
             self._cpa.define_levels()
             if self.has_levels:
@@ -699,22 +694,26 @@ class ChangePointAnalysis:
             self.num_levels = self.num_cpts + 1
             self.levels = [object()] * self.num_levels
 
-            for num, cpt in enumerate(self.cpt_inds):
-                if num == 0:  # First change point
-                    level_inds = (0, cpt - 1)
-                elif num == self.num_cpts - 1:  # Last change point
-                    level_inds = (cpt, self.num_photons - 1)
-                    self.levels[num + 1] = Level(self._abstimes, self._microtimes,
-                                            level_inds=level_inds)
-                                    # conf_regions=self.conf_regions[num + 1]
+            if self.num_cpts != 1:
+                for num, cpt in enumerate(self.cpt_inds):
+                    if num == 0:  # First change point
+                        level_inds = (0, cpt - 1)
+                    elif num == self.num_cpts - 1:  # Last change point
+                        level_inds = (cpt, self.num_photons - 1)
+                        self.levels[num + 1] = Level(self._abstimes, self._microtimes,
+                                                     level_inds=level_inds)
 
-                    level_inds = (self.cpt_inds[num - 1], cpt - 1)
-                else:
-                    level_inds = (self.cpt_inds[num - 1], cpt)
+                        level_inds = (self.cpt_inds[num - 1], cpt - 1)
+                    else:
+                        level_inds = (self.cpt_inds[num - 1], cpt)
 
-                self.levels[num] = Level(self._abstimes, self._microtimes,
-                                    level_inds=level_inds)
-                                # conf_regions=self.conf_regions[num]
+                    self.levels[num] = Level(self._abstimes, self._microtimes,
+                                        level_inds=level_inds)
+            else:
+                self.levels[0] = Level(self._abstimes, self._microtimes,
+                                       level_inds=(0, self.cpt_inds[0] - 1))
+                self.levels[1] = Level(self._abstimes, self._microtimes,
+                                       level_inds=(self.cpt_inds[0], self.num_photons - 1))
 
             self.has_levels = True
 

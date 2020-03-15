@@ -1835,6 +1835,8 @@
      <addaction name="actionOpen_pt3"/>
     </widget>
     <addaction name="menuOpen"/>
+    <addaction name="separator"/>
+    <addaction name="actionSave_Selected"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -1932,6 +1934,14 @@
    </property>
    <property name="text">
     <string>Levels</string>
+   </property>
+  </action>
+  <action name="actionSave_Selected">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Save Selected</string>
    </property>
   </action>
  </widget>
