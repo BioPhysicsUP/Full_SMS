@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'D:\OneDrive - University of Pretoria\# Code Dev\Full SMS\ui\fitting_dialog.ui'
+# Form implementation generated from reading ui file '/home/bertus/PycharmProjects/SMS-Python-port/ui/fitting_dialog.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.3
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
-from ui.matplotlibwidget import MatplotlibWidget as MplWidget
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
@@ -410,10 +410,9 @@ class Ui_Dialog(object):
         self.lineIRFBG.setObjectName("lineIRFBG")
         self.formLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.lineIRFBG)
         self.gridLayout_10.addWidget(self.frame, 1, 0, 1, 1)
-        self.MW_fitparam = MplWidget(self.right_frame)
-        self.MW_fitparam.setMinimumSize(QtCore.QSize(0, 200))
-        self.MW_fitparam.setObjectName("MW_fitparam")
-        self.gridLayout_10.addWidget(self.MW_fitparam, 2, 0, 1, 2)
+        self.pgFitParam = PlotWidget(self.right_frame)
+        self.pgFitParam.setObjectName("pgFitParam")
+        self.gridLayout_10.addWidget(self.pgFitParam, 2, 0, 1, 2)
         self.gridLayout_9.addWidget(self.right_frame, 2, 0, 1, 2)
         self.gridLayout_7.addWidget(self.frame_5, 1, 2, 1, 1)
 
@@ -436,12 +435,18 @@ class Ui_Dialog(object):
         self.label_3.setText(_translate("Dialog", "Initial"))
         self.label_2.setText(_translate("Dialog", "Lifetimes"))
         self.label_4.setText(_translate("Dialog", "Minimum"))
+        self.line1Min.setText(_translate("Dialog", "1"))
         self.label_6.setText(_translate("Dialog", "Fix value?"))
+        self.line1Max.setText(_translate("Dialog", "10"))
         self.label_5.setText(_translate("Dialog", "Maximum"))
+        self.line2Max2.setText(_translate("Dialog", "10"))
+        self.line2Min1.setText(_translate("Dialog", "0"))
+        self.line2Min2.setText(_translate("Dialog", "0"))
         self.label_10.setText(_translate("Dialog", "Fix value?"))
         self.label_9.setText(_translate("Dialog", "Initial"))
         self.label_8.setText(_translate("Dialog", "Maximum"))
         self.label_11.setText(_translate("Dialog", "Lifetimes"))
+        self.line2Max1.setText(_translate("Dialog", "10"))
         self.label_7.setText(_translate("Dialog", "Minimum"))
         self.label_15.setText(_translate("Dialog", "Fix value?"))
         self.label_13.setText(_translate("Dialog", "Maximum"))
@@ -456,7 +461,11 @@ class Ui_Dialog(object):
         self.label_22.setText(_translate("Dialog", "Fix value?"))
         self.label_24.setText(_translate("Dialog", "Maximum"))
         self.label_25.setText(_translate("Dialog", "Amplitudes"))
+        self.line2AmpMax1.setText(_translate("Dialog", "100000"))
+        self.line2AmpMax2.setText(_translate("Dialog", "100000"))
+        self.line2AmpMin2.setText(_translate("Dialog", "0"))
         self.label_26.setText(_translate("Dialog", "Minimum"))
+        self.line2AmpMin1.setText(_translate("Dialog", "0"))
         self.label_23.setText(_translate("Dialog", "Initial"))
         self.label_28.setText(_translate("Dialog", "Initial"))
         self.label_29.setText(_translate("Dialog", "Minimum"))
@@ -467,5 +476,7 @@ class Ui_Dialog(object):
         self.label_36.setText(_translate("Dialog", "End Time"))
         self.label_37.setText(_translate("Dialog", "Additional Options:"))
         self.label_32.setText(_translate("Dialog", "IRF Shift"))
+        self.lineShift.setText(_translate("Dialog", "0"))
         self.label_33.setText(_translate("Dialog", "Decay Background"))
         self.label_34.setText(_translate("Dialog", "IRF Background"))
+from pyqtgraph import PlotWidget
