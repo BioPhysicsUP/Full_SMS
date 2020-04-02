@@ -14,7 +14,7 @@ import h5py
 from typing import List
 import numpy as np
 import tcspcfit
-# from main.MainWindow import start_at_nonzero
+# from main.MainWindow import start_at_value
 import dbg
 from matplotlib import pyplot as plt
 import re
@@ -64,10 +64,11 @@ class H5dataset:
         assert self.numpart == self.file.attrs['# Particles']
         self.channelwidth = None
 
-    def makehistograms(self, progress=True, remove_zeros=True):
+    def makehistograms(self, progress=True, remove_zeros=True, startpoint=None):
         """Put the arrival times into histograms"""
 
         for particle in self.particles:
+            particle.startpoint = startpoint
             particle.makehistogram()
             particle.makelevelhists()
         if remove_zeros:
@@ -184,6 +185,8 @@ class Particle:
         self.binnedtrace = None
         self.bin_size = None
         self.numexp = None
+
+        self.startpoint = None
 
     # def get_levels(self):
     #     assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
@@ -305,14 +308,14 @@ class Particle:
     def makehistogram(self):
         """Put the arrival times into a histogram"""
 
-        self.histogram = Histogram(self)
+        self.histogram = Histogram(self, startpoint=self.startpoint)
 
     def makelevelhists(self):
         """Make level histograms"""
 
         if self.has_levels:
             for level in self.levels:
-                level.histogram = Histogram(self, level)
+                level.histogram = Histogram(self, level, self.startpoint)
 
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""
@@ -356,7 +359,7 @@ class Trace:
 
 class Histogram:
 
-    def __init__(self, particle, level=None):
+    def __init__(self, particle, level=None, startpoint=None):
         self.particle = particle
         self.level = level
         if level is None:
@@ -368,21 +371,38 @@ class Histogram:
             self.decay = np.empty(1)
             self.t = np.empty(1)
         else:
-            # print(self.microtimes)
-            tmin = min(self.particle.tmin, self.microtimes.min())
+            if startpoint is None:
+                tmin = min(self.particle.tmin, self.microtimes.min())
+            else:
+                tmin = startpoint
+
             tmax = max(self.particle.tmax, self.microtimes.max())
+
+            sorted_micro = np.sort(self.microtimes)
+            tmin = sorted_micro[np.searchsorted(sorted_micro, tmin)]  # Make sure bins align with TCSPC bins
+            tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # Fix if max is end
+
             window = tmax-tmin
             numpoints = int(window//self.particle.channelwidth)
 
-            t = np.linspace(0, window, numpoints)
+            # t = np.linspace(0, window, numpoints)
+            t = np.arange(tmin, tmax, self.particle.channelwidth)
 
             self.decay, self.t = np.histogram(self.microtimes, bins=t)
             self.t = self.t[:-1]  # Remove last value so the arrays are the same size
             self.decay = self.decay[self.t > 0]
             self.t = self.t[self.t > 0]
-            self.decaystart = np.nonzero(self.decay)[0][0]
-            if level is not None:
-                self.decay, self.t = start_at_nonzero(self.decay, self.t, neg_t=False)
+            if startpoint is None:
+                try:
+                    self.decaystart = np.nonzero(self.decay)[0][0]
+                except IndexError:  # Happens when there is a level with no photons
+                    pass
+                else:
+                    if level is not None:
+                        self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=self.decaystart)
+            # else:
+            #     self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=startpoint)
+
             # plt.plot(self.decay)
             # plt.show()
 
@@ -402,7 +422,7 @@ class Histogram:
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
 
-        # irf, irft = start_at_nonzero(irf, self.t, neg_t=False)
+        # irf, irft = start_at_value(irf, self.t, neg_t=False)
 
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
@@ -481,8 +501,9 @@ class Spectra:
 #         pass  # Change points code called here?
 
 
-def start_at_nonzero(decay, t, neg_t=True):
-    decaystart = np.nonzero(decay)[0][0]
+def start_at_value(decay, t, neg_t=True, decaystart=None):
+    if decaystart is None:
+        decaystart = np.nonzero(decay)[0][0]
     if neg_t:
         t -= t[decaystart]
     t = t[decaystart:]

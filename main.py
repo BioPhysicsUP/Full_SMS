@@ -28,7 +28,7 @@ import dbg
 import smsh5
 import tcspcfit
 from generate_sums import CPSums
-from smsh5 import start_at_nonzero
+from smsh5 import start_at_value
 from ui.TimedMessageBox import TimedMessageBox
 from ui.fitting_dialog import Ui_Dialog
 from ui.mainwindow import Ui_MainWindow
@@ -57,7 +57,7 @@ class WorkerSignals(QObject):
     data_loaded = pyqtSignal()
     bin_size = pyqtSignal(int)
 
-    add_irf = pyqtSignal(np.ndarray, np.ndarray)
+    add_irf = pyqtSignal(np.ndarray, np.ndarray, smsh5.H5dataset)
 
     level_resolved = pyqtSignal()
     reset_gui = pyqtSignal()
@@ -170,7 +170,7 @@ class WorkerOpenFile(QRunnable):
 
             irfhist = dataset.particles[0].histogram
             irfhist.t -= irfhist.t.min()
-            add_irf_sig.emit(irfhist.decay, irfhist.t)
+            add_irf_sig.emit(irfhist.decay, irfhist.t, dataset)
 
             start_progress_sig.emit(dataset.numpart)
             status_sig.emit("Done")
@@ -448,6 +448,16 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
     assert mode in ['current', 'selected', 'all'], \
         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
+    channelwidth = currentparticle.channelwidth
+    if fitparam.start is None:
+        start = None
+    else:
+        start = int(fitparam.start / channelwidth)
+    if fitparam.end is None:
+        end = None
+    else:
+        end = int(fitparam.end / channelwidth)
+
     if mode == 'current':  # Fit all levels in current particle
         status_sig.emit('Fitting Particle Levels...')
         start_progress_sig.emit(len(currentparticle.levels))
@@ -455,9 +465,9 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         for level in currentparticle.levels:
             try:
                 if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                           fitparam.shift / currentparticle.channelwidth, fitparam.decaybg,
+                                           fitparam.shift / channelwidth, fitparam.decaybg,
                                            fitparam.irfbg,
-                                           fitparam.start, fitparam.end, fitparam.addopt,
+                                           start, end, fitparam.addopt,
                                            fitparam.irf):
                     pass  # fit unsuccessful
                 progress_sig.emit()
@@ -472,9 +482,9 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 
         for particle in data.particles:
             if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                          fitparam.shift / currentparticle.channelwidth, fitparam.decaybg,
+                                          fitparam.shift / channelwidth, fitparam.decaybg,
                                           fitparam.irfbg,
-                                          fitparam.start, fitparam.end, fitparam.addopt,
+                                          start, end, fitparam.addopt,
                                           fitparam.irf):
                 pass  # fit unsuccessful
             particle.numexp = fitparam.numexp
@@ -484,9 +494,9 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
             for level in particle.levels:
                 try:
                     if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                               fitparam.shift / currentparticle.channelwidth, fitparam.decaybg,
+                                               fitparam.shift / channelwidth, fitparam.decaybg,
                                                fitparam.irfbg,
-                                               fitparam.start, fitparam.end, fitparam.addopt,
+                                               start, end, fitparam.addopt,
                                                fitparam.irf):
                         pass  # fit unsuccessful
                 except AttributeError:
@@ -500,17 +510,17 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         start_progress_sig.emit(len(resolve_selected))
         for particle in resolve_selected:
             if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                          fitparam.shift / currentparticle.channelwidth, fitparam.decaybg,
+                                          fitparam.shift / channelwidth, fitparam.decaybg,
                                           fitparam.irfbg,
-                                          fitparam.start, fitparam.end, fitparam.addopt,
+                                          start, end, fitparam.addopt,
                                           fitparam.irf):
                 pass  # fit unsuccessful
             for level in particle.levels:
                 try:
                     if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                               fitparam.shift / currentparticle.channelwidth, fitparam.decaybg,
+                                               fitparam.shift / channelwidth, fitparam.decaybg,
                                                fitparam.irfbg,
-                                               fitparam.start, fitparam.end, fitparam.addopt,
+                                               start, end, fitparam.addopt,
                                                fitparam.irf):
                         pass  # fit unsuccessful
                 except AttributeError:
@@ -894,6 +904,7 @@ class MainWindow(QMainWindow):
         self.ui.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
         self.ui.actionSwitch_All.triggered.connect(self.act_switch_all)
         self.ui.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
+        self.ui.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
         self.ui.btnEx_Current.clicked.connect(self.gui_export_current)
         self.ui.btnEx_Selected.clicked.connect(self.gui_export_selected)
         self.ui.btnEx_All.clicked.connect(self.gui_export_all)
@@ -1047,6 +1058,18 @@ class MainWindow(QMainWindow):
     def act_switch_selected(self):
 
         self.switching_frequency(all_selected='selected')
+
+    def act_set_startpoint(self):
+
+        start, ok = QInputDialog.getInt(self, 'Input Dialog', 'Enter startpoint:')
+        try:
+            self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start)
+        except Exception as exc:
+            print(exc)
+        if self.lifetime_controller.irf_loaded:
+            self.lifetime_controller.change_irf_start(start)
+        self.display_data()
+        dbg.p('Set startpoint', 'MainWindow')
 
     """#######################################
     ############ Internal Methods ############
@@ -1969,13 +1992,13 @@ class LifetimeController(QObject):
 
             self.mainwindow.threadpool.start(of_worker)
 
-    def add_irf(self, decay, t):
+    def add_irf(self, decay, t, irfdata):
 
         self.fitparam.irf = decay
         self.fitparam.irft = t
+        self.fitparam.irfdata = irfdata
         self.irf_loaded = True
         self.mainwindow.reset_gui
-
     def gui_fit_param(self):
         """ Opens a dialog to choose the setting with which the decay curve will be fitted. """
 
@@ -2051,7 +2074,6 @@ class LifetimeController(QObject):
         shiftstring = 'Shift = {:#.3g} ns'.format(shift)
         bgstring = 'Decay BG = {:#.3g}'.format(bg)
         irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
-        print(shiftstring)
         self.mainwindow.ui.textBrowser.setText(
             taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
             irfbgstring)
@@ -2216,6 +2238,15 @@ class LifetimeController(QObject):
         print(self.mainwindow.ui.chbEx_Lifetimes.isChecked())
         dbg.p('Fitting levels complete', 'Fitting Thread')
 
+    def change_irf_start(self, start):
+        pass
+        # ind = np.searchsorted(self.fitparam.irft, start)
+        # print(self.fitparam.irft)
+        # print(ind)
+        # self.fitparam.irft = self.fitparam.irft[ind:]
+        # self.fitparam.irf = self.fitparam.irf[ind:]
+        # print(self.fitparam.irft)
+
 
 class SpectraController(QObject):
 
@@ -2285,7 +2316,7 @@ class FittingDialog(QDialog, Ui_Dialog):
             decay = decay / decay.max()
             t = histogram.t
 
-            decay, t = start_at_nonzero(decay, t)
+            decay, t = start_at_value(decay, t)
             end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
 
             convd = convd[irft > 0]

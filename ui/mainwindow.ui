@@ -1893,7 +1893,14 @@
      </property>
      <addaction name="actionTrim_Dead_Traces"/>
     </widget>
+    <widget class="QMenu" name="menuLifetime">
+     <property name="title">
+      <string>Lifetime</string>
+     </property>
+     <addaction name="actionSet_Startpoint"/>
+    </widget>
     <addaction name="menuIntensity"/>
+    <addaction name="menuLifetime"/>
     <addaction name="actionReset_Analysis"/>
    </widget>
    <widget class="QMenu" name="menuAnalysis">
@@ -1987,6 +1994,11 @@
    </property>
    <property name="text">
     <string>Save Selected</string>
+   </property>
+  </action>
+  <action name="actionSet_Startpoint">
+   <property name="text">
+    <string>Set decay startpoint</string>
    </property>
   </action>
  </widget>
