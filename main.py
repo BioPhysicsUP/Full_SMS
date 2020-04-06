@@ -515,6 +515,8 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
                                           start, end, fitparam.addopt,
                                           fitparam.irf):
                 pass  # fit unsuccessful
+            if not particle.has_levels:
+                continue
             for level in particle.levels:
                 try:
                     if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
