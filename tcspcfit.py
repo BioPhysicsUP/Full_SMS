@@ -263,7 +263,7 @@ class FluoFit:
 
         """
         if startpoint is None:
-            self.startpoint = np.argmax(self.irf)
+            self.startpoint = np.argmax(measured)
         else:
             self.startpoint = startpoint
         if endpoint is None:

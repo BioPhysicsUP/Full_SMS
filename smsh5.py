@@ -420,12 +420,18 @@ class Histogram:
         self.irfbg = None
         self.avtau = None
 
-    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
+    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, shiftfix):
 
         # irf, irft = start_at_value(irf, self.t, neg_t=False)
 
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
+
+        if shiftfix:
+            shift = [shift, 1]
+
+        if start is None:
+            start = 0
 
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:

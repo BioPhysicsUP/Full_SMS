@@ -468,7 +468,7 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
                                            fitparam.shift / channelwidth, fitparam.decaybg,
                                            fitparam.irfbg,
                                            start, end, fitparam.addopt,
-                                           fitparam.irf):
+                                           fitparam.irf, fitparam.shiftfix):
                     pass  # fit unsuccessful
                 progress_sig.emit()
             except AttributeError:
@@ -481,26 +481,7 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         start_progress_sig.emit(data.numpart)
 
         for particle in data.particles:
-            if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                          fitparam.shift / channelwidth, fitparam.decaybg,
-                                          fitparam.irfbg,
-                                          start, end, fitparam.addopt,
-                                          fitparam.irf):
-                pass  # fit unsuccessful
-            particle.numexp = fitparam.numexp
-            progress_sig.emit()
-            if not particle.has_levels:
-                continue
-            for level in particle.levels:
-                try:
-                    if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                               fitparam.shift / channelwidth, fitparam.decaybg,
-                                               fitparam.irfbg,
-                                               start, end, fitparam.addopt,
-                                               fitparam.irf):
-                        pass  # fit unsuccessful
-                except AttributeError:
-                    print("No decay")
+            fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
         status_sig.emit("Ready...")
 
     elif mode == 'selected':  # Fit all levels in selected particles
@@ -509,29 +490,33 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         status_sig.emit('Resolving Selected Particle Levels...')
         start_progress_sig.emit(len(resolve_selected))
         for particle in resolve_selected:
-            if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                          fitparam.shift / channelwidth, fitparam.decaybg,
-                                          fitparam.irfbg,
-                                          start, end, fitparam.addopt,
-                                          fitparam.irf):
-                pass  # fit unsuccessful
-            if not particle.has_levels:
-                continue
-            for level in particle.levels:
-                try:
-                    if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                               fitparam.shift / channelwidth, fitparam.decaybg,
-                                               fitparam.irfbg,
-                                               start, end, fitparam.addopt,
-                                               fitparam.irf):
-                        pass  # fit unsuccessful
-                except AttributeError:
-                    print("No decay")
-            particle.numexp = fitparam.numexp
-            progress_sig.emit()
+            fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
         status_sig.emit('Ready...')
 
     reset_gui_sig.emit()
+
+
+def fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start):
+    if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
+                                  fitparam.shift / channelwidth, fitparam.decaybg,
+                                  fitparam.irfbg,
+                                  start, end, fitparam.addopt,
+                                  fitparam.irf, fitparam.shiftfix):
+        pass  # fit unsuccessful
+    particle.numexp = fitparam.numexp
+    progress_sig.emit()
+    if not particle.has_levels:
+        return
+    for level in particle.levels:
+        try:
+            if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
+                                       fitparam.shift / channelwidth, fitparam.decaybg,
+                                       fitparam.irfbg,
+                                       start, end, fitparam.addopt,
+                                       fitparam.irf, fitparam.shiftfix):
+                pass  # fit unsuccessful
+        except AttributeError:
+            print("No decay")
 
 
 class DatasetTreeNode(object):
@@ -891,6 +876,7 @@ class MainWindow(QMainWindow):
 
         self.ui.btnPrevLevel.clicked.connect(self.lifetime_controller.gui_prev_lev)
         self.ui.btnNextLevel.clicked.connect(self.lifetime_controller.gui_next_lev)
+        self.ui.btnWholeTrace.clicked.connect(self.lifetime_controller.gui_whole_trace)
         self.ui.btnLoadIRF.clicked.connect(self.lifetime_controller.gui_load_irf)
         self.ui.btnFitParameters.clicked.connect(self.lifetime_controller.gui_fit_param)
         self.ui.btnFitCurrent.clicked.connect(self.lifetime_controller.gui_fit_current)
@@ -1958,8 +1944,6 @@ class LifetimeController(QObject):
             self.mainwindow.current_level = None
         else:
             self.mainwindow.current_level -= 1
-        # self.plot_levels()
-        # self.plot_decay()
         self.mainwindow.display_data()
 
     def gui_next_lev(self):
@@ -1969,8 +1953,12 @@ class LifetimeController(QObject):
             self.mainwindow.current_level = 0
         else:
             self.mainwindow.current_level += 1
-        # self.plot_levels()
-        # self.plot_decay()
+        self.mainwindow.display_data()
+
+    def gui_whole_trace(self):
+        "Unselects selected level and shows whole trace's decay curve"
+
+        self.mainwindow.current_level = None
         self.mainwindow.display_data()
 
     def gui_load_irf(self):
@@ -2001,6 +1989,8 @@ class LifetimeController(QObject):
         self.fitparam.irfdata = irfdata
         self.irf_loaded = True
         self.mainwindow.reset_gui
+        self.fitparamdialog.updateplot()
+
     def gui_fit_param(self):
         """ Opens a dialog to choose the setting with which the decay curve will be fitted. """
 
@@ -2030,7 +2020,7 @@ class LifetimeController(QObject):
             if not histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
                                  shift, self.fitparam.decaybg, self.fitparam.irfbg,
                                  start, end, self.fitparam.addopt,
-                                 self.fitparam.irf):
+                                 self.fitparam.irf, self.fitparam.shiftfix):
                 return  # fit unsuccessful
         except AttributeError:
             dbg.p("No decay", "Lifetime Fitting")
@@ -2137,6 +2127,7 @@ class LifetimeController(QObject):
             unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
             plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            self.fitparamdialog.updateplot()
 
     def plot_convd(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
@@ -2257,6 +2248,7 @@ class SpectraController(QObject):
 
         self.mainwindow = mainwindow
 
+
     def gui_sub_bkg(self):
         """ Used to subtract the background TODO: Explain the sub_background """
 
@@ -2277,6 +2269,7 @@ class FittingDialog(QDialog, Ui_Dialog):
             widget.stateChanged.connect(self.updateplot)
         for widget in self.findChildren(QComboBox):
             widget.currentTextChanged.connect(self.updateplot)
+        self.updateplot()
 
         # self.lineStartTime.setValidator(QIntValidator())
         # self.lineEndTime.setValidator(QIntValidator())
@@ -2417,6 +2410,7 @@ class FittingParameters:
         self.tau = None
         self.amp = None
         self.shift = None
+        self.shiftfix = None
         self.decaybg = None
         self.irfbg = None
         self.start = None
@@ -2462,6 +2456,7 @@ class FittingParameters:
                           self.fpd.check3AmpFix3]]]
 
         self.shift = self.get_from_gui(self.fpd.lineShift)
+        self.shiftfix = self.get_from_gui(self.fpd.checkFixIRF)
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
         self.start = self.get_from_gui(self.fpd.lineStartTime)

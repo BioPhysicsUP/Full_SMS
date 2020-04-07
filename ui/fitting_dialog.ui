@@ -684,6 +684,62 @@
          <enum>QFrame::Raised</enum>
         </property>
         <layout class="QGridLayout" name="gridLayout_10">
+         <item row="1" column="0">
+          <widget class="QFrame" name="frame">
+           <property name="frameShape">
+            <enum>QFrame::NoFrame</enum>
+           </property>
+           <property name="frameShadow">
+            <enum>QFrame::Raised</enum>
+           </property>
+           <property name="lineWidth">
+            <number>0</number>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_8">
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_33">
+              <property name="text">
+               <string>Decay Background</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_32">
+              <property name="text">
+               <string>IRF Shift</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_34">
+              <property name="text">
+               <string>IRF Background</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1" colspan="2">
+             <widget class="QLineEdit" name="lineIRFBG"/>
+            </item>
+            <item row="0" column="3">
+             <widget class="QCheckBox" name="checkFixIRF">
+              <property name="text">
+               <string>Fix?</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1" rowspan="2" colspan="2">
+             <widget class="QLineEdit" name="lineShift">
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1" colspan="2">
+             <widget class="QLineEdit" name="lineDecayBG"/>
+            </item>
+           </layout>
+          </widget>
+         </item>
          <item row="1" column="1">
           <widget class="QFrame" name="frame_7">
            <property name="frameShape">
@@ -695,7 +751,7 @@
            <property name="lineWidth">
             <number>0</number>
            </property>
-           <layout class="QFormLayout" name="formLayout_3">
+           <layout class="QGridLayout" name="gridLayout_11">
             <item row="0" column="0">
              <widget class="QLabel" name="label_35">
               <property name="text">
@@ -725,55 +781,6 @@
             </item>
             <item row="2" column="1">
              <widget class="QLineEdit" name="lineAddOpt"/>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QFrame" name="frame">
-           <property name="frameShape">
-            <enum>QFrame::NoFrame</enum>
-           </property>
-           <property name="frameShadow">
-            <enum>QFrame::Raised</enum>
-           </property>
-           <property name="lineWidth">
-            <number>0</number>
-           </property>
-           <layout class="QFormLayout" name="formLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="label_32">
-              <property name="text">
-               <string>IRF Shift</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLineEdit" name="lineShift">
-              <property name="text">
-               <string>0</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="label_33">
-              <property name="text">
-               <string>Decay Background</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLineEdit" name="lineDecayBG"/>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="label_34">
-              <property name="text">
-               <string>IRF Background</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QLineEdit" name="lineIRFBG"/>
             </item>
            </layout>
           </widget>
