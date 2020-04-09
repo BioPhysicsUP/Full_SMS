@@ -2,7 +2,7 @@
 
 Bertus van Heerden and Joshua Botha
 University of Pretoria
-2019
+2020
 """
 
 __docformat__ = 'NumPy'
@@ -18,21 +18,29 @@ import numpy as np
 import scipy
 from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, \
     Qt, QThreadPool, QRunnable, pyqtSlot
-from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor, QIntValidator
+from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QLineEdit, QComboBox, QDialog, QCheckBox
+from PyQt5 import uic
 import pyqtgraph as pg
 from typing import Union
+import pkg_resources.py2_warn
 
+import tcspcfit
 import dbg
 import smsh5
-import tcspcfit
 from generate_sums import CPSums
 from smsh5 import start_at_value
 from ui.TimedMessageBox import TimedMessageBox
 from ui.fitting_dialog import Ui_Dialog
-from ui.mainwindow import Ui_MainWindow
+# from src.mainwindow import Ui_MainWindow
 from smsh5 import H5dataset, Particle
+import resource_manager as rm
+
+
+ui_file = rm.resource_path("ui\mainwindow.ui")
+# ui_file = "C:\\e57_Transformation\\main_window.ui"
+UI_Main_Window, _ = uic.loadUiType(ui_file)
 
 
 class WorkerSignals(QObject):
@@ -73,7 +81,7 @@ class WorkerOpenFile(QRunnable):
 
         Creates a QRunnable object (worker) to be run by a QThreadPool thread.
         This worker is intended to call the given function to open a h5 file
-        and populate the tree in the mainwindow gui.
+        and populate the tree in the mainwindow g
 
         Parameters
         ----------
@@ -203,14 +211,14 @@ class WorkerBinAll(QRunnable):
 
         Creates a QRunnable object (worker) to be run by a QThreadPool thread.
         This worker is intended to call the given function to open a h5 file
-        and populate the tree in the mainwindow gui.
+        and populate the tree in the mainwindow g
 
         Parameters
         ----------
         fname : str
             The name of the file.
         binall_func : function
-            Function to be called that will read the h5 file and populate the tree on the gui.
+            Function to be called that will read the h5 file and populate the tree on the g
         """
 
         super(WorkerBinAll, self).__init__()
@@ -327,11 +335,11 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
     reset_gui_sig
     data : H5dataset
     start_progress_sig : pyqtSignal
-        Used to call method to set up progress bar on GUI.
+        Used to call method to set up progress bar on G
     progress_sig : pyqtSignal
-        Used to call method to increment progress bar on GUI.
+        Used to call method to increment progress bar on G
     status_sig : pyqtSignal
-        Used to call method to show status bar message on GUI.
+        Used to call method to show status bar message on G
     mode : {'current', 'selected', 'all'}
         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
     resolve_selected : list[smsh5.Partilce]
@@ -360,7 +368,7 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
             status_sig.emit(status_text)
             start_progress_sig.emit(len(parts))
             for num, part in enumerate(parts):
-                dbg.p(f'Busy Resolving Particle {num+1}')
+                # dbg.p(f'Busy Resolving Particle {num + 1}')
                 part.cpts.run_cpa(confidence=conf, run_levels=True)
                 progress_sig.emit()
             status_sig.emit('Done')
@@ -433,11 +441,11 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
     Parameters
     ----------
     start_progress_sig : pyqtSignal
-        Used to call method to set up progress bar on GUI.
+        Used to call method to set up progress bar on G
     progress_sig : pyqtSignal
-        Used to call method to increment progress bar on GUI.
+        Used to call method to increment progress bar on G
     status_sig : pyqtSignal
-        Used to call method to show status bar message on GUI.
+        Used to call method to show status bar message on G
     mode : {'current', 'selected', 'all'}
         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
     resolve_selected : list[smsh5.Partilce]
@@ -769,12 +777,12 @@ class DatasetTreeModel(QAbstractItemModel):
 
 
 # noinspection PyUnresolvedReferences
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow, UI_Main_Window):
     """
     Class for Full SMS application that returns QMainWindow object.
 
-    This class uses a *.ui converted to a *.py script to generate gui. Be
-    sure to run convert_ui.py after having made changes to mainwindow.ui.
+    This class uses a *.ui converted to a *.py script to generate g Be
+    sure to run convert_py after having made changes to mainwindow.
     """
 
     def __init__(self):
@@ -801,50 +809,51 @@ class MainWindow(QMainWindow):
             dbg.p("System -> Other", "MainWindow")
 
         QMainWindow.__init__(self)
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
+        # self.ui = Ui_MainWindow()
+        UI_Main_Window.__init__(self)
+        self.setupUi(self)
 
-        self.setWindowIcon(QIcon('Full-SMS.ico'))
+        self.setWindowIcon(QIcon(rm.resource_path('Full-SMS.ico')))
 
-        self.ui.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(0)
 
         self.setWindowTitle("Full SMS")
 
-        self.ui.pgIntensity.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
-        self.ui.pgIntensity.getPlotItem().getAxis('bottom').setLabel('Time', 's')
-        self.ui.pgIntensity.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgIntensity.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.pgIntensity.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        self.pgIntensity.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.pgLifetime_Int.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
-        self.ui.pgLifetime_Int.getPlotItem().getAxis('bottom').setLabel('Time', 's')
-        # self.ui.pgLifetime_Int.getPlotItem().getViewBox()\
-        #     .setYLink(self.ui.pgIntensity.getPlotItem().getAxis('left').getViewBox())
-        # self.ui.pgLifetime_Int.getPlotItem().getViewBox()\
-        #     .setXLink(self.ui.pgIntensity.getPlotItem().getAxis('bottom').getViewBox())
-        self.ui.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgLifetime_Int.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.pgLifetime_Int.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        # self.pgLifetime_Int.getPlotItem().getViewBox()\
+        #     .setYLink(self.pgIntensity.getPlotItem().getAxis('left').getViewBox())
+        # self.pgLifetime_Int.getPlotItem().getViewBox()\
+        #     .setXLink(self.pgIntensity.getPlotItem().getAxis('bottom').getViewBox())
+        self.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.pgLifetime.getPlotItem().getAxis('left').setLabel('Num. of occur.', 'counts/bin')
-        self.ui.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
-        self.ui.pgLifetime.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgLifetime.getPlotItem().getAxis('left').setLabel('Num. of occur.', 'counts/bin')
+        self.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
+        self.pgLifetime.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.pgGroups.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
-        self.ui.pgGroups.getPlotItem().getAxis('bottom').setLabel('Time', 's')
-        self.ui.pgGroups.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgGroups.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.pgGroups.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        self.pgGroups.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.pgBIC.getPlotItem().getAxis('left').setLabel('BIC')
-        self.ui.pgBIC.getPlotItem().getAxis('bottom').setLabel('Number of State')
-        self.ui.pgBIC.getPlotItem().getViewBox().setLimits(xMin=0)
+        self.pgBIC.getPlotItem().getAxis('left').setLabel('BIC')
+        self.pgBIC.getPlotItem().getAxis('bottom').setLabel('Number of State')
+        self.pgBIC.getPlotItem().getViewBox().setLimits(xMin=0)
 
-        self.ui.pgSpectra.getPlotItem().getAxis('left').setLabel('X Range', 'um')
-        self.ui.pgSpectra.getPlotItem().getAxis('bottom').setLabel('Y Range', '<span>&#181;</span>m')
-        self.ui.pgSpectra.getPlotItem().getViewBox().setAspectLocked(lock=True, ratio=1)
-        self.ui.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgSpectra.getPlotItem().getAxis('left').setLabel('X Range', 'um')
+        self.pgSpectra.getPlotItem().getAxis('bottom').setLabel('Y Range', '<span>&#181;</span>m')
+        self.pgSpectra.getPlotItem().getViewBox().setAspectLocked(lock=True, ratio=1)
+        self.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
         self.int_controller = IntController(self)
         self.lifetime_controller = LifetimeController(self)
         self.spectra_controller = SpectraController(self)
 
-        plots = [self.ui.pgIntensity, self.ui.pgLifetime_Int, self.ui.pgLifetime,
-                 self.ui.pgGroups, self.ui.pgBIC, self.ui.pgSpectra, self.lifetime_controller.fitparamdialog.pgFitParam]
+        plots = [self.pgIntensity, self.pgLifetime_Int, self.pgLifetime,
+                 self.pgGroups, self.pgBIC, self.pgSpectra, self.lifetime_controller.fitparamdialog.pgFitParam]
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
         for plot in plots:
             # Set background and axis line width
@@ -856,9 +865,9 @@ class MainWindow(QMainWindow):
             # Set axis label bold and size
             font = plot_item.getAxis('left').label.font()
             font.setBold(True)
-            if plot == self.ui.pgLifetime_Int:
+            if plot == self.pgLifetime_Int:
                 font.setPointSize(8)
-            elif plot == self.ui.pgGroups:
+            elif plot == self.pgGroups:
                 font.setPointSize(10)
             else:
                 font.setPointSize(12)
@@ -868,40 +877,40 @@ class MainWindow(QMainWindow):
             plot.setAntialiasing(True)
 
         # Connect all GUI buttons with outside class functions
-        self.ui.btnApplyBin.clicked.connect(self.int_controller.gui_apply_bin)
-        self.ui.btnApplyBinAll.clicked.connect(self.int_controller.gui_apply_bin_all)
-        self.ui.btnResolve.clicked.connect(self.int_controller.gui_resolve)
-        self.ui.btnResolve_Selected.clicked.connect(self.int_controller.gui_resolve_selected)
-        self.ui.btnResolveAll.clicked.connect(self.int_controller.gui_resolve_all)
+        self.btnApplyBin.clicked.connect(self.int_controller.gui_apply_bin)
+        self.btnApplyBinAll.clicked.connect(self.int_controller.gui_apply_bin_all)
+        self.btnResolve.clicked.connect(self.int_controller.gui_resolve)
+        self.btnResolve_Selected.clicked.connect(self.int_controller.gui_resolve_selected)
+        self.btnResolveAll.clicked.connect(self.int_controller.gui_resolve_all)
 
-        self.ui.btnPrevLevel.clicked.connect(self.lifetime_controller.gui_prev_lev)
-        self.ui.btnNextLevel.clicked.connect(self.lifetime_controller.gui_next_lev)
-        self.ui.btnWholeTrace.clicked.connect(self.lifetime_controller.gui_whole_trace)
-        self.ui.btnLoadIRF.clicked.connect(self.lifetime_controller.gui_load_irf)
-        self.ui.btnFitParameters.clicked.connect(self.lifetime_controller.gui_fit_param)
-        self.ui.btnFitCurrent.clicked.connect(self.lifetime_controller.gui_fit_current)
-        self.ui.btnFit.clicked.connect(self.lifetime_controller.gui_fit_levels)
-        self.ui.btnFitSelected.clicked.connect(self.lifetime_controller.gui_fit_selected)
-        self.ui.btnFitAll.clicked.connect(self.lifetime_controller.gui_fit_all)
+        self.btnPrevLevel.clicked.connect(self.lifetime_controller.gui_prev_lev)
+        self.btnNextLevel.clicked.connect(self.lifetime_controller.gui_next_lev)
+        self.btnWholeTrace.clicked.connect(self.lifetime_controller.gui_whole_trace)
+        self.btnLoadIRF.clicked.connect(self.lifetime_controller.gui_load_irf)
+        self.btnFitParameters.clicked.connect(self.lifetime_controller.gui_fit_param)
+        self.btnFitCurrent.clicked.connect(self.lifetime_controller.gui_fit_current)
+        self.btnFit.clicked.connect(self.lifetime_controller.gui_fit_levels)
+        self.btnFitSelected.clicked.connect(self.lifetime_controller.gui_fit_selected)
+        self.btnFitAll.clicked.connect(self.lifetime_controller.gui_fit_all)
 
-        self.ui.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
+        self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
-        self.ui.actionOpen_h5.triggered.connect(self.act_open_h5)
-        self.ui.actionOpen_pt3.triggered.connect(self.act_open_pt3)
-        self.ui.actionSave_Selected.triggered.connect(self.act_save_selected)
-        self.ui.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
-        self.ui.actionSwitch_All.triggered.connect(self.act_switch_all)
-        self.ui.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
-        self.ui.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
-        self.ui.btnEx_Current.clicked.connect(self.gui_export_current)
-        self.ui.btnEx_Selected.clicked.connect(self.gui_export_selected)
-        self.ui.btnEx_All.clicked.connect(self.gui_export_all)
+        self.actionOpen_h5.triggered.connect(self.act_open_h5)
+        self.actionOpen_pt3.triggered.connect(self.act_open_pt3)
+        self.actionSave_Selected.triggered.connect(self.act_save_selected)
+        self.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
+        self.actionSwitch_All.triggered.connect(self.act_switch_all)
+        self.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
+        self.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
+        self.btnEx_Current.clicked.connect(self.gui_export_current)
+        self.btnEx_Selected.clicked.connect(self.gui_export_selected)
+        self.btnEx_All.clicked.connect(self.gui_export_all)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()
-        self.ui.treeViewParticles.setModel(self.treemodel)
+        self.treeViewParticles.setModel(self.treemodel)
         # Connect the tree selection to data display
-        self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
+        self.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
         self.part_nodes = list()
         self.part_index = list()
@@ -928,7 +937,7 @@ class MainWindow(QMainWindow):
 
         self._current_level = None
 
-        self.ui.tabWidget.currentChanged.connect(self.tab_change)
+        self.tabWidget.currentChanged.connect(self.tab_change)
 
         self.reset_gui()
         self.repaint()
@@ -938,23 +947,23 @@ class MainWindow(QMainWindow):
     #######################################"""
 
     def after_show(self):
-        self.ui.pgSpectra.resize(self.ui.tabSpectra.size().height(),
-                                 self.ui.tabSpectra.size().height() - self.ui.btnSubBackground.size().height() - 40)
+        self.pgSpectra.resize(self.tabSpectra.size().height(),
+                                 self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
 
     def resizeEvent(self, a0: QResizeEvent):
-        if self.ui.tabSpectra.size().height() <= self.ui.tabSpectra.size().width():
-            self.ui.pgSpectra.resize(self.ui.tabSpectra.size().height(),
-                                     self.ui.tabSpectra.size().height() - self.ui.btnSubBackground.size().height() - 40)
+        if self.tabSpectra.size().height() <= self.tabSpectra.size().width():
+            self.pgSpectra.resize(self.tabSpectra.size().height(),
+                                     self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
         else:
-            self.ui.pgSpectra.resize(self.ui.tabSpectra.size().width(),
-                                     self.ui.tabSpectra.size().width() - 40)
+            self.pgSpectra.resize(self.tabSpectra.size().width(),
+                                     self.tabSpectra.size().width() - 40)
 
     def check_all_sums(self) -> None:
         """
         Check if the all_sums.pickle file exists, and if it doesn't creates it
         """
-        if (not os.path.exists(os.getcwd() + '\\all_sums.pickle')) and \
-                (not os.path.isfile(os.getcwd() + '\\all_sums.pickle')):
+        if (not os.path.exists(rm.resource_path('all_sums.pickle'))) and \
+                (not os.path.isfile(rm.resource_path('all_sums.pickle'))):
             self.status_message('Calculating change point sums, this may take several minutes.')
             create_all_sums = CPSums(only_pickle=True, n_min=10, n_max=1000)
             del create_all_sums
@@ -988,7 +997,7 @@ class MainWindow(QMainWindow):
             of_worker.signals.add_particlenode.connect(self.add_node)
             of_worker.signals.reset_tree.connect(lambda: self.treemodel.modelReset.emit())
             of_worker.signals.data_loaded.connect(self.set_data_loaded)
-            of_worker.signals.bin_size.connect(self.ui.spbBinSize.setValue)
+            of_worker.signals.bin_size.connect(self.spbBinSize.setValue)
 
             self.threadpool.start(of_worker)
 
@@ -1071,15 +1080,15 @@ class MainWindow(QMainWindow):
 
         index = self.treemodel.addChild(particlenode, self.datasetindex, progress_sig)
         if i == 1:
-            self.ui.treeViewParticles.expand(self.datasetindex)
-            self.ui.treeViewParticles.setCurrentIndex(index)
+            self.treeViewParticles.expand(self.datasetindex)
+            self.treeViewParticles.setCurrentIndex(index)
 
         self.part_nodes.append(particlenode)
         self.part_index.append(index)
 
     def tab_change(self, active_tab_index: int):
         if self.data_loaded and hasattr(self, 'currentparticle'):
-            if self.ui.tabWidget.currentIndex() in [0, 1, 2, 3]:
+            if self.tabWidget.currentIndex() in [0, 1, 2, 3]:
                 self.display_data()
 
     def display_data(self, current=None, prev=None) -> None:
@@ -1108,13 +1117,13 @@ class MainWindow(QMainWindow):
             self.int_controller.plot_trace()
             if self.currentparticle.has_levels:
                 self.int_controller.plot_levels()
-                self.ui.btnGroup.setEnabled(True)
-                self.ui.btnGroup_Selected.setEnabled(True)
-                self.ui.btnGroup_All.setEnabled(True)
+                self.btnGroup.setEnabled(True)
+                self.btnGroup_Selected.setEnabled(True)
+                self.btnGroup_All.setEnabled(True)
             else:
-                self.ui.btnGroup.setEnabled(False)
-                self.ui.btnGroup_Selected.setEnabled(False)
-                self.ui.btnGroup_All.setEnabled(False)
+                self.btnGroup.setEnabled(False)
+                self.btnGroup_Selected.setEnabled(False)
+                self.btnGroup_All.setEnabled(False)
             self.lifetime_controller.plot_decay(remove_empty=False)
             self.lifetime_controller.plot_convd()
             self.lifetime_controller.update_results()
@@ -1214,8 +1223,8 @@ class MainWindow(QMainWindow):
 
         if self.data_loaded and not irf:
             self.currentparticle = self.tree2particle(0)
-            self.ui.treeViewParticles.expandAll()
-            self.ui.treeViewParticles.setCurrentIndex(self.part_index[0])
+            self.treeViewParticles.expandAll()
+            self.treeViewParticles.setCurrentIndex(self.part_index[0])
             self.display_data(self.part_index[1])
 
             msgbx = TimedMessageBox(30)
@@ -1235,11 +1244,11 @@ class MainWindow(QMainWindow):
                                                     "Select confidence interval to use.", confidences, 0, False)
                     if ok:
                         index = list(self.confidence_index.values()).index(int(float(item) * 100))
-                self.ui.cmbConfIndex.setCurrentIndex(index)
+                self.cmbConfIndex.setCurrentIndex(index)
                 self.int_controller.start_resolve_thread('all')
         self.reset_gui()
-        self.ui.gbxExport_Int.setEnabled(True)
-        self.ui.chbEx_Trace.setEnabled(True)
+        self.gbxExport_Int.setEnabled(True)
+        self.chbEx_Trace.setEnabled(True)
         dbg.p('File opened', 'MainWindow')
 
     def start_binall_thread(self, bin_size) -> None:
@@ -1291,7 +1300,7 @@ class MainWindow(QMainWindow):
             selected = self.get_checked_particles()
 
         resolve_thread = WorkerResolveLevels(resolve_levels,
-                                             conf=self.confidence_index[self.ui.cmbConfIndex.currentIndex()],
+                                             conf=self.confidence_index[self.cmbConfIndex.currentIndex()],
                                              data=self.tree2dataset(),
                                              currentparticle=self.currentparticle,
                                              mode=mode,
@@ -1300,7 +1309,7 @@ class MainWindow(QMainWindow):
         resolve_thread.signals.start_progress.connect(self.start_progress)
         resolve_thread.signals.progress.connect(self.update_progress)
         resolve_thread.signals.status_message.connect(self.status_message)
-        resolve_thread.signals.reset_gui.connect(self.reset_gui)
+        resolve_thread.signals.reset_gconnect(self.reset_gui)
 
         self.threadpool.start(resolve_thread)
 
@@ -1317,11 +1326,11 @@ class MainWindow(QMainWindow):
         Parameters
         ----------
         start_progress_sig : pyqtSignal
-            Used to call method to set up progress bar on GUI.
+            Used to call method to set up progress bar on G
         progress_sig : pyqtSignal
-            Used to call method to increment progress bar on GUI.
+            Used to call method to increment progress bar on G
         status_sig : pyqtSignal
-            Used to call method to show status bar message on GUI.
+            Used to call method to show status bar message on G
         mode : {'current', 'selected', 'all'}
             Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
         resolve_selected : list[smsh5.Partilce]
@@ -1385,12 +1394,12 @@ class MainWindow(QMainWindow):
         """
 
         if self.tree2dataset().cpa_has_run:
-            self.ui.tabGrouping.setEnabled(True)
-        if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+            self.tabGrouping.setEnabled(True)
+        if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.display_data()
         dbg.p('Resolving levels complete', 'MainWindow')
         self.check_remove_bursts(mode=mode)
-        self.ui.chbEx_Levels.setEnabled(True)
+        self.chbEx_Levels.setEnabled(True)
 
     def check_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
@@ -1502,10 +1511,10 @@ class MainWindow(QMainWindow):
         f_dir = QFileDialog.getExistingDirectory(self)
 
         if f_dir:
-            ex_traces = self.ui.chbEx_Trace.isChecked()
-            ex_levels = self.ui.chbEx_Levels.isChecked()
-            ex_lifetime = self.ui.chbEx_Lifetimes.isChecked()
-            ex_hist = self.ui.chbEx_Hist.isChecked()
+            ex_traces = self.chbEx_Trace.isChecked()
+            ex_levels = self.chbEx_Levels.isChecked()
+            ex_lifetime = self.chbEx_Lifetimes.isChecked()
+            ex_hist = self.chbEx_Hist.isChecked()
             for num, p in enumerate(particles):
                 if ex_traces:
                     tr_path = os.path.join(f_dir, p.name + ' trace.csv')
@@ -1629,44 +1638,44 @@ class MainWindow(QMainWindow):
             new_state = False
 
         # Intensity
-        self.ui.tabIntensity.setEnabled(new_state)
-        self.ui.btnApplyBin.setEnabled(new_state)
-        self.ui.btnApplyBinAll.setEnabled(new_state)
-        self.ui.btnResolve.setEnabled(new_state)
-        self.ui.btnResolve_Selected.setEnabled(new_state)
-        self.ui.btnResolveAll.setEnabled(new_state)
-        self.ui.cmbConfIndex.setEnabled(new_state)
-        self.ui.spbBinSize.setEnabled(new_state)
-        self.ui.actionReset_Analysis.setEnabled(new_state)
-        self.ui.actionSave_Selected.setEnabled(new_state)
+        self.tabIntensity.setEnabled(new_state)
+        self.btnApplyBin.setEnabled(new_state)
+        self.btnApplyBinAll.setEnabled(new_state)
+        self.btnResolve.setEnabled(new_state)
+        self.btnResolve_Selected.setEnabled(new_state)
+        self.btnResolveAll.setEnabled(new_state)
+        self.cmbConfIndex.setEnabled(new_state)
+        self.spbBinSize.setEnabled(new_state)
+        self.actionReset_Analysis.setEnabled(new_state)
+        self.actionSave_Selected.setEnabled(new_state)
         if new_state:
             enable_levels = self.level_resolved
         else:
             enable_levels = new_state
-        self.ui.actionTrim_Dead_Traces.setEnabled(enable_levels)
+        self.actionTrim_Dead_Traces.setEnabled(enable_levels)
 
         # Lifetime
-        self.ui.tabLifetime.setEnabled(new_state)
-        self.ui.btnFitParameters.setEnabled(new_state)
-        self.ui.btnLoadIRF.setEnabled(new_state)
+        self.tabLifetime.setEnabled(new_state)
+        self.btnFitParameters.setEnabled(new_state)
+        self.btnLoadIRF.setEnabled(new_state)
         if new_state:
             enable_fitting = self.lifetime_controller.irf_loaded
         else:
             enable_fitting = new_state
-        self.ui.btnFitCurrent.setEnabled(enable_fitting)
-        self.ui.btnFit.setEnabled(enable_fitting)
-        self.ui.btnFitAll.setEnabled(enable_fitting)
-        self.ui.btnFitSelected.setEnabled(enable_fitting)
-        self.ui.btnNextLevel.setEnabled(enable_levels)
-        self.ui.btnPrevLevel.setEnabled(enable_levels)
-        print(enable_levels)
+        self.btnFitCurrent.setEnabled(enable_fitting)
+        self.btnFit.setEnabled(enable_fitting)
+        self.btnFitAll.setEnabled(enable_fitting)
+        self.btnFitSelected.setEnabled(enable_fitting)
+        self.btnNextLevel.setEnabled(enable_levels)
+        self.btnPrevLevel.setEnabled(enable_levels)
+        # print(enable_levels)
 
         # Spectral
         if self.has_spectra:
-            self.ui.tabSpectra.setEnabled(True)
-            self.ui.btnSubBackground.setEnabled(new_state)
+            self.tabSpectra.setEnabled(True)
+            self.btnSubBackground.setEnabled(new_state)
         else:
-            self.ui.tabSpectra.setEnabled(False)
+            self.tabSpectra.setEnabled(False)
 
     @property
     def current_level(self):
@@ -1700,16 +1709,16 @@ class IntController(QObject):
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
 
-        # self.ui.pgSpectra.centralWidget
+        # self.pgSpectra.centralWidget
         #
-        # self.ui.pgIntensity.getPlotItem().setFixedWidth(500)
-        # self.ui.pgSpectra.resize(100, 200)
-        # self.ui.pgIntensity.getPlotItem().getAxis('left').setRange(0, 100)
+        # self.pgIntensity.getPlotItem().setFixedWidth(500)
+        # self.pgSpectra.resize(100, 200)
+        # self.pgIntensity.getPlotItem().getAxis('left').setRange(0, 100)
         # window_color = self.palette().color(QPalette.Window)
         # rgba_color = (window_color.red()/255, window_color.green()/255, window_color.blue()/255, 1)
-        # self.ui.pgIntensity.setBackground(background=rgba_color)
-        # self.ui.pgIntensity.setXRange(0, 10, 0)
-        # self.ui.pgIntensity.getPlotItem().plot(y=[1, 2, 3, 4, 5])
+        # self.pgIntensity.setBackground(background=rgba_color)
+        # self.pgIntensity.setXRange(0, 10, 0)
+        # self.pgIntensity.getPlotItem().plot(y=[1, 2, 3, 4, 5])
         try:
             self.mainwindow.currentparticle.binints(self.get_bin())
         except Exception as err:
@@ -1728,7 +1737,7 @@ class IntController(QObject):
             The value of the bin size on the GUI in spbBinSize.
         """
 
-        return self.mainwindow.ui.spbBinSize.value()
+        return self.mainwindow.spbBinSize.value()
 
     def set_bin(self, new_bin: int):
         """ Sets the GUI value for the bin size in ms
@@ -1738,7 +1747,7 @@ class IntController(QObject):
         new_bin: int
             Value to set bin size to, in ms.
         """
-        self.mainwindow.ui.spbBinSize.setValue(new_bin)
+        self.mainwindow.spbBinSize.setValue(new_bin)
 
     def gui_apply_bin_all(self):
         """ Changes the bin size of the data of all the particles and then displays the new trace of the current particle. """
@@ -1779,18 +1788,18 @@ class IntController(QObject):
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
-            cur_tab_name = self.mainwindow.ui.tabWidget.currentWidget().objectName()
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
             if cur_tab_name != 'tabSpectra':
                 if cur_tab_name == 'tabIntensity':
-                    plot_item = self.mainwindow.ui.pgIntensity.getPlotItem()
+                    plot_item = self.mainwindow.pgIntensity.getPlotItem()
                     plot_pen.setWidthF(1.5)
                     plot_pen.setColor(QColor('green'))
                 elif cur_tab_name == 'tabLifetime':
-                    plot_item = self.mainwindow.ui.pgLifetime_Int.getPlotItem()
+                    plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor('green'))
                 elif cur_tab_name == 'tabGrouping':
-                    plot_item = self.mainwindow.ui.pgGroups
+                    plot_item = self.mainwindow.pgGroups
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor(0, 0, 0, 50))
 
@@ -1814,19 +1823,19 @@ class IntController(QObject):
         except AttributeError:
             dbg.p('No levels!', 'IntController')
         else:
-            # if self.ui.tabIntensity.isActiveWindow():
-            #     plot_item = self.ui.pgIntensity.getPlotItem()
+            # if self.tabIntensity.isActiveWindow():
+            #     plot_item = self.pgIntensity.getPlotItem()
             #     print('int')
-            # elif self.ui.tabLifetime.isActiveWindow():
+            # elif self.tabLifetime.isActiveWindow():
             #     print('life')
-            #     plot_item = self.ui.pgLifetime_Int.getPlotItem()
+            #     plot_item = self.pgLifetime_Int.getPlotItem()
             # else:
             #     return
-            if self.mainwindow.ui.tabWidget.currentWidget().objectName() == 'tabIntensity':
-                plot_item = self.mainwindow.ui.pgIntensity.getPlotItem()
+            if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabIntensity':
+                plot_item = self.mainwindow.pgIntensity.getPlotItem()
                 # pen_width = 1.5
-            elif self.mainwindow.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
-                plot_item = self.mainwindow.ui.pgLifetime_Int.getPlotItem()
+            elif self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
+                plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
                 # pen_width = 1.1
             else:
                 return
@@ -1905,11 +1914,11 @@ class IntController(QObject):
 
     def resolve_thread_complete(self, mode):
         if self.mainwindow.tree2dataset().cpa_has_run:
-            self.mainwindow.ui.tabGrouping.setEnabled(True)
-        if self.mainwindow.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+            self.mainwindow.tabGrouping.setEnabled(True)
+        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.check_remove_bursts(mode=mode)
-        self.mainwindow.ui.chbEx_Levels.setEnabled(True)
+        self.mainwindow.chbEx_Levels.setEnabled(True)
         dbg.p('Resolving levels complete', 'IntController')
 
         ###############################################################################################################
@@ -1919,8 +1928,8 @@ class IntController(QObject):
     def get_gui_confidence(self):
         """ Return current GUI value for confidence percentage. """
 
-        return [self.mainwindow.ui.cmbConfIndex.currentIndex(),
-                self.confidence_index[self.mainwindow.ui.cmbConfIndex.currentIndex()]]
+        return [self.mainwindow.cmbConfIndex.currentIndex(),
+                self.confidence_index[self.mainwindow.cmbConfIndex.currentIndex()]]
 
 
 class LifetimeController(QObject):
@@ -1977,7 +1986,7 @@ class LifetimeController(QObject):
             of_worker.signals.add_particlenode.connect(self.mainwindow.add_node)
             of_worker.signals.reset_tree.connect(lambda: self.mainwindow.treemodel.modelReset.emit())
             of_worker.signals.data_loaded.connect(self.mainwindow.set_data_loaded)
-            of_worker.signals.bin_size.connect(self.mainwindow.ui.spbBinSize.setValue)
+            of_worker.signals.bin_size.connect(self.mainwindow.spbBinSize.setValue)
             of_worker.signals.add_irf.connect(self.add_irf)
 
             self.mainwindow.threadpool.start(of_worker)
@@ -2066,7 +2075,7 @@ class LifetimeController(QObject):
         shiftstring = 'Shift = {:#.3g} ns'.format(shift)
         bgstring = 'Decay BG = {:#.3g}'.format(bg)
         irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
-        self.mainwindow.ui.textBrowser.setText(
+        self.mainwindow.textBrowser.setText(
             taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
             irfbgstring)
 
@@ -2102,8 +2111,8 @@ class LifetimeController(QObject):
         if decay.size == 0:
             return  # some levels have no photons
 
-        if self.mainwindow.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
-            plot_item = self.mainwindow.ui.pgLifetime.getPlotItem()
+        if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
+            plot_item = self.mainwindow.pgLifetime.getPlotItem()
             plot_pen = QPen()
             plot_pen.setWidthF(1.5)
             plot_pen.setJoinStyle(Qt.RoundJoin)
@@ -2154,8 +2163,8 @@ class LifetimeController(QObject):
 
         # convd = convd / convd.max()
 
-        if self.mainwindow.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
-            plot_item = self.mainwindow.ui.pgLifetime.getPlotItem()
+        if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
+            plot_item = self.mainwindow.pgLifetime.getPlotItem()
             plot_pen = QPen()
             plot_pen.setWidthF(4)
             plot_pen.setJoinStyle(Qt.RoundJoin)
@@ -2218,17 +2227,17 @@ class LifetimeController(QObject):
         fitting_thread.signals.start_progress.connect(self.mainwindow.start_progress)
         fitting_thread.signals.progress.connect(self.mainwindow.update_progress)
         fitting_thread.signals.status_message.connect(self.mainwindow.status_message)
-        fitting_thread.signals.reset_gui.connect(self.mainwindow.reset_gui)
+        fitting_thread.signals.reset_gconnect(self.mainwindow.reset_gui)
 
         self.mainwindow.threadpool.start(fitting_thread)
 
     def fitting_thread_complete(self, mode):
-        if self.mainwindow.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
-        self.mainwindow.ui.chbEx_Lifetimes.setEnabled(False)
-        self.mainwindow.ui.chbEx_Lifetimes.setEnabled(True)
-        self.mainwindow.ui.chbEx_Hist.setEnabled(True)
-        print(self.mainwindow.ui.chbEx_Lifetimes.isChecked())
+        self.mainwindow.chbEx_Lifetimes.setEnabled(False)
+        self.mainwindow.chbEx_Lifetimes.setEnabled(True)
+        self.mainwindow.chbEx_Hist.setEnabled(True)
+        print(self.mainwindow.chbEx_Lifetimes.isChecked())
         dbg.p('Fitting levels complete', 'Fitting Thread')
 
     def change_irf_start(self, start):
@@ -2490,14 +2499,16 @@ def main():
     """
     Creates QApplication and runs MainWindow().
     """
-    # convert_ui.convert_ui()
+    # convert_convert_ui()
     app = QApplication([])
+    print('Currently used style:', app.style().metaObject().className())
+    print('Available styles:', QtWidgets.QStyleFactory.keys())
     dbg.p(debug_print='App created', debug_from='Main')
     main_window = MainWindow()
     dbg.p(debug_print='Main Window created', debug_from='Main')
     main_window.show()
     main_window.after_show()
-    main_window.ui.tabSpectra.repaint()
+    main_window.tabSpectra.repaint()
     dbg.p(debug_print='Main Window shown', debug_from='Main')
     app.exec_()
     dbg.p(debug_print='App excuted', debug_from='Main')

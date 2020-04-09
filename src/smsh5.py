@@ -7,20 +7,16 @@ University of Pretoria
 import traceback
 import os
 
-import re
 import ast
 
 import h5py
 from typing import List
 import numpy as np
 import tcspcfit
+import dbg
 # from main.MainWindow import start_at_value
-import dbg
-from matplotlib import pyplot as plt
 import re
-from generate_sums import CPSums
 from PyQt5.QtCore import pyqtSignal
-import dbg
 from ChangePoint import ChangePoints
 from ClusteringGrouping import AHCA
 from generate_sums import CPSums
