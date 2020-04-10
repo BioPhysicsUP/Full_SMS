@@ -20,7 +20,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, \
     Qt, QThreadPool, QRunnable, pyqtSlot
 from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
-    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox
+    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox, QStyleFactory
 from PyQt5 import uic
 import pyqtgraph as pg
 from typing import Union
@@ -2502,7 +2502,7 @@ def main():
     # convert_convert_ui()
     app = QApplication([])
     print('Currently used style:', app.style().metaObject().className())
-    print('Available styles:', QtWidgets.QStyleFactory.keys())
+    print('Available styles:', QStyleFactory.keys())
     dbg.p(debug_print='App created', debug_from='Main')
     main_window = MainWindow()
     dbg.p(debug_print='Main Window created', debug_from='Main')

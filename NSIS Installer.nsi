@@ -1,7 +1,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-;            https://github.com/SuperPat45/UltraModernUI
+;            Must istall NSIS 3.0 or higher.
+;            To create installer, run the following command:
 ;            makensis "NSIS Installer.nsi"
+;            or to see all output:
+;            makensis /V4 "NSIS Installer.nsi"
 ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
@@ -119,7 +122,6 @@ UninstPage instfiles
 
 AutoCloseWindow false
 ;ShowInstDetails show
-
 
 !ifdef screenimage
 
