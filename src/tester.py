@@ -1,8 +1,5 @@
-import numpy as np
-from scipy.signal import convolve
-from tcspcfit import *
+from src.tcspcfit import *
 from matplotlib import pyplot as plt
-import os
 import matplotlib as mpl
 mpl.rcParams.update({'font.size': 16})
 

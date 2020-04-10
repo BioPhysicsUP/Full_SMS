@@ -11,6 +11,7 @@ import numpy as np
 import pickle
 import dbg
 from PyQt5.QtCore import pyqtSignal
+import resource_manager as rm
 
 
 class CPSums:
@@ -41,8 +42,9 @@ class CPSums:
         if only_pickle:
             self._calc_and_store()
         else:
-            if os.path.exists(os.getcwd() + os.sep + 'all_sums.pickle') and os.path.isfile(os.getcwd() + os.sep + 'all_sums.pickle'):
-                all_sums_file = open('all_sums.pickle', 'rb')
+            if os.path.exists(rm.resource_path('all_sums.pickle')) \
+                    and os.path.isfile(rm.resource_path('all_sums.pickle')):
+                all_sums_file = open(rm.resource_path('all_sums.pickle'), 'rb')
                 all_sums = dict(pickle.load(all_sums_file))
                 all_sums_file.close()
                 if ('version' not in all_sums.keys()) or all_sums['version'] != self._version:
@@ -65,7 +67,7 @@ class CPSums:
         tot_inds = sum(n for n in range(self.n_min, self.n_max))
         # print(tot_inds)
         accum_inds = int()
-        dbg.u('Calculating sums: [{0}] {1}%'.format(' '*20, 0.0), 'CPSums')
+        dbg.u('Calculating sums: [{0}] {1}%'.format(' ' * 20, 0.0), 'CPSums')
         for n in range(self.n_min+1, self.n_max+1):
             self._sums_sig_e[n-self.n_min-1] = (np.pi**2)/6 \
                                                     - sum(1/j**2 for j in range(1, (n-1)+1))
@@ -80,7 +82,7 @@ class CPSums:
             if hasattr(self, 'prog_sig') and self.prog_sig is not None:
                 self.prog_sig.emit(prog, 'Calculating change point sums...')
             prog20 = int(prog//5)
-            dbg.u('Calculating sums: [{0}{1}] {2}%'.format('#'*prog20, ' '*(20-prog20), prog),
+            dbg.u('Calculating sums: [{0}{1}] {2}%'.format('#' * prog20, ' ' * (20 - prog20), prog),
                   'CPSums', n == self.n_max)
         # dbg.p('Calculating sums: [{0}] {1}%'.format('#'*20, 100.0), 'CPSums')
     
@@ -94,7 +96,7 @@ class CPSums:
             'sums_v2_n_k': self._sums_v2_n_k,
             'sums_sig_e': self._sums_sig_e
         }
-        all_sums_file = open('all_sums.pickle', 'wb')
+        all_sums_file = open(rm.resource_path('all_sums.pickle'), 'wb')
         pickle.dump(all_sums, all_sums_file)
         all_sums_file.close()
     
