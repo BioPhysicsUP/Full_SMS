@@ -38,7 +38,7 @@ from smsh5 import H5dataset, Particle
 import resource_manager as rm
 
 
-ui_file = rm.resource_path("ui\mainwindow.ui")
+ui_file = rm.resource_path("ui/mainwindow.ui")
 # ui_file = "C:\\e57_Transformation\\main_window.ui"
 UI_Main_Window, _ = uic.loadUiType(ui_file)
 
@@ -69,6 +69,7 @@ class WorkerSignals(QObject):
 
     level_resolved = pyqtSignal()
     reset_gui = pyqtSignal()
+    set_start = pyqtSignal(float)
 
 
 class WorkerOpenFile(QRunnable):
@@ -135,6 +136,7 @@ class WorkerOpenFile(QRunnable):
         add_node_sig = self.signals.add_particlenode
         reset_tree_sig = self.signals.reset_tree
         data_loaded_sig = self.signals.data_loaded
+        set_start_sig = self.signals.set_start
 
         try:
             dataset = self.load_data(fname)
@@ -149,6 +151,30 @@ class WorkerOpenFile(QRunnable):
                 add_node_sig.emit(particlenode, progress_sig, i)
                 progress_sig.emit()
             reset_tree_sig.emit()
+
+            starttimes = []
+            for particle in dataset.particles:
+                # Find max, then search backward for first zero to find the best startpoint
+                decay = particle.histogram.decay
+                histmax_ind = np.argmax(decay)
+                reverse = decay[:histmax_ind][::-1]
+                zeros_rev = np.where(reverse == 0)[0]
+                length = 0
+                start_ind_rev = zeros_rev[0]
+                for i, val in enumerate(zeros_rev[:-1]):
+                    if zeros_rev[i+1] - val > 1:
+                        length = 0
+                        continue
+                    length +=1
+                    if length >= 10:
+                        start_ind_rev = val
+                        break
+                start_ind = histmax_ind - start_ind_rev
+                starttime = particle.histogram.t[start_ind]
+                starttimes.append(starttime)
+            av_start = np.average(starttimes)
+            set_start_sig.emit(av_start)
+
             status_sig.emit("Done")
             data_loaded_sig.emit()
         except Exception as exc:
@@ -998,6 +1024,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             of_worker.signals.reset_tree.connect(lambda: self.treemodel.modelReset.emit())
             of_worker.signals.data_loaded.connect(self.set_data_loaded)
             of_worker.signals.bin_size.connect(self.spbBinSize.setValue)
+            of_worker.signals.set_start.connect(self.set_startpoint)
 
             self.threadpool.start(of_worker)
 
@@ -1059,12 +1086,19 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def act_set_startpoint(self):
 
         start, ok = QInputDialog.getInt(self, 'Input Dialog', 'Enter startpoint:')
+        self.set_startpoint(start)
+
+    def set_startpoint(self, start=None):
+        if start is None:
+            start = self.lifetime_controller.startpoint
         try:
             self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start)
         except Exception as exc:
             print(exc)
         if self.lifetime_controller.irf_loaded:
             self.lifetime_controller.change_irf_start(start)
+        if self.lifetime_controller.startpoint is None:
+            self.lifetime_controller.startpoint = start
         self.display_data()
         dbg.p('Set startpoint', 'MainWindow')
 
@@ -1399,6 +1433,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.display_data()
         dbg.p('Resolving levels complete', 'MainWindow')
         self.check_remove_bursts(mode=mode)
+        self.set_startpoint()
         self.chbEx_Levels.setEnabled(True)
 
     def check_remove_bursts(self, mode: str = None) -> None:
@@ -1428,7 +1463,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     if has_burst[num]:
                         particle.cpts.remove_bursts()
             self.tree2dataset().makehistograms()
-            print('hier')
 
             self.display_data()
 
@@ -1943,6 +1977,7 @@ class LifetimeController(QObject):
         self.irf_loaded = False
 
         self.first = 0
+        self.startpoint = None
 
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """
