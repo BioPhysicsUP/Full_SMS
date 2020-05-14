@@ -2262,7 +2262,7 @@ class LifetimeController(QObject):
         fitting_thread.signals.start_progress.connect(self.mainwindow.start_progress)
         fitting_thread.signals.progress.connect(self.mainwindow.update_progress)
         fitting_thread.signals.status_message.connect(self.mainwindow.status_message)
-        fitting_thread.signals.reset_gconnect(self.mainwindow.reset_gui)
+        fitting_thread.signals.reset_gui.connect(self.mainwindow.reset_gui)
 
         self.mainwindow.threadpool.start(fitting_thread)
 
