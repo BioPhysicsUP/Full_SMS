@@ -1953,6 +1953,7 @@ class IntController(QObject):
             self.mainwindow.display_data()
         self.mainwindow.check_remove_bursts(mode=mode)
         self.mainwindow.chbEx_Levels.setEnabled(True)
+        self.mainwindow.set_startpoint()
         dbg.p('Resolving levels complete', 'IntController')
 
         ###############################################################################################################
@@ -2032,6 +2033,7 @@ class LifetimeController(QObject):
         self.fitparam.irft = t
         self.fitparam.irfdata = irfdata
         self.irf_loaded = True
+        self.mainwindow.set_startpoint()
         self.mainwindow.reset_gui
         self.fitparamdialog.updateplot()
 
@@ -2276,7 +2278,14 @@ class LifetimeController(QObject):
         dbg.p('Fitting levels complete', 'Fitting Thread')
 
     def change_irf_start(self, start):
-        pass
+        print('hier')
+        dataset = self.fitparam.irfdata
+
+        dataset.makehistograms(remove_zeros=False, startpoint=start)
+        irfhist = dataset.particles[0].histogram
+        irfhist.t -= irfhist.t.min()
+        self.fitparam.irf = irfhist.decay
+        self.fitparam.irft = irfhist.t
         # ind = np.searchsorted(self.fitparam.irft, start)
         # print(self.fitparam.irft)
         # print(ind)
