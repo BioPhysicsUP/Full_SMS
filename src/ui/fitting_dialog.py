@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/home/bertus/PycharmProjects/SMS-Python-port/ui/fitting_dialog.ui'
+# Form implementation generated from reading ui file '/home/bertus/PycharmProjects/SMS-Python-port/src/ui/fitting_dialog.ui'
 #
-# Created by: PyQt5 UI code generator 5.14.1
+# Created by: PyQt5 UI code generator 5.14.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -438,7 +438,7 @@ class Ui_Dialog(object):
         self.label_3.setText(_translate("Dialog", "Initial"))
         self.label_2.setText(_translate("Dialog", "Lifetimes"))
         self.label_4.setText(_translate("Dialog", "Minimum"))
-        self.line1Min.setText(_translate("Dialog", "1"))
+        self.line1Min.setText(_translate("Dialog", "0"))
         self.label_6.setText(_translate("Dialog", "Fix value?"))
         self.line1Max.setText(_translate("Dialog", "10"))
         self.label_5.setText(_translate("Dialog", "Maximum"))

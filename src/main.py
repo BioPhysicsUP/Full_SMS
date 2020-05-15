@@ -70,13 +70,14 @@ class WorkerSignals(QObject):
     level_resolved = pyqtSignal()
     reset_gui = pyqtSignal()
     set_start = pyqtSignal(float)
+    set_tmin = pyqtSignal(float)
 
 
 class WorkerOpenFile(QRunnable):
     """ A QRunnable class to create a worker thread for opening h5 file. """
 
     # def __init__(self, fn, *args, **kwargs):
-    def __init__(self, fname, irf=False):
+    def __init__(self, fname, irf=False, tmin=None):
         """
         Initiate Open File Worker
 
@@ -100,13 +101,14 @@ class WorkerOpenFile(QRunnable):
         self.signals = WorkerSignals()
         self.fname = fname
         self.irf = irf
+        self.tmin = tmin
 
     @pyqtSlot()
     def run(self) -> None:
         """ The code that will be run when the thread is started. """
 
         try:
-            self.openfile_func(self.fname)
+            self.openfile_func(self.fname, self.tmin)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -114,7 +116,7 @@ class WorkerOpenFile(QRunnable):
         finally:
             self.signals.openfile_finished.emit(self.irf)
 
-    def open_h5(self, fname) -> None:
+    def open_h5(self, fname, tmin=None) -> None:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
 
@@ -137,6 +139,7 @@ class WorkerOpenFile(QRunnable):
         reset_tree_sig = self.signals.reset_tree
         data_loaded_sig = self.signals.data_loaded
         set_start_sig = self.signals.set_start
+        set_tmin_sig = self.signals.set_tmin
 
         try:
             dataset = self.load_data(fname)
@@ -153,6 +156,7 @@ class WorkerOpenFile(QRunnable):
             reset_tree_sig.emit()
 
             starttimes = []
+            tmins = []
             for particle in dataset.particles:
                 # Find max, then search backward for first zero to find the best startpoint
                 decay = particle.histogram.decay
@@ -170,17 +174,29 @@ class WorkerOpenFile(QRunnable):
                         start_ind_rev = val
                         break
                 start_ind = histmax_ind - start_ind_rev
-                starttime = particle.histogram.t[start_ind]
+                # starttime = particle.histogram.t[start_ind]
+                starttime = start_ind
                 starttimes.append(starttime)
+
+                tmin = np.min(particle.histogram.microtimes)
+                tmins.append(tmin)
+
+
             av_start = np.average(starttimes)
             set_start_sig.emit(av_start)
+
+            global_tmin = np.min(tmins)
+            for particle in dataset.particles:
+                particle.tmin = global_tmin
+
+            set_tmin_sig.emit(global_tmin)
 
             status_sig.emit("Done")
             data_loaded_sig.emit()
         except Exception as exc:
             raise RuntimeError("h5 data file was not loaded successfully.") from exc
 
-    def open_irf(self, fname) -> None:
+    def open_irf(self, fname, tmin) -> None:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
 
@@ -202,8 +218,11 @@ class WorkerOpenFile(QRunnable):
         try:
             dataset = self.load_data(fname)
 
+            for particle in dataset.particles:
+                particle.tmin = tmin
+                # particle.tmin = np.min(particle.histogram.microtimes)
             irfhist = dataset.particles[0].histogram
-            irfhist.t -= irfhist.t.min()
+            # irfhist.t -= irfhist.t.min()
             add_irf_sig.emit(irfhist.decay, irfhist.t, dataset)
 
             start_progress_sig.emit(dataset.numpart)
@@ -491,6 +510,7 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         end = None
     else:
         end = int(fitparam.end / channelwidth)
+
 
     if mode == 'current':  # Fit all levels in current particle
         status_sig.emit('Fitting Particle Levels...')
@@ -1025,6 +1045,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             of_worker.signals.data_loaded.connect(self.set_data_loaded)
             of_worker.signals.bin_size.connect(self.spbBinSize.setValue)
             of_worker.signals.set_start.connect(self.set_startpoint)
+            of_worker.signals.set_tmin.connect(self.lifetime_controller.set_tmin)
 
             self.threadpool.start(of_worker)
 
@@ -1092,7 +1113,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if start is None:
             start = self.lifetime_controller.startpoint
         try:
-            self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start)
+            self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start, channel=True)
         except Exception as exc:
             print(exc)
         if self.lifetime_controller.irf_loaded:
@@ -1979,6 +2000,7 @@ class LifetimeController(QObject):
 
         self.first = 0
         self.startpoint = None
+        self.tmin = 0
 
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """
@@ -2011,7 +2033,7 @@ class LifetimeController(QObject):
 
         fname = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
-            of_worker = WorkerOpenFile(fname, irf=True)
+            of_worker = WorkerOpenFile(fname, irf=True, tmin=self.tmin)
             of_worker.signals.openfile_finished.connect(self.mainwindow.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
             of_worker.signals.progress.connect(self.mainwindow.update_progress)
@@ -2278,12 +2300,11 @@ class LifetimeController(QObject):
         dbg.p('Fitting levels complete', 'Fitting Thread')
 
     def change_irf_start(self, start):
-        print('hier')
         dataset = self.fitparam.irfdata
 
-        dataset.makehistograms(remove_zeros=False, startpoint=start)
+        dataset.makehistograms(remove_zeros=False, startpoint=start, channel=True)
         irfhist = dataset.particles[0].histogram
-        irfhist.t -= irfhist.t.min()
+        # irfhist.t -= irfhist.t.min()
         self.fitparam.irf = irfhist.decay
         self.fitparam.irft = irfhist.t
         # ind = np.searchsorted(self.fitparam.irft, start)
@@ -2292,6 +2313,9 @@ class LifetimeController(QObject):
         # self.fitparam.irft = self.fitparam.irft[ind:]
         # self.fitparam.irf = self.fitparam.irf[ind:]
         # print(self.fitparam.irft)
+
+    def set_tmin(self, tmin=0):
+        self.tmin = tmin
 
 
 class SpectraController(QObject):
@@ -2364,7 +2388,7 @@ class FittingDialog(QDialog, Ui_Dialog):
             decay = decay / decay.max()
             t = histogram.t
 
-            decay, t = start_at_value(decay, t)
+            # decay, t = start_at_value(decay, t)
             end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
 
             convd = convd[irft > 0]

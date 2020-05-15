@@ -21,6 +21,8 @@ from ChangePoint import ChangePoints
 from ClusteringGrouping import AHCA
 from generate_sums import CPSums
 
+# import inspect
+
 
 # from joblib import Parallel, delayed
 
@@ -60,13 +62,13 @@ class H5dataset:
         assert self.numpart == self.file.attrs['# Particles']
         self.channelwidth = None
 
-    def makehistograms(self, progress=True, remove_zeros=True, startpoint=None):
+    def makehistograms(self, progress=True, remove_zeros=True, startpoint=None, channel=True):
         """Put the arrival times into histograms"""
 
         for particle in self.particles:
             particle.startpoint = startpoint
-            particle.makehistogram()
-            particle.makelevelhists()
+            particle.makehistogram(channel=channel)
+            particle.makelevelhists(channel=channel)
         if remove_zeros:
             maxim = 0
             for particle in self.particles:
@@ -301,17 +303,17 @@ class Particle:
 
         return levels_data, times
 
-    def makehistogram(self):
+    def makehistogram(self, channel=True):
         """Put the arrival times into a histogram"""
 
-        self.histogram = Histogram(self, startpoint=self.startpoint)
+        self.histogram = Histogram(self, startpoint=self.startpoint, channel=channel)
 
-    def makelevelhists(self):
+    def makelevelhists(self, channel=True):
         """Make level histograms"""
 
         if self.has_levels:
             for level in self.levels:
-                level.histogram = Histogram(self, level, self.startpoint)
+                level.histogram = Histogram(self, level, self.startpoint, channel=channel)
 
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""
@@ -355,7 +357,8 @@ class Trace:
 
 class Histogram:
 
-    def __init__(self, particle, level=None, startpoint=None):
+    def __init__(self, particle, level=None, startpoint=None, channel=True):
+        no_sort = False
         self.particle = particle
         self.level = level
         if level is None:
@@ -367,15 +370,23 @@ class Histogram:
             self.decay = np.empty(1)
             self.t = np.empty(1)
         else:
-            if startpoint is None:
-                tmin = min(self.particle.tmin, self.microtimes.min())
-            else:
-                tmin = startpoint
-
+            tmin = min(self.particle.tmin, self.microtimes.min())
             tmax = max(self.particle.tmax, self.microtimes.max())
+            if startpoint is None:
+                pass
+            else:
+                if channel:
+                    startpoint = int(startpoint)
+                    t = np.arange(tmin, tmax, self.particle.channelwidth)
+                    tmin = t[startpoint]
+                    no_sort = True
+                else:
+                    tmin = startpoint
+                    tmax = max(self.particle.tmax, self.microtimes.max())
 
             sorted_micro = np.sort(self.microtimes)
-            tmin = sorted_micro[np.searchsorted(sorted_micro, tmin)]  # Make sure bins align with TCSPC bins
+            if not no_sort:
+                tmin = sorted_micro[np.searchsorted(sorted_micro, tmin)]  # Make sure bins align with TCSPC bins
             tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # Fix if max is end
 
             window = tmax-tmin
@@ -387,7 +398,7 @@ class Histogram:
             self.decay, self.t = np.histogram(self.microtimes, bins=t)
             self.t = self.t[:-1]  # Remove last value so the arrays are the same size
             self.decay = self.decay[self.t > 0]
-            self.t = self.t[self.t > 0]
+            # self.t = self.t[self.t > 0]
             if startpoint is None:
                 try:
                     self.decaystart = np.nonzero(self.decay)[0][0]
@@ -399,6 +410,7 @@ class Histogram:
             # else:
             #     self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=startpoint)
 
+            self.t -= self.t.min()
             # plt.plot(self.decay)
             # plt.show()
 
@@ -415,6 +427,14 @@ class Histogram:
         self.bg = None
         self.irfbg = None
         self.avtau = None
+
+    @property
+    def t(self):
+        return self._t.copy()
+
+    @t.setter
+    def t(self, value):
+        self._t = value
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, shiftfix):
 
