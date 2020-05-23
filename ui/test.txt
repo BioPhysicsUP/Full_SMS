@@ -1,4 +1,0 @@
-First line
-Second line
-Insterted lineThird line
-Last line

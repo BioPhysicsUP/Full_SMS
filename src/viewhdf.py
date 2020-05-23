@@ -9,12 +9,10 @@ University of Pretoria
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-import h5py
-import os
 from tkinter import filedialog
 import matplotlib as mpl
-from smsh5 import *
-from tcspcfit import *
+from src.smsh5 import *
+from src.tcspcfit import *
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.backends._backend_tk import ToolTip
 from matplotlib.backend_bases import key_press_handler

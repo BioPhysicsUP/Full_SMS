@@ -1,5 +1,5 @@
 from matplotlib import rc
-from tcspcfit import *
+from src.tcspcfit import *
 
 rc('text', usetex=True)
 
