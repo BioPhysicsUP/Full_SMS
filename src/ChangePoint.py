@@ -656,15 +656,14 @@ class ChangePointAnalysis:
             # TODO: Revisit necessity of duplicate removal
             cpt_inds, unique_inds = np.unique(cpt_inds, return_inverse=True)
             dups = np.append([False], [unique_inds[i] == unique_inds[i - 1] for i in range(len(unique_inds)) if i > 0])
-            dups = np.where(dups)[0].tolist()
-            for i in dups:
-                del (conf_regions[i])
-            # dt_uncertainty = np.delete(dt_uncertainty, dups)
+            dups = np.flip(np.where(dups)[0].tolist())
+            if len(dups) != 0:
+                for i in dups:
+                    del (conf_regions[i])
 
             self.num_cpts = len(cpt_inds)
             self.cpt_inds = cpt_inds
             self.conf_regions = conf_regions
-            # self.dt_uncertainty = dt_uncertainty
 
     def define_levels(self, remove_prev: bool = None) -> None:
         """

@@ -410,7 +410,14 @@ class Histogram:
             # else:
             #     self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=startpoint)
 
-            self.t -= self.t.min()
+            try:
+                self.t -= self.t.min()
+            except:
+                dbg.p("Something goes wrong here. self.t is None. It seems like tmin and tmax have the same value. \n"
+                      "This happens after the levels have been resolved, however? \nI'm not sure why it re-initialises "
+                      "the Histogram classes after the levels have been resolved.\nSpesifically, this happen on Particle "
+                      "16 on this dataset. \nI suggest adding a conditional breakpoint at line 361 after the file has "
+                      "been loaded, but before the levels have been resolved to debug.")
             # plt.plot(self.decay)
             # plt.show()
 

@@ -413,7 +413,7 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
             status_sig.emit(status_text)
             start_progress_sig.emit(len(parts))
             for num, part in enumerate(parts):
-                # dbg.p(f'Busy Resolving Particle {num + 1}')
+                dbg.p(f'Busy Resolving Particle {num + 1}')
                 part.cpts.run_cpa(confidence=conf, run_levels=True)
                 progress_sig.emit()
             status_sig.emit('Done')
