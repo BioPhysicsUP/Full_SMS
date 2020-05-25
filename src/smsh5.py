@@ -410,7 +410,10 @@ class Histogram:
             # else:
             #     self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=startpoint)
 
-            self.t -= self.t.min()
+            try:
+                self.t -= self.t.min()
+            except ValueError:
+                dbg.p(f"Histogram object of {self.particle.name} does not have a valid self.t attribute", "Histogram")
             # plt.plot(self.decay)
             # plt.show()
 
