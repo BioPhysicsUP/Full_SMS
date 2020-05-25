@@ -144,7 +144,11 @@
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="line1Min"/>
+           <widget class="QLineEdit" name="line1Min">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="3">
            <widget class="QLabel" name="label_6">
@@ -157,7 +161,11 @@
            <widget class="QLineEdit" name="line1Init"/>
           </item>
           <item row="2" column="2">
-           <widget class="QLineEdit" name="line1Max"/>
+           <widget class="QLineEdit" name="line1Max">
+            <property name="text">
+             <string>10</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="2">
            <widget class="QLabel" name="label_5">
@@ -178,7 +186,11 @@
         <widget class="QWidget" name="page_2">
          <layout class="QGridLayout" name="gridLayout_3">
           <item row="3" column="4">
-           <widget class="QLineEdit" name="line2Max2"/>
+           <widget class="QLineEdit" name="line2Max2">
+            <property name="text">
+             <string>10</string>
+            </property>
+           </widget>
           </item>
           <item row="3" column="5">
            <widget class="QCheckBox" name="check2Fix2">
@@ -195,10 +207,18 @@
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="line2Min1"/>
+           <widget class="QLineEdit" name="line2Min1">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QLineEdit" name="line2Min2"/>
+           <widget class="QLineEdit" name="line2Min2">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="5">
            <widget class="QLabel" name="label_10">
@@ -235,7 +255,11 @@
            <widget class="QLineEdit" name="line2Init1"/>
           </item>
           <item row="2" column="4">
-           <widget class="QLineEdit" name="line2Max1"/>
+           <widget class="QLineEdit" name="line2Max1">
+            <property name="text">
+             <string>10</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="1">
            <widget class="QLabel" name="label_7">
@@ -471,16 +495,28 @@
            </widget>
           </item>
           <item row="2" column="4">
-           <widget class="QLineEdit" name="line2AmpMax1"/>
+           <widget class="QLineEdit" name="line2AmpMax1">
+            <property name="text">
+             <string>100000</string>
+            </property>
+           </widget>
           </item>
           <item row="2" column="0">
            <widget class="QLineEdit" name="line2AmpInit1"/>
           </item>
           <item row="3" column="4">
-           <widget class="QLineEdit" name="line2AmpMax2"/>
+           <widget class="QLineEdit" name="line2AmpMax2">
+            <property name="text">
+             <string>100000</string>
+            </property>
+           </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QLineEdit" name="line2AmpMin2"/>
+           <widget class="QLineEdit" name="line2AmpMin2">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="1">
            <widget class="QLabel" name="label_26">
@@ -497,7 +533,11 @@
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="line2AmpMin1"/>
+           <widget class="QLineEdit" name="line2AmpMin1">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_23">
@@ -644,6 +684,62 @@
          <enum>QFrame::Raised</enum>
         </property>
         <layout class="QGridLayout" name="gridLayout_10">
+         <item row="1" column="0">
+          <widget class="QFrame" name="frame">
+           <property name="frameShape">
+            <enum>QFrame::NoFrame</enum>
+           </property>
+           <property name="frameShadow">
+            <enum>QFrame::Raised</enum>
+           </property>
+           <property name="lineWidth">
+            <number>0</number>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_8">
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_33">
+              <property name="text">
+               <string>Decay Background</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_32">
+              <property name="text">
+               <string>IRF Shift</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_34">
+              <property name="text">
+               <string>IRF Background</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1" colspan="2">
+             <widget class="QLineEdit" name="lineIRFBG"/>
+            </item>
+            <item row="0" column="3">
+             <widget class="QCheckBox" name="checkFixIRF">
+              <property name="text">
+               <string>Fix?</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1" rowspan="2" colspan="2">
+             <widget class="QLineEdit" name="lineShift">
+              <property name="text">
+               <string>0</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1" colspan="2">
+             <widget class="QLineEdit" name="lineDecayBG"/>
+            </item>
+           </layout>
+          </widget>
+         </item>
          <item row="1" column="1">
           <widget class="QFrame" name="frame_7">
            <property name="frameShape">
@@ -655,7 +751,7 @@
            <property name="lineWidth">
             <number>0</number>
            </property>
-           <layout class="QFormLayout" name="formLayout_3">
+           <layout class="QGridLayout" name="gridLayout_11">
             <item row="0" column="0">
              <widget class="QLabel" name="label_35">
               <property name="text">
@@ -689,60 +785,8 @@
            </layout>
           </widget>
          </item>
-         <item row="1" column="0">
-          <widget class="QFrame" name="frame">
-           <property name="frameShape">
-            <enum>QFrame::NoFrame</enum>
-           </property>
-           <property name="frameShadow">
-            <enum>QFrame::Raised</enum>
-           </property>
-           <property name="lineWidth">
-            <number>0</number>
-           </property>
-           <layout class="QFormLayout" name="formLayout">
-            <item row="0" column="0">
-             <widget class="QLabel" name="label_32">
-              <property name="text">
-               <string>IRF Shift</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QLineEdit" name="lineShift"/>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="label_33">
-              <property name="text">
-               <string>Decay Background</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLineEdit" name="lineDecayBG"/>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="label_34">
-              <property name="text">
-               <string>IRF Background</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QLineEdit" name="lineIRFBG"/>
-            </item>
-           </layout>
-          </widget>
-         </item>
          <item row="2" column="0" colspan="2">
-          <widget class="MplWidget" name="MW_fitparam" native="true">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>200</height>
-            </size>
-           </property>
-          </widget>
+          <widget class="PlotWidget" name="pgFitParam"/>
          </item>
         </layout>
        </widget>
@@ -754,10 +798,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>MplWidget</class>
-   <extends>QWidget</extends>
-   <header>mplwidget.h</header>
-   <container>1</container>
+   <class>PlotWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>pyqtgraph.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

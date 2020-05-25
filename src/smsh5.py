@@ -1,28 +1,27 @@
 """Module for handling SMS data from HDF5 files
 
-Bertus van Heerden
+Bertus van Heerden and Joshua Botha
 University of Pretoria
 2018
 """
 import traceback
 import os
 
-import re
+import ast
 
 import h5py
 from typing import List
 import numpy as np
 import tcspcfit
-# from main.MainWindow import start_at_nonzero
 import dbg
-from matplotlib import pyplot as plt
+# from main.MainWindow import start_at_value
 import re
-from generate_sums import CPSums
 from PyQt5.QtCore import pyqtSignal
-import dbg
 from ChangePoint import ChangePoints
 from ClusteringGrouping import AHCA
 from generate_sums import CPSums
+
+# import inspect
 
 
 # from joblib import Parallel, delayed
@@ -63,14 +62,20 @@ class H5dataset:
         assert self.numpart == self.file.attrs['# Particles']
         self.channelwidth = None
 
-    def makehistograms(self, progress=True):
+    def makehistograms(self, progress=True, remove_zeros=True, startpoint=None, channel=True):
         """Put the arrival times into histograms"""
 
         for particle in self.particles:
-            particle.makehistogram()
-            particle.makelevelhists()
-            if progress and hasattr(self, 'progress_sig'):  # TODO: this is a hack and should be make cleaner
-                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
+            particle.startpoint = startpoint
+            particle.makehistogram(channel=channel)
+            particle.makelevelhists(channel=channel)
+        if remove_zeros:
+            maxim = 0
+            for particle in self.particles:
+                maxim = max(particle.histogram.decaystart, maxim)
+            for particle in self.particles:
+                particle.histogram.decay = particle.histogram.decay[maxim:]
+                particle.histogram.t = particle.histogram.t[maxim:]
 
     def bin_all_ints(self, binsize, progress_sig=None):
         """Bin the absolute times into traces using binsize
@@ -177,6 +182,9 @@ class Particle:
         self.histogram = None
         self.binnedtrace = None
         self.bin_size = None
+        self.numexp = None
+
+        self.startpoint = None
 
     # def get_levels(self):
     #     assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
@@ -263,17 +271,49 @@ class Particle:
 
         return levels_data, times
 
-    def makehistogram(self):
+    def current2data(self, num, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
+        """
+        Uses the Particle objects' levels to generate two arrays for plotting level num.
+        Parameters
+        ----------
+        plot_type: str, {'line', 'step'}
+
+        Returns
+        -------
+        [np.ndarray, np.ndarray]
+        """
+        # TODO: Cleanup this function anc the one above it
+        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+
+        # ############## Old, for Matplotlib ##############
+        # levels_data = np.empty(shape=self.num_levels+1)
+        # times = np.empty(shape=self.num_levels+1)
+        # accum_time = 0
+        # for num, level in enumerate(self.levels):
+        #     times[num] = accum_time
+        #     accum_time += level.dwell_time/1E9
+        #     levels_data[num] = level.int
+        #     if num+1 == self.num_levels:
+        #         levels_data[num+1] = accum_time
+        #         times[num+1] = level.int
+
+        level = self.levels[num]
+        times = np.array(level.times_ns) / 1E9
+        levels_data = np.array([level.int_p_s, level.int_p_s])
+
+        return levels_data, times
+
+    def makehistogram(self, channel=True):
         """Put the arrival times into a histogram"""
 
-        self.histogram = Histogram(self)
+        self.histogram = Histogram(self, startpoint=self.startpoint, channel=channel)
 
-    def makelevelhists(self):
+    def makelevelhists(self, channel=True):
         """Make level histograms"""
 
         if self.has_levels:
             for level in self.levels:
-                level.histogram = Histogram(self, level)
+                level.histogram = Histogram(self, level, self.startpoint, channel=channel)
 
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""
@@ -317,7 +357,8 @@ class Trace:
 
 class Histogram:
 
-    def __init__(self, particle, level=None):
+    def __init__(self, particle, level=None, startpoint=None, channel=True):
+        no_sort = False
         self.particle = particle
         self.level = level
         if level is None:
@@ -329,46 +370,102 @@ class Histogram:
             self.decay = np.empty(1)
             self.t = np.empty(1)
         else:
-            # print(self.microtimes)
             tmin = min(self.particle.tmin, self.microtimes.min())
             tmax = max(self.particle.tmax, self.microtimes.max())
+            if startpoint is None:
+                pass
+            else:
+                if channel:
+                    startpoint = int(startpoint)
+                    t = np.arange(tmin, tmax, self.particle.channelwidth)
+                    tmin = t[startpoint]
+                    no_sort = True
+                else:
+                    tmin = startpoint
+                    tmax = max(self.particle.tmax, self.microtimes.max())
+
+            sorted_micro = np.sort(self.microtimes)
+            if not no_sort:
+                tmin = sorted_micro[np.searchsorted(sorted_micro, tmin)]  # Make sure bins align with TCSPC bins
+            tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # Fix if max is end
+
             window = tmax-tmin
             numpoints = int(window//self.particle.channelwidth)
 
-            t = np.linspace(0, window, numpoints)
+            # t = np.linspace(0, window, numpoints)
+            t = np.arange(tmin, tmax, self.particle.channelwidth)
 
             self.decay, self.t = np.histogram(self.microtimes, bins=t)
             self.t = self.t[:-1]  # Remove last value so the arrays are the same size
             self.decay = self.decay[self.t > 0]
-            self.t = self.t[self.t > 0]
+            # self.t = self.t[self.t > 0]
+            if startpoint is None:
+                try:
+                    self.decaystart = np.nonzero(self.decay)[0][0]
+                except IndexError:  # Happens when there is a level with no photons
+                    pass
+                else:
+                    if level is not None:
+                        self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=self.decaystart)
+            # else:
+            #     self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=startpoint)
+
+            try:
+                self.t -= self.t.min()
+            except ValueError:
+                dbg.p(f"Histogram object of {self.particle.name} does not have a valid self.t attribute", "Histogram")
+            # plt.plot(self.decay)
+            # plt.show()
 
         self.convd = None
         self.convd_t = None
         self.fitted = False
 
-    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf):
+        self.fit_decay = None
+        self.convd = None
+        self.convd_t = None
+        self.tau = None
+        self.amp = None
+        self.shift = None
+        self.bg = None
+        self.irfbg = None
+        self.avtau = None
 
-        # Todo: This should probably happen somewhere else:
-        try:
-            self.decay, self.t = start_at_nonzero(self.decay, self.t, neg_t=False)
-        except IndexError:  # Empty decay
-            return False
-        irf, irft = start_at_nonzero(irf, self.t, neg_t=False)
+    @property
+    def t(self):
+        return self._t.copy()
+
+    @t.setter
+    def t(self, value):
+        self._t = value
+
+    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, shiftfix):
+
+        # irf, irft = start_at_value(irf, self.t, neg_t=False)
+
+        if addopt is not None:
+            addopt = ast.literal_eval(addopt)
+
+        if shiftfix:
+            shift = [shift, 1]
+
+        if start is None:
+            start = 0
 
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
             if numexp == 1:
                 fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift,
-                                      decaybg, irfbg, start, end)
+                                      decaybg, irfbg, start, end, addopt)
             elif numexp == 2:
                 fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
-                                      decaybg, irfbg, start, end)
+                                      decaybg, irfbg, start, end, addopt)
             elif numexp == 3:
                 fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
-                                        decaybg, irfbg, start, end)
+                                        decaybg, irfbg, start, end, addopt)
         except:
             dbg.p('Error while fitting lifetime:', debug_from='smsh5')
-            traceback.print_exc()
+            print(traceback.format_exc().split('\n')[-2])
             return False
 
         else:
@@ -381,6 +478,10 @@ class Histogram:
             self.bg = fit.bg
             self.irfbg = fit.irfbg
             self.fitted = True
+            if numexp == 1:
+                self.avtau = self.tau
+            else:
+                self.avtau = sum(self.tau * self.amp) / self.amp.sum()
 
         return True
 
@@ -425,8 +526,9 @@ class Spectra:
 #         pass  # Change points code called here?
 
 
-def start_at_nonzero(decay, t, neg_t=True):
-    decaystart = np.nonzero(decay)[0][0]
+def start_at_value(decay, t, neg_t=True, decaystart=None):
+    if decaystart is None:
+        decaystart = np.nonzero(decay)[0][0]
     if neg_t:
         t -= t[decaystart]
     t = t[decaystart:]

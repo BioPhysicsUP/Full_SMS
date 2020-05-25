@@ -7,8 +7,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>866</width>
-    <height>565</height>
+    <width>1007</width>
+    <height>610</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -22,7 +22,7 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_4">
-    <item row="0" column="0">
+    <item row="0" column="1">
      <widget class="QSplitter" name="splitter">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
@@ -130,7 +130,7 @@
         <enum>QTabWidget::Rounded</enum>
        </property>
        <property name="currentIndex">
-        <number>4</number>
+        <number>2</number>
        </property>
        <property name="iconSize">
         <size>
@@ -736,7 +736,7 @@
              </property>
              <property name="sizeHint" stdset="0">
               <size>
-               <width>10</width>
+               <width>13</width>
                <height>20</height>
               </size>
              </property>
@@ -841,7 +841,7 @@
              </property>
              <property name="sizeHint" stdset="0">
               <size>
-               <width>10</width>
+               <width>13</width>
                <height>20</height>
               </size>
              </property>
@@ -849,7 +849,7 @@
            </item>
           </layout>
          </item>
-         <item row="4" column="0">
+         <item row="10" column="0">
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <item>
             <widget class="QPushButton" name="btnLoadIRF">
@@ -879,22 +879,6 @@
               </size>
              </property>
             </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>35</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
            </item>
            <item>
             <widget class="QPushButton" name="btnFitParameters">
@@ -942,6 +926,25 @@
             </spacer>
            </item>
            <item>
+            <widget class="QPushButton" name="btnFitCurrent">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>30</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Fit Current Level/Trace</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QPushButton" name="btnFit">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -956,7 +959,7 @@
               </size>
              </property>
              <property name="text">
-              <string>Fit Current</string>
+              <string>Fit Particle Levels</string>
              </property>
              <property name="icon">
               <iconset>
@@ -1030,7 +1033,37 @@
            </item>
           </layout>
          </item>
-         <item row="1" column="0">
+         <item row="4" column="0" rowspan="3">
+          <layout class="QHBoxLayout" name="horizontalLayout_9">
+           <property name="sizeConstraint">
+            <enum>QLayout::SetMinimumSize</enum>
+           </property>
+           <item>
+            <widget class="PlotWidget" name="pgLifetime">
+             <property name="minimumSize">
+              <size>
+               <width>550</width>
+               <height>200</height>
+              </size>
+             </property>
+             <property name="renderHints">
+              <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QTextBrowser" name="textBrowser">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="2" column="0">
           <widget class="Line" name="line">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -1046,7 +1079,7 @@
            </property>
           </widget>
          </item>
-         <item row="3" column="0">
+         <item row="8" column="0">
           <widget class="Line" name="line_3">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -1059,16 +1092,22 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="0">
-          <widget class="PlotWidget" name="pgLifetime">
-           <property name="minimumSize">
+         <item row="1" column="0">
+          <widget class="QPushButton" name="btnWholeTrace">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="maximumSize">
             <size>
-             <width>0</width>
-             <height>200</height>
+             <width>137</width>
+             <height>27</height>
             </size>
            </property>
-           <property name="renderHints">
-            <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
+           <property name="text">
+            <string>Whole Trace Decay</string>
            </property>
           </widget>
          </item>
@@ -1506,7 +1545,7 @@
              <item>
               <widget class="QGroupBox" name="gbxExport_Lifetimes">
                <property name="enabled">
-                <bool>false</bool>
+                <bool>true</bool>
                </property>
                <property name="font">
                 <font>
@@ -1550,7 +1589,10 @@
                  </spacer>
                 </item>
                 <item row="0" column="0">
-                 <widget class="QCheckBox" name="checkBox_5">
+                 <widget class="QCheckBox" name="chbEx_Hist">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
                   <property name="font">
                    <font>
                     <pointsize>10</pointsize>
@@ -1565,7 +1607,10 @@
                  </widget>
                 </item>
                 <item row="0" column="2">
-                 <widget class="QCheckBox" name="checkBox_6">
+                 <widget class="QCheckBox" name="chbEx_Lifetimes">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
                   <property name="font">
                    <font>
                     <pointsize>10</pointsize>
@@ -1818,8 +1863,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>866</width>
-     <height>21</height>
+     <width>1007</width>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -1827,6 +1872,9 @@
      <string>File</string>
     </property>
     <widget class="QMenu" name="menuOpen">
+     <property name="focusPolicy">
+      <enum>Qt::TabFocus</enum>
+     </property>
      <property name="title">
       <string>Open...</string>
      </property>
@@ -1848,7 +1896,14 @@
      </property>
      <addaction name="actionTrim_Dead_Traces"/>
     </widget>
+    <widget class="QMenu" name="menuLifetime">
+     <property name="title">
+      <string>Lifetime</string>
+     </property>
+     <addaction name="actionSet_Startpoint"/>
+    </widget>
     <addaction name="menuIntensity"/>
+    <addaction name="menuLifetime"/>
     <addaction name="actionReset_Analysis"/>
    </widget>
    <widget class="QMenu" name="menuAnalysis">
@@ -1944,6 +1999,11 @@
     <string>Save Selected</string>
    </property>
   </action>
+  <action name="actionSet_Startpoint">
+   <property name="text">
+    <string>Set decay startpoint</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="9"/>
  <customwidgets>
@@ -1967,7 +2027,6 @@
   <tabstop>btnFitSelected</tabstop>
   <tabstop>btnFitAll</tabstop>
   <tabstop>btnSubBackground</tabstop>
-  <tabstop>btnPrevLevel</tabstop>
   <tabstop>treeViewParticles</tabstop>
   <tabstop>btnNextLevel</tabstop>
  </tabstops>

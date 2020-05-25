@@ -2,7 +2,7 @@
 
 Bertus van Heerden and Joshua Botha
 University of Pretoria
-2019
+2020
 """
 
 __docformat__ = 'NumPy'
@@ -18,21 +18,29 @@ import numpy as np
 import scipy
 from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, \
     Qt, QThreadPool, QRunnable, pyqtSlot
-from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor, QIntValidator
+from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
-    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox
+    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox, QStyleFactory
+from PyQt5 import uic
 import pyqtgraph as pg
 from typing import Union
+import pkg_resources.py2_warn
 
+import tcspcfit
 import dbg
 import smsh5
-import tcspcfit
 from generate_sums import CPSums
-from smsh5 import start_at_nonzero
+from smsh5 import start_at_value
 from ui.TimedMessageBox import TimedMessageBox
 from ui.fitting_dialog import Ui_Dialog
-from ui.mainwindow import Ui_MainWindow
+# from src.mainwindow import Ui_MainWindow
 from smsh5 import H5dataset, Particle
+import resource_manager as rm
+
+
+ui_file = rm.resource_path("ui/mainwindow.ui")
+# ui_file = "C:\\e57_Transformation\\main_window.ui"
+UI_Main_Window, _ = uic.loadUiType(ui_file)
 
 
 class WorkerSignals(QObject):
@@ -40,6 +48,7 @@ class WorkerSignals(QObject):
     to communicate between worker threads and the main thread. """
 
     resolve_finished = pyqtSignal(str)
+    fitting_finished = pyqtSignal(str)
     openfile_finished = pyqtSignal(bool)
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
@@ -56,23 +65,25 @@ class WorkerSignals(QObject):
     data_loaded = pyqtSignal()
     bin_size = pyqtSignal(int)
 
-    add_irf = pyqtSignal(np.ndarray, np.ndarray)
+    add_irf = pyqtSignal(np.ndarray, np.ndarray, smsh5.H5dataset)
 
     level_resolved = pyqtSignal()
     reset_gui = pyqtSignal()
+    set_start = pyqtSignal(float)
+    set_tmin = pyqtSignal(float)
 
 
 class WorkerOpenFile(QRunnable):
     """ A QRunnable class to create a worker thread for opening h5 file. """
 
     # def __init__(self, fn, *args, **kwargs):
-    def __init__(self, fname, irf=False):
+    def __init__(self, fname, irf=False, tmin=None):
         """
         Initiate Open File Worker
 
         Creates a QRunnable object (worker) to be run by a QThreadPool thread.
         This worker is intended to call the given function to open a h5 file
-        and populate the tree in the mainwindow gui.
+        and populate the tree in the mainwindow g
 
         Parameters
         ----------
@@ -90,13 +101,14 @@ class WorkerOpenFile(QRunnable):
         self.signals = WorkerSignals()
         self.fname = fname
         self.irf = irf
+        self.tmin = tmin
 
     @pyqtSlot()
     def run(self) -> None:
         """ The code that will be run when the thread is started. """
 
         try:
-            self.openfile_func(self.fname)
+            self.openfile_func(self.fname, self.tmin)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -104,7 +116,7 @@ class WorkerOpenFile(QRunnable):
         finally:
             self.signals.openfile_finished.emit(self.irf)
 
-    def open_h5(self, fname) -> None:
+    def open_h5(self, fname, tmin=None) -> None:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
 
@@ -126,6 +138,8 @@ class WorkerOpenFile(QRunnable):
         add_node_sig = self.signals.add_particlenode
         reset_tree_sig = self.signals.reset_tree
         data_loaded_sig = self.signals.data_loaded
+        set_start_sig = self.signals.set_start
+        set_tmin_sig = self.signals.set_tmin
 
         try:
             dataset = self.load_data(fname)
@@ -140,12 +154,49 @@ class WorkerOpenFile(QRunnable):
                 add_node_sig.emit(particlenode, progress_sig, i)
                 progress_sig.emit()
             reset_tree_sig.emit()
+
+            starttimes = []
+            tmins = []
+            for particle in dataset.particles:
+                # Find max, then search backward for first zero to find the best startpoint
+                decay = particle.histogram.decay
+                histmax_ind = np.argmax(decay)
+                reverse = decay[:histmax_ind][::-1]
+                zeros_rev = np.where(reverse == 0)[0]
+                length = 0
+                start_ind_rev = zeros_rev[0]
+                for i, val in enumerate(zeros_rev[:-1]):
+                    if zeros_rev[i+1] - val > 1:
+                        length = 0
+                        continue
+                    length +=1
+                    if length >= 10:
+                        start_ind_rev = val
+                        break
+                start_ind = histmax_ind - start_ind_rev
+                # starttime = particle.histogram.t[start_ind]
+                starttime = start_ind
+                starttimes.append(starttime)
+
+                tmin = np.min(particle.histogram.microtimes)
+                tmins.append(tmin)
+
+
+            av_start = np.average(starttimes)
+            set_start_sig.emit(av_start)
+
+            global_tmin = np.min(tmins)
+            for particle in dataset.particles:
+                particle.tmin = global_tmin
+
+            set_tmin_sig.emit(global_tmin)
+
             status_sig.emit("Done")
             data_loaded_sig.emit()
         except Exception as exc:
             raise RuntimeError("h5 data file was not loaded successfully.") from exc
 
-    def open_irf(self, fname) -> None:
+    def open_irf(self, fname, tmin) -> None:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
 
@@ -167,8 +218,12 @@ class WorkerOpenFile(QRunnable):
         try:
             dataset = self.load_data(fname)
 
+            for particle in dataset.particles:
+                particle.tmin = tmin
+                # particle.tmin = np.min(particle.histogram.microtimes)
             irfhist = dataset.particles[0].histogram
-            add_irf_sig.emit(irfhist.decay, irfhist.t)
+            # irfhist.t -= irfhist.t.min()
+            add_irf_sig.emit(irfhist.decay, irfhist.t, dataset)
 
             start_progress_sig.emit(dataset.numpart)
             status_sig.emit("Done")
@@ -191,6 +246,7 @@ class WorkerOpenFile(QRunnable):
         dataset.makehistograms()
         return dataset
 
+
 class WorkerBinAll(QRunnable):
     """ A QRunnable class to create a worker thread for binning all the data. """
 
@@ -200,14 +256,14 @@ class WorkerBinAll(QRunnable):
 
         Creates a QRunnable object (worker) to be run by a QThreadPool thread.
         This worker is intended to call the given function to open a h5 file
-        and populate the tree in the mainwindow gui.
+        and populate the tree in the mainwindow g
 
         Parameters
         ----------
         fname : str
             The name of the file.
         binall_func : function
-            Function to be called that will read the h5 file and populate the tree on the gui.
+            Function to be called that will read the h5 file and populate the tree on the g
         """
 
         super(WorkerBinAll, self).__init__()
@@ -324,11 +380,11 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
     reset_gui_sig
     data : H5dataset
     start_progress_sig : pyqtSignal
-        Used to call method to set up progress bar on GUI.
+        Used to call method to set up progress bar on G
     progress_sig : pyqtSignal
-        Used to call method to increment progress bar on GUI.
+        Used to call method to increment progress bar on G
     status_sig : pyqtSignal
-        Used to call method to show status bar message on GUI.
+        Used to call method to show status bar message on G
     mode : {'current', 'selected', 'all'}
         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
     resolve_selected : list[smsh5.Partilce]
@@ -357,7 +413,7 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
             status_sig.emit(status_text)
             start_progress_sig.emit(len(parts))
             for num, part in enumerate(parts):
-                dbg.p(f'Busy Resolving Particle {num+1}')
+                dbg.p(f'Busy Resolving Particle {num + 1}')
                 part.cpts.run_cpa(confidence=conf, run_levels=True)
                 progress_sig.emit()
             status_sig.emit('Done')
@@ -367,6 +423,154 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
     level_resolved_sig.emit()
     data.makehistograms(progress=False)
     reset_gui_sig.emit()
+
+
+class WorkerFitLifetimes(QRunnable):
+    """ A QRunnable class to create a worker thread for fitting lifetimes. """
+
+    def __init__(self, fit_lifetimes_func, data, currentparticle,
+                 fitparam, mode: str,
+                 resolve_selected=None) -> None:
+        """
+        Initiate Resolve Levels Worker
+
+        Creates a QRunnable object (worker) to be run by a QThreadPool thread.
+        This worker is intended to call the given function to resolve a single,
+        the selected, or all the particles'.
+
+        Parameters
+        ----------
+        resolve_levels_func : function
+            The function that will be called to perform the resolving of the levels.
+        mode : {'current', 'selected', 'all'}
+            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+        resolve_selected : list[smsh5.Particle], optional
+            The provided instances of the class Particle in smsh5 will be resolved.
+        """
+
+        super(WorkerFitLifetimes, self).__init__()
+        self.mode = mode
+        self.signals = WorkerSignals()
+        self.fit_lifetimes_func = fit_lifetimes_func
+        self.resolve_selected = resolve_selected
+        self.data = data
+        self.currentparticle = currentparticle
+        self.fitparam = fitparam
+
+    @pyqtSlot()
+    def run(self) -> None:
+        """ The code that will be run when the thread is started. """
+
+        try:
+            self.fit_lifetimes_func(self.signals.start_progress, self.signals.progress,
+                                    self.signals.status_message, self.signals.reset_gui,
+                                    self.data, self.currentparticle, self.fitparam,
+                                    self.mode, self.resolve_selected)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        finally:
+            self.signals.fitting_finished.emit(self.mode)
+
+
+def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
+                  status_sig: pyqtSignal, reset_gui_sig: pyqtSignal,
+                  data, currentparticle, fitparam, mode: str,
+                  resolve_selected=None) -> None:  # parallel: bool = False
+    """
+    TODO: edit the docstring
+    Resolves the levels in particles by finding the change points in the
+    abstimes data of a Particle instance.
+
+    Parameters
+    ----------
+    start_progress_sig : pyqtSignal
+        Used to call method to set up progress bar on G
+    progress_sig : pyqtSignal
+        Used to call method to increment progress bar on G
+    status_sig : pyqtSignal
+        Used to call method to show status bar message on G
+    mode : {'current', 'selected', 'all'}
+        Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+    resolve_selected : list[smsh5.Partilce]
+        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+    """
+
+    print(mode)
+    assert mode in ['current', 'selected', 'all'], \
+        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+
+    channelwidth = currentparticle.channelwidth
+    if fitparam.start is None:
+        start = None
+    else:
+        start = int(fitparam.start / channelwidth)
+    if fitparam.end is None:
+        end = None
+    else:
+        end = int(fitparam.end / channelwidth)
+
+
+    if mode == 'current':  # Fit all levels in current particle
+        status_sig.emit('Fitting Particle Levels...')
+        start_progress_sig.emit(len(currentparticle.levels))
+
+        for level in currentparticle.levels:
+            try:
+                if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
+                                           fitparam.shift / channelwidth, fitparam.decaybg,
+                                           fitparam.irfbg,
+                                           start, end, fitparam.addopt,
+                                           fitparam.irf, fitparam.shiftfix):
+                    pass  # fit unsuccessful
+                progress_sig.emit()
+            except AttributeError:
+                print("No decay")
+        currentparticle.numexp = fitparam.numexp
+        status_sig.emit("Ready...")
+
+    elif mode == 'all':  # Fit all levels in all particles
+        status_sig.emit('Fitting All Particle Levels...')
+        start_progress_sig.emit(data.numpart)
+
+        for particle in data.particles:
+            fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
+        status_sig.emit("Ready...")
+
+    elif mode == 'selected':  # Fit all levels in selected particles
+        assert resolve_selected is not None, \
+            'No selected particles provided.'
+        status_sig.emit('Resolving Selected Particle Levels...')
+        start_progress_sig.emit(len(resolve_selected))
+        for particle in resolve_selected:
+            fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
+        status_sig.emit('Ready...')
+
+    reset_gui_sig.emit()
+
+
+def fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start):
+    if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
+                                  fitparam.shift / channelwidth, fitparam.decaybg,
+                                  fitparam.irfbg,
+                                  start, end, fitparam.addopt,
+                                  fitparam.irf, fitparam.shiftfix):
+        pass  # fit unsuccessful
+    particle.numexp = fitparam.numexp
+    progress_sig.emit()
+    if not particle.has_levels:
+        return
+    for level in particle.levels:
+        try:
+            if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
+                                       fitparam.shift / channelwidth, fitparam.decaybg,
+                                       fitparam.irfbg,
+                                       start, end, fitparam.addopt,
+                                       fitparam.irf, fitparam.shiftfix):
+                pass  # fit unsuccessful
+        except AttributeError:
+            print("No decay")
 
 
 class DatasetTreeNode(object):
@@ -619,12 +823,12 @@ class DatasetTreeModel(QAbstractItemModel):
 
 
 # noinspection PyUnresolvedReferences
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow, UI_Main_Window):
     """
     Class for Full SMS application that returns QMainWindow object.
 
-    This class uses a *.ui converted to a *.py script to generate gui. Be
-    sure to run convert_ui.py after having made changes to mainwindow.ui.
+    This class uses a *.ui converted to a *.py script to generate g Be
+    sure to run convert_py after having made changes to mainwindow.
     """
 
     def __init__(self):
@@ -651,46 +855,51 @@ class MainWindow(QMainWindow):
             dbg.p("System -> Other", "MainWindow")
 
         QMainWindow.__init__(self)
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
+        # self.ui = Ui_MainWindow()
+        UI_Main_Window.__init__(self)
+        self.setupUi(self)
 
-        self.setWindowIcon(QIcon('Full-SMS.ico'))
+        self.setWindowIcon(QIcon(rm.resource_path('Full-SMS.ico')))
 
-        self.ui.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(0)
 
         self.setWindowTitle("Full SMS")
 
-        self.ui.pgIntensity.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
-        self.ui.pgIntensity.getPlotItem().getAxis('bottom').setLabel('Time', 's')
-        self.ui.pgIntensity.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgIntensity.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.pgIntensity.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        self.pgIntensity.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.pgLifetime_Int.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
-        self.ui.pgLifetime_Int.getPlotItem().getAxis('bottom').setLabel('Time', 's')
-        # self.ui.pgLifetime_Int.getPlotItem().getViewBox()\
-        #     .setYLink(self.ui.pgIntensity.getPlotItem().getAxis('left').getViewBox())
-        # self.ui.pgLifetime_Int.getPlotItem().getViewBox()\
-        #     .setXLink(self.ui.pgIntensity.getPlotItem().getAxis('bottom').getViewBox())
-        self.ui.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgLifetime_Int.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.pgLifetime_Int.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        # self.pgLifetime_Int.getPlotItem().getViewBox()\
+        #     .setYLink(self.pgIntensity.getPlotItem().getAxis('left').getViewBox())
+        # self.pgLifetime_Int.getPlotItem().getViewBox()\
+        #     .setXLink(self.pgIntensity.getPlotItem().getAxis('bottom').getViewBox())
+        self.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.pgLifetime.getPlotItem().getAxis('left').setLabel('Num. of occur.', 'counts/bin')
-        self.ui.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
-        self.ui.pgLifetime.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgLifetime.getPlotItem().getAxis('left').setLabel('Num. of occur.', 'counts/bin')
+        self.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
+        self.pgLifetime.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.pgGroups.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
-        self.ui.pgGroups.getPlotItem().getAxis('bottom').setLabel('Time', 's')
-        self.ui.pgGroups.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgGroups.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.pgGroups.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        self.pgGroups.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.ui.pgBIC.getPlotItem().getAxis('left').setLabel('BIC')
-        self.ui.pgBIC.getPlotItem().getAxis('bottom').setLabel('Number of State')
-        self.ui.pgBIC.getPlotItem().getViewBox().setLimits(xMin=0)
+        self.pgBIC.getPlotItem().getAxis('left').setLabel('BIC')
+        self.pgBIC.getPlotItem().getAxis('bottom').setLabel('Number of State')
+        self.pgBIC.getPlotItem().getViewBox().setLimits(xMin=0)
 
-        self.ui.pgSpectra.getPlotItem().getAxis('left').setLabel('X Range', 'um')
-        self.ui.pgSpectra.getPlotItem().getAxis('bottom').setLabel('Y Range', '<span>&#181;</span>m')
-        self.ui.pgSpectra.getPlotItem().getViewBox().setAspectLocked(lock=True, ratio=1)
-        self.ui.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgSpectra.getPlotItem().getAxis('left').setLabel('X Range', 'um')
+        self.pgSpectra.getPlotItem().getAxis('bottom').setLabel('Y Range', '<span>&#181;</span>m')
+        self.pgSpectra.getPlotItem().getViewBox().setAspectLocked(lock=True, ratio=1)
+        self.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        plots = [self.ui.pgIntensity, self.ui.pgLifetime_Int, self.ui.pgLifetime,
-                 self.ui.pgGroups, self.ui.pgBIC, self.ui.pgSpectra]
+        self.int_controller = IntController(self)
+        self.lifetime_controller = LifetimeController(self)
+        self.spectra_controller = SpectraController(self)
+
+        plots = [self.pgIntensity, self.pgLifetime_Int, self.pgLifetime,
+                 self.pgGroups, self.pgBIC, self.pgSpectra, self.lifetime_controller.fitparamdialog.pgFitParam]
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
         for plot in plots:
             # Set background and axis line width
@@ -702,9 +911,9 @@ class MainWindow(QMainWindow):
             # Set axis label bold and size
             font = plot_item.getAxis('left').label.font()
             font.setBold(True)
-            if plot == self.ui.pgLifetime_Int:
+            if plot == self.pgLifetime_Int:
                 font.setPointSize(8)
-            elif plot == self.ui.pgGroups:
+            elif plot == self.pgGroups:
                 font.setPointSize(10)
             else:
                 font.setPointSize(12)
@@ -713,44 +922,41 @@ class MainWindow(QMainWindow):
 
             plot.setAntialiasing(True)
 
-        self.int_controller = IntController(self)
-        self.lifetime_controller = LifetimeController(self)
-        self.spectra_controller = SpectraController(self)
-
         # Connect all GUI buttons with outside class functions
-        self.ui.btnApplyBin.clicked.connect(self.int_controller.gui_apply_bin)
-        self.ui.btnApplyBinAll.clicked.connect(self.int_controller.gui_apply_bin_all)
-        self.ui.btnResolve.clicked.connect(self.int_controller.gui_resolve)
-        self.ui.btnResolve_Selected.clicked.connect(self.int_controller.gui_resolve_selected)
-        self.ui.btnResolveAll.clicked.connect(self.int_controller.gui_resolve_all)
+        self.btnApplyBin.clicked.connect(self.int_controller.gui_apply_bin)
+        self.btnApplyBinAll.clicked.connect(self.int_controller.gui_apply_bin_all)
+        self.btnResolve.clicked.connect(self.int_controller.gui_resolve)
+        self.btnResolve_Selected.clicked.connect(self.int_controller.gui_resolve_selected)
+        self.btnResolveAll.clicked.connect(self.int_controller.gui_resolve_all)
 
-        self.ui.btnPrevLevel.clicked.connect(self.lifetime_controller.gui_prev_lev)
-        self.ui.btnNextLevel.clicked.connect(self.lifetime_controller.gui_next_lev)
-        self.ui.btnLoadIRF.clicked.connect(self.lifetime_controller.gui_load_irf)
-        self.ui.btnFitParameters.clicked.connect(self.lifetime_controller.gui_fit_param)
-        self.ui.btnFit.clicked.connect(self.lifetime_controller.gui_fit_current)
-        self.ui.btnFitSelected.clicked.connect(self.lifetime_controller.gui_fit_selected)
-        self.ui.btnFitAll.clicked.connect(self.lifetime_controller.gui_fit_all)
-        # self.ui.btnFitLevels.clicked.connect(self.lifetime_controller.gui_fit_levels)
-        #Todo: fit all levels for selected/all levels for all
+        self.btnPrevLevel.clicked.connect(self.lifetime_controller.gui_prev_lev)
+        self.btnNextLevel.clicked.connect(self.lifetime_controller.gui_next_lev)
+        self.btnWholeTrace.clicked.connect(self.lifetime_controller.gui_whole_trace)
+        self.btnLoadIRF.clicked.connect(self.lifetime_controller.gui_load_irf)
+        self.btnFitParameters.clicked.connect(self.lifetime_controller.gui_fit_param)
+        self.btnFitCurrent.clicked.connect(self.lifetime_controller.gui_fit_current)
+        self.btnFit.clicked.connect(self.lifetime_controller.gui_fit_levels)
+        self.btnFitSelected.clicked.connect(self.lifetime_controller.gui_fit_selected)
+        self.btnFitAll.clicked.connect(self.lifetime_controller.gui_fit_all)
 
-        self.ui.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
+        self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
-        self.ui.actionOpen_h5.triggered.connect(self.act_open_h5)
-        self.ui.actionOpen_pt3.triggered.connect(self.act_open_pt3)
-        self.ui.actionSave_Selected.triggered.connect(self.act_save_selected)
-        self.ui.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
-        self.ui.actionSwitch_All.triggered.connect(self.act_switch_all)
-        self.ui.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
-        self.ui.btnEx_Current.clicked.connect(self.gui_export_current)
-        self.ui.btnEx_Selected.clicked.connect(self.gui_export_selected)
-        self.ui.btnEx_All.clicked.connect(self.gui_export_all)
+        self.actionOpen_h5.triggered.connect(self.act_open_h5)
+        self.actionOpen_pt3.triggered.connect(self.act_open_pt3)
+        self.actionSave_Selected.triggered.connect(self.act_save_selected)
+        self.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
+        self.actionSwitch_All.triggered.connect(self.act_switch_all)
+        self.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
+        self.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
+        self.btnEx_Current.clicked.connect(self.gui_export_current)
+        self.btnEx_Selected.clicked.connect(self.gui_export_selected)
+        self.btnEx_All.clicked.connect(self.gui_export_all)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()
-        self.ui.treeViewParticles.setModel(self.treemodel)
+        self.treeViewParticles.setModel(self.treemodel)
         # Connect the tree selection to data display
-        self.ui.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
+        self.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
 
         self.part_nodes = list()
         self.part_index = list()
@@ -762,7 +968,7 @@ class MainWindow(QMainWindow):
         self.irfbg = None
         self.start = None
         self.end = None
-        self.adopt = None
+        self.addopt = None
 
         self.statusBar().showMessage('Ready...')
         self.progress = QProgressBar(self)
@@ -777,7 +983,7 @@ class MainWindow(QMainWindow):
 
         self._current_level = None
 
-        self.ui.tabWidget.currentChanged.connect(self.tab_change)
+        self.tabWidget.currentChanged.connect(self.tab_change)
 
         self.reset_gui()
         self.repaint()
@@ -787,24 +993,23 @@ class MainWindow(QMainWindow):
     #######################################"""
 
     def after_show(self):
-        self.ui.pgSpectra.resize(self.ui.tabSpectra.size().height(),
-                                 self.ui.tabSpectra.size().height()-self.ui.btnSubBackground.size().height()-40)
+        self.pgSpectra.resize(self.tabSpectra.size().height(),
+                                 self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
 
     def resizeEvent(self, a0: QResizeEvent):
-        if self.ui.tabSpectra.size().height() <= self.ui.tabSpectra.size().width():
-            self.ui.pgSpectra.resize(self.ui.tabSpectra.size().height(),
-                                     self.ui.tabSpectra.size().height()-self.ui.btnSubBackground.size().height()-40)
+        if self.tabSpectra.size().height() <= self.tabSpectra.size().width():
+            self.pgSpectra.resize(self.tabSpectra.size().height(),
+                                     self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
         else:
-            self.ui.pgSpectra.resize(self.ui.tabSpectra.size().width(),
-                                     self.ui.tabSpectra.size().width()-40)
-
+            self.pgSpectra.resize(self.tabSpectra.size().width(),
+                                     self.tabSpectra.size().width() - 40)
 
     def check_all_sums(self) -> None:
         """
         Check if the all_sums.pickle file exists, and if it doesn't creates it
         """
-        if (not os.path.exists(os.getcwd()+'\\all_sums.pickle')) and\
-                (not os.path.isfile(os.getcwd()+'\\all_sums.pickle')):
+        if (not os.path.exists(rm.resource_path('all_sums.pickle'))) and \
+                (not os.path.isfile(rm.resource_path('all_sums.pickle'))):
             self.status_message('Calculating change point sums, this may take several minutes.')
             create_all_sums = CPSums(only_pickle=True, n_min=10, n_max=1000)
             del create_all_sums
@@ -827,7 +1032,7 @@ class MainWindow(QMainWindow):
 
         fname = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
-            of_worker = WorkerOpenFile(fname, irf=False)
+            of_worker = WorkerOpenFile(fname)
             of_worker.signals.openfile_finished.connect(self.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.start_progress)
             of_worker.signals.progress.connect(self.update_progress)
@@ -838,7 +1043,9 @@ class MainWindow(QMainWindow):
             of_worker.signals.add_particlenode.connect(self.add_node)
             of_worker.signals.reset_tree.connect(lambda: self.treemodel.modelReset.emit())
             of_worker.signals.data_loaded.connect(self.set_data_loaded)
-            of_worker.signals.bin_size.connect(self.ui.spbBinSize.setValue)
+            of_worker.signals.bin_size.connect(self.spbBinSize.setValue)
+            of_worker.signals.set_start.connect(self.set_startpoint)
+            of_worker.signals.set_tmin.connect(self.lifetime_controller.set_tmin)
 
             self.threadpool.start(of_worker)
 
@@ -897,6 +1104,25 @@ class MainWindow(QMainWindow):
 
         self.switching_frequency(all_selected='selected')
 
+    def act_set_startpoint(self):
+
+        start, ok = QInputDialog.getInt(self, 'Input Dialog', 'Enter startpoint:')
+        self.set_startpoint(start)
+
+    def set_startpoint(self, start=None):
+        if start is None:
+            start = self.lifetime_controller.startpoint
+        try:
+            self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start, channel=True)
+        except Exception as exc:
+            print(exc)
+        if self.lifetime_controller.irf_loaded:
+            self.lifetime_controller.change_irf_start(start)
+        if self.lifetime_controller.startpoint is None:
+            self.lifetime_controller.startpoint = start
+        self.display_data()
+        dbg.p('Set startpoint', 'MainWindow')
+
     """#######################################
     ############ Internal Methods ############
     #######################################"""
@@ -909,15 +1135,15 @@ class MainWindow(QMainWindow):
 
         index = self.treemodel.addChild(particlenode, self.datasetindex, progress_sig)
         if i == 1:
-            self.ui.treeViewParticles.expand(self.datasetindex)
-            self.ui.treeViewParticles.setCurrentIndex(index)
+            self.treeViewParticles.expand(self.datasetindex)
+            self.treeViewParticles.setCurrentIndex(index)
 
         self.part_nodes.append(particlenode)
         self.part_index.append(index)
 
-    def tab_change(self, active_tab_index:int):
+    def tab_change(self, active_tab_index: int):
         if self.data_loaded and hasattr(self, 'currentparticle'):
-            if self.ui.tabWidget.currentIndex() in [0, 1, 2, 3]:
+            if self.tabWidget.currentIndex() in [0, 1, 2, 3]:
                 self.display_data()
 
     def display_data(self, current=None, prev=None) -> None:
@@ -946,13 +1172,13 @@ class MainWindow(QMainWindow):
             self.int_controller.plot_trace()
             if self.currentparticle.has_levels:
                 self.int_controller.plot_levels()
-                self.ui.btnGroup.setEnabled(True)
-                self.ui.btnGroup_Selected.setEnabled(True)
-                self.ui.btnGroup_All.setEnabled(True)
+                self.btnGroup.setEnabled(True)
+                self.btnGroup_Selected.setEnabled(True)
+                self.btnGroup_All.setEnabled(True)
             else:
-                self.ui.btnGroup.setEnabled(False)
-                self.ui.btnGroup_Selected.setEnabled(False)
-                self.ui.btnGroup_All.setEnabled(False)
+                self.btnGroup.setEnabled(False)
+                self.btnGroup_Selected.setEnabled(False)
+                self.btnGroup_All.setEnabled(False)
             self.lifetime_controller.plot_decay(remove_empty=False)
             self.lifetime_controller.plot_convd()
             self.lifetime_controller.update_results()
@@ -1052,8 +1278,8 @@ class MainWindow(QMainWindow):
 
         if self.data_loaded and not irf:
             self.currentparticle = self.tree2particle(0)
-            self.ui.treeViewParticles.expandAll()
-            self.ui.treeViewParticles.setCurrentIndex(self.part_index[0])
+            self.treeViewParticles.expandAll()
+            self.treeViewParticles.setCurrentIndex(self.part_index[0])
             self.display_data(self.part_index[1])
 
             msgbx = TimedMessageBox(30)
@@ -1073,13 +1299,12 @@ class MainWindow(QMainWindow):
                                                     "Select confidence interval to use.", confidences, 0, False)
                     if ok:
                         index = list(self.confidence_index.values()).index(int(float(item) * 100))
-                self.ui.cmbConfIndex.setCurrentIndex(index)
-                self.start_resolve_thread('all')
+                self.cmbConfIndex.setCurrentIndex(index)
+                self.int_controller.start_resolve_thread('all')
         self.reset_gui()
-        self.ui.gbxExport_Int.setEnabled(True)
-        self.ui.chbEx_Trace.setEnabled(True)
+        self.gbxExport_Int.setEnabled(True)
+        self.chbEx_Trace.setEnabled(True)
         dbg.p('File opened', 'MainWindow')
-
 
     def start_binall_thread(self, bin_size) -> None:
         """
@@ -1130,15 +1355,16 @@ class MainWindow(QMainWindow):
             selected = self.get_checked_particles()
 
         resolve_thread = WorkerResolveLevels(resolve_levels,
-                                             conf=self.confidence_index[self.ui.cmbConfIndex.currentIndex()],
+                                             conf=self.confidence_index[self.cmbConfIndex.currentIndex()],
                                              data=self.tree2dataset(),
                                              currentparticle=self.currentparticle,
                                              mode=mode,
                                              resolve_selected=selected)
         resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
-        resolve_thread.signals. start_progress.connect(self.start_progress)
+        resolve_thread.signals.start_progress.connect(self.start_progress)
         resolve_thread.signals.progress.connect(self.update_progress)
         resolve_thread.signals.status_message.connect(self.status_message)
+        resolve_thread.signals.reset_gconnect(self.reset_gui)
 
         self.threadpool.start(resolve_thread)
 
@@ -1155,11 +1381,11 @@ class MainWindow(QMainWindow):
         Parameters
         ----------
         start_progress_sig : pyqtSignal
-            Used to call method to set up progress bar on GUI.
+            Used to call method to set up progress bar on G
         progress_sig : pyqtSignal
-            Used to call method to increment progress bar on GUI.
+            Used to call method to increment progress bar on G
         status_sig : pyqtSignal
-            Used to call method to show status bar message on GUI.
+            Used to call method to show status bar message on G
         mode : {'current', 'selected', 'all'}
             Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
         resolve_selected : list[smsh5.Partilce]
@@ -1223,12 +1449,13 @@ class MainWindow(QMainWindow):
         """
 
         if self.tree2dataset().cpa_has_run:
-            self.ui.tabGrouping.setEnabled(True)
-        if self.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+            self.tabGrouping.setEnabled(True)
+        if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.display_data()
         dbg.p('Resolving levels complete', 'MainWindow')
         self.check_remove_bursts(mode=mode)
-        self.ui.chbEx_Levels.setEnabled(True)
+        self.set_startpoint()
+        self.chbEx_Levels.setEnabled(True)
 
     def check_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
@@ -1256,6 +1483,7 @@ class MainWindow(QMainWindow):
                 for num, particle in enumerate(particles):
                     if has_burst[num]:
                         particle.cpts.remove_bursts()
+            self.tree2dataset().makehistograms()
 
             self.display_data()
 
@@ -1299,7 +1527,7 @@ class MainWindow(QMainWindow):
         checked_nums = list()
         for ind in range(self.treemodel.rowCount(self.datasetindex)):
             if self.part_nodes[ind].checked():
-                checked_nums.append(ind+1)
+                checked_nums.append(ind + 1)
         return checked_nums
 
     def get_checked_particles(self):
@@ -1311,6 +1539,7 @@ class MainWindow(QMainWindow):
 
     def set_level_resolved(self):
         self.level_resolved = True
+        print(self.level_resolved)
 
     def export(self, mode: str = None):
 
@@ -1337,8 +1566,10 @@ class MainWindow(QMainWindow):
         f_dir = QFileDialog.getExistingDirectory(self)
 
         if f_dir:
-            ex_traces = self.ui.chbEx_Trace.isChecked()
-            ex_levels = self.ui.chbEx_Levels.isChecked()
+            ex_traces = self.chbEx_Trace.isChecked()
+            ex_levels = self.chbEx_Levels.isChecked()
+            ex_lifetime = self.chbEx_Lifetimes.isChecked()
+            ex_hist = self.chbEx_Hist.isChecked()
             for num, p in enumerate(particles):
                 if ex_traces:
                     tr_path = os.path.join(f_dir, p.name + ' trace.csv')
@@ -1359,7 +1590,7 @@ class MainWindow(QMainWindow):
                         rows = list()
                         rows.append(['Level #', 'Time (s)', 'Int (counts/s)'])
                         for i in range(len(ints)):
-                            rows.append([str(i//2), str(times[i]), str(ints[i])])
+                            rows.append([str(i // 2), str(times[i]), str(ints[i])])
                         with open(lvl_tr_path, 'w') as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
@@ -1375,6 +1606,83 @@ class MainWindow(QMainWindow):
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
+                if ex_lifetime:
+                    if p.numexp == 1:
+                        taucol = ['Lifetime (ns)']
+                        ampcol = ['Amp']
+                    elif p.numexp == 2:
+                        taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
+                        ampcol = ['Amp 1', 'Amp 2']
+                    elif p.numexp == 3:
+                        taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
+                        ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
+                    if p.has_levels:
+                        lvl_path = os.path.join(f_dir, p.name + ' levels lifetimes.csv')
+                        rows = list()
+                        rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
+                                     'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG'])
+                        for i, l in enumerate(p.levels):
+                            if l.histogram.tau is None or l.histogram.amp is None:  # Problem with fitting the level
+                                tauexp = ['0' for i in range(p.numexp)]
+                                ampexp = ['0' for i in range(p.numexp)]
+                                other_exp = ['0', '0', '0', '0']
+                            else:
+                                if p.numexp == 1:
+                                    tauexp = [str(l.histogram.tau)]
+                                    ampexp = [str(l.histogram.amp)]
+                                else:
+                                    tauexp = [str(tau) for tau in l.histogram.tau]
+                                    ampexp = [str(amp) for amp in l.histogram.amp]
+                                other_exp = [str(l.histogram.avtau), str(l.histogram.shift), str(l.histogram.bg),
+                                             str(l.histogram.irfbg)]
+
+                            rows.append([str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
+                                         str(l.int_p_s), str(l.num_photons)] + tauexp + ampexp + other_exp)
+
+                        with open(lvl_path, 'w') as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                if ex_hist:
+                    tr_path = os.path.join(f_dir, p.name + ' histogram.csv')
+                    times = p.histogram.convd_t
+                    if times is not None:
+                        decay = p.histogram.fit_decay
+                        convd = p.histogram.convd
+                        rows = list()
+                        rows.append(['Time (ns)', 'Decay', 'Fitted'])
+                        for i, time in enumerate(times):
+                            rows.append([str(time), str(decay[i]), str(convd[i])])
+
+                        with open(tr_path, 'w') as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                    if p.has_levels:
+                        dir_path = os.path.join(f_dir, p.name + ' histograms')
+                        try:
+                            os.mkdir(dir_path)
+                        except FileExistsError:
+                            pass
+                        for i, l in enumerate(p.levels):
+                            hist_path = os.path.join(dir_path, 'level ' + str(i) + ' histogram.csv')
+                            times = l.histogram.convd_t
+                            if times is None:
+                                continue
+                            decay = l.histogram.fit_decay
+                            convd = l.histogram.convd
+                            rows = list()
+                            rows.append(['Time (ns)', 'Decay', 'Fitted'])
+                            for j, time in enumerate(times):
+                                rows.append([str(time), str(decay[j]), str(convd[j])])
+
+                            with open(hist_path, 'w') as f:
+                                writer = csv.writer(f, dialect=csv.excel)
+                                writer.writerows(rows)
+
+                    dbg.p('Exporting Finished', 'MainWindow')
+
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
 
@@ -1385,42 +1693,44 @@ class MainWindow(QMainWindow):
             new_state = False
 
         # Intensity
-        self.ui.tabIntensity.setEnabled(new_state)
-        self.ui.btnApplyBin.setEnabled(new_state)
-        self.ui.btnApplyBinAll.setEnabled(new_state)
-        self.ui.btnResolve.setEnabled(new_state)
-        self.ui.btnResolve_Selected.setEnabled(new_state)
-        self.ui.btnResolveAll.setEnabled(new_state)
-        self.ui.cmbConfIndex.setEnabled(new_state)
-        self.ui.spbBinSize.setEnabled(new_state)
-        self.ui.actionReset_Analysis.setEnabled(new_state)
-        self.ui.actionSave_Selected.setEnabled(new_state)
+        self.tabIntensity.setEnabled(new_state)
+        self.btnApplyBin.setEnabled(new_state)
+        self.btnApplyBinAll.setEnabled(new_state)
+        self.btnResolve.setEnabled(new_state)
+        self.btnResolve_Selected.setEnabled(new_state)
+        self.btnResolveAll.setEnabled(new_state)
+        self.cmbConfIndex.setEnabled(new_state)
+        self.spbBinSize.setEnabled(new_state)
+        self.actionReset_Analysis.setEnabled(new_state)
+        self.actionSave_Selected.setEnabled(new_state)
         if new_state:
             enable_levels = self.level_resolved
         else:
             enable_levels = new_state
-        self.ui.actionTrim_Dead_Traces.setEnabled(enable_levels)
+        self.actionTrim_Dead_Traces.setEnabled(enable_levels)
 
         # Lifetime
-        self.ui.tabLifetime.setEnabled(new_state)
-        self.ui.btnFitParameters.setEnabled(new_state)
-        self.ui.btnLoadIRF.setEnabled(new_state)
+        self.tabLifetime.setEnabled(new_state)
+        self.btnFitParameters.setEnabled(new_state)
+        self.btnLoadIRF.setEnabled(new_state)
         if new_state:
-            enable_fitting = self.irf_loaded
+            enable_fitting = self.lifetime_controller.irf_loaded
         else:
             enable_fitting = new_state
-        self.ui.btnFit.setEnabled(enable_fitting)
-        self.ui.btnFitAll.setEnabled(enable_fitting)
-        self.ui.btnFitSelected.setEnabled(enable_fitting)
-        self.ui.btnNextLevel.setEnabled(enable_levels)
-        self.ui.btnPrevLevel.setEnabled(enable_levels)
+        self.btnFitCurrent.setEnabled(enable_fitting)
+        self.btnFit.setEnabled(enable_fitting)
+        self.btnFitAll.setEnabled(enable_fitting)
+        self.btnFitSelected.setEnabled(enable_fitting)
+        self.btnNextLevel.setEnabled(enable_levels)
+        self.btnPrevLevel.setEnabled(enable_levels)
+        # print(enable_levels)
 
         # Spectral
         if self.has_spectra:
-            self.ui.tabSpectra.setEnabled(True)
-            self.ui.btnSubBackground.setEnabled(new_state)
+            self.tabSpectra.setEnabled(True)
+            self.btnSubBackground.setEnabled(new_state)
         else:
-            self.ui.tabSpectra.setEnabled(False)
+            self.tabSpectra.setEnabled(False)
 
     @property
     def current_level(self):
@@ -1436,6 +1746,7 @@ class MainWindow(QMainWindow):
                 self._current_level = value
             except:
                 pass
+
 
 class IntController(QObject):
 
@@ -1453,16 +1764,16 @@ class IntController(QObject):
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
 
-        # self.ui.pgSpectra.centralWidget
+        # self.pgSpectra.centralWidget
         #
-        # self.ui.pgIntensity.getPlotItem().setFixedWidth(500)
-        # self.ui.pgSpectra.resize(100, 200)
-        # self.ui.pgIntensity.getPlotItem().getAxis('left').setRange(0, 100)
+        # self.pgIntensity.getPlotItem().setFixedWidth(500)
+        # self.pgSpectra.resize(100, 200)
+        # self.pgIntensity.getPlotItem().getAxis('left').setRange(0, 100)
         # window_color = self.palette().color(QPalette.Window)
         # rgba_color = (window_color.red()/255, window_color.green()/255, window_color.blue()/255, 1)
-        # self.ui.pgIntensity.setBackground(background=rgba_color)
-        # self.ui.pgIntensity.setXRange(0, 10, 0)
-        # self.ui.pgIntensity.getPlotItem().plot(y=[1, 2, 3, 4, 5])
+        # self.pgIntensity.setBackground(background=rgba_color)
+        # self.pgIntensity.setXRange(0, 10, 0)
+        # self.pgIntensity.getPlotItem().plot(y=[1, 2, 3, 4, 5])
         try:
             self.mainwindow.currentparticle.binints(self.get_bin())
         except Exception as err:
@@ -1481,7 +1792,7 @@ class IntController(QObject):
             The value of the bin size on the GUI in spbBinSize.
         """
 
-        return self.mainwindow.ui.spbBinSize.value()
+        return self.mainwindow.spbBinSize.value()
 
     def set_bin(self, new_bin: int):
         """ Sets the GUI value for the bin size in ms
@@ -1491,7 +1802,7 @@ class IntController(QObject):
         new_bin: int
             Value to set bin size to, in ms.
         """
-        self.mainwindow.ui.spbBinSize.setValue(new_bin)
+        self.mainwindow.spbBinSize.setValue(new_bin)
 
     def gui_apply_bin_all(self):
         """ Changes the bin size of the data of all the particles and then displays the new trace of the current particle. """
@@ -1532,25 +1843,25 @@ class IntController(QObject):
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
-            cur_tab_name = self.mainwindow.ui.tabWidget.currentWidget().objectName()
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
             if cur_tab_name != 'tabSpectra':
                 if cur_tab_name == 'tabIntensity':
-                    plot_item = self.mainwindow.ui.pgIntensity.getPlotItem()
+                    plot_item = self.mainwindow.pgIntensity.getPlotItem()
                     plot_pen.setWidthF(1.5)
                     plot_pen.setColor(QColor('green'))
                 elif cur_tab_name == 'tabLifetime':
-                    plot_item = self.mainwindow.ui.pgLifetime_Int.getPlotItem()
+                    plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor('green'))
                 elif cur_tab_name == 'tabGrouping':
-                    plot_item = self.mainwindow.ui.pgGroups
+                    plot_item = self.mainwindow.pgGroups
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor(0, 0, 0, 50))
 
                 plot_pen.setJoinStyle(Qt.RoundJoin)
 
                 plot_item.clear()
-                unit = 'counts/'+str(self.get_bin())+'ms'
+                unit = 'counts/' + str(self.get_bin()) + 'ms'
                 plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
                 plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                 plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
@@ -1567,19 +1878,19 @@ class IntController(QObject):
         except AttributeError:
             dbg.p('No levels!', 'IntController')
         else:
-            # if self.ui.tabIntensity.isActiveWindow():
-            #     plot_item = self.ui.pgIntensity.getPlotItem()
+            # if self.tabIntensity.isActiveWindow():
+            #     plot_item = self.pgIntensity.getPlotItem()
             #     print('int')
-            # elif self.ui.tabLifetime.isActiveWindow():
+            # elif self.tabLifetime.isActiveWindow():
             #     print('life')
-            #     plot_item = self.ui.pgLifetime_Int.getPlotItem()
+            #     plot_item = self.pgLifetime_Int.getPlotItem()
             # else:
             #     return
-            if self.mainwindow.ui.tabWidget.currentWidget().objectName() == 'tabIntensity':
-                plot_item = self.mainwindow.ui.pgIntensity.getPlotItem()
+            if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabIntensity':
+                plot_item = self.mainwindow.pgIntensity.getPlotItem()
                 # pen_width = 1.5
-            elif self.mainwindow.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
-                plot_item = self.mainwindow.ui.pgLifetime_Int.getPlotItem()
+            elif self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
+                plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
                 # pen_width = 1.1
             else:
                 return
@@ -1658,11 +1969,12 @@ class IntController(QObject):
 
     def resolve_thread_complete(self, mode):
         if self.mainwindow.tree2dataset().cpa_has_run:
-            self.mainwindow.ui.tabGrouping.setEnabled(True)
-        if self.mainwindow.ui.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+            self.mainwindow.tabGrouping.setEnabled(True)
+        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.check_remove_bursts(mode=mode)
-        self.mainwindow.ui.chbEx_Levels.setEnabled(True)
+        self.mainwindow.chbEx_Levels.setEnabled(True)
+        self.mainwindow.set_startpoint()
         dbg.p('Resolving levels complete', 'IntController')
 
         ###############################################################################################################
@@ -1672,7 +1984,8 @@ class IntController(QObject):
     def get_gui_confidence(self):
         """ Return current GUI value for confidence percentage. """
 
-        return [self.mainwindow.ui.cmbConfIndex.currentIndex(), self.confidence_index[self.mainwindow.ui.cmbConfIndex.currentIndex()]]
+        return [self.mainwindow.cmbConfIndex.currentIndex(),
+                self.confidence_index[self.mainwindow.cmbConfIndex.currentIndex()]]
 
 
 class LifetimeController(QObject):
@@ -1686,6 +1999,8 @@ class LifetimeController(QObject):
         self.irf_loaded = False
 
         self.first = 0
+        self.startpoint = None
+        self.tmin = 0
 
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """
@@ -1696,8 +2011,6 @@ class LifetimeController(QObject):
             self.mainwindow.current_level = None
         else:
             self.mainwindow.current_level -= 1
-        # self.plot_levels()
-        # self.plot_decay()
         self.mainwindow.display_data()
 
     def gui_next_lev(self):
@@ -1707,8 +2020,12 @@ class LifetimeController(QObject):
             self.mainwindow.current_level = 0
         else:
             self.mainwindow.current_level += 1
-        # self.plot_levels()
-        # self.plot_decay()
+        self.mainwindow.display_data()
+
+    def gui_whole_trace(self):
+        "Unselects selected level and shows whole trace's decay curve"
+
+        self.mainwindow.current_level = None
         self.mainwindow.display_data()
 
     def gui_load_irf(self):
@@ -1716,7 +2033,7 @@ class LifetimeController(QObject):
 
         fname = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
-            of_worker = WorkerOpenFile(fname, irf=True)
+            of_worker = WorkerOpenFile(fname, irf=True, tmin=self.tmin)
             of_worker.signals.openfile_finished.connect(self.mainwindow.open_file_thread_complete)
             of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
             of_worker.signals.progress.connect(self.mainwindow.update_progress)
@@ -1727,17 +2044,20 @@ class LifetimeController(QObject):
             of_worker.signals.add_particlenode.connect(self.mainwindow.add_node)
             of_worker.signals.reset_tree.connect(lambda: self.mainwindow.treemodel.modelReset.emit())
             of_worker.signals.data_loaded.connect(self.mainwindow.set_data_loaded)
-            of_worker.signals.bin_size.connect(self.mainwindow.ui.spbBinSize.setValue)
+            of_worker.signals.bin_size.connect(self.mainwindow.spbBinSize.setValue)
             of_worker.signals.add_irf.connect(self.add_irf)
 
             self.mainwindow.threadpool.start(of_worker)
 
-    def add_irf(self, decay, t):
+    def add_irf(self, decay, t, irfdata):
 
         self.fitparam.irf = decay
         self.fitparam.irft = t
+        self.fitparam.irfdata = irfdata
         self.irf_loaded = True
+        self.mainwindow.set_startpoint()
         self.mainwindow.reset_gui
+        self.fitparamdialog.updateplot()
 
     def gui_fit_param(self):
         """ Opens a dialog to choose the setting with which the decay curve will be fitted. """
@@ -1746,39 +2066,65 @@ class LifetimeController(QObject):
             self.fitparam.getfromdialog()
 
     def gui_fit_current(self):
-        """ Fits the all the levels decay curves in the current particle using the provided settings. """
+        """ Fits the currently selected level's decay curve using the provided settings. """
 
-        # print("gui_fit_current")
+        if self.mainwindow.current_level is None:
+            histogram = self.mainwindow.currentparticle.histogram
+        else:
+            level = self.mainwindow.current_level
+            histogram = self.mainwindow.currentparticle.levels[level].histogram
         try:
-            if not self.mainwindow.currentparticle.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
-                                                                 self.fitparam.shift, self.fitparam.decaybg, self.fitparam.irfbg,
-                                                                 self.fitparam.start, self.fitparam.end, self.fitparam.addopt,
-                                                                 self.fitparam.irf):
+            channelwidth = self.mainwindow.currentparticle.channelwidth
+            shift = self.fitparam.shift / channelwidth
+            # shift = self.fitparam.shift
+            if self.fitparam.start is not None:
+                start = int(self.fitparam.start / channelwidth)
+            else:
+                start = None
+            if self.fitparam.end is not None:
+                end = int(self.fitparam.end / channelwidth)
+            else:
+                end = None
+            if not histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
+                                 shift, self.fitparam.decaybg, self.fitparam.irfbg,
+                                 start, end, self.fitparam.addopt,
+                                 self.fitparam.irf, self.fitparam.shiftfix):
                 return  # fit unsuccessful
         except AttributeError:
-            raise
-            dgb.p("No decay", "Main")
+            dbg.p("No decay", "Lifetime Fitting")
         else:
             self.mainwindow.display_data()
 
+    def gui_fit_selected(self):
+        """ Fits the all the levels decay curves in the all the selected particles using the provided settings. """
+
+        self.start_fitting_thread(mode='selected')
+
+    def gui_fit_all(self):
+        """ Fits the all the levels decay curves in the all the particles using the provided settings. """
+
+        self.start_fitting_thread(mode='all')
+
+    def gui_fit_levels(self):
+        """ Fits the all the levels decay curves for the current particle. """
+
+        self.start_fitting_thread()
+
     def update_results(self):
-        try:
-            currentparticle = self.mainwindow.currentparticle
-            if self.mainwindow.current_level is None:
-                tau = currentparticle.histogram.tau
-                amp = currentparticle.histogram.amp
-                shift = currentparticle.histogram.shift
-                bg = currentparticle.histogram.bg
-                irfbg = currentparticle.histogram.irfbg
-            else:
-                level = self.mainwindow.current_level
-                tau = currentparticle.levels[level].histogram.tau
-                amp = currentparticle.levels[level].histogram.amp
-                shift = currentparticle.levels[level].histogram.shift
-                bg = currentparticle.levels[level].histogram.bg
-                irfbg = currentparticle.levels[level].histogram.irfbg
-        except AttributeError:  # No results
+
+        currentparticle = self.mainwindow.currentparticle
+        if self.mainwindow.current_level is None:
+            histogram = currentparticle.histogram
+        else:
+            level = self.mainwindow.current_level
+            histogram = currentparticle.levels[level].histogram
+        if not histogram.fitted:
             return
+        tau = histogram.tau
+        amp = histogram.amp
+        shift = histogram.shift
+        bg = histogram.bg
+        irfbg = histogram.irfbg
         try:
             taustring = 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
             ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
@@ -1788,33 +2134,9 @@ class LifetimeController(QObject):
         shiftstring = 'Shift = {:#.3g} ns'.format(shift)
         bgstring = 'Decay BG = {:#.3g}'.format(bg)
         irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
-        self.mainwindow.ui.textBrowser.setText(taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
-                                    irfbgstring)
-
-    def gui_fit_selected(self):
-        """ Fits the all the levels decay curves in the all the selected particles using the provided settings. """
-
-        print("gui_fit_selected")
-
-    def gui_fit_all(self):
-        """ Fits the all the levels decay curves in the all the particles using the provided settings. """
-
-        print("gui_fit_all")
-
-    def gui_fit_levels(self):
-        """ Fits the all the levels decay curves for the current particle. """
-
-        for level in self.mainwindow.currentparticle.levels:
-            # print('level')
-            try:
-                if not level.histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
-                                           self.fitparam.shift, self.fitparam.decaybg, self.fitparam.irfbg,
-                                           self.fitparam.start, self.fitparam.end, self.fitparam.addopt,
-                                           self.fitparam.irf):
-                    pass  # fit unsuccessful
-            except AttributeError:
-                dbg.p("No decay", "LifetimeController")
-        self.mainwindow.display_data()
+        self.mainwindow.textBrowser.setText(
+            taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
+            irfbgstring)
 
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
@@ -1848,8 +2170,8 @@ class LifetimeController(QObject):
         if decay.size == 0:
             return  # some levels have no photons
 
-        if self.mainwindow.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
-            plot_item = self.mainwindow.ui.pgLifetime.getPlotItem()
+        if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
+            plot_item = self.mainwindow.pgLifetime.getPlotItem()
             plot_pen = QPen()
             plot_pen.setWidthF(1.5)
             plot_pen.setJoinStyle(Qt.RoundJoin)
@@ -1873,6 +2195,7 @@ class LifetimeController(QObject):
             unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
             plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            self.fitparamdialog.updateplot()
 
     def plot_convd(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
@@ -1899,8 +2222,8 @@ class LifetimeController(QObject):
 
         # convd = convd / convd.max()
 
-        if self.mainwindow.ui.tabWidget.currentWidget().objectName() == 'tabLifetime':
-            plot_item = self.mainwindow.ui.pgLifetime.getPlotItem()
+        if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
+            plot_item = self.mainwindow.pgLifetime.getPlotItem()
             plot_pen = QPen()
             plot_pen.setWidthF(4)
             plot_pen.setJoinStyle(Qt.RoundJoin)
@@ -1919,6 +2242,81 @@ class LifetimeController(QObject):
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
             plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
 
+    def start_fitting_thread(self, mode: str = 'current', thread_finished=None) -> None:
+        """
+        Creates a worker to resolve levels.
+
+        Depending on the ``current_selected_all`` parameter the worker will be
+        given the necessary parameter to fit the current, selected or all particles.
+
+        Parameters
+        ----------
+        thread_finished
+        mode : {'current', 'selected', 'all'}
+            Possible values are 'current' (default), 'selected', and 'all'.
+        """
+
+        if thread_finished is None:
+            if self.mainwindow.data_loaded:
+                thread_finished = self.fitting_thread_complete
+            else:
+                thread_finished = self.mainwindow.open_file_thread_complete
+
+        data = self.mainwindow.tree2dataset()
+        currentparticle = self.mainwindow.currentparticle
+
+        print(mode)
+        if mode == 'current':
+            # sig = WorkerSignals()
+            # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
+            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode)
+        elif mode == 'selected':
+            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode,
+                                                resolve_selected=self.mainwindow.get_checked_particles())
+        elif mode == 'all':
+            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode)
+            # resolve_thread.signals.finished.connect(thread_finished)
+            # resolve_thread.signals.start_progress.connect(self.start_progress)
+            # resolve_thread.signals.progress.connect(self.update_progress)
+            # resolve_thread.signals.status_message.connect(self.status_message)
+            # self.resolve_levels(resolve_thread.signals.start_progress, resolve_thread.signals.progress,
+            #                     resolve_thread.signals.status_message, resolve_all=True, parallel=True)
+
+        fitting_thread.signals.fitting_finished.connect(self.fitting_thread_complete)
+        fitting_thread.signals.start_progress.connect(self.mainwindow.start_progress)
+        fitting_thread.signals.progress.connect(self.mainwindow.update_progress)
+        fitting_thread.signals.status_message.connect(self.mainwindow.status_message)
+        fitting_thread.signals.reset_gui.connect(self.mainwindow.reset_gui)
+
+        self.mainwindow.threadpool.start(fitting_thread)
+
+    def fitting_thread_complete(self, mode):
+        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+            self.mainwindow.display_data()
+        self.mainwindow.chbEx_Lifetimes.setEnabled(False)
+        self.mainwindow.chbEx_Lifetimes.setEnabled(True)
+        self.mainwindow.chbEx_Hist.setEnabled(True)
+        print(self.mainwindow.chbEx_Lifetimes.isChecked())
+        dbg.p('Fitting levels complete', 'Fitting Thread')
+
+    def change_irf_start(self, start):
+        dataset = self.fitparam.irfdata
+
+        dataset.makehistograms(remove_zeros=False, startpoint=start, channel=True)
+        irfhist = dataset.particles[0].histogram
+        # irfhist.t -= irfhist.t.min()
+        self.fitparam.irf = irfhist.decay
+        self.fitparam.irft = irfhist.t
+        # ind = np.searchsorted(self.fitparam.irft, start)
+        # print(self.fitparam.irft)
+        # print(ind)
+        # self.fitparam.irft = self.fitparam.irft[ind:]
+        # self.fitparam.irf = self.fitparam.irf[ind:]
+        # print(self.fitparam.irft)
+
+    def set_tmin(self, tmin=0):
+        self.tmin = tmin
+
 
 class SpectraController(QObject):
 
@@ -1926,6 +2324,7 @@ class SpectraController(QObject):
         super().__init__()
 
         self.mainwindow = mainwindow
+
 
     def gui_sub_bkg(self):
         """ Used to subtract the background TODO: Explain the sub_background """
@@ -1935,6 +2334,7 @@ class SpectraController(QObject):
 
 class FittingDialog(QDialog, Ui_Dialog):
     """Class for dialog that is used to choose lifetime fit parameters."""
+
     def __init__(self, mainwindow, lifetime_controller):
         self.mainwindow = mainwindow
         QDialog.__init__(self, mainwindow)
@@ -1946,9 +2346,10 @@ class FittingDialog(QDialog, Ui_Dialog):
             widget.stateChanged.connect(self.updateplot)
         for widget in self.findChildren(QComboBox):
             widget.currentTextChanged.connect(self.updateplot)
+        self.updateplot()
 
-        self.lineStartTime.setValidator(QIntValidator())
-        self.lineEndTime.setValidator(QIntValidator())
+        # self.lineStartTime.setValidator(QIntValidator())
+        # self.lineEndTime.setValidator(QIntValidator())
 
     def updateplot(self, *args):
 
@@ -1968,17 +2369,26 @@ class FittingDialog(QDialog, Ui_Dialog):
 
         shift, decaybg, irfbg, start, end = self.getparams()
 
+        channelwidth = self.mainwindow.currentparticle.channelwidth
+        shift = shift / channelwidth
+        start = int(start / channelwidth)
+        end = int(end / channelwidth)
         irf = tcspcfit.colorshift(irf, shift)
         convd = scipy.signal.convolve(irf, model)
         convd = convd[:np.size(irf)]
         convd = convd / convd.max()
 
         try:
-            decay = self.mainwindow.currentparticle.histogram.decay
+            if self.mainwindow.current_level is None:
+                histogram = self.mainwindow.currentparticle.histogram
+            else:
+                level = self.mainwindow.current_level
+                histogram = self.mainwindow.currentparticle.levels[level].histogram
+            decay = histogram.decay
             decay = decay / decay.max()
-            t = self.mainwindow.currentparticle.histogram.t
+            t = histogram.t
 
-            decay, t = start_at_nonzero(decay, t)
+            # decay, t = start_at_value(decay, t)
             end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
 
             convd = convd[irft > 0]
@@ -1987,15 +2397,42 @@ class FittingDialog(QDialog, Ui_Dialog):
         except AttributeError:
             dbg.p(debug_print='No Decay!', debug_from='FittingDialog')
         else:
-            self.MW_fitparam.axes.clear()
-            self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
-            self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
-            self.MW_fitparam.axes.set_ylim(bottom=1e-3)
+            plot_item = self.pgFitParam.getPlotItem()
+            plot_item.setLogMode(y=True)
+            plot_pen = QPen()
+            plot_pen.setWidthF(3)
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setColor(QColor('blue'))
+            plot_pen.setCosmetic(True)
 
-            self.MW_fitparam.axes.axvline(t[start])
-            self.MW_fitparam.axes.axvline(t[end])
+            plot_item.clear()
+            plot_item.plot(x=t, y=np.clip(decay, a_min=0.001, a_max=None), pen=plot_pen, symbol=None)
+            plot_pen.setWidthF(4)
+            plot_pen.setColor(QColor('dark blue'))
+            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.001, a_max=None), pen=plot_pen, symbol=None)
+            # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+            plot_item.getAxis('bottom').setLabel('Decay time (ns)')
+            # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
+            # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            # self.MW_fitparam.axes.clear()
+            # self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
+            # self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
+            # self.MW_fitparam.axes.set_ylim(bottom=1e-2)
 
-            self.MW_fitparam.draw()
+        try:
+            plot_pen.setColor(QColor('gray'))
+            plot_pen.setWidth(3)
+            startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
+            endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
+            plot_item.addItem(startline)
+            plot_item.addItem(endline)
+            # self.MW_fitparam.axes.axvline(t[start])
+            # self.MW_fitparam.axes.axvline(t[end])
+        except IndexError:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText('Value out of bounds!')
+            msg.exec_()
 
     def getparams(self):
         fp = self.lifetime_controller.fitparam
@@ -2050,6 +2487,7 @@ class FittingParameters:
         self.tau = None
         self.amp = None
         self.shift = None
+        self.shiftfix = None
         self.decaybg = None
         self.irfbg = None
         self.start = None
@@ -2060,36 +2498,59 @@ class FittingParameters:
     def getfromdialog(self):
         self.numexp = int(self.fpd.combNumExp.currentText())
         if self.numexp == 1:
-            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max, self.fpd.check1Fix]]]
-            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax, self.fpd.check1AmpFix]]]
+            self.tau = [[self.get_from_gui(i) for i in
+                         [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max, self.fpd.check1Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in
+                         [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax, self.fpd.check1AmpFix]]]
 
         elif self.numexp == 2:
-            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1, self.fpd.check2Fix1]],
-                        [self.get_from_gui(i) for i in [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2, self.fpd.check2Fix2]]]
-            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line2AmpInit1, self.fpd.line2AmpMin1, self.fpd.line2AmpMax1, self.fpd.check2AmpFix1]],
-                        [self.get_from_gui(i) for i in [self.fpd.line2AmpInit2, self.fpd.line2AmpMin2, self.fpd.line2AmpMax2, self.fpd.check2AmpFix2]]]
+            self.tau = [[self.get_from_gui(i) for i in
+                         [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1, self.fpd.check2Fix1]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2, self.fpd.check2Fix2]]]
+            self.amp = [[self.get_from_gui(i) for i in
+                         [self.fpd.line2AmpInit1, self.fpd.line2AmpMin1, self.fpd.line2AmpMax1,
+                          self.fpd.check2AmpFix1]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line2AmpInit2, self.fpd.line2AmpMin2, self.fpd.line2AmpMax2,
+                          self.fpd.check2AmpFix2]]]
 
         elif self.numexp == 3:
-            self.tau = [[self.get_from_gui(i) for i in [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1, self.fpd.check3Fix1]],
-                        [self.get_from_gui(i) for i in [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2, self.fpd.check3Fix2]],
-                        [self.get_from_gui(i) for i in [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3, self.fpd.check3Fix3]]]
-            self.amp = [[self.get_from_gui(i) for i in [self.fpd.line3AmpInit1, self.fpd.line3AmpMin1, self.fpd.line3AmpMax1, self.fpd.check3AmpFix1]],
-                        [self.get_from_gui(i) for i in [self.fpd.line3AmpInit2, self.fpd.line3AmpMin2, self.fpd.line3AmpMax2, self.fpd.check3AmpFix2]],
-                        [self.get_from_gui(i) for i in [self.fpd.line3AmpInit3, self.fpd.line3AmpMin3, self.fpd.line3AmpMax3, self.fpd.check3AmpFix3]]]
+            self.tau = [[self.get_from_gui(i) for i in
+                         [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1, self.fpd.check3Fix1]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2, self.fpd.check3Fix2]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3, self.fpd.check3Fix3]]]
+            self.amp = [[self.get_from_gui(i) for i in
+                         [self.fpd.line3AmpInit1, self.fpd.line3AmpMin1, self.fpd.line3AmpMax1,
+                          self.fpd.check3AmpFix1]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line3AmpInit2, self.fpd.line3AmpMin2, self.fpd.line3AmpMax2,
+                          self.fpd.check3AmpFix2]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line3AmpInit3, self.fpd.line3AmpMin3, self.fpd.line3AmpMax3,
+                          self.fpd.check3AmpFix3]]]
 
         self.shift = self.get_from_gui(self.fpd.lineShift)
+        self.shiftfix = self.get_from_gui(self.fpd.checkFixIRF)
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
-        try:
-            self.start = int(self.get_from_gui(self.fpd.lineStartTime))
-        except TypeError:
-            self.start = self.get_from_gui(self.fpd.lineStartTime)
-        try:
-            self.end = int(self.get_from_gui(self.fpd.lineEndTime))
-        except TypeError:
-            self.end = self.get_from_gui(self.fpd.lineEndTime)
+        self.start = self.get_from_gui(self.fpd.lineStartTime)
+        self.end = self.get_from_gui(self.fpd.lineEndTime)
+        # try:
+        #     self.start = int(self.get_from_gui(self.fpd.lineStartTime))
+        # except TypeError:
+        #     self.start = self.get_from_gui(self.fpd.lineStartTime)
+        # try:
+        #     self.end = int(self.get_from_gui(self.fpd.lineEndTime))
+        # except TypeError:
+        #     self.end = self.get_from_gui(self.fpd.lineEndTime)
 
-        self.addopt = self.get_from_gui(self.fpd.lineAddOpt)
+        if self.fpd.lineAddOpt.text() != '':
+            self.addopt = self.fpd.lineAddOpt.text()
+        else:
+            self.addopt = None
 
     @staticmethod
     def get_from_gui(guiobj):
@@ -2106,14 +2567,16 @@ def main():
     """
     Creates QApplication and runs MainWindow().
     """
-    # convert_ui.convert_ui()
+    # convert_convert_ui()
     app = QApplication([])
+    print('Currently used style:', app.style().metaObject().className())
+    print('Available styles:', QStyleFactory.keys())
     dbg.p(debug_print='App created', debug_from='Main')
     main_window = MainWindow()
     dbg.p(debug_print='Main Window created', debug_from='Main')
     main_window.show()
     main_window.after_show()
-    main_window.ui.tabSpectra.repaint()
+    main_window.tabSpectra.repaint()
     dbg.p(debug_print='Main Window shown', debug_from='Main')
     app.exec_()
     dbg.p(debug_print='App excuted', debug_from='Main')

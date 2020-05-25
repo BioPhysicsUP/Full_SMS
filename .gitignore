@@ -2,10 +2,15 @@
 docs/_build/doctrees
 
 \.DS_Store
-
 __pycache__/
-all_sums\.pickle
 
-ui/mainwindow\.ui\.autosave
+icon/*
+build/*
+dist/*
+papers/*
+src/GaussianEMBIC/*
+src/__pycache__/
+src/all_sums.pickle
+src/ui/mainwindow\.ui\.autosave
 
 *.h5

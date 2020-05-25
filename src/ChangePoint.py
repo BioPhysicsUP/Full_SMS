@@ -11,13 +11,14 @@ University of Pretoria
 __docformat__ = 'NumPy'
 
 import os
-from typing import Tuple, Optional, Any, List
+from typing import Tuple, Optional
 
 import numpy as np
 from statsmodels.stats.weightstats import DescrStatsW
 from h5py import Dataset
 
 import dbg
+import resource_manager as rm
 
 MIN_PHOTONS = 10
 BURST_MIN_DWELL = 0.1  # Seconds
@@ -290,7 +291,7 @@ class TauData:
         :param confidence: Confidence of tau_a and tau_b to retrieve. Valid values are 0.99, 0.95, 0.90 and 0.69.
         :type confidence: float
         """
-        tau_data_path = os.getcwd() + os.path.sep + 'tau data'
+        tau_data_path = rm.resource_path('tau data')  # os.getcwd() + os.path.sep + 'tau data'
         assert os.path.isdir(tau_data_path), "TauData:\tTau data directory not found."
         tau_data_files = {'99_a': 'Ta-99.txt',
                           '99_b': 'Tb-99.txt',
@@ -655,15 +656,14 @@ class ChangePointAnalysis:
             # TODO: Revisit necessity of duplicate removal
             cpt_inds, unique_inds = np.unique(cpt_inds, return_inverse=True)
             dups = np.append([False], [unique_inds[i] == unique_inds[i - 1] for i in range(len(unique_inds)) if i > 0])
-            dups = np.where(dups)[0].tolist()
-            for i in dups:
-                del (conf_regions[i])
-            # dt_uncertainty = np.delete(dt_uncertainty, dups)
+            dups = np.flip(np.where(dups)[0].tolist())
+            if len(dups) != 0:
+                for i in dups:
+                    del (conf_regions[i])
 
             self.num_cpts = len(cpt_inds)
             self.cpt_inds = cpt_inds
             self.conf_regions = conf_regions
-            # self.dt_uncertainty = dt_uncertainty
 
     def define_levels(self, remove_prev: bool = None) -> None:
         """
