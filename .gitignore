@@ -14,3 +14,5 @@ src/all_sums.pickle
 src/ui/mainwindow\.ui\.autosave
 
 *.h5
+
+*.pickle
