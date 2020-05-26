@@ -38,9 +38,10 @@ from smsh5 import H5dataset, Particle
 import resource_manager as rm
 
 
-ui_file = rm.resource_path("ui/mainwindow.ui")
-# ui_file = "C:\\e57_Transformation\\main_window.ui"
+ui_file = rm.path("mainwindow.ui", rm.RMType.UI)
 UI_Main_Window, _ = uic.loadUiType(ui_file)
+
+# fitting
 
 
 class WorkerSignals(QObject):
@@ -859,7 +860,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         UI_Main_Window.__init__(self)
         self.setupUi(self)
 
-        self.setWindowIcon(QIcon(rm.resource_path('Full-SMS.ico')))
+        self.setWindowIcon(QIcon(rm.path('Full-SMS.ico', rm.RMType.Icons)))
 
         self.tabWidget.setCurrentIndex(0)
 
@@ -1008,8 +1009,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """
         Check if the all_sums.pickle file exists, and if it doesn't creates it
         """
-        if (not os.path.exists(rm.resource_path('all_sums.pickle'))) and \
-                (not os.path.isfile(rm.resource_path('all_sums.pickle'))):
+        if (not os.path.exists(rm.path('all_sums.pickle'))) and \
+                (not os.path.isfile(rm.path('all_sums.pickle'))):
             self.status_message('Calculating change point sums, this may take several minutes.')
             create_all_sums = CPSums(only_pickle=True, n_min=10, n_max=1000)
             del create_all_sums

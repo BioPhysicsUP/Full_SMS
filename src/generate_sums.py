@@ -42,9 +42,9 @@ class CPSums:
         if only_pickle:
             self._calc_and_store()
         else:
-            if os.path.exists(rm.resource_path('all_sums.pickle')) \
-                    and os.path.isfile(rm.resource_path('all_sums.pickle')):
-                all_sums_file = open(rm.resource_path('all_sums.pickle'), 'rb')
+            if os.path.exists(rm.path('all_sums.pickle')) \
+                    and os.path.isfile(rm.path('all_sums.pickle')):
+                all_sums_file = open(rm.path('all_sums.pickle'), 'rb')
                 all_sums = dict(pickle.load(all_sums_file))
                 all_sums_file.close()
                 if ('version' not in all_sums.keys()) or all_sums['version'] != self._version:
@@ -96,7 +96,7 @@ class CPSums:
             'sums_v2_n_k': self._sums_v2_n_k,
             'sums_sig_e': self._sums_sig_e
         }
-        all_sums_file = open(rm.resource_path('all_sums.pickle'), 'wb')
+        all_sums_file = open(rm.path('all_sums.pickle'), 'wb')
         pickle.dump(all_sums, all_sums_file)
         all_sums_file.close()
     
