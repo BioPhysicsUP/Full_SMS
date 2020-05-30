@@ -130,7 +130,7 @@
         <enum>QTabWidget::Rounded</enum>
        </property>
        <property name="currentIndex">
-        <number>2</number>
+        <number>0</number>
        </property>
        <property name="iconSize">
         <size>
@@ -164,8 +164,8 @@
          <bool>true</bool>
         </property>
         <attribute name="icon">
-         <iconset>
-          <normaloff>icons/007-idea-new.png</normaloff>icons/007-idea-new.png</iconset>
+         <iconset resource="../src/icons.qrc">
+          <normaloff>:/icons/icons/intensity.png</normaloff>:/icons/icons/intensity.png</iconset>
         </attribute>
         <attribute name="title">
          <string>Intensity</string>
@@ -218,13 +218,13 @@
                 <string>Apply Bin Size</string>
                </property>
                <property name="icon">
-                <iconset>
-                 <normaloff>icons/012-check-mark-new.png</normaloff>icons/012-check-mark-new.png</iconset>
+                <iconset resource="../src/icons.qrc">
+                 <normaloff>:/icons/icons/apply-one.png</normaloff>:/icons/icons/apply-one.png</iconset>
                </property>
                <property name="iconSize">
                 <size>
-                 <width>20</width>
-                 <height>20</height>
+                 <width>25</width>
+                 <height>25</height>
                 </size>
                </property>
               </widget>
@@ -265,7 +265,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>30</height>
+                 <height>25</height>
                 </size>
                </property>
                <item>
@@ -308,13 +308,13 @@
                 <string>Apply To All</string>
                </property>
                <property name="icon">
-                <iconset>
-                 <normaloff>icons/012-check-mark-multi-new.png</normaloff>icons/012-check-mark-multi-new.png</iconset>
+                <iconset resource="../src/icons.qrc">
+                 <normaloff>:/icons/icons/apply-all.png</normaloff>:/icons/icons/apply-all.png</iconset>
                </property>
                <property name="iconSize">
                 <size>
-                 <width>20</width>
-                 <height>20</height>
+                 <width>25</width>
+                 <height>25</height>
                 </size>
                </property>
               </widget>
@@ -354,13 +354,13 @@
                 <string>Resolve</string>
                </property>
                <property name="icon">
-                <iconset>
-                 <normaloff>icons/013-management-new.png</normaloff>icons/013-management-new.png</iconset>
+                <iconset resource="../src/icons.qrc">
+                 <normaloff>:/icons/icons/resolve-current.png</normaloff>:/icons/icons/resolve-current.png</iconset>
                </property>
                <property name="iconSize">
                 <size>
-                 <width>20</width>
-                 <height>20</height>
+                 <width>25</width>
+                 <height>25</height>
                 </size>
                </property>
               </widget>
@@ -383,13 +383,13 @@
                 <string>Resolve All</string>
                </property>
                <property name="icon">
-                <iconset>
-                 <normaloff>icons/013-management-multi.png</normaloff>icons/013-management-multi.png</iconset>
+                <iconset resource="../src/icons.qrc">
+                 <normaloff>:/icons/icons/resolve-all.png</normaloff>:/icons/icons/resolve-all.png</iconset>
                </property>
                <property name="iconSize">
                 <size>
-                 <width>20</width>
-                 <height>20</height>
+                 <width>25</width>
+                 <height>25</height>
                 </size>
                </property>
               </widget>
@@ -438,13 +438,13 @@
                 <string>Resolve Selected</string>
                </property>
                <property name="icon">
-                <iconset>
-                 <normaloff>../icons/Old/013-management-selected.png</normaloff>../icons/Old/013-management-selected.png</iconset>
+                <iconset resource="../src/icons.qrc">
+                 <normaloff>:/icons/icons/resolve-selected.png</normaloff>:/icons/icons/resolve-selected.png</iconset>
                </property>
                <property name="iconSize">
                 <size>
-                 <width>20</width>
-                 <height>20</height>
+                 <width>25</width>
+                 <height>25</height>
                 </size>
                </property>
               </widget>
@@ -517,6 +517,10 @@
         <property name="autoFillBackground">
          <bool>true</bool>
         </property>
+        <attribute name="icon">
+         <iconset resource="../src/icons.qrc">
+          <normaloff>:/icons/icons/grouping.png</normaloff>:/icons/icons/grouping.png</iconset>
+        </attribute>
         <attribute name="title">
          <string>Grouping</string>
         </attribute>
@@ -717,8 +721,8 @@
          <bool>true</bool>
         </property>
         <attribute name="icon">
-         <iconset>
-          <normaloff>icons/008-stopclock-new.png</normaloff>icons/008-stopclock-new.png</iconset>
+         <iconset resource="../src/icons.qrc">
+          <normaloff>:/icons/icons/lifetime.png</normaloff>:/icons/icons/lifetime.png</iconset>
         </attribute>
         <attribute name="title">
          <string>Lifetime</string>
@@ -869,13 +873,13 @@
               <string>Load IRF</string>
              </property>
              <property name="icon">
-              <iconset>
-               <normaloff>icons/005-folder-new.png</normaloff>icons/005-folder-new.png</iconset>
+              <iconset resource="../src/icons.qrc">
+               <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
              </property>
              <property name="iconSize">
               <size>
-               <width>20</width>
-               <height>20</height>
+               <width>25</width>
+               <height>25</height>
               </size>
              </property>
             </widget>
@@ -898,13 +902,13 @@
               <string>Fitting Parameters</string>
              </property>
              <property name="icon">
-              <iconset>
-               <normaloff>icons/015-settings-new.png</normaloff>icons/015-settings-new.png</iconset>
+              <iconset resource="../src/icons.qrc">
+               <normaloff>:/icons/icons/fitting-parameters.png</normaloff>:/icons/icons/fitting-parameters.png</iconset>
              </property>
              <property name="iconSize">
               <size>
-               <width>20</width>
-               <height>20</height>
+               <width>25</width>
+               <height>25</height>
               </size>
              </property>
             </widget>
@@ -942,6 +946,16 @@
              <property name="text">
               <string>Fit Current Level/Trace</string>
              </property>
+             <property name="icon">
+              <iconset resource="../src/icons.qrc">
+               <normaloff>:/icons/icons/fit-current-level.png</normaloff>:/icons/icons/fit-current-level.png</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>25</width>
+               <height>25</height>
+              </size>
+             </property>
             </widget>
            </item>
            <item>
@@ -962,13 +976,13 @@
               <string>Fit Particle Levels</string>
              </property>
              <property name="icon">
-              <iconset>
-               <normaloff>icons/016-compass-new.png</normaloff>icons/016-compass-new.png</iconset>
+              <iconset resource="../src/icons.qrc">
+               <normaloff>:/icons/icons/fit-particle.png</normaloff>:/icons/icons/fit-particle.png</iconset>
              </property>
              <property name="iconSize">
               <size>
-               <width>20</width>
-               <height>20</height>
+               <width>25</width>
+               <height>25</height>
               </size>
              </property>
             </widget>
@@ -991,13 +1005,13 @@
               <string>Fit Selected</string>
              </property>
              <property name="icon">
-              <iconset>
-               <normaloff>icons/016-compass-select-new.png</normaloff>icons/016-compass-select-new.png</iconset>
+              <iconset resource="../src/icons.qrc">
+               <normaloff>:/icons/icons/fit-selected.png</normaloff>:/icons/icons/fit-selected.png</iconset>
              </property>
              <property name="iconSize">
               <size>
-               <width>20</width>
-               <height>20</height>
+               <width>25</width>
+               <height>25</height>
               </size>
              </property>
             </widget>
@@ -1020,13 +1034,13 @@
               <string>Fit All</string>
              </property>
              <property name="icon">
-              <iconset>
-               <normaloff>icons/016-compass-multi.png</normaloff>icons/016-compass-multi.png</iconset>
+              <iconset resource="../src/icons.qrc">
+               <normaloff>:/icons/icons/fit-all.png</normaloff>:/icons/icons/fit-all.png</iconset>
              </property>
              <property name="iconSize">
               <size>
-               <width>20</width>
-               <height>20</height>
+               <width>25</width>
+               <height>25</height>
               </size>
              </property>
             </widget>
@@ -1118,8 +1132,8 @@
          <bool>true</bool>
         </property>
         <attribute name="icon">
-         <iconset>
-          <normaloff>icons/010-refraction-new.png</normaloff>icons/010-refraction-new.png</iconset>
+         <iconset resource="../src/icons.qrc">
+          <normaloff>:/icons/icons/spectra.png</normaloff>:/icons/icons/spectra.png</iconset>
         </attribute>
         <attribute name="title">
          <string>Spectra</string>
@@ -1287,6 +1301,10 @@
         <property name="autoFillBackground">
          <bool>true</bool>
         </property>
+        <attribute name="icon">
+         <iconset resource="../src/icons.qrc">
+          <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
+        </attribute>
         <attribute name="title">
          <string>Export</string>
         </attribute>
@@ -1751,7 +1769,7 @@
                 <enum>Qt::Horizontal</enum>
                </property>
                <property name="sizeType">
-                <enum>QSizePolicy::Preferred</enum>
+                <enum>QSizePolicy::Expanding</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
@@ -1778,6 +1796,16 @@
                <property name="text">
                 <string>Export Current</string>
                </property>
+               <property name="icon">
+                <iconset resource="../src/icons.qrc">
+                 <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
+               </property>
+               <property name="iconSize">
+                <size>
+                 <width>25</width>
+                 <height>25</height>
+                </size>
+               </property>
               </widget>
              </item>
              <item>
@@ -1797,6 +1825,16 @@
                <property name="text">
                 <string>Export Selected</string>
                </property>
+               <property name="icon">
+                <iconset resource="../src/icons.qrc">
+                 <normaloff>:/icons/icons/export-selected.png</normaloff>:/icons/icons/export-selected.png</iconset>
+               </property>
+               <property name="iconSize">
+                <size>
+                 <width>25</width>
+                 <height>25</height>
+                </size>
+               </property>
               </widget>
              </item>
              <item>
@@ -1815,6 +1853,16 @@
                </property>
                <property name="text">
                 <string>Export All</string>
+               </property>
+               <property name="icon">
+                <iconset resource="../src/icons.qrc">
+                 <normaloff>:/icons/icons/export-all.png</normaloff>:/icons/icons/export-all.png</iconset>
+               </property>
+               <property name="iconSize">
+                <size>
+                 <width>25</width>
+                 <height>25</height>
+                </size>
                </property>
               </widget>
              </item>
@@ -1864,7 +1912,7 @@
      <x>0</x>
      <y>0</y>
      <width>1007</width>
-     <height>24</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -2030,6 +2078,8 @@
   <tabstop>treeViewParticles</tabstop>
   <tabstop>btnNextLevel</tabstop>
  </tabstops>
- <resources/>
+ <resources>
+  <include location="../src/icons.qrc"/>
+ </resources>
  <connections/>
 </ui>

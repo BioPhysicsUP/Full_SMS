@@ -24,9 +24,6 @@ from generate_sums import CPSums
 # import inspect
 
 
-# from joblib import Parallel, delayed
-
-
 class H5dataset:
 
     def __init__(self, filename, progress_sig: pyqtSignal = None,

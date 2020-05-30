@@ -13,7 +13,6 @@ import sys
 import traceback
 from platform import system
 
-# from matplotlib.axes.subplots import Axes
 import numpy as np
 import scipy
 from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, \
@@ -31,17 +30,16 @@ import dbg
 import smsh5
 from generate_sums import CPSums
 from smsh5 import start_at_value
-from ui.TimedMessageBox import TimedMessageBox
-from ui.fitting_dialog import Ui_Dialog
-# from src.mainwindow import Ui_MainWindow
+from custom_dialogs import TimedMessageBox
 from smsh5 import H5dataset, Particle
 import resource_manager as rm
 
 
-ui_file = rm.path("mainwindow.ui", rm.RMType.UI)
-UI_Main_Window, _ = uic.loadUiType(ui_file)
+main_window_file = rm.path("mainwindow.ui", rm.RMType.UI)
+UI_Main_Window, _ = uic.loadUiType(main_window_file)
 
-# fitting
+fitting_dialog_file = rm.path("fitting_dialog.ui", rm.RMType.UI)
+UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
 
 
 class WorkerSignals(QObject):
@@ -856,7 +854,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
             dbg.p("System -> Other", "MainWindow")
 
         QMainWindow.__init__(self)
-        # self.ui = Ui_MainWindow()
         UI_Main_Window.__init__(self)
         self.setupUi(self)
 
@@ -2333,14 +2330,16 @@ class SpectraController(QObject):
         print("gui_sub_bkg")
 
 
-class FittingDialog(QDialog, Ui_Dialog):
+class FittingDialog(QDialog, UI_Fitting_Dialog):
     """Class for dialog that is used to choose lifetime fit parameters."""
 
     def __init__(self, mainwindow, lifetime_controller):
-        self.mainwindow = mainwindow
-        QDialog.__init__(self, mainwindow)
-        self.lifetime_controller = lifetime_controller
+        QDialog.__init__(self)
+        UI_Fitting_Dialog.__init__(self)
         self.setupUi(self)
+
+        self.mainwindow = mainwindow
+        self.lifetime_controller = lifetime_controller
         for widget in self.findChildren(QLineEdit):
             widget.textChanged.connect(self.updateplot)
         for widget in self.findChildren(QCheckBox):
