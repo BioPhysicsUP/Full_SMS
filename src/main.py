@@ -23,7 +23,10 @@ from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox,
 from PyQt5 import uic
 import pyqtgraph as pg
 from typing import Union
-import pkg_resources.py2_warn
+try:
+    import pkg_resources.py2_warn
+except ImportError:
+    pass
 
 import tcspcfit
 import dbg
@@ -34,6 +37,8 @@ from custom_dialogs import TimedMessageBox
 from smsh5 import H5dataset, Particle
 import resource_manager as rm
 
+#  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
+sys.setrecursionlimit(1000*10)
 
 main_window_file = rm.path("mainwindow.ui", rm.RMType.UI)
 UI_Main_Window, _ = uic.loadUiType(main_window_file)
