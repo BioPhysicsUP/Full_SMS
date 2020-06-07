@@ -10,6 +10,10 @@
 #
 #  To compile run the command:
 #  pyinstaller --noconfirm --clean --windowed full_sms_win.spec
+#
+# NOTE
+# ----
+# If using UPX, find the vcruntime.dll used in the enviroment, and copy it over the VCRUNTIME.dll after build
 
 block_cipher = None
 
@@ -18,7 +22,7 @@ a = Analysis(['.\\src\\main.py'],
              pathex=['.\\src'],
              binaries=[('.\\src\\qwindows.dll', 'platforms')],
              datas=[('.\\src\\all_sums.pickle', '.'), ('.\\src\\ui\\mainwindow.ui', '.\\ui'), ('.\\src\\tau data\\*', 'tau data'), ('.\\src\\Full-SMS.ico', '.')],
-             hiddenimports=[],
+             hiddenimports=['scipy.stats'],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
@@ -27,12 +31,12 @@ a = Analysis(['.\\src\\main.py'],
              cipher=block_cipher,
              noarchive=False)
 pyz = PYZ(a.pure, a.zipped_data,
-             cipher=block_cipher)
+          cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
           [],
           exclude_binaries=True,
-          name='Full_SMS',
+          name='Full SMS',
           icon='.\\src\\Full-SMS.ico',
           debug=False,
           bootloader_ignore_signals=False,
@@ -46,4 +50,4 @@ coll = COLLECT(exe,
                strip=False,
                upx=True,
                upx_exclude=[],
-               name='Full_SMS')
+               name='Full SMS')
