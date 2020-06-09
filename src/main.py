@@ -167,19 +167,22 @@ class WorkerOpenFile(QRunnable):
                 histmax_ind = np.argmax(decay)
                 reverse = decay[:histmax_ind][::-1]
                 zeros_rev = np.where(reverse == 0)[0]
-                length = 0
-                start_ind_rev = zeros_rev[0]
-                for i, val in enumerate(zeros_rev[:-1]):
-                    if zeros_rev[i+1] - val > 1:
-                        length = 0
-                        continue
-                    length +=1
-                    if length >= 10:
-                        start_ind_rev = val
-                        break
-                start_ind = histmax_ind - start_ind_rev
-                # starttime = particle.histogram.t[start_ind]
-                starttime = start_ind
+                if len(zeros_rev) != 0:
+                    length = 0
+                    start_ind_rev = zeros_rev[0]
+                    for i, val in enumerate(zeros_rev[:-1]):
+                        if zeros_rev[i+1] - val > 1:
+                            length = 0
+                            continue
+                        length += 1
+                        if length >= 10:
+                            start_ind_rev = val
+                            break
+                    start_ind = histmax_ind - start_ind_rev
+                    # starttime = particle.histogram.t[start_ind]
+                    starttime = start_ind
+                else:
+                    starttime = 0
                 starttimes.append(starttime)
 
                 tmin = np.min(particle.histogram.microtimes)
@@ -240,6 +243,7 @@ class WorkerOpenFile(QRunnable):
         bin_size_sig = self.signals.bin_size
         progress_sig = self.signals.progress
         start_progress_sig = self.signals.start_progress
+
         status_sig = self.signals.status_message
 
         status_sig.emit("Opening file...")
@@ -253,6 +257,7 @@ class WorkerOpenFile(QRunnable):
 
 class WorkerBinAll(QRunnable):
     """ A QRunnable class to create a worker thread for binning all the data. """
+
 
     def __init__(self, dataset, binall_func, bin_size):
         """
