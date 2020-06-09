@@ -152,4 +152,6 @@ src/ui/mainwindow.ui.autosave
 
 *.h5
 
+*.pickle
+
 Syncfolders_Database_db
