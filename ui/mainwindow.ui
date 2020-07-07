@@ -130,7 +130,7 @@
         <enum>QTabWidget::Rounded</enum>
        </property>
        <property name="currentIndex">
-        <number>0</number>
+        <number>1</number>
        </property>
        <property name="iconSize">
         <size>
@@ -524,11 +524,28 @@
         <attribute name="title">
          <string>Grouping</string>
         </attribute>
-        <layout class="QGridLayout" name="gridLayout_6">
-         <item row="0" column="0">
-          <widget class="PlotWidget" name="pgGroups"/>
+        <layout class="QVBoxLayout" name="verticalLayout_7">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_10">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="PlotWidget" name="pgGroups_Int"/>
+           </item>
+           <item>
+            <widget class="PlotWidget" name="pgGroups_Hist">
+             <property name="maximumSize">
+              <size>
+               <width>150</width>
+               <height>16777215</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
-         <item row="1" column="0">
+         <item>
           <layout class="QHBoxLayout" name="horizontalLayout_7">
            <item>
             <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -586,7 +603,7 @@
                 </spacer>
                </item>
                <item>
-                <widget class="QPushButton" name="btnGroup_All">
+                <widget class="QPushButton" name="btnGroupCurrent">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -603,7 +620,7 @@
                   </size>
                  </property>
                  <property name="text">
-                  <string>Group All</string>
+                  <string>Group Current</string>
                  </property>
                  <property name="iconSize">
                   <size>
@@ -614,7 +631,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="btnGroup_Selected">
+                <widget class="QPushButton" name="btnGroupSelected">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -642,7 +659,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="btnGroup">
+                <widget class="QPushButton" name="btnGroupAll">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -659,7 +676,7 @@
                   </size>
                  </property>
                  <property name="text">
-                  <string>Group</string>
+                  <string>Group All</string>
                  </property>
                  <property name="iconSize">
                   <size>
