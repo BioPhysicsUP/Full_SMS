@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox,
 from PyQt5 import uic
 import pyqtgraph as pg
 from typing import Union
+
 try:
     import pkg_resources.py2_warn
 except ImportError:
@@ -38,7 +39,7 @@ from smsh5 import H5dataset, Particle
 import resource_manager as rm
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
-sys.setrecursionlimit(1000*10)
+sys.setrecursionlimit(1000 * 10)
 
 main_window_file = rm.path("mainwindow.ui", rm.RMType.UI)
 UI_Main_Window, _ = uic.loadUiType(main_window_file)
@@ -53,6 +54,7 @@ class WorkerSignals(QObject):
 
     resolve_finished = pyqtSignal(str)
     fitting_finished = pyqtSignal(str)
+    grouping_finished = pyqtSignal(str)
     openfile_finished = pyqtSignal(bool)
     error = pyqtSignal(tuple)
     result = pyqtSignal(object)
@@ -171,7 +173,7 @@ class WorkerOpenFile(QRunnable):
                     length = 0
                     start_ind_rev = zeros_rev[0]
                     for i, val in enumerate(zeros_rev[:-1]):
-                        if zeros_rev[i+1] - val > 1:
+                        if zeros_rev[i + 1] - val > 1:
                             length = 0
                             continue
                         length += 1
@@ -187,7 +189,6 @@ class WorkerOpenFile(QRunnable):
 
                 tmin = np.min(particle.histogram.microtimes)
                 tmins.append(tmin)
-
 
             av_start = np.average(starttimes)
             set_start_sig.emit(av_start)
@@ -257,7 +258,6 @@ class WorkerOpenFile(QRunnable):
 
 class WorkerBinAll(QRunnable):
     """ A QRunnable class to create a worker thread for binning all the data. """
-
 
     def __init__(self, dataset, binall_func, bin_size):
         """
@@ -437,9 +437,7 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 class WorkerFitLifetimes(QRunnable):
     """ A QRunnable class to create a worker thread for fitting lifetimes. """
 
-    def __init__(self, fit_lifetimes_func, data, currentparticle,
-                 fitparam, mode: str,
-                 resolve_selected=None) -> None:
+    def __init__(self, fit_lifetimes_func, data, currentparticle, fitparam, mode: str, resolve_selected=None) -> None:
         """
         Initiate Resolve Levels Worker
 
@@ -520,7 +518,6 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
     else:
         end = int(fitparam.end / channelwidth)
 
-
     if mode == 'current':  # Fit all levels in current particle
         status_sig.emit('Fitting Particle Levels...')
         start_progress_sig.emit(len(currentparticle.levels))
@@ -580,6 +577,128 @@ def fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, sta
                 pass  # fit unsuccessful
         except AttributeError:
             print("No decay")
+
+
+def group_levels(start_progress_sig: pyqtSignal,
+                 progress_sig: pyqtSignal,
+                 status_sig: pyqtSignal,
+                 reset_gui_sig: pyqtSignal,
+                 data: H5dataset,
+                 currentparticle: Particle,
+                 mode: str,
+                 group_selected=None) -> None:
+    """
+    TODO: edit the docstring
+    Resolves the levels in particles by finding the change points in the
+    abstimes data of a Particle instance.
+
+    Parameters
+    ----------
+    currentparticle : Particle
+    conf
+    level_resolved_sig
+    reset_gui_sig
+    data : H5dataset
+    start_progress_sig : pyqtSignal
+        Used to call method to set up progress bar on G
+    progress_sig : pyqtSignal
+        Used to call method to increment progress bar on G
+    status_sig : pyqtSignal
+        Used to call method to show status bar message on G
+    mode : {'current', 'selected', 'all'}
+        Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+    resolve_selected : list[smsh5.Partilce]
+        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+    """
+
+    # print(mode)
+    assert mode in ['current', 'selected', 'all'], \
+        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+
+    if mode == 'current':  # Then resolve current
+        currentparticle.ahca.run_grouping()
+
+    else:
+        if mode == 'all':  # Then resolve all
+            status_text = 'Grouping All Particle Levels...'
+            parts = data.particles
+
+        elif mode == 'selected':  # Then resolve selected
+            assert resolve_selected is not None, \
+                'No selected particles provided.'
+            status_text = 'Grouping Selected Particle Levels...'
+            parts = resolve_selected
+
+        try:
+            status_sig.emit(status_text)
+            start_progress_sig.emit(len(parts))
+            for num, part in enumerate(parts):
+                dbg.p(f'Busy Grouping Particle {num + 1}')
+                part.cpts.run_cpa(confidence=conf, run_levels=True)
+                progress_sig.emit()
+            status_sig.emit('Done')
+        except Exception as exc:
+            raise RuntimeError("Couldn't group levels.") from exc
+
+    # grou.emit()
+    # data.makehistograms(progress=False)
+    # reset_gui_sig.emit()
+
+
+class WorkerGrouping(QRunnable):
+
+    def __init__(self,
+                 data: H5dataset,
+                 grouping_func,
+                 currentparticle,
+                 mode: str,
+                 group_selected=None) -> None:
+        """
+        Initiate Resolve Levels Worker
+
+        Creates a QRunnable object (worker) to be run by a QThreadPool thread.
+        This worker is intended to call the given function to resolve a single,
+        the selected, or all the particles'.
+
+        Parameters
+        ----------
+        resolve_levels_func : function
+            The function that will be called to perform the resolving of the levels.
+        mode : {'current', 'selected', 'all'}
+            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+        resolve_selected : list[smsh5.Particle], optional
+            The provided instances of the class Particle in smsh5 will be resolved.
+        """
+
+        super(WorkerGrouping, self).__init__()
+        self.mode = mode
+        self.signals = WorkerSignals()
+        self.grouping_func = grouping_func
+        self.group_selected = group_selected
+        self.data = data
+        self.currentparticle = currentparticle
+        # self.fitparam = fitparam
+
+    @pyqtSlot()
+    def run(self) -> None:
+        """ The code that will be run when the thread is started. """
+
+        try:
+            self.grouping_func(start_progress_sig=self.signals.start_progress,
+                               progress_sig=self.signals.progress,
+                               status_sig=self.signals.status_message,
+                               reset_gui_sig=self.signals.reset_gui,
+                               data=self.data,
+                               currentparticle=self.currentparticle,
+                               mode=self.mode,
+                               group_selected=self.group_selected)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        finally:
+            self.signals.grouping_finished.emit(self.mode)
+            pass
 
 
 class DatasetTreeNode(object):
@@ -876,6 +995,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.pgIntensity.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
         self.pgIntensity.getPlotItem().getAxis('bottom').setLabel('Time', 's')
         self.pgIntensity.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgIntensity.getPlotItem().setContentsMargins(5, 5, 5, 5)
 
         self.pgLifetime_Int.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
         self.pgLifetime_Int.getPlotItem().getAxis('bottom').setLabel('Time', 's')
@@ -884,30 +1004,45 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # self.pgLifetime_Int.getPlotItem().getViewBox()\
         #     .setXLink(self.pgIntensity.getPlotItem().getAxis('bottom').getViewBox())
         self.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgLifetime_Int.getPlotItem().setContentsMargins(5, 5, 5, 5)
 
         self.pgLifetime.getPlotItem().getAxis('left').setLabel('Num. of occur.', 'counts/bin')
         self.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
         self.pgLifetime.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgLifetime_Int.getPlotItem().setContentsMargins(5, 5, 5, 5)
 
-        self.pgGroups.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
-        self.pgGroups.getPlotItem().getAxis('bottom').setLabel('Time', 's')
-        self.pgGroups.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgGroups_Int.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.pgGroups_Int.getPlotItem().getAxis('bottom').setLabel('Time', 's')
+        self.pgGroups_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgGroups_Int.getPlotItem().setContentsMargins(5, 5, 1, 5)
+
+        # self.pgGroups_Hist.getPlotItem().getAxis('left').setLabel('Time', 's')
+        self.pgGroups_Hist.getPlotItem().getAxis('bottom').setLabel('Relative Frequency')
+        self.pgGroups_Hist.getPlotItem().setYLink(self.pgGroups_Int.getPlotItem().getViewBox())
+        self.pgGroups_Hist.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgGroups_Hist.getPlotItem().setContentsMargins(1, 5, 5, 25)
+        self.pgGroups_Hist.getPlotItem().getAxis('bottom').setStyle(showValues=False)
+        self.pgGroups_Hist.getPlotItem().getAxis('left').setStyle(showValues=False)
+        self.pgGroups_Hist.getPlotItem().vb.setLimits(xMin=0, xMax=1)
 
         self.pgBIC.getPlotItem().getAxis('left').setLabel('BIC')
         self.pgBIC.getPlotItem().getAxis('bottom').setLabel('Number of State')
         self.pgBIC.getPlotItem().getViewBox().setLimits(xMin=0)
+        self.pgBIC.getPlotItem().setContentsMargins(5, 5, 5, 5)
 
         self.pgSpectra.getPlotItem().getAxis('left').setLabel('X Range', 'um')
         self.pgSpectra.getPlotItem().getAxis('bottom').setLabel('Y Range', '<span>&#181;</span>m')
         self.pgSpectra.getPlotItem().getViewBox().setAspectLocked(lock=True, ratio=1)
-        self.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgSpectra.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        self.pgSpectra.getPlotItem().setContentsMargins(5, 5, 5, 5)
 
         self.int_controller = IntController(self)
         self.lifetime_controller = LifetimeController(self)
         self.spectra_controller = SpectraController(self)
+        self.grouping_controller = GroupingController(self)
 
         plots = [self.pgIntensity, self.pgLifetime_Int, self.pgLifetime,
-                 self.pgGroups, self.pgBIC, self.pgSpectra, self.lifetime_controller.fitparamdialog.pgFitParam]
+                 self.pgGroups_Int, self.pgGroups_Hist, self.pgBIC, self.pgSpectra, self.lifetime_controller.fitparamdialog.pgFitParam]
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
         for plot in plots:
             # Set background and axis line width
@@ -921,7 +1056,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             font.setBold(True)
             if plot == self.pgLifetime_Int:
                 font.setPointSize(8)
-            elif plot == self.pgGroups:
+            elif plot == self.pgGroups_Int or plot == self.pgGroups_Hist:
                 font.setPointSize(10)
             else:
                 font.setPointSize(12)
@@ -946,6 +1081,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnFit.clicked.connect(self.lifetime_controller.gui_fit_levels)
         self.btnFitSelected.clicked.connect(self.lifetime_controller.gui_fit_selected)
         self.btnFitAll.clicked.connect(self.lifetime_controller.gui_fit_all)
+        self.btnGroupCurrent.clicked.connect(self.grouping_controller.gui_group_current)
+        self.btnGroupSelected.clicked.connect(self.grouping_controller.gui_group_selected)
+        self.btnGroupAll.clicked.connect(self.grouping_controller.gui_group_all)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
@@ -1002,15 +1140,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def after_show(self):
         self.pgSpectra.resize(self.tabSpectra.size().height(),
-                                 self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
+                              self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
 
     def resizeEvent(self, a0: QResizeEvent):
         if self.tabSpectra.size().height() <= self.tabSpectra.size().width():
             self.pgSpectra.resize(self.tabSpectra.size().height(),
-                                     self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
+                                  self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
         else:
             self.pgSpectra.resize(self.tabSpectra.size().width(),
-                                     self.tabSpectra.size().width() - 40)
+                                  self.tabSpectra.size().width() - 40)
 
     def check_all_sums(self) -> None:
         """
@@ -1098,7 +1236,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.tree2dataset().save_particles(fname, selected_nums)
 
-
     def act_trim(self):
         """ Used to trim the 'dead' part of a trace as defined by two parameters. """
 
@@ -1176,20 +1313,30 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.currentparticle = self.treemodel.get_particle(current)
             self.current_level = None  # Reset current level when particle changes.
         if hasattr(self, 'currentparticle') and type(self.currentparticle) is smsh5.Particle:
-            self.int_controller.set_bin(self.currentparticle.bin_size)
-            self.int_controller.plot_trace()
+            cur_tab_name = self.tabWidget.currentWidget().objectName()
+
+            if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
+                self.int_controller.set_bin(self.currentparticle.bin_size)
+                self.int_controller.plot_trace()
+
+            if cur_tab_name == 'tabGrouping':
+                self.grouping_controller.plot_hist()
+                # TODO: Add if for has_groups and then plot BIC etc
+
             if self.currentparticle.has_levels:
                 self.int_controller.plot_levels()
-                self.btnGroup.setEnabled(True)
-                self.btnGroup_Selected.setEnabled(True)
-                self.btnGroup_All.setEnabled(True)
+                self.btnGroupCurrent.setEnabled(True)
+                self.btnGroupSelected.setEnabled(True)
+                self.btnGroupAll.setEnabled(True)
             else:
-                self.btnGroup.setEnabled(False)
-                self.btnGroup_Selected.setEnabled(False)
-                self.btnGroup_All.setEnabled(False)
-            self.lifetime_controller.plot_decay(remove_empty=False)
-            self.lifetime_controller.plot_convd()
-            self.lifetime_controller.update_results()
+                self.btnGroupCurrent.setEnabled(False)
+                self.btnGroupSelected.setEnabled(False)
+                self.btnGroupAll.setEnabled(False)
+
+            if cur_tab_name == 'tabLifetime':
+                self.lifetime_controller.plot_decay(remove_empty=False)
+                self.lifetime_controller.plot_convd()
+                self.lifetime_controller.update_results()
             dbg.p('Current data displayed', 'MainWindow')
 
     def status_message(self, message: str) -> None:
@@ -1381,7 +1528,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
                        mode: str,
-                       resolve_selected=None) -> None:  #  parallel: bool = False
+                       resolve_selected=None) -> None:  # parallel: bool = False
         """
         Resolves the levels in particles by finding the change points in the
         abstimes data of a Particle instance.
@@ -1429,7 +1576,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 raise RuntimeError("Couldn't resolve levels.") from exc
 
         elif mode == 'selected':  # Then resolve selected
-            assert resolve_selected is not None,\
+            assert resolve_selected is not None, \
                 'No selected particles provided.'
             try:
                 _, conf = self.get_gui_confidence()
@@ -1445,7 +1592,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
 
-#TODO: remove this function
+    # TODO: remove this function
     def resolve_thread_complete(self, mode: str):
         """
         Is performed after thread has been terminated.
@@ -1862,7 +2009,7 @@ class IntController(QObject):
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor('green'))
                 elif cur_tab_name == 'tabGrouping':
-                    plot_item = self.mainwindow.pgGroups
+                    plot_item = self.mainwindow.pgGroups_Int
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor(0, 0, 0, 50))
 
@@ -1880,26 +2027,19 @@ class IntController(QObject):
         # print('levels plto')
         try:
             level_ints, times = currentparticle.levels2data()
-            level_ints = level_ints*self.get_bin()/1E3
-            # print(level_ints)
-
+            level_ints = level_ints * self.get_bin() / 1E3
         except AttributeError:
             dbg.p('No levels!', 'IntController')
         else:
-            # if self.tabIntensity.isActiveWindow():
-            #     plot_item = self.pgIntensity.getPlotItem()
-            #     print('int')
-            # elif self.tabLifetime.isActiveWindow():
-            #     print('life')
-            #     plot_item = self.pgLifetime_Int.getPlotItem()
-            # else:
-            #     return
-            if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabIntensity':
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+            if cur_tab_name == 'tabIntensity':
                 plot_item = self.mainwindow.pgIntensity.getPlotItem()
                 # pen_width = 1.5
-            elif self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
+            elif cur_tab_name == 'tabLifetime':
                 plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
                 # pen_width = 1.1
+            elif cur_tab_name == 'tabGrouping':
+                plot_item = self.mainwindow.pgGroups_Int.getPlotItem()
             else:
                 return
 
@@ -1914,7 +2054,7 @@ class IntController(QObject):
 
         if self.mainwindow.current_level is not None:
             current_ints, current_times = currentparticle.current2data(self.mainwindow.current_level)
-            current_ints = current_ints*self.get_bin()/1E3
+            current_ints = current_ints * self.get_bin() / 1E3
             # print(current_ints, current_times)
 
             if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
@@ -1984,10 +2124,6 @@ class IntController(QObject):
         self.mainwindow.chbEx_Levels.setEnabled(True)
         self.mainwindow.set_startpoint()
         dbg.p('Resolving levels complete', 'IntController')
-
-        ###############################################################################################################
-        # self.mainwindow.currentparticle.ahca.run_grouping()
-        ###############################################################################################################
 
     def get_gui_confidence(self):
         """ Return current GUI value for confidence percentage. """
@@ -2275,20 +2411,12 @@ class LifetimeController(QObject):
 
         print(mode)
         if mode == 'current':
-            # sig = WorkerSignals()
-            # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
             fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode)
         elif mode == 'selected':
             fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode,
                                                 resolve_selected=self.mainwindow.get_checked_particles())
         elif mode == 'all':
             fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode)
-            # resolve_thread.signals.finished.connect(thread_finished)
-            # resolve_thread.signals.start_progress.connect(self.start_progress)
-            # resolve_thread.signals.progress.connect(self.update_progress)
-            # resolve_thread.signals.status_message.connect(self.status_message)
-            # self.resolve_levels(resolve_thread.signals.start_progress, resolve_thread.signals.progress,
-            #                     resolve_thread.signals.status_message, resolve_all=True, parallel=True)
 
         fitting_thread.signals.fitting_finished.connect(self.fitting_thread_complete)
         fitting_thread.signals.start_progress.connect(self.mainwindow.start_progress)
@@ -2326,13 +2454,107 @@ class LifetimeController(QObject):
         self.tmin = tmin
 
 
+class GroupingController(QObject):
+
+    def __init__(self, mainwidow: MainWindow):
+        super().__init__()
+
+        self.mainwindow = mainwidow
+
+    def plot_hist(self):
+        try:
+            int_data = self.mainwindow.currentparticle.binnedtrace.intdata
+        except AttributeError:
+            dbg.p('No trace!', 'GroupingController')
+        else:
+            plot_pen = QPen()
+            plot_pen.setColor(QColor(0, 0, 0, 0))
+            plot_item = self.mainwindow.pgGroups_Hist.getPlotItem()
+            plot_item.clear()
+
+            bin_edges = np.histogram_bin_edges(np.negative(int_data), bins='auto')
+            freq, hist_bins = np.histogram(np.negative(int_data), bins=bin_edges, density=True)
+            freq /= np.max(freq)
+            int_hist = pg.PlotCurveItem(x=hist_bins, y=freq, pen=plot_pen,
+                                        stepMode=True, fillLevel=0, brush=(0, 0, 0, 50))
+            int_hist.rotate(-90)
+            plot_item.addItem(int_hist)
+
+            if self.mainwindow.currentparticle.has_levels:
+                level_ints = self.mainwindow.currentparticle.level_ints
+
+                level_ints *= self.mainwindow.currentparticle.bin_size/1000
+                dwell_times = [level.dwell_time_s for level in self.mainwindow.currentparticle.levels]
+                level_freq, level_hist_bins = np.histogram(np.negative(level_ints), bins=bin_edges,
+                                                           weights=dwell_times, density=True)
+                level_freq /= np.max(level_freq)
+                level_hist = pg.PlotCurveItem(x=level_hist_bins, y=level_freq, stepMode=True,
+                                              pen=plot_pen, fillLevel=0, brush=(0, 0, 0, 255))
+
+                level_hist.rotate(-90)
+                plot_item.addItem(level_hist)
+
+    def gui_group_current(self):
+        self.start_grouping_thread(mode='current')
+
+    def gui_group_selected(self):
+        self.start_grouping_thread(mode='selected')
+
+    def gui_group_all(self):
+        self.start_grouping_thread(mode='all')
+
+    def start_grouping_thread(self, mode: str = 'current') -> None:
+        """
+        Creates a worker to resolve levels.
+
+        Depending on the ``current_selected_all`` parameter the worker will be
+        given the necessary parameter to fit the current, selected or all particles.
+
+        Parameters
+        ----------
+        thread_finished
+        mode : {'current', 'selected', 'all'}
+            Possible values are 'current' (default), 'selected', and 'all'.
+        """
+
+        data = self.mainwindow.tree2dataset()
+
+        print(mode)
+        if mode == 'current':
+            grouping_worker = WorkerGrouping(data=data,
+                                             grouping_func=group_levels,
+                                             currentparticle=self.mainwindow.currentparticle,
+                                             mode='current')
+        elif mode == 'selected':
+            grouping_worker = WorkerGrouping(data=data,
+                                             grouping_func=group_levels,
+                                             mode='selected',
+                                             group_selected=self.mainwindow.get_checked_particles())
+        elif mode == 'all':
+            grouping_worker = WorkerGrouping(data=data,
+                                             grouping_func=group_levels,
+                                             mode='all')
+
+        grouping_worker.signals.grouping_finished.connect(self.grouping_thread_complete)
+        grouping_worker.signals.start_progress.connect(self.mainwindow.start_progress)
+        grouping_worker.signals.progress.connect(self.mainwindow.update_progress)
+        grouping_worker.signals.status_message.connect(self.mainwindow.status_message)
+        grouping_worker.signals.reset_gui.connect(self.mainwindow.reset_gui)
+
+        self.mainwindow.threadpool.start(grouping_worker)
+
+    def grouping_thread_complete(self, mode):
+        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+            self.mainwindow.display_data()
+        dbg.p('Grouping levels complete', 'Grouping Thread')
+
+
 class SpectraController(QObject):
 
-    def __init__(self, mainwindow):
+    def __init__(self, mainwindow: MainWindow):
         super().__init__()
 
         self.mainwindow = mainwindow
-
 
     def gui_sub_bkg(self):
         """ Used to subtract the background TODO: Explain the sub_background """

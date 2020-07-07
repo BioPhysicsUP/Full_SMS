@@ -46,12 +46,12 @@ class Calcs:
         """
         assert hasattr(particle, 'levels'), 'No levels have been resolved to merge.'
 
-        self.cap_j = particle.num_cpts
+        self.cap_j = particle.cpts.num_cpts
         self.p_mj = np.identity(particle.num_levels)
         self.em_p_mj = np.identity(particle.num_levels)
         self.cap_g = particle.num_levels
         self.n = np.array([l.num_photons for l in particle.levels])
-        self.cap_t = np.array([l.dwell_time / 1E9 for l in particle.levels])
+        self.cap_t = np.array([l.dwell_time_s for l in particle.levels])
         self.tot_t = np.sum(self.cap_t)
         self.merged = list()
         self.bic = list()
@@ -89,7 +89,13 @@ def g(n: np.int, cap_i: np.float, cap_t: np.float) -> np.float:
         Poisson probability
     """
 
-    return np.exp(n*np.log(cap_i*cap_t) - (cap_i*cap_t) - np.float(lgamma(n + 1)))
+    try:
+        g_val = np.exp(n*np.log(cap_i*cap_t) - (cap_i*cap_t) - np.float(lgamma(n + 1)))
+    except RuntimeWarning:
+        print("RuntimeWarning at g()")
+        pass
+
+    return g_val
 
 
 class AHCA:
@@ -161,6 +167,9 @@ class AHCA:
             ax_bics.set_xlabel('Number of states')
             ax_bics.set_ylabel('BIC')
             ax_bics.plot(states, self._calcs.bic, marker='o')
+
+            fig_p_mj.show()
+            fig_em_p_mj.show()
         pass
 
     # Step 1
@@ -203,8 +212,8 @@ class AHCA:
         p_mj = self._calcs.p_mj
 
         i = 0
-        max_diff = 1
-        while max_diff > 1E-10 and i < 500:
+        prev_cap_l_em = -1
+        while diff_cap_l_em > -1E-10 and i < 500:
 
             i += 1
 
@@ -239,6 +248,7 @@ class AHCA:
 
             new_p_mj = np.zeros_like(p_mj)
             p_m_g = np.zeros_like(p_mj)
+            cap_l_em = 0
             for j in range(cap_j + 1):  # column
             # if j not in self._calcs.merged:
                 for m in range(cap_j + 1):  # row
@@ -248,7 +258,13 @@ class AHCA:
                         # if denom_j[j] != 0:
                         new_p_mj[m, j] = p_m_g[m, j]/denom_j[j]
                         # new_p_mj[j, m] = new_p_mj[m, j]
+                        if p_m_g[m, j] != 0 and new_p_mj[m, j] != 0:
+                            cap_l_em_mj = new_p_mj[m, j] * np.log(p_m_g[m, j])
+                            if not np.isnan(cap_l_em_mj):
+                                cap_l_em += cap_l_em_mj
 
+            diff_cap_l_em = cap_l_em - prev_cap_l_em
+            prev_cap_l_em = cap_l_em
             max_diff = np.max(abs(new_p_mj - p_mj))
             p_mj = new_p_mj
 
@@ -268,6 +284,7 @@ class AHCA:
             # if j not in self._calcs.merged:
             for m in range(cap_j + 1):
                 if m not in self._calcs.merged:
+                    # print(f"j={j}, m={m}")
                     g_value = g(n[j], cap_i_m[m], cap_t[j])
                     if g_value != 0:
                         np.seterr(under='raise')
@@ -282,7 +299,7 @@ class AHCA:
 
         log_l_em = np.sum(np.sum(log_l_em_mj))
         n_g = self._calcs.cap_g
-        cap_n_cp = np.float(self.particle.num_cpts)
+        cap_n_cp = np.float(self.particle.cpts.num_cpts)
         cap_n = self.particle.num_photons
 
         # TODO Calculate n_g using sum of row -> less 1E-10 = 0 -> count non-zero elements
