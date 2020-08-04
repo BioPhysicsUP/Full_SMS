@@ -17,8 +17,8 @@ import dbg
 # from main.MainWindow import start_at_value
 import re
 from PyQt5.QtCore import pyqtSignal
-from ChangePoint import ChangePoints
-from ClusteringGrouping import AHCA
+from change_point import ChangePoints
+from grouping import AHCA
 from generate_sums import CPSums
 
 # import inspect
@@ -515,7 +515,7 @@ class Spectra:
         self.wavelengths = self.spectra.attrs['Wavelengths']
         self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
 
-# Level class has been defined in ChangePoint.py
+# Level class has been defined in change_point.py
 # class Levels:
 #
 #     def __init__(self):

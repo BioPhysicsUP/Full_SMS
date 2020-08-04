@@ -8,10 +8,19 @@ University of Pretoria
 2018
 """
 
+from __future__ import annotations
 from math import lgamma
 
+from typing import List, TYPE_CHECKING
 import numpy as np
 from matplotlib import pyplot as plt
+if TYPE_CHECKING:
+    from smsh5 import Particle
+# try:
+#     from smsh5 import Particle
+# except ImportError:
+#     pass
+# from ChangePoint import Level
 
 
 class Calcs:
@@ -31,7 +40,7 @@ class Calcs:
         self.bic = None
         self.cap_g = None
 
-    def setup(self, particle):
+    def setup(self, particle: Particle):
         """
         Set up initial values for all calcs.
 
@@ -57,17 +66,17 @@ class Calcs:
         self.bic = list()
 
 
-def max_mj(array: np.ndarray):
+def max_jm(array: np.ndarray):
     """ Finds the j and m index for the max value. """
     max_n = np.argmax(array)
     (xD, yD) = array.shape
     if max_n >= xD:
-        max_m = max_n//xD
-        max_j = max_n%xD
+        max_j = max_n//xD
+        max_m = max_n%xD
     else:
-        max_j = max_n
-        max_m = 0
-    return max_m, max_j
+        max_m = max_n
+        max_j = 0
+    return max_j, max_m
 
 
 def g(n: np.int, cap_i: np.float, cap_t: np.float) -> np.float:
@@ -96,6 +105,84 @@ def g(n: np.int, cap_i: np.float, cap_t: np.float) -> np.float:
         pass
 
     return g_val
+
+
+class Group:
+    
+    def __init__(self, lvls_inds: List[int] = None, particle: Particle = None):
+
+        self.lvls_inds = lvls_inds
+        self.lvls = None
+        self.n = None
+        self.cap_t = None
+
+        if self.lvls_inds is not None and particle is not None:
+            self.create_group(particle=particle)
+
+    def create_group(self, particle: Particle):
+        self.lvls = [particle.levels[i] for i in self.lvls_inds]
+        self.n = np.sum([lvl.num_photons for lvl in self.lvls])
+        self.cap_t = np.sum([lvl.dwell_time_s for lvl in self.lvls])
+
+    @property
+    def num_photons(self) -> int:
+        return int(np.sum([l.num_photons for l in self.lvls]))
+
+    @property
+    def dwell_time(self) -> float:
+        return float(np.sum([l.dwell_time_s for l in self.lvls]))
+
+
+class Solution:
+
+    def __init__(self,
+                 particle: Particle,
+                 first: bool = False,
+                 merged_groups: List[Group] = None,
+                 merged_p_mj: np.ndarray = None):
+
+        if first:
+            assert merged_groups is None and merged_p_mj is None, "Solution: parameters not provided"
+        self.num_levels = particle.num_levels
+        self.log_l_em = None
+        self.bic = None
+
+        if first:
+            self.groups = [Group([i], particle) for i in range(self.num_levels)]
+            self.ini_p_mj = np.identity(n=self.num_levels)
+            self.log_l_em = -np.inf
+        else:
+            self.groups = merged_groups
+            self.ini_p_mj = merged_p_mj
+
+        self.num_groups = len(self.groups)
+
+    # def calc_log_l_em(self):
+
+    def ahc(self) -> Solution:
+
+        merge = np.full(shape=(self.num_groups, self.num_groups), fill_value=-np.inf)
+        for j, group_j in enumerate(self.groups):  # Row
+            for m, group_m in enumerate(self.groups):  # Column
+                if j < m :
+                    n_m = group_m.num_photons
+                    n_j = group_j.num_photons
+                    t_m = group_m.dwell_time
+                    t_j = group_j.dwell_time
+
+                    merge[j, m] = (n_m+n_j)*np.log((n_m+n_j)/(t_m+t_j)) - n_m*np.log(n_m/t_m) - n_j*np.log(n_j/t_j)
+
+        max_j, max_m = max_jm(merge)
+
+        new_groups = []
+        for i, group_i in enumerate(self.groups):
+            elif i == max_m:
+                merge_lvls = group_i.lvls_inds
+                merge_lvls.extend(self.groups[max_j].lvls_inds)
+                new_groups.append(Group(lvls_inds=[group_i.lvls_inds, self.groups[max_j].lvls_inds],
+                                        particle=self.particle))
+        if i != max_j:
+            new_groups.append(Group(lvls_inds=group_i.lvls_inds))
 
 
 class AHCA:
@@ -142,22 +229,27 @@ class AHCA:
             fig_em_p_mj.canvas.set_window_title('em_p_mj')
             fig_em_p_mj.suptitle('Plots of em_p_mj')
 
-        states = []
-        all_em_p_mj = []
-        for i in range(self._calcs.cap_j):
-            self.ahg()
-            self.em()
-            # print(f"Number of States: {self._calcs.cap_g}, BIC: {self._calcs.bic[-1]}")
-            all_em_p_mj.append(self._calcs.em_p_mj)
-            if plotting_on:
-                row = i//columns
-                column = i - columns*(i//columns)
-                title = f"i={i+1}, #S={self._calcs.cap_g}"
-                ax_p_mj[row, column].pcolor(self._calcs.p_mj, edgecolors='k', linewidths=0.1, cmap='GnBu')
-                ax_p_mj[row, column].set_title(title)
-                ax_em_p_mj[row, column].pcolor(self._calcs.em_p_mj, edgecolors='k', linewidths=0.1, cmap='GnBu')
-                ax_em_p_mj[row, column].set_title(title)
-                states.append(self._calcs.cap_g)
+        # states = []
+        # all_em_p_mj = []
+        # for i in range(self._calcs.cap_j):
+        #     self.ahg()
+        #     self.em()
+        #     # print(f"Number of States: {self._calcs.cap_g}, BIC: {self._calcs.bic[-1]}")
+        #     all_em_p_mj.append(self._calcs.em_p_mj)
+        #     if plotting_on:
+        #         row = i//columns
+        #         column = i - columns*(i//columns)
+        #         title = f"i={i+1}, #S={self._calcs.cap_g}"
+        #         ax_p_mj[row, column].pcolor(self._calcs.p_mj, edgecolors='k', linewidths=0.1, cmap='GnBu')
+        #         ax_p_mj[row, column].set_title(title)
+        #         ax_em_p_mj[row, column].pcolor(self._calcs.em_p_mj, edgecolors='k', linewidths=0.1, cmap='GnBu')
+        #         ax_em_p_mj[row, column].set_title(title)
+        #         states.append(self._calcs.cap_g)
+
+        solutions = [Solution(self.particle, first=True)]
+        # solutions[0]
+        for sol_num in range(self.particle.num_levels-1):
+             solutions.append(solutions[sol_num].ahc())
 
         if plotting_on:
             states_x = [str(s) for s in states]
@@ -194,7 +286,7 @@ class AHCA:
                         merge_mj[m, j] = (n_m + n_j)*np.log((n_m + n_j)/(cap_t_m + cap_t_j)) \
                                          - n_m*np.log(n_m/cap_t_m) - n_j*np.log(n_j/cap_t_j)
 
-        max_m, max_j = max_mj(merge_mj)
+        max_m, max_j = max_jm(merge_mj)
         m_merging = np.flatnonzero(self._calcs.p_mj[max_m, :])
         # self._calcs.p_mj[m_merging, max_j] = 1
         self._calcs.p_mj[max_j, m_merging] = 1
