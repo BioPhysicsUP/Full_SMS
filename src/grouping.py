@@ -14,8 +14,11 @@ from math import lgamma
 from typing import List, TYPE_CHECKING
 import numpy as np
 from matplotlib import pyplot as plt
+
 if TYPE_CHECKING:
     from smsh5 import Particle
+
+
 # try:
 #     from smsh5 import Particle
 # except ImportError:
@@ -71,8 +74,8 @@ def max_jm(array: np.ndarray):
     max_n = np.argmax(array)
     (xD, yD) = array.shape
     if max_n >= xD:
-        max_j = max_n//xD
-        max_m = max_n%xD
+        max_j = max_n // xD
+        max_m = max_n % xD
     else:
         max_m = max_n
         max_j = 0
@@ -99,7 +102,7 @@ def g(n: np.int, cap_i: np.float, cap_t: np.float) -> np.float:
     """
 
     try:
-        g_val = np.exp(n*np.log(cap_i*cap_t) - (cap_i*cap_t) - np.float(lgamma(n + 1)))
+        g_val = np.exp(n * np.log(cap_i * cap_t) - (cap_i * cap_t) - np.float(lgamma(n + 1)))
     except RuntimeWarning:
         print("RuntimeWarning at g()")
         pass
@@ -108,29 +111,21 @@ def g(n: np.int, cap_i: np.float, cap_t: np.float) -> np.float:
 
 
 class Group:
-    
-    def __init__(self, lvls_inds: List[int] = None, particle: Particle = None):
 
+    def __init__(self, lvls_inds: List[int] = None, particle: Particle = None):
         self.lvls_inds = lvls_inds
         self.lvls = None
-        self.n = None
-        self.cap_t = None
 
         if self.lvls_inds is not None and particle is not None:
-            self.create_group(particle=particle)
-
-    def create_group(self, particle: Particle):
-        self.lvls = [particle.levels[i] for i in self.lvls_inds]
-        self.n = np.sum([lvl.num_photons for lvl in self.lvls])
-        self.cap_t = np.sum([lvl.dwell_time_s for lvl in self.lvls])
+            self.lvls = [particle.levels[i] for i in self.lvls_inds]
 
     @property
     def num_photons(self) -> int:
-        return int(np.sum([l.num_photons for l in self.lvls]))
+        return int(np.sum([level.num_photons for level in self.lvls]))
 
     @property
     def dwell_time(self) -> float:
-        return float(np.sum([l.dwell_time_s for l in self.lvls]))
+        return float(np.sum([level.dwell_time_s for level in self.lvls]))
 
 
 class Solution:
@@ -138,11 +133,12 @@ class Solution:
     def __init__(self,
                  particle: Particle,
                  first: bool = False,
-                 merged_groups: List[Group] = None,
+                 groups: List[Group] = None,
                  merged_p_mj: np.ndarray = None):
 
+        self.particle = particle
         if first:
-            assert merged_groups is None and merged_p_mj is None, "Solution: parameters not provided"
+            assert groups is None and merged_p_mj is None, "Solution: parameters not provided"
         self.num_levels = particle.num_levels
         self.log_l_em = None
         self.bic = None
@@ -152,7 +148,7 @@ class Solution:
             self.ini_p_mj = np.identity(n=self.num_levels)
             self.log_l_em = -np.inf
         else:
-            self.groups = merged_groups
+            self.groups = groups
             self.ini_p_mj = merged_p_mj
 
         self.num_groups = len(self.groups)
@@ -164,25 +160,139 @@ class Solution:
         merge = np.full(shape=(self.num_groups, self.num_groups), fill_value=-np.inf)
         for j, group_j in enumerate(self.groups):  # Row
             for m, group_m in enumerate(self.groups):  # Column
-                if j < m :
+                if j < m:
                     n_m = group_m.num_photons
                     n_j = group_j.num_photons
                     t_m = group_m.dwell_time
                     t_j = group_j.dwell_time
 
-                    merge[j, m] = (n_m+n_j)*np.log((n_m+n_j)/(t_m+t_j)) - n_m*np.log(n_m/t_m) - n_j*np.log(n_j/t_j)
+                    merge[j, m] = (n_m + n_j) * np.log((n_m + n_j) / (t_m + t_j)) - n_m * np.log(n_m / t_m) - n_j * np.log(
+                        n_j / t_j)
 
         max_j, max_m = max_jm(merge)
 
         new_groups = []
+        new_p_mj = np.zeros(shape=(self.num_groups-1, self.num_levels))
+        group_num = -1
         for i, group_i in enumerate(self.groups):
-            elif i == max_m:
-                merge_lvls = group_i.lvls_inds
-                merge_lvls.extend(self.groups[max_j].lvls_inds)
-                new_groups.append(Group(lvls_inds=[group_i.lvls_inds, self.groups[max_j].lvls_inds],
-                                        particle=self.particle))
-        if i != max_j:
-            new_groups.append(Group(lvls_inds=group_i.lvls_inds))
+            if i != max_m:
+                group_num += 1
+                if i == max_j:
+                    merge_lvls = group_i.lvls_inds.copy()
+                    merge_lvls.extend(self.groups[max_m].lvls_inds.copy())
+                    merge_lvls.sort()
+                    new_groups.append(Group(lvls_inds=merge_lvls, particle=self.particle))
+                else:
+                    new_groups.append(group_i)
+
+                for ind in new_groups[-1].lvls_inds:
+                    new_p_mj[group_num, ind] = 1
+
+        return Solution(particle=self.particle, first=False, groups=new_groups, merged_p_mj=new_p_mj)
+
+    def emc(self):
+        """ Expectation Maximisation clustering """
+
+        p_mj = self.ini_p_mj
+
+        i = 0
+        prev_cap_l_em = -1
+        while diff_cap_l_em > -1E-10 and i < 500:
+
+            i += 1
+
+            cap_j = self.num_levels
+            cap_t = self.dwell_time
+            n = self._calcs.n
+
+            # M-Step
+            cap_t_m = np.zeros(cap_j + 1)
+            n_m = np.zeros(cap_j + 1)
+            p_m = np.zeros(cap_j + 1)
+            cap_i_m = np.zeros(cap_j + 1)
+
+            for m in range(cap_j + 1):
+                if m not in self._calcs.merged:
+                    cap_t_m[m] = np.sum(cap_t * p_mj[m, :])
+                    n_m[m] = np.sum(n * p_mj[m, :])
+                    p_m[m] = cap_t_m[m] / self._calcs.tot_t
+                    cap_i_m[m] = np.sum((n / cap_t_m[m]) * p_mj[m, :])
+
+            # E-Step
+            denom_j = np.zeros(cap_j + 1)
+            for j in range(cap_j + 1):
+                #     p_m_g = np.array([p_m[m]*g(n[j], cap_i_m[m], cap_t[j])
+                #                       for m in range(cap_j + 1) if m not in self._calcs.merged])
+                # if j not in self._calcs.merged:
+                n_j = n[j]
+                cap_t_j = cap_t[j]
+                denom_j[j] = np.sum(
+                    [p_m[m] * g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1) if m not in self._calcs.merged])
+                # denom_j[j] = np.sum([p_m[m]*g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1)
+                #                   if m not in self._calcs.merged])
+
+            new_p_mj = np.zeros_like(p_mj)
+            p_m_g = np.zeros_like(p_mj)
+            cap_l_em = 0
+            for j in range(cap_j + 1):  # column
+                # if j not in self._calcs.merged:
+                for m in range(cap_j + 1):  # row
+                    if m not in self._calcs.merged:
+                        p_m_g[m, j] = p_m[m] * g(n[j], cap_i_m[m], cap_t[j])
+                        # p_m_g[j, m] = p_m_g[m, j]
+                        # if denom_j[j] != 0:
+                        new_p_mj[m, j] = p_m_g[m, j] / denom_j[j]
+                        # new_p_mj[j, m] = new_p_mj[m, j]
+                        if p_m_g[m, j] != 0 and new_p_mj[m, j] != 0:
+                            cap_l_em_mj = new_p_mj[m, j] * np.log(p_m_g[m, j])
+                            if not np.isnan(cap_l_em_mj):
+                                cap_l_em += cap_l_em_mj
+
+            diff_cap_l_em = cap_l_em - prev_cap_l_em
+            prev_cap_l_em = cap_l_em
+            max_diff = np.max(abs(new_p_mj - p_mj))
+            p_mj = new_p_mj
+
+        self._calcs.em_p_mj = p_mj
+        # round_p_mj = np.round(p_mj, 3)
+        # sum_p_mj = np.sum(p_mj, 0)
+        # final_p_mj = np.zeros_like(p_mj)
+        # for m, j in enumerate(np.argmax(p_mj, 0)):
+        #     final_p_mj[m, j] = 1
+        #     final_p_mj[j, m] = 1
+
+        # Step 3
+        #######################################################
+        log_l_em_mj = np.zeros((cap_j + 1, cap_j + 1))
+        g_value = np.float(0)
+        for j in range(cap_j + 1):  # column
+            # if j not in self._calcs.merged:
+            for m in range(cap_j + 1):
+                if m not in self._calcs.merged:
+                    # print(f"j={j}, m={m}")
+                    g_value = g(n[j], cap_i_m[m], cap_t[j])
+                    if g_value != 0:
+                        np.seterr(under='raise')
+                        try:
+                            log_l_em_mj[m, j] = p_mj[m, j] * np.log(p_m[m] * g_value)
+                        except FloatingPointError:
+                            log_l_em_mj[m, j] = 0
+                        np.seterr(under='warn')
+            # for m in range(cap_j + 1):  # row
+            #     if p_m_g[m, j] != 0:
+            #         log_cap_l_em += p_mj[m, j]*np.log(p_m_g[m, j])
+
+        log_l_em = np.sum(np.sum(log_l_em_mj))
+        n_g = self._calcs.cap_g
+        cap_n_cp = np.float(self.particle.cpts.num_cpts)
+        cap_n = self.particle.num_photons
+
+        # TODO Calculate n_g using sum of row -> less 1E-10 = 0 -> count non-zero elements
+
+        bic = 2 * log_l_em - (2 * n_g - 1) * np.log(cap_n_cp) - cap_n_cp * np.log(cap_n)
+
+        self._calcs.bic.append(bic)
+        pass
 
 
 class AHCA:
@@ -218,7 +328,7 @@ class AHCA:
         ############################
         if plotting_on:
             cap_j = self._calcs.cap_j
-            rows = int(1 + np.sqrt(cap_j + 1)//1)
+            rows = int(1 + np.sqrt(cap_j + 1) // 1)
             columns = int(rows + np.ceil(np.sqrt(cap_j + 1) - rows))
             fig_p_mj, ax_p_mj = plt.subplots(rows, columns, sharex='col', sharey='row')
             fig_p_mj.subplots_adjust(hspace=0.3, wspace=0.1)
@@ -248,8 +358,9 @@ class AHCA:
 
         solutions = [Solution(self.particle, first=True)]
         # solutions[0]
-        for sol_num in range(self.particle.num_levels-1):
-             solutions.append(solutions[sol_num].ahc())
+        for sol_num in range(self.particle.num_levels - 1):
+            new_solution = solutions[sol_num].ahc()
+            solutions.append(new_solution)
 
         if plotting_on:
             states_x = [str(s) for s in states]
@@ -277,14 +388,14 @@ class AHCA:
         p_mj = self._calcs.p_mj
         for j in range(cap_j + 1):  # column
             if j not in self._calcs.merged:
-                n_j = np.sum(n*p_mj[:, j])
-                cap_t_j = np.sum(cap_t*p_mj[:, j])
+                n_j = np.sum(n * p_mj[:, j])
+                cap_t_j = np.sum(cap_t * p_mj[:, j])
                 for m in range(j + 1, cap_j + 1):  # row
                     if m not in self._calcs.merged:
-                        n_m = np.sum(n*p_mj[m, :])
-                        cap_t_m = np.sum(cap_t*p_mj[:, m])
-                        merge_mj[m, j] = (n_m + n_j)*np.log((n_m + n_j)/(cap_t_m + cap_t_j)) \
-                                         - n_m*np.log(n_m/cap_t_m) - n_j*np.log(n_j/cap_t_j)
+                        n_m = np.sum(n * p_mj[m, :])
+                        cap_t_m = np.sum(cap_t * p_mj[:, m])
+                        merge_mj[m, j] = (n_m + n_j) * np.log((n_m + n_j) / (cap_t_m + cap_t_j)) \
+                                         - n_m * np.log(n_m / cap_t_m) - n_j * np.log(n_j / cap_t_j)
 
         max_m, max_j = max_jm(merge_mj)
         m_merging = np.flatnonzero(self._calcs.p_mj[max_m, :])
@@ -321,20 +432,21 @@ class AHCA:
 
             for m in range(cap_j + 1):
                 if m not in self._calcs.merged:
-                    cap_t_m[m] = np.sum(cap_t*p_mj[m, :])
-                    n_m[m] = np.sum(n*p_mj[m, :])
-                    p_m[m] = cap_t_m[m]/self._calcs.tot_t
-                    cap_i_m[m] = np.sum((n/cap_t_m[m])*p_mj[m, :])
+                    cap_t_m[m] = np.sum(cap_t * p_mj[m, :])
+                    n_m[m] = np.sum(n * p_mj[m, :])
+                    p_m[m] = cap_t_m[m] / self._calcs.tot_t
+                    cap_i_m[m] = np.sum((n / cap_t_m[m]) * p_mj[m, :])
 
             # E-Step
             denom_j = np.zeros(cap_j + 1)
-            for j in range(cap_j+1):
+            for j in range(cap_j + 1):
                 #     p_m_g = np.array([p_m[m]*g(n[j], cap_i_m[m], cap_t[j])
                 #                       for m in range(cap_j + 1) if m not in self._calcs.merged])
                 # if j not in self._calcs.merged:
                 n_j = n[j]
                 cap_t_j = cap_t[j]
-                denom_j[j] = np.sum([p_m[m]*g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1) if m not in self._calcs.merged])
+                denom_j[j] = np.sum(
+                    [p_m[m] * g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1) if m not in self._calcs.merged])
                 # denom_j[j] = np.sum([p_m[m]*g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1)
                 #                   if m not in self._calcs.merged])
 
@@ -342,13 +454,13 @@ class AHCA:
             p_m_g = np.zeros_like(p_mj)
             cap_l_em = 0
             for j in range(cap_j + 1):  # column
-            # if j not in self._calcs.merged:
+                # if j not in self._calcs.merged:
                 for m in range(cap_j + 1):  # row
                     if m not in self._calcs.merged:
-                        p_m_g[m, j] = p_m[m]*g(n[j], cap_i_m[m], cap_t[j])
+                        p_m_g[m, j] = p_m[m] * g(n[j], cap_i_m[m], cap_t[j])
                         # p_m_g[j, m] = p_m_g[m, j]
                         # if denom_j[j] != 0:
-                        new_p_mj[m, j] = p_m_g[m, j]/denom_j[j]
+                        new_p_mj[m, j] = p_m_g[m, j] / denom_j[j]
                         # new_p_mj[j, m] = new_p_mj[m, j]
                         if p_m_g[m, j] != 0 and new_p_mj[m, j] != 0:
                             cap_l_em_mj = new_p_mj[m, j] * np.log(p_m_g[m, j])
@@ -381,7 +493,7 @@ class AHCA:
                     if g_value != 0:
                         np.seterr(under='raise')
                         try:
-                            log_l_em_mj[m, j] = p_mj[m, j]*np.log(p_m[m]*g_value)
+                            log_l_em_mj[m, j] = p_mj[m, j] * np.log(p_m[m] * g_value)
                         except FloatingPointError:
                             log_l_em_mj[m, j] = 0
                         np.seterr(under='warn')
@@ -396,7 +508,7 @@ class AHCA:
 
         # TODO Calculate n_g using sum of row -> less 1E-10 = 0 -> count non-zero elements
 
-        bic = 2*log_l_em - (2*n_g - 1)*np.log(cap_n_cp) - cap_n_cp*np.log(cap_n)
+        bic = 2 * log_l_em - (2 * n_g - 1) * np.log(cap_n_cp) - cap_n_cp * np.log(cap_n)
 
         self._calcs.bic.append(bic)
 
