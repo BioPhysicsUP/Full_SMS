@@ -134,7 +134,7 @@ class ChangePoints:
     #     if self.cpa_has_run:
     #         self._cpa.dt_uncertainty = dt_uncertainty
 
-    def run_cpa(self, confidence=None, run_levels=None):
+    def run_cpa(self, confidence=None, run_levels=None, end_time_s=None):
         """
         Run change point analysis.
 
@@ -147,6 +147,10 @@ class ChangePoints:
         :param run_levels: If true the change point analysis will be used to
                 add a list of levels to the parent particle object by running its add_levels method.
         :type run_levels: bool, optional
+
+        Parameters
+        ----------
+        end_time_s
         """
 
         if run_levels is not None:
@@ -159,7 +163,7 @@ class ChangePoints:
 
         if self.cpa_has_run:
             self._cpa.reset(confidence)
-        self._cpa.run_cpa(confidence)
+        self._cpa.run_cpa(confidence, end_time_s=end_time_s)
         if self._run_levels:
             self._cpa.define_levels()
             if self.has_levels:
@@ -374,6 +378,7 @@ class ChangePointAnalysis:
         self._abstimes = particle.abstimes
         self._microtimes = particle.microtimes
         self.has_run = False
+        self.end_at_photon = None
         self.num_photons = particle.num_photons
         self.confidence = confidence
         self.cpt_inds = np.array([], dtype=int)
@@ -534,7 +539,10 @@ class ChangePointAnalysis:
             The next segments indexes.
         """
 
-        last_photon_ind = self.num_photons - 1
+        if self.end_at_photon is not None:
+            last_photon_ind = self.end_at_photon
+        else:
+            last_photon_ind = self.num_photons - 1
 
         if prev_seg_inds is None:
             # Data sets need to be larger than 200 photons
@@ -637,7 +645,12 @@ class ChangePointAnalysis:
                 self._find_all_cpts(_seg_inds, _side='right', _right_cpt=_right_cpt)  # Right side of change point
                 pass  # Exits if recursive
 
-            if _seg_inds[1] <= self.num_photons + 9 and _side is None:
+            if self.end_at_photon is not None:
+                end_ind = self.end_at_photon
+            else:
+                end_ind = self.num_photons
+
+            if _seg_inds[1] <= end_ind + 9 and _side is None:
                 self._find_all_cpts(_seg_inds)
 
         if is_top_level:
@@ -699,7 +712,11 @@ class ChangePointAnalysis:
                     if num == 0:  # First change point
                         level_inds = (0, cpt - 1)
                     elif num == self.num_cpts - 1:  # Last change point
-                        level_inds = (cpt, self.num_photons - 1)
+                        if self.end_at_photon is not None:
+                            end_ind = self.end_at_photon
+                        else:
+                            end_ind = self.num_photons
+                        level_inds = (cpt, end_ind - 1)
                         self.levels[num + 1] = Level(self._abstimes, self._microtimes,
                                                      level_inds=level_inds)
 
@@ -707,8 +724,7 @@ class ChangePointAnalysis:
                     else:
                         level_inds = (self.cpt_inds[num - 1], cpt)
 
-                    self.levels[num] = Level(self._abstimes, self._microtimes,
-                                        level_inds=level_inds)
+                    self.levels[num] = Level(self._abstimes, self._microtimes, level_inds=level_inds)
             else:
                 self.levels[0] = Level(self._abstimes, self._microtimes,
                                        level_inds=(0, self.cpt_inds[0] - 1))
@@ -718,7 +734,7 @@ class ChangePointAnalysis:
             self.has_levels = True
 
     # @dbg.profile
-    def run_cpa(self, confidence=None):
+    def run_cpa(self, confidence=None, end_time_s = None):
         """
         Runs the change point analysis.
 
@@ -727,6 +743,8 @@ class ChangePointAnalysis:
 
         Parameters
         ----------
+        end_time_s: float
+            Time at which to end analysis. If not provided the whole trace will be used.
         confidence: float
             Confidence interval. Valid values are 0.99, 0.95, 0.90 and 0.69.
 
@@ -748,6 +766,10 @@ class ChangePointAnalysis:
         else:
             assert self.confidence is not None, "ChangePointAnalysis:\tNo confidence value provided."
 
+        if end_time_s is not None:
+            self.end_at_photon = np.argmax(self._abstimes[:] > (end_time_s * 1E9))
+            if self.end_at_photon == 0:
+                self.end_at_photon = self.num_photons
         self._find_all_cpts()
         self.has_run = True
 
