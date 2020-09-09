@@ -1929,25 +1929,21 @@
      <x>0</x>
      <y>0</y>
      <width>1007</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
      <string>File</string>
     </property>
-    <widget class="QMenu" name="menuOpen">
-     <property name="focusPolicy">
-      <enum>Qt::TabFocus</enum>
-     </property>
+    <widget class="QMenu" name="menuOpen_other">
      <property name="title">
-      <string>Open...</string>
+      <string>Open other...</string>
      </property>
-     <addaction name="actionOpen_h5"/>
-     <addaction name="separator"/>
      <addaction name="actionOpen_pt3"/>
     </widget>
-    <addaction name="menuOpen"/>
+    <addaction name="actionOpen_h5"/>
+    <addaction name="menuOpen_other"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Selected"/>
    </widget>
@@ -2005,7 +2001,7 @@
      <normaloff>icons/001-new-file-new.png</normaloff>icons/001-new-file-new.png</iconset>
    </property>
    <property name="text">
-    <string>HDF5 (*.h5)</string>
+    <string>Open HDF5 (*.h5)</string>
    </property>
   </action>
   <action name="actionOpen_pt3">
@@ -2092,6 +2088,11 @@
   <action name="actionTime_Resolve_All">
    <property name="text">
     <string>All</string>
+   </property>
+  </action>
+  <action name="actiontets">
+   <property name="text">
+    <string>tets</string>
    </property>
   </action>
  </widget>

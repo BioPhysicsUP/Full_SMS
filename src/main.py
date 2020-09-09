@@ -588,8 +588,8 @@ def group_levels(start_progress_sig: pyqtSignal,
                  status_sig: pyqtSignal,
                  reset_gui_sig: pyqtSignal,
                  data: H5dataset,
-                 currentparticle: Particle,
                  mode: str,
+                 currentparticle: Particle = None,
                  group_selected=None) -> None:
     """
     TODO: edit the docstring
@@ -619,30 +619,29 @@ def group_levels(start_progress_sig: pyqtSignal,
     assert mode in ['current', 'selected', 'all'], \
         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
-    if mode == 'current':  # Then resolve current
-        currentparticle.ahca.run_grouping()
+    if mode == 'current':
+        status_text = 'Grouping Current Particle Levels...'
+        parts = [currentparticle]
+    elif mode == 'all':  # Then resolve all
+        status_text = 'Grouping All Particle Levels...'
+        parts = data.particles
 
-    else:
-        if mode == 'all':  # Then resolve all
-            status_text = 'Grouping All Particle Levels...'
-            parts = data.particles
+    elif mode == 'selected':  # Then resolve selected
+        assert group_selected is not None, \
+            'No selected particles provided.'
+        status_text = 'Grouping Selected Particle Levels...'
+        parts = group_selected
 
-        elif mode == 'selected':  # Then resolve selected
-            assert resolve_selected is not None, \
-                'No selected particles provided.'
-            status_text = 'Grouping Selected Particle Levels...'
-            parts = resolve_selected
-
-        try:
-            status_sig.emit(status_text)
-            start_progress_sig.emit(len(parts))
-            for num, part in enumerate(parts):
-                dbg.p(f'Busy Grouping Particle {num + 1}')
-                part.cpts.run_cpa(confidence=conf, run_levels=True)
-                progress_sig.emit()
-            status_sig.emit('Done')
-        except Exception as exc:
-            raise RuntimeError("Couldn't group levels.") from exc
+    try:
+        status_sig.emit(status_text)
+        start_progress_sig.emit(len(parts))
+        for num, part in enumerate(parts):
+            dbg.p(f'Busy Grouping Particle {num + 1}')
+            part.ahca.run_grouping()
+            progress_sig.emit()
+        status_sig.emit('Done')
+    except Exception as exc:
+        raise RuntimeError("Couldn't group levels.") from exc
 
     # grou.emit()
     # data.makehistograms(progress=False)
@@ -654,8 +653,8 @@ class WorkerGrouping(QRunnable):
     def __init__(self,
                  data: H5dataset,
                  grouping_func,
-                 currentparticle,
                  mode: str,
+                 currentparticle: Particle = None,
                  group_selected=None) -> None:
         """
         Initiate Resolve Levels Worker
@@ -693,8 +692,8 @@ class WorkerGrouping(QRunnable):
                                status_sig=self.signals.status_message,
                                reset_gui_sig=self.signals.reset_gui,
                                data=self.data,
-                               currentparticle=self.currentparticle,
                                mode=self.mode,
+                               currentparticle=self.currentparticle,
                                group_selected=self.group_selected)
         except:
             traceback.print_exc()

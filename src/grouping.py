@@ -18,6 +18,8 @@ from matplotlib import pyplot as plt
 if TYPE_CHECKING:
     from smsh5 import Particle
 
+import dbg
+
 
 # try:
 #     from smsh5 import Particle
@@ -193,19 +195,34 @@ class Solution:
     def emc(self):
         """ Expectation Maximisation clustering """
 
-        p_mj = self.ini_p_mj
+        p_mj = self.ini_p_mj.copy()
+        levels = self.particle.levels
 
         i = 0
         diff_cap_l_em = 1
         while diff_cap_l_em > -1E-10 and i < 500:
 
             i += 1
-            cap_j_plus_1 = self.num_levels
+            # cap_j_plus_1 = self.num_levels
             cap_t = self.particle.dwell_time
 
-            for group in self.groups:
-                # cap_t_m =
-                pass
+            cap_t_hat = np.zeros(shape=(self.num_groups,))
+            n_hat = np.zeros_like(cap_t_hat)
+            p_hat = np.zeros_like(cap_t_hat)
+            cap_i_hat = np.zeros_like(cap_t_hat)
+
+            p_hat_g = np.zeros(shape=(self.num_groups, self.num_levels))
+
+            for m, group in enumerate(self.groups):
+
+                cap_t_hat[m] = np.sum([p_mj[m, j]*l.dwell_time_s for j, l in enumerate(levels)])
+                n_hat[m] = np.sum([p_mj[m, j]*l.num_photons for j, l in enumerate(levels)])
+                p_hat[m] = cap_t_hat[m] / cap_t
+                cap_i_hat[m] = np.sum([p_mj[m, j]*l.dwell_time_s / cap_t_hat[m] for j, l in enumerate(levels)])
+
+                for j, l in enumerate(levels):
+                    g_value = g(l.num_photons, cap_i_hat[m], l.dwell_time_s)
+
 
         #     cap_j = self.num_levels
         #     cap_t = self.dwell_time
@@ -327,59 +344,65 @@ class AHCA:
 
         """
 
-        self._calcs.setup(self.particle)
+        if self.particle.has_levels:
+            self._calcs.setup(self.particle)
 
-        ############################
-        plotting_on = True
-        ############################
-        if plotting_on:
-            cap_j = self._calcs.cap_j
-            rows = int(1 + np.sqrt(cap_j + 1) // 1)
-            columns = int(rows + np.ceil(np.sqrt(cap_j + 1) - rows))
-            fig_p_mj, ax_p_mj = plt.subplots(rows, columns, sharex='col', sharey='row')
-            fig_p_mj.subplots_adjust(hspace=0.3, wspace=0.1)
-            fig_p_mj.canvas.set_window_title('p_mj')
-            fig_p_mj.suptitle('Plots of p_mj')
-            fig_em_p_mj, ax_em_p_mj = plt.subplots(rows, columns, sharex='col', sharey='row')
-            fig_em_p_mj.subplots_adjust(hspace=0.3, wspace=0.1)
-            fig_em_p_mj.canvas.set_window_title('em_p_mj')
-            fig_em_p_mj.suptitle('Plots of em_p_mj')
+            ############################
+            plotting_on = False
+            ############################
+            if plotting_on:
+                cap_j = self._calcs.cap_j
+                rows = int(1 + np.sqrt(cap_j + 1) // 1)
+                columns = int(rows + np.ceil(np.sqrt(cap_j + 1) - rows))
+                fig_p_mj, ax_p_mj = plt.subplots(rows, columns, sharex='col', sharey='row')
+                fig_p_mj.subplots_adjust(hspace=0.3, wspace=0.1)
+                fig_p_mj.canvas.set_window_title('p_mj')
+                fig_p_mj.suptitle('Plots of p_mj')
+                fig_em_p_mj, ax_em_p_mj = plt.subplots(rows, columns, sharex='col', sharey='row')
+                fig_em_p_mj.subplots_adjust(hspace=0.3, wspace=0.1)
+                fig_em_p_mj.canvas.set_window_title('em_p_mj')
+                fig_em_p_mj.suptitle('Plots of em_p_mj')
 
-        # states = []
-        # all_em_p_mj = []
-        # for i in range(self._calcs.cap_j):
-        #     self.ahg()
-        #     self.em()
-        #     # print(f"Number of States: {self._calcs.cap_g}, BIC: {self._calcs.bic[-1]}")
-        #     all_em_p_mj.append(self._calcs.em_p_mj)
-        #     if plotting_on:
-        #         row = i//columns
-        #         column = i - columns*(i//columns)
-        #         title = f"i={i+1}, #S={self._calcs.cap_g}"
-        #         ax_p_mj[row, column].pcolor(self._calcs.p_mj, edgecolors='k', linewidths=0.1, cmap='GnBu')
-        #         ax_p_mj[row, column].set_title(title)
-        #         ax_em_p_mj[row, column].pcolor(self._calcs.em_p_mj, edgecolors='k', linewidths=0.1, cmap='GnBu')
-        #         ax_em_p_mj[row, column].set_title(title)
-        #         states.append(self._calcs.cap_g)
+            # states = []
+            # all_em_p_mj = []
+            # for i in range(self._calcs.cap_j):
+            #     self.ahg()
+            #     self.em()
+            #     # print(f"Number of States: {self._calcs.cap_g}, BIC: {self._calcs.bic[-1]}")
+            #     all_em_p_mj.append(self._calcs.em_p_mj)
+            #     if plotting_on:
+            #         row = i//columns
+            #         column = i - columns*(i//columns)
+            #         title = f"i={i+1}, #S={self._calcs.cap_g}"
+            #         ax_p_mj[row, column].pcolor(self._calcs.p_mj, edgecolors='k', linewidths=0.1, cmap='GnBu')
+            #         ax_p_mj[row, column].set_title(title)
+            #         ax_em_p_mj[row, column].pcolor(self._calcs.em_p_mj, edgecolors='k', linewidths=0.1, cmap='GnBu')
+            #         ax_em_p_mj[row, column].set_title(title)
+            #         states.append(self._calcs.cap_g)
 
-        solutions = [Solution(self.particle, first=True)]
-        # solutions[0]
-        for sol_num in range(self.particle.num_levels - 1):
-            new_solution = solutions[sol_num].ahc()
-            solutions.append(new_solution)
+            solutions = [Solution(self.particle, first=True)]
+            # solutions[0]
+            for sol_num in range(self.particle.num_levels - 1):
+                new_solution = solutions[sol_num].ahc()
+                new_solution.emc()
+                solutions.append(new_solution)
 
-        if plotting_on:
-            states_x = [str(s) for s in states]
-            fig_bics, ax_bics = plt.subplots()
-            fig_bics.canvas.set_window_title('BIC')
-            ax_bics.set_title('BIC of grouping')
-            ax_bics.set_xlabel('Number of states')
-            ax_bics.set_ylabel('BIC')
-            ax_bics.plot(states, self._calcs.bic, marker='o')
+            pass
 
-            fig_p_mj.show()
-            fig_em_p_mj.show()
-        pass
+            # if plotting_on:
+            #     states_x = [str(s) for s in states]
+            #     fig_bics, ax_bics = plt.subplots()
+            #     fig_bics.canvas.set_window_title('BIC')
+            #     ax_bics.set_title('BIC of grouping')
+            #     ax_bics.set_xlabel('Number of states')
+            #     ax_bics.set_ylabel('BIC')
+            #     ax_bics.plot(states, self._calcs.bic, marker='o')
+            #
+            #     fig_p_mj.show()
+            #     fig_em_p_mj.show()
+            # pass
+        else:
+            dbg.p(f"{self.particle.name} has no levels to group", "ACHA")
 
     # Step 1
     #######################################################
