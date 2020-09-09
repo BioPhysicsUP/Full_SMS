@@ -327,7 +327,8 @@ class WorkerResolveLevels(QRunnable):
 
     def __init__(self, resolve_levels_func, conf: Union[int, float], data: H5dataset, currentparticle: Particle,
                  mode: str,
-                 resolve_selected=None) -> None:
+                 resolve_selected=None,
+                 end_time_s=None) -> None:
         """
         Initiate Resolve Levels Worker
 
@@ -353,6 +354,7 @@ class WorkerResolveLevels(QRunnable):
         self.conf = conf
         self.data = data
         self.currentparticle = currentparticle
+        self.end_time_s = end_time_s
         # print(self.currentparticle)
 
     @pyqtSlot()
@@ -363,7 +365,7 @@ class WorkerResolveLevels(QRunnable):
             self.resolve_levels_func(self.signals.start_progress, self.signals.progress,
                                      self.signals.status_message, self.signals.reset_gui, self.signals.level_resolved,
                                      self.conf, self.data, self.currentparticle,
-                                     self.mode, self.resolve_selected)
+                                     self.mode, self.resolve_selected, self.end_time_s)
         except:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
@@ -375,7 +377,8 @@ class WorkerResolveLevels(QRunnable):
 def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
                    status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
                    conf: Union[int, float], data: H5dataset, currentparticle: Particle, mode: str,
-                   resolve_selected=None) -> None:
+                   resolve_selected=None,
+                   end_time_s=None) -> None:
     """
     TODO: edit the docstring
     Resolves the levels in particles by finding the change points in the
@@ -383,6 +386,7 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 
     Parameters
     ----------
+    end_time_s
     currentparticle : Particle
     conf
     level_resolved_sig
@@ -405,7 +409,7 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
     if mode == 'current':  # Then resolve current
-        currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True)
+        currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True, end_time_s=end_time_s)
 
     else:
         if mode == 'all':  # Then resolve all
@@ -423,7 +427,7 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
             start_progress_sig.emit(len(parts))
             for num, part in enumerate(parts):
                 dbg.p(f'Busy Resolving Particle {num + 1}')
-                part.cpts.run_cpa(confidence=conf, run_levels=True)
+                part.cpts.run_cpa(confidence=conf, run_levels=True, end_time_s=end_time_s)
                 progress_sig.emit()
             status_sig.emit('Done')
         except Exception as exc:
@@ -1071,6 +1075,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnResolve.clicked.connect(self.int_controller.gui_resolve)
         self.btnResolve_Selected.clicked.connect(self.int_controller.gui_resolve_selected)
         self.btnResolveAll.clicked.connect(self.int_controller.gui_resolve_all)
+        self.actionTime_Resolve_Current.triggered.connect(self.int_controller.time_resolve_current)
+        self.actionTime_Resolve_Selected.triggered.connect(self.int_controller.time_resolve_selected)
+        self.actionTime_Resolve_All.triggered.connect(self.int_controller.time_resolve_all)
 
         self.btnPrevLevel.clicked.connect(self.lifetime_controller.gui_prev_lev)
         self.btnNextLevel.clicked.connect(self.lifetime_controller.gui_next_lev)
@@ -1971,20 +1978,47 @@ class IntController(QObject):
             self.mainwindow.repaint()
             dbg.p('All traces binned', 'IntController')
 
-    def gui_resolve(self):
+    def ask_end_time(self):
+        """ Prompts the user to supply an end time."""
+
+        end_time_s, ok = QInputDialog.getDouble(self.mainwindow, 'End Time', 'Provide end time in seconds', 0, 1, 10000, 3)
+        return end_time_s, ok
+
+    def time_resolve_current(self):
+        """ Resolves the levels of the current particle to an end time asked of the user."""
+
+        end_time_s, ok = self.ask_end_time()
+        if ok:
+            self.gui_resolve(end_time_s=end_time_s)
+
+    def time_resolve_selected(self):
+        """ Resolves the levels of the selected particles to an end time asked of the user."""
+
+        end_time_s, ok = self.ask_end_time()
+        if ok:
+            self.gui_resolve_selected(end_time_s=end_time_s)
+
+    def time_resolve_all(self):
+        """ Resolves the levels of all the particles to an end time asked of the user."""
+
+        end_time_s, ok = self.ask_end_time()
+        if ok:
+            self.gui_resolve_all(end_time_s=end_time_s)
+
+    def gui_resolve(self, end_time_s=None):
         """ Resolves the levels of the current particle and displays it. """
 
-        self.start_resolve_thread(mode='current')
+        self.start_resolve_thread(mode='current', end_time_s=end_time_s)
 
-    def gui_resolve_selected(self):
+    def gui_resolve_selected(self, end_time_s=None):
         """ Resolves the levels of the selected particles and displays the levels of the current particle. """
 
-        self.start_resolve_thread(mode='selected')
+        self.start_resolve_thread(mode='selected', end_time_s=end_time_s)
 
-    def gui_resolve_all(self):
+    def gui_resolve_all(self, end_time_s=None):
         """ Resolves the levels of the all the particles and then displays the levels of the current particle. """
 
-        self.start_resolve_thread(mode='all')
+        self.start_resolve_thread(mode='all', end_time_s=end_time_s)
 
     def plot_trace(self) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
@@ -2064,7 +2098,7 @@ class IntController(QObject):
             else:
                 dbg.p('Infinity in level', 'IntController')
 
-    def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
+    def start_resolve_thread(self, mode: str = 'current', thread_finished=None, end_time_s=None) -> None:
         """
         Creates a worker to resolve levels.
 
@@ -2073,6 +2107,7 @@ class IntController(QObject):
 
         Parameters
         ----------
+        end_time_s : float
         thread_finished
         mode : {'current', 'selected', 'all'}
             Possible values are 'current' (default), 'selected', and 'all'.
@@ -2093,12 +2128,12 @@ class IntController(QObject):
         if mode == 'current':
             # sig = WorkerSignals()
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, end_time_s=end_time_s)
         elif mode == 'selected':
             resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode,
-                                                 resolve_selected=self.mainwindow.get_checked_particles())
+                                                 resolve_selected=self.mainwindow.get_checked_particles(), end_time_s=end_time_s)
         elif mode == 'all':
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, end_time_s=end_time_s)
             # resolve_thread.signals.finished.connect(thread_finished)
             # resolve_thread.signals.start_progress.connect(self.start_progress)
             # resolve_thread.signals.progress.connect(self.update_progress)
