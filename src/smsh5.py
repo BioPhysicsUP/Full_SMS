@@ -207,6 +207,10 @@ class Particle:
         return self.cpts.num_levels
 
     @property
+    def dwell_time(self):
+        return (self.abstimes[-1] - self.abstimes[0]) / 1E9
+
+    @property
     def level_ints(self):
         return self.cpts.level_ints
 

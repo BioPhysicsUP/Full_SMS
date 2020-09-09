@@ -196,103 +196,109 @@ class Solution:
         p_mj = self.ini_p_mj
 
         i = 0
-        prev_cap_l_em = -1
+        diff_cap_l_em = 1
         while diff_cap_l_em > -1E-10 and i < 500:
 
             i += 1
+            cap_j_plus_1 = self.num_levels
+            cap_t = self.particle.dwell_time
 
-            cap_j = self.num_levels
-            cap_t = self.dwell_time
-            n = self._calcs.n
+            for group in self.groups:
+                # cap_t_m =
+                pass
 
-            # M-Step
-            cap_t_m = np.zeros(cap_j + 1)
-            n_m = np.zeros(cap_j + 1)
-            p_m = np.zeros(cap_j + 1)
-            cap_i_m = np.zeros(cap_j + 1)
-
-            for m in range(cap_j + 1):
-                if m not in self._calcs.merged:
-                    cap_t_m[m] = np.sum(cap_t * p_mj[m, :])
-                    n_m[m] = np.sum(n * p_mj[m, :])
-                    p_m[m] = cap_t_m[m] / self._calcs.tot_t
-                    cap_i_m[m] = np.sum((n / cap_t_m[m]) * p_mj[m, :])
-
-            # E-Step
-            denom_j = np.zeros(cap_j + 1)
-            for j in range(cap_j + 1):
-                #     p_m_g = np.array([p_m[m]*g(n[j], cap_i_m[m], cap_t[j])
-                #                       for m in range(cap_j + 1) if m not in self._calcs.merged])
-                # if j not in self._calcs.merged:
-                n_j = n[j]
-                cap_t_j = cap_t[j]
-                denom_j[j] = np.sum(
-                    [p_m[m] * g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1) if m not in self._calcs.merged])
-                # denom_j[j] = np.sum([p_m[m]*g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1)
-                #                   if m not in self._calcs.merged])
-
-            new_p_mj = np.zeros_like(p_mj)
-            p_m_g = np.zeros_like(p_mj)
-            cap_l_em = 0
-            for j in range(cap_j + 1):  # column
-                # if j not in self._calcs.merged:
-                for m in range(cap_j + 1):  # row
-                    if m not in self._calcs.merged:
-                        p_m_g[m, j] = p_m[m] * g(n[j], cap_i_m[m], cap_t[j])
-                        # p_m_g[j, m] = p_m_g[m, j]
-                        # if denom_j[j] != 0:
-                        new_p_mj[m, j] = p_m_g[m, j] / denom_j[j]
-                        # new_p_mj[j, m] = new_p_mj[m, j]
-                        if p_m_g[m, j] != 0 and new_p_mj[m, j] != 0:
-                            cap_l_em_mj = new_p_mj[m, j] * np.log(p_m_g[m, j])
-                            if not np.isnan(cap_l_em_mj):
-                                cap_l_em += cap_l_em_mj
-
-            diff_cap_l_em = cap_l_em - prev_cap_l_em
-            prev_cap_l_em = cap_l_em
-            max_diff = np.max(abs(new_p_mj - p_mj))
-            p_mj = new_p_mj
-
-        self._calcs.em_p_mj = p_mj
-        # round_p_mj = np.round(p_mj, 3)
-        # sum_p_mj = np.sum(p_mj, 0)
-        # final_p_mj = np.zeros_like(p_mj)
-        # for m, j in enumerate(np.argmax(p_mj, 0)):
-        #     final_p_mj[m, j] = 1
-        #     final_p_mj[j, m] = 1
-
-        # Step 3
-        #######################################################
-        log_l_em_mj = np.zeros((cap_j + 1, cap_j + 1))
-        g_value = np.float(0)
-        for j in range(cap_j + 1):  # column
-            # if j not in self._calcs.merged:
-            for m in range(cap_j + 1):
-                if m not in self._calcs.merged:
-                    # print(f"j={j}, m={m}")
-                    g_value = g(n[j], cap_i_m[m], cap_t[j])
-                    if g_value != 0:
-                        np.seterr(under='raise')
-                        try:
-                            log_l_em_mj[m, j] = p_mj[m, j] * np.log(p_m[m] * g_value)
-                        except FloatingPointError:
-                            log_l_em_mj[m, j] = 0
-                        np.seterr(under='warn')
-            # for m in range(cap_j + 1):  # row
-            #     if p_m_g[m, j] != 0:
-            #         log_cap_l_em += p_mj[m, j]*np.log(p_m_g[m, j])
-
-        log_l_em = np.sum(np.sum(log_l_em_mj))
-        n_g = self._calcs.cap_g
-        cap_n_cp = np.float(self.particle.cpts.num_cpts)
-        cap_n = self.particle.num_photons
-
-        # TODO Calculate n_g using sum of row -> less 1E-10 = 0 -> count non-zero elements
-
-        bic = 2 * log_l_em - (2 * n_g - 1) * np.log(cap_n_cp) - cap_n_cp * np.log(cap_n)
-
-        self._calcs.bic.append(bic)
-        pass
+        #     cap_j = self.num_levels
+        #     cap_t = self.dwell_time
+        #     n = self._calcs.n
+        #
+        #     # M-Step
+        #     cap_t_m = np.zeros(cap_j + 1)
+        #     n_m = np.zeros(cap_j + 1)
+        #     p_m = np.zeros(cap_j + 1)
+        #     cap_i_m = np.zeros(cap_j + 1)
+        #
+        #     for m in range(cap_j + 1):
+        #         if m not in self._calcs.merged:
+        #             cap_t_m[m] = np.sum(cap_t * p_mj[m, :])
+        #             n_m[m] = np.sum(n * p_mj[m, :])
+        #             p_m[m] = cap_t_m[m] / self._calcs.tot_t
+        #             cap_i_m[m] = np.sum((n / cap_t_m[m]) * p_mj[m, :])
+        #
+        #     # E-Step
+        #     denom_j = np.zeros(cap_j + 1)
+        #     for j in range(cap_j + 1):
+        #         #     p_m_g = np.array([p_m[m]*g(n[j], cap_i_m[m], cap_t[j])
+        #         #                       for m in range(cap_j + 1) if m not in self._calcs.merged])
+        #         # if j not in self._calcs.merged:
+        #         n_j = n[j]
+        #         cap_t_j = cap_t[j]
+        #         denom_j[j] = np.sum(
+        #             [p_m[m] * g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1) if m not in self._calcs.merged])
+        #         # denom_j[j] = np.sum([p_m[m]*g(n_j, cap_i_m[m], cap_t_j) for m in range(cap_j + 1)
+        #         #                   if m not in self._calcs.merged])
+        #
+        #     new_p_mj = np.zeros_like(p_mj)
+        #     p_m_g = np.zeros_like(p_mj)
+        #     cap_l_em = 0
+        #     for j in range(cap_j + 1):  # column
+        #         # if j not in self._calcs.merged:
+        #         for m in range(cap_j + 1):  # row
+        #             if m not in self._calcs.merged:
+        #                 p_m_g[m, j] = p_m[m] * g(n[j], cap_i_m[m], cap_t[j])
+        #                 # p_m_g[j, m] = p_m_g[m, j]
+        #                 # if denom_j[j] != 0:
+        #                 new_p_mj[m, j] = p_m_g[m, j] / denom_j[j]
+        #                 # new_p_mj[j, m] = new_p_mj[m, j]
+        #                 if p_m_g[m, j] != 0 and new_p_mj[m, j] != 0:
+        #                     cap_l_em_mj = new_p_mj[m, j] * np.log(p_m_g[m, j])
+        #                     if not np.isnan(cap_l_em_mj):
+        #                         cap_l_em += cap_l_em_mj
+        #
+        #     diff_cap_l_em = cap_l_em - prev_cap_l_em
+        #     prev_cap_l_em = cap_l_em
+        #     max_diff = np.max(abs(new_p_mj - p_mj))
+        #     p_mj = new_p_mj
+        #
+        # self._calcs.em_p_mj = p_mj
+        # # round_p_mj = np.round(p_mj, 3)
+        # # sum_p_mj = np.sum(p_mj, 0)
+        # # final_p_mj = np.zeros_like(p_mj)
+        # # for m, j in enumerate(np.argmax(p_mj, 0)):
+        # #     final_p_mj[m, j] = 1
+        # #     final_p_mj[j, m] = 1
+        #
+        # # Step 3
+        # #######################################################
+        # log_l_em_mj = np.zeros((cap_j + 1, cap_j + 1))
+        # g_value = np.float(0)
+        # for j in range(cap_j + 1):  # column
+        #     # if j not in self._calcs.merged:
+        #     for m in range(cap_j + 1):
+        #         if m not in self._calcs.merged:
+        #             # print(f"j={j}, m={m}")
+        #             g_value = g(n[j], cap_i_m[m], cap_t[j])
+        #             if g_value != 0:
+        #                 np.seterr(under='raise')
+        #                 try:
+        #                     log_l_em_mj[m, j] = p_mj[m, j] * np.log(p_m[m] * g_value)
+        #                 except FloatingPointError:
+        #                     log_l_em_mj[m, j] = 0
+        #                 np.seterr(under='warn')
+        #     # for m in range(cap_j + 1):  # row
+        #     #     if p_m_g[m, j] != 0:
+        #     #         log_cap_l_em += p_mj[m, j]*np.log(p_m_g[m, j])
+        #
+        # log_l_em = np.sum(np.sum(log_l_em_mj))
+        # n_g = self._calcs.cap_g
+        # cap_n_cp = np.float(self.particle.cpts.num_cpts)
+        # cap_n = self.particle.num_photons
+        #
+        # # TODO Calculate n_g using sum of row -> less 1E-10 = 0 -> count non-zero elements
+        #
+        # bic = 2 * log_l_em - (2 * n_g - 1) * np.log(cap_n_cp) - cap_n_cp * np.log(cap_n)
+        #
+        # self._calcs.bic.append(bic)
+        # pass
 
 
 class AHCA:
