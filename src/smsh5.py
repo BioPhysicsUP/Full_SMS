@@ -199,6 +199,20 @@ class Particle:
         return self.cpts.has_levels
 
     @property
+    def has_groups(self):
+        return self.ahca.has_groups
+
+    @property
+    def groups(self):
+        if self.has_groups:
+            return self.ahca.solution.groups
+
+    @property
+    def num_groups(self):
+        if self.has_groups:
+            return self.ahca.solution.num_groups
+
+    @property
     def levels(self):
         return self.cpts.levels
 

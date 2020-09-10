@@ -1327,7 +1327,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
             if cur_tab_name == 'tabGrouping':
                 self.grouping_controller.plot_hist()
-                # TODO: Add if for has_groups and then plot BIC etc
+                if self.currentparticle.has_groups:
+                    self.grouping_controller.plot_groups()
 
             if self.currentparticle.has_levels:
                 self.int_controller.plot_levels()
@@ -2527,6 +2528,33 @@ class GroupingController(QObject):
 
                 level_hist.rotate(-90)
                 plot_item.addItem(level_hist)
+
+    def plot_groups(self):
+        currentparticle = self.mainwindow.currentparticle
+        # print('levels plto')
+        try:
+            groups = currentparticle.groups
+            num_groups = currentparticle.num_groups
+            num_levels = currentparticle.num_levels
+        except AttributeError:
+            dbg.p('No groups!', 'GroupingController')
+        else:
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+            if cur_tab_name == 'tabGrouping':
+                plot_item = self.mainwindow.pgGroups_Int.getPlotItem()
+            else:
+                return
+
+        # TODO: WIP
+        plot_pen = QPen()
+        plot_pen.setWidthF(2)
+        plot_pen.brush()
+        plot_pen.setJoinStyle(Qt.RoundJoin)
+        plot_pen.setColor(QColor('black'))
+        plot_pen.setCosmetic(True)
+
+        # plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
+        pass
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
