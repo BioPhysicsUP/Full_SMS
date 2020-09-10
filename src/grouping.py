@@ -11,7 +11,7 @@ University of Pretoria
 from __future__ import annotations
 from math import lgamma
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 import numpy as np
 from scipy.stats import poisson
 from matplotlib import pyplot as plt
@@ -52,6 +52,10 @@ class Group:
     def dwell_time(self) -> float:
         return float(np.sum([level.dwell_time_s for level in self.lvls]))
 
+    @property
+    def int(self) -> float:
+        return self.num_photons/self.dwell_time
+
 
 class Solution:
 
@@ -69,6 +73,49 @@ class Solution:
     @property
     def num_levels(self) -> int:
         return self._best_step.num_levels
+
+    @property
+    def group_ints(self) -> List[float]:
+
+        return [group.int for group in self.groups]
+
+    def calc_int_bounds(self, order: str = 'descending') -> List[Tuple[float, float]]:
+        """ Calculates the bounds between the groups.
+
+        Parameters
+        ----------
+        order : str
+            Option are 'descending' and 'ascending'
+        """
+
+        assert order in ['descending', 'ascending'], "Solution: Order provided not valid"
+
+        g_ints = self.group_ints.copy()
+        g_ints.sort(reverse=(order == 'descending'))
+
+        int_bounds = []
+        for i in range(self.num_groups - 1):
+            mid_int = (g_ints[i + 1] + g_ints[i]) / 2
+
+            if i == 0:
+                if order == 'descending':
+                    int_bounds.append((mid_int, np.inf))
+                else:
+                    int_bounds.append((0, mid_int))
+                prev_mid_int = mid_int
+
+            elif i == self.num_groups - 1:
+                if order == 'descending':
+                    int_bounds.append((0, mid_int))
+                else:
+                    int_bounds.append((mid_int, np.inf))
+            else:
+                if order == 'descending':
+                    int_bounds.append((mid_int, prev_mid_int))
+                else:
+                    int_bounds.append((prev_mid_int, mid_int))
+
+        return int_bounds
 
 
 class ClusteringStep:

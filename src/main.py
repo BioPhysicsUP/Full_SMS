@@ -2545,7 +2545,6 @@ class GroupingController(QObject):
             else:
                 return
 
-        # TODO: WIP
         plot_pen = QPen()
         plot_pen.setWidthF(2)
         plot_pen.brush()
