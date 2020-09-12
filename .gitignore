@@ -132,9 +132,6 @@ dmypy.json
 # NSIS Installer .nsi scripts
 *.nsi
 
-# Affinity Designer files
-*.afdesign
-
 /src/plotting.py
 
 
