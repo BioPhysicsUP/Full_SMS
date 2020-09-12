@@ -60,7 +60,8 @@ class Group:
 class Solution:
 
     def __init__(self, ahca_steps: List[ClusteringStep]):
-        self._best_step = ahca_steps[np.argmax([step.bic for step in ahca_steps])]
+        self.bics = [step.bic for step in ahca_steps]
+        self._best_step = ahca_steps[np.argmax(self.bics)]
 
     @property
     def groups(self) -> List[Group]:
@@ -94,26 +95,29 @@ class Solution:
         g_ints.sort(reverse=(order == 'descending'))
 
         int_bounds = []
-        for i in range(self.num_groups - 1):
-            mid_int = (g_ints[i + 1] + g_ints[i]) / 2
+        for i in range(self.num_groups):
 
-            if i == 0:
+            if i == self.num_groups - 1:
                 if order == 'descending':
-                    int_bounds.append((mid_int, np.inf))
+                    int_bounds.append((0, prev_mid_int))
                 else:
-                    int_bounds.append((0, mid_int))
-                prev_mid_int = mid_int
-
-            elif i == self.num_groups - 1:
-                if order == 'descending':
-                    int_bounds.append((0, mid_int))
-                else:
-                    int_bounds.append((mid_int, np.inf))
+                    int_bounds.append((prev_mid_int, np.inf))
             else:
-                if order == 'descending':
-                    int_bounds.append((mid_int, prev_mid_int))
+                mid_int = (g_ints[i + 1] + g_ints[i]) / 2
+                if i == 0:
+                    if order == 'descending':
+                        int_bounds.append((mid_int, np.inf))
+                    else:
+                        int_bounds.append((0, mid_int))
+                    prev_mid_int = mid_int
+
                 else:
-                    int_bounds.append((prev_mid_int, mid_int))
+                    if order == 'descending':
+                        int_bounds.append((mid_int, prev_mid_int))
+                    else:
+                        int_bounds.append((prev_mid_int, mid_int))
+
+            prev_mid_int = mid_int
 
         return int_bounds
 
@@ -134,6 +138,7 @@ class ClusteringStep:
         self.em_p_mj = None
         self.em_log_l = None
         self.bic = None
+        self.num_real_groups = None
 
         if first:
             self.groups = [Group([i], particle) for i in range(self.num_levels)]
@@ -188,7 +193,7 @@ class ClusteringStep:
 
         i = 0
         diff_p_mj = 1
-        while diff_p_mj > 1E-10 and i < 500:
+        while diff_p_mj > 1E-5 and i < 50:
 
             i += 1
             # cap_j_plus_1 = self.num_levels
@@ -217,7 +222,11 @@ class ClusteringStep:
                 denom[j] = np.sum(p_hat_g[:, j])
 
                 for m in range(self.num_groups):
-                    p_mj[m, j] = p_hat_g[m, j] / denom[j]
+                    try:
+                        p_mj[m, j] = p_hat_g[m, j] / denom[j]
+                    except:
+                        print('here')
+                        pass
 
             diff_p_mj = np.sum(np.abs(prev_p_mj - p_mj))
             prev_p_mj = p_mj.copy()
@@ -240,6 +249,7 @@ class ClusteringStep:
 
         num_cp = self.particle.cpts.num_cpts
         num_g = np.sum(np.count_nonzero(np.sum(self.em_p_mj, 1)))
+        self.num_real_groups = num_g
 
         self.bic = 2*self.em_log_l - (2*num_g - 1)*np.log(num_cp) - num_cp*np.log(self.particle.num_photons)
 

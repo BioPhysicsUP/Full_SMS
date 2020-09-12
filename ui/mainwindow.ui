@@ -568,7 +568,7 @@
               </widget>
              </item>
              <item>
-              <widget class="PlotWidget" name="pgBIC"/>
+              <widget class="PlotWidget" name="pgGroups_BIC"/>
              </item>
             </layout>
            </item>

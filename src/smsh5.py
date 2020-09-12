@@ -213,6 +213,22 @@ class Particle:
             return self.ahca.solution.num_groups
 
     @property
+    def groups_bounds(self):
+        return self.ahca.solution.calc_int_bounds()
+
+    @property
+    def groups_ints(self):
+        return self.ahca.solution.group_ints
+
+    @property
+    def grouping_bics(self):
+        return self.ahca.solution.bics
+
+    @property
+    def steps_num_real_groups(self):
+        return [step.num_real_groups for step in self.ahca.steps]
+
+    @property
     def levels(self):
         return self.cpts.levels
 

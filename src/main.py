@@ -15,6 +15,7 @@ from platform import system
 
 import numpy as np
 import scipy
+# noinspection PyPackageRequirements
 from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, \
     Qt, QThreadPool, QRunnable, pyqtSlot
 from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor
@@ -1028,10 +1029,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.pgGroups_Hist.getPlotItem().getAxis('left').setStyle(showValues=False)
         self.pgGroups_Hist.getPlotItem().vb.setLimits(xMin=0, xMax=1)
 
-        self.pgBIC.getPlotItem().getAxis('left').setLabel('BIC')
-        self.pgBIC.getPlotItem().getAxis('bottom').setLabel('Number of State')
-        self.pgBIC.getPlotItem().getViewBox().setLimits(xMin=0)
-        self.pgBIC.getPlotItem().setContentsMargins(5, 5, 5, 5)
+        self.pgGroups_BIC.getPlotItem().getAxis('left').setLabel('BIC')
+        self.pgGroups_BIC.getPlotItem().getAxis('bottom').setLabel('Number of Groups')
+        self.pgGroups_BIC.getPlotItem().setLogMode(False, True)
+        self.pgGroups_BIC.getPlotItem().getViewBox().setLimits(xMin=0)
+        self.pgGroups_BIC.getPlotItem().setContentsMargins(5, 5, 5, 5)
 
         self.pgSpectra.getPlotItem().getAxis('left').setLabel('X Range', 'um')
         self.pgSpectra.getPlotItem().getAxis('bottom').setLabel('Y Range', '<span>&#181;</span>m')
@@ -1045,7 +1047,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.grouping_controller = GroupingController(self)
 
         plots = [self.pgIntensity, self.pgLifetime_Int, self.pgLifetime,
-                 self.pgGroups_Int, self.pgGroups_Hist, self.pgBIC, self.pgSpectra, self.lifetime_controller.fitparamdialog.pgFitParam]
+                 self.pgGroups_Int, self.pgGroups_Hist, self.pgGroups_BIC, self.pgSpectra, self.lifetime_controller.fitparamdialog.pgFitParam]
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
         for plot in plots:
             # Set background and axis line width
@@ -2064,24 +2066,30 @@ class IntController(QObject):
             level_ints = level_ints * self.get_bin() / 1E3
         except AttributeError:
             dbg.p('No levels!', 'IntController')
-        else:
-            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
-            if cur_tab_name == 'tabIntensity':
-                plot_item = self.mainwindow.pgIntensity.getPlotItem()
-                # pen_width = 1.5
-            elif cur_tab_name == 'tabLifetime':
-                plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
-                # pen_width = 1.1
-            elif cur_tab_name == 'tabGrouping':
-                plot_item = self.mainwindow.pgGroups_Int.getPlotItem()
-            else:
-                return
-
+        # else:
         plot_pen = QPen()
-        plot_pen.setWidthF(2)
+
+        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+        if cur_tab_name == 'tabIntensity':
+            plot_item = self.mainwindow.pgIntensity.getPlotItem()
+            # pen_width = 1.5
+            plot_pen.setWidthF(1.5)
+            plot_pen.setColor(QColor('black'))
+        elif cur_tab_name == 'tabLifetime':
+            plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
+            # pen_width = 1.1
+            plot_pen.setWidthF(1.1)
+            plot_pen.setColor(QColor('black'))
+        elif cur_tab_name == 'tabGrouping':
+            plot_item = self.mainwindow.pgGroups_Int.getPlotItem()
+            plot_pen.setWidthF(1)
+            plot_pen.setColor(QColor(0, 0, 0, 100))
+        else:
+            return
+
+
         plot_pen.brush()
         plot_pen.setJoinStyle(Qt.RoundJoin)
-        plot_pen.setColor(QColor('black'))
         plot_pen.setCosmetic(True)
 
         plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
@@ -2530,30 +2538,63 @@ class GroupingController(QObject):
                 plot_item.addItem(level_hist)
 
     def plot_groups(self):
-        currentparticle = self.mainwindow.currentparticle
-        # print('levels plto')
-        try:
-            groups = currentparticle.groups
-            num_groups = currentparticle.num_groups
-            num_levels = currentparticle.num_levels
-        except AttributeError:
-            dbg.p('No groups!', 'GroupingController')
-        else:
-            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
-            if cur_tab_name == 'tabGrouping':
-                plot_item = self.mainwindow.pgGroups_Int.getPlotItem()
-            else:
-                return
+        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+        if cur_tab_name == 'tabGrouping':
+            currentparticle = self.mainwindow.currentparticle
+            # print('levels plto')
+            try:
+                groups = currentparticle.groups
+                num_groups = currentparticle.num_groups
+                num_levels = currentparticle.num_levels
+                group_bounds = currentparticle.groups_bounds
+                grouping_bics = currentparticle.grouping_bics
+                steps_num_real_groups = currentparticle.steps_num_real_groups
 
-        plot_pen = QPen()
-        plot_pen.setWidthF(2)
-        plot_pen.brush()
-        plot_pen.setJoinStyle(Qt.RoundJoin)
-        plot_pen.setColor(QColor('black'))
-        plot_pen.setCosmetic(True)
+            except AttributeError:
+                dbg.p('No groups!', 'GroupingController')
+            # else:
 
-        # plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
-        pass
+            int_plot = self.mainwindow.pgGroups_Int.getPlotItem()
+            bic_plot = self.mainwindow.pgGroups_BIC.getPlotItem()
+
+            int_conv = currentparticle.bin_size / 1000
+
+            for i, bound in enumerate(group_bounds):
+                if i % 2:
+                    bound = (bound[0] * int_conv, bound[1] * int_conv)
+                    int_plot.addItem(pg.LinearRegionItem(values=bound, orientation='horizontal', movable=False,
+                                                         pen=QPen().setWidthF(0)))
+
+            line_pen = QPen()
+            line_pen.setWidthF(1)
+            line_pen.setStyle(Qt.DashLine)
+            line_pen.brush()
+            # plot_pen.setJoinStyle(Qt.RoundJoin)
+            line_pen.setColor(QColor(0, 0, 0, 150))
+            line_pen.setCosmetic(True)
+            line_times = [0, currentparticle.dwell_time]
+            for group in groups:
+                g_ints = [group.int * int_conv, group.int * int_conv]
+                int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
+                # int_plot.addItem(pg.InfiniteLine(pos=[g_int, g_int], angle=0, pen=plot_pen, movable=False,
+                #                                  bounds=[0, currentparticle.dwell_time]))
+
+            bic_pen = QPen()
+            bic_pen.setWidthF(1)
+            bic_pen.setStyle(Qt.DashLine)
+            bic_pen.brush()
+            # bic_pen.setJoinStyle(Qt.RoundJoin)
+            bic_pen.setColor(QColor(0, 0, 0, 250))
+            bic_pen.setCosmetic(True)
+
+            steps_num_real_groups.reverse()
+            grouping_bics.reverse()
+            trans_g_bics = np.add(grouping_bics, -min(grouping_bics))
+            group_num_ticks = dict(enumerate([f"{ng}" for ng in steps_num_real_groups]))
+            bic_plot.getAxis('bottom').setTicks([group_num_ticks.items()])
+            bic_plot.clear()
+            bic_plot.plot(y=trans_g_bics, symbol='o')
+
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
