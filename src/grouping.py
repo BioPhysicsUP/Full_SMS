@@ -80,8 +80,7 @@ class ClusteringStep:
     def __init__(self,
                  particle: Particle,
                  first: bool = False,
-                 seed_groups: List[Group] = None,
-                 seed_p_mj: np.ndarray = None):
+                 seed_groups: List[Group] = None):
 
         self._particle = particle
         self._num_levels = particle.num_levels
@@ -90,8 +89,11 @@ class ClusteringStep:
             self._seed_groups = [Group([i], particle) for i in range(self._num_levels)]
             self._seed_p_mj = np.identity(n=self._num_levels)
         else:
-            assert seed_groups is None and seed_p_mj is not None, "ClusteringStep: parameters not provided"
+            assert seed_groups is not None, "ClusteringStep: parameters not provided"
             self._seed_groups = seed_groups
+            seed_p_mj = np.zeros(shape=(len(self._seed_groups), self._num_levels))
+            for m, group in enumerate(seed_groups):
+                seed_p_mj[m, group.lvls_inds] = 1
             self._seed_p_mj = seed_p_mj
 
         self._num_prev_groups = len(self._seed_groups)
@@ -99,6 +101,7 @@ class ClusteringStep:
         self._em_p_mj = None
         self._em_log_l = None
         self._ahc_p_mj = None
+        self._ahc_groups = None
 
         self.groups = None
         self.bic = None
@@ -183,6 +186,7 @@ class ClusteringStep:
                     p_mj[group_num, ind] = 1
 
         self._ahc_p_mj = p_mj
+        self._ahc_groups = new_groups
         # return ClusteringStep(particle=self.particle, first=False, groups=new_groups, seed_p_mj=new_p_mj)
 
     def emc(self):
@@ -199,15 +203,15 @@ class ClusteringStep:
             i += 1
             cap_t = self._particle.dwell_time
 
-            t_hat = np.zeros(shape=(self._num_prev_groups,))
+            t_hat = np.zeros(shape=(self._num_prev_groups - 1,))
             n_hat = np.zeros_like(t_hat)
             p_hat = np.zeros_like(t_hat)
             i_hat = np.zeros_like(t_hat)
 
-            p_hat_g = np.zeros(shape=(self._num_prev_groups, self._num_levels))
+            p_hat_g = np.zeros(shape=(self._num_prev_groups - 1, self._num_levels))
             denom = np.zeros(shape=(self._num_levels,))
 
-            for m, group in enumerate(self._seed_groups):
+            for m, group in enumerate(self._ahc_groups):
 
                 t_hat[m] = np.sum([p_mj[m, j] * l.dwell_time_s for j, l in enumerate(levels)])
                 n_hat[m] = np.sum([p_mj[m, j] * l.num_photons for j, l in enumerate(levels)])
@@ -221,7 +225,7 @@ class ClusteringStep:
             for j in range(self._num_levels):
                 denom[j] = np.sum(p_hat_g[:, j])
 
-                for m in range(self._num_prev_groups):
+                for m in range(self._num_prev_groups - 1):
                     try:
                         p_mj[m, j] = p_hat_g[m, j] / denom[j]
                     except:
@@ -238,15 +242,15 @@ class ClusteringStep:
         self._em_p_mj = eff_p_mj
 
         log_l = 0
-        for m in range(self._num_prev_groups):
+        for m in range(self._num_prev_groups - 1):
             for j in range(self._num_levels):
                 if p_hat_g[m, j] > 1E-300 and eff_p_mj[m, j] != 0:  # Close to smallest value that doesn't result in -inf
                     log_l += eff_p_mj[m, j] * np.log(p_hat_g[m, j])
         self._em_log_l = log_l
 
         new_groups = []
-        for m in range(self._num_prev_groups):
-            g_m_levels = np.nonzero(self._em_p_mj)[0]
+        for m in range(self._num_prev_groups - 1):
+            g_m_levels = list(np.nonzero(self._em_p_mj[m, :])[0])
             if len(g_m_levels):
                 new_groups.append(Group(lvls_inds=g_m_levels, particle=self._particle))
         self.groups = new_groups
@@ -259,7 +263,7 @@ class ClusteringStep:
         self.bic = 2 * self._em_log_l - (2 * num_g - 1) * np.log(num_cp) - num_cp * np.log(self._particle.num_photons)
 
     def setup_next_step(self) -> ClusteringStep:
-        return ClusteringStep(self._particle, first=Fasle, seed_groups=self.groups, seed_p_mj=self._em_p_mj)
+        return ClusteringStep(self._particle, first=False, seed_groups=self.groups)
 
 
 class AHCA:
@@ -298,6 +302,11 @@ class AHCA:
         if self.has_groups:
             return self.steps[self.best_step_ind]
 
+    @property
+    def steps_num_groups(self) -> List[int]:
+        if self.has_groups:
+            return [step.num_groups for step in self.steps]
+
     def run_grouping(self):
         """
         Run grouping
@@ -319,11 +328,12 @@ class AHCA:
                 steps.append(c_step)
                 current_num_groups = c_step.num_groups
                 if current_num_groups != 1:
+                    print(current_num_groups)
                     c_step = c_step.setup_next_step()
 
             self.steps = steps
             self.num_steps = len(steps)
-            self.bics = [step.bic for step in ahca_steps]
+            self.bics = [step.bic for step in steps]
             self.best_step_ind = np.argmax(self.bics)
             self.selected_step_ind = self.best_step_ind
             self.has_groups = True

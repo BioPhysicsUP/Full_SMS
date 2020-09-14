@@ -1031,7 +1031,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.pgGroups_BIC.getPlotItem().getAxis('left').setLabel('BIC')
         self.pgGroups_BIC.getPlotItem().getAxis('bottom').setLabel('Number of Groups')
-        self.pgGroups_BIC.getPlotItem().setLogMode(False, True)
+        # self.pgGroups_BIC.getPlotItem().setLogMode(False, True)
         self.pgGroups_BIC.getPlotItem().getViewBox().setLimits(xMin=0)
         self.pgGroups_BIC.getPlotItem().setContentsMargins(5, 5, 5, 5)
 
@@ -2547,10 +2547,10 @@ class GroupingController(QObject):
                 num_groups = currentparticle.num_groups
                 num_levels = currentparticle.num_levels
                 group_bounds = currentparticle.groups_bounds
-                grouping_bics = currentparticle.grouping_bics
-                grouping_ind = currentparticle.grouping_ind
+                grouping_bics = currentparticle.grouping_bics.copy()
+                grouping_selected_ind = currentparticle.grouping_selected_ind
                 best_grouping_ind = currentparticle.best_grouping_ind
-                # steps_num_real_groups = currentparticle.steps_num_real_groups
+                grouping_num_groups = currentparticle.grouping_num_groups.copy()
 
             except AttributeError:
                 dbg.p('No groups!', 'GroupingController')
@@ -2581,21 +2581,35 @@ class GroupingController(QObject):
                 # int_plot.addItem(pg.InfiniteLine(pos=[g_int, g_int], angle=0, pen=plot_pen, movable=False,
                 #                                  bounds=[0, currentparticle.dwell_time]))
 
-            bic_pen = QPen()
-            bic_pen.setWidthF(1)
-            bic_pen.setStyle(Qt.DashLine)
-            bic_pen.brush()
-            # bic_pen.setJoinStyle(Qt.RoundJoin)
-            bic_pen.setColor(QColor(0, 0, 0, 250))
-            bic_pen.setCosmetic(True)
-
-            steps_num_real_groups.reverse()
+            grouping_num_groups.reverse()
             grouping_bics.reverse()
+
             trans_g_bics = np.add(grouping_bics, -min(grouping_bics))
-            group_num_ticks = dict(enumerate([f"{ng}" for ng in steps_num_real_groups]))
+            spot_other_pen = pg.mkPen(width=1, color='w')
+            spot_best_pen = pg.mkPen(width=2, color='r')
+            spot_selected_pen = pg.mkPen(width=1.5, color='b')
+            spot_other_brush = pg.mkBrush(color=(50, 50, 50))
+
+            scat_plot = pg.ScatterPlotItem()
+            bic_spots = []
+            for i, g_bic in enumerate(grouping_bics):
+                if i == best_grouping_ind or i == grouping_selected_ind:
+                    if i == best_grouping_ind:
+                        spot_pen = spot_best_pen
+                    else:
+                        spot_pen = spot_selected_pen
+                else:
+                    spot_pen = spot_other_pen
+                bic_spots.append({'pos': (i, g_bic),
+                                  'size': 20,
+                                  'pen': spot_pen,
+                                  'brush': spot_other_brush})
+
+            group_num_ticks = dict(enumerate([f"{ng}" for ng in grouping_num_groups]))
             bic_plot.getAxis('bottom').setTicks([group_num_ticks.items()])
             bic_plot.clear()
-            bic_plot.plot(y=trans_g_bics, symbol='o')
+            bic_plot.plot(y=grouping_bics, symbol='o')
+            bic_plot.addItem(bic_spots)
 
 
     def gui_group_current(self):

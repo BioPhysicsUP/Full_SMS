@@ -225,16 +225,20 @@ class Particle:
         return self.ahca.bics
 
     @property
-    def grouping_ind(self):
+    def grouping_selected_ind(self):
         return self.ahca.selected_step_ind
 
     @property
     def best_grouping_ind(self):
         return self.ahca.best_step_ind
 
-    @grouping_ind.setter
-    def grouping_ind(self, ind: int):
+    @grouping_selected_ind.setter
+    def grouping_selected_ind(self, ind: int):
         self.ahca.selected_step_ind = ind
+
+    @property
+    def grouping_num_groups(self):
+        return self.ahca.steps_num_groups
 
     def reset_grouping_ind(self):
         self.ahca.reset_selected_step()
