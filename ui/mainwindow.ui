@@ -622,6 +622,10 @@
                  <property name="text">
                   <string>Group Current</string>
                  </property>
+                 <property name="icon">
+                  <iconset resource="../src/icons.qrc">
+                   <normaloff>:/icons/icons/group-current.png</normaloff>:/icons/icons/group-current.png</iconset>
+                 </property>
                  <property name="iconSize">
                   <size>
                    <width>20</width>
@@ -650,6 +654,10 @@
                  <property name="text">
                   <string>Group Selected</string>
                  </property>
+                 <property name="icon">
+                  <iconset resource="../src/icons.qrc">
+                   <normaloff>:/icons/icons/group-selected.png</normaloff>:/icons/icons/group-selected.png</iconset>
+                 </property>
                  <property name="iconSize">
                   <size>
                    <width>20</width>
@@ -677,6 +685,10 @@
                  </property>
                  <property name="text">
                   <string>Group All</string>
+                 </property>
+                 <property name="icon">
+                  <iconset resource="../src/icons.qrc">
+                   <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
                  </property>
                  <property name="iconSize">
                   <size>

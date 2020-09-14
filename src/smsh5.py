@@ -205,28 +205,39 @@ class Particle:
     @property
     def groups(self):
         if self.has_groups:
-            return self.ahca.solution.groups
+            return self.ahca.selected_step.groups
 
     @property
     def num_groups(self):
         if self.has_groups:
-            return self.ahca.solution.num_groups
+            return self.ahca.selected_step.num_groups
 
     @property
     def groups_bounds(self):
-        return self.ahca.solution.calc_int_bounds()
+        return self.ahca.selected_step.calc_int_bounds()
 
     @property
     def groups_ints(self):
-        return self.ahca.solution.group_ints
+        return self.ahca.selected_step.group_ints
 
     @property
     def grouping_bics(self):
-        return self.ahca.solution.bics
+        return self.ahca.bics
 
     @property
-    def steps_num_real_groups(self):
-        return [step.num_real_groups for step in self.ahca.steps]
+    def grouping_ind(self):
+        return self.ahca.selected_step_ind
+
+    @property
+    def best_grouping_ind(self):
+        return self.ahca.best_step_ind
+
+    @grouping_ind.setter
+    def grouping_ind(self, ind: int):
+        self.ahca.selected_step_ind = ind
+
+    def reset_grouping_ind(self):
+        self.ahca.reset_selected_step()
 
     @property
     def levels(self):

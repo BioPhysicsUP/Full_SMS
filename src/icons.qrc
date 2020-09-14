@@ -1,5 +1,8 @@
 <RCC>
   <qresource prefix="icons">
+    <file>../icons/group-all.png</file>
+    <file>../icons/group-current.png</file>
+    <file>../icons/group-selected.png</file>
     <file>../icons/export-all.png</file>
     <file>../icons/export-selected.png</file>
     <file>../icons/load-irf.png</file>

@@ -2548,7 +2548,9 @@ class GroupingController(QObject):
                 num_levels = currentparticle.num_levels
                 group_bounds = currentparticle.groups_bounds
                 grouping_bics = currentparticle.grouping_bics
-                steps_num_real_groups = currentparticle.steps_num_real_groups
+                grouping_ind = currentparticle.grouping_ind
+                best_grouping_ind = currentparticle.best_grouping_ind
+                # steps_num_real_groups = currentparticle.steps_num_real_groups
 
             except AttributeError:
                 dbg.p('No groups!', 'GroupingController')
