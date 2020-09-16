@@ -130,7 +130,7 @@
         <enum>QTabWidget::Rounded</enum>
        </property>
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
        <property name="iconSize">
         <size>
@@ -454,43 +454,8 @@
           </layout>
          </item>
          <item row="0" column="0">
-          <layout class="QGridLayout" name="gridLayout_5">
-           <item row="1" column="0">
-            <widget class="PlotWidget" name="pgIntensity">
-             <property name="autoFillBackground">
-              <bool>false</bool>
-             </property>
-             <property name="frameShape">
-              <enum>QFrame::NoFrame</enum>
-             </property>
-             <property name="frameShadow">
-              <enum>QFrame::Sunken</enum>
-             </property>
-             <property name="lineWidth">
-              <number>1</number>
-             </property>
-             <property name="renderHints">
-              <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <spacer name="horizontalSpacer_10">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>5</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="0" column="0">
+          <layout class="QVBoxLayout" name="verticalLayout_8">
+           <item>
             <spacer name="verticalSpacer_3">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -505,6 +470,16 @@
               </size>
              </property>
             </spacer>
+           </item>
+           <item>
+            <widget class="GraphicsLayoutWidget" name="pgIntensity_Widget" native="true">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>
@@ -531,14 +506,27 @@
             <number>0</number>
            </property>
            <item>
-            <widget class="QGraphicsView" name="pgGroups_Int"/>
+            <widget class="GraphicsLayoutWidget" name="pgGroups_Int_Widget" native="true">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
            </item>
            <item>
-            <widget class="PlotWidget" name="pgGroups_Hist">
-             <property name="maximumSize">
+            <widget class="GraphicsLayoutWidget" name="pgGroups_Hist_Widget" native="true">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
               <size>
-               <width>150</width>
-               <height>16777215</height>
+               <width>200</width>
+               <height>0</height>
               </size>
              </property>
             </widget>
@@ -568,7 +556,7 @@
               </widget>
              </item>
              <item>
-              <widget class="ScatterPlotWidget" name="pgGroups_BIC" native="true">
+              <widget class="GraphicsLayoutWidget" name="pgGroups_BIC_Widget" native="true">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                  <horstretch>0</horstretch>
@@ -791,21 +779,12 @@
             </widget>
            </item>
            <item>
-            <widget class="PlotWidget" name="pgLifetime_Int">
+            <widget class="GraphicsLayoutWidget" name="pgLifetime_Int_Widget" native="true">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>200</height>
-              </size>
-             </property>
-             <property name="renderHints">
-              <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
              </property>
             </widget>
            </item>
@@ -1062,22 +1041,19 @@
             <enum>QLayout::SetMinimumSize</enum>
            </property>
            <item>
-            <widget class="PlotWidget" name="pgLifetime">
-             <property name="minimumSize">
-              <size>
-               <width>550</width>
-               <height>200</height>
-              </size>
-             </property>
-             <property name="renderHints">
-              <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
+            <widget class="GraphicsLayoutWidget" name="pgLifetime_Hist_Widget" native="true">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
              </property>
             </widget>
            </item>
            <item>
             <widget class="QTextBrowser" name="textBrowser">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
@@ -1244,21 +1220,12 @@
               <enum>QLayout::SetDefaultConstraint</enum>
              </property>
              <item>
-              <widget class="PlotWidget" name="pgSpectra">
+              <widget class="GraphicsLayoutWidget" name="pgSpectra_Widget" native="true">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                  <horstretch>0</horstretch>
                  <verstretch>0</verstretch>
                 </sizepolicy>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-               <property name="renderHints">
-                <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
-               </property>
-               <property name="resizeAnchor">
-                <enum>QGraphicsView::NoAnchor</enum>
                </property>
               </widget>
              </item>
@@ -1757,7 +1724,7 @@
               <enum>Qt::Vertical</enum>
              </property>
              <property name="sizeType">
-              <enum>QSizePolicy::Fixed</enum>
+              <enum>QSizePolicy::Expanding</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -1896,12 +1863,12 @@
               <enum>Qt::Vertical</enum>
              </property>
              <property name="sizeType">
-              <enum>QSizePolicy::Expanding</enum>
+              <enum>QSizePolicy::Preferred</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
                <width>20</width>
-               <height>40</height>
+               <height>10</height>
               </size>
              </property>
             </spacer>
@@ -1921,7 +1888,7 @@
      <x>0</x>
      <y>0</y>
      <width>1007</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -2091,14 +2058,9 @@
  <layoutdefault spacing="6" margin="9"/>
  <customwidgets>
   <customwidget>
-   <class>PlotWidget</class>
-   <extends>QGraphicsView</extends>
-   <header>pyqtgraph.h</header>
-  </customwidget>
-  <customwidget>
-   <class>ScatterPlotWidget</class>
+   <class>GraphicsLayoutWidget</class>
    <extends>QWidget</extends>
-   <header>pyqtgrapgh.h</header>
+   <header>pyqtgraph</header>
    <container>1</container>
   </customwidget>
  </customwidgets>
