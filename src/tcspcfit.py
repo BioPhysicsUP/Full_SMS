@@ -235,10 +235,14 @@ class FluoFit:
         self.endpoint = None
         self.calculate_boundaries(endpoint, measured, startpoint)
 
-        self.meas_max = measured.max()
+        # self.meas_max = measured.max()
+        # measured = measured / self.meas_max  # Normalize measured
+        self.meas_max = measured.sum()
+        meas_std = np.sqrt(np.abs(measured))
         measured = measured / self.meas_max  # Normalize measured
-        # measured = measured / measured.max()  # Normalize measured
+        meas_std = meas_std / self.meas_max
         self.measured = measured[self.startpoint:self.endpoint]
+        self.meas_std = meas_std[self.startpoint:self.endpoint]
         self.dtau = None
         self.chisq = None
         self.residuals = None
@@ -409,12 +413,14 @@ class FluoFit:
         self.amp = amp
         self.shift = shift*self.channelwidth
 
-        residuals = self.convd - self.measured
-        residuals = residuals / np.sqrt(np.abs(self.measured))
+        # residuals = self.convd - self.measured
+        # residuals = residuals / np.sqrt(np.abs(self.measured))
+        residuals = (self.convd - self.measured) * self.meas_max
+        residuals = residuals / np.sqrt(np.abs(self.measured * self.meas_max))
         residualsnotinf = residuals != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
         chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - 4 - 1)
-        chisquared = chisquared * self.meas_max  # This is necessary because of normalisation
+        # chisquared = chisquared * self.meas_max  # This is necessary because of normalisation
         self.chisq = chisquared
         self.t = self.t[self.startpoint:self.endpoint]
         self.residuals = residuals
@@ -460,6 +466,7 @@ class FluoFit:
         irf = self.irf
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
+        convd = convd / convd.sum()
         convd = convd[self.startpoint:self.endpoint]
         return convd
 
@@ -517,11 +524,13 @@ class TwoExp(FluoFit):
         paraminit = self.tau + self.amp + [self.shift]
         if addopt is None:
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+            # sigma=np.sqrt(np.abs(self.measured)))
         else:
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
 
         tau = param[0:2]
-        amp = np.append(param[2], param[3])
+        # amp = np.append(param[2], param[3])
+        amp = np.append(param[2], 1 - param[2])
         shift = param[4]
         dtau = np.sqrt(np.diag(pcov[0:2]))
 
@@ -531,7 +540,7 @@ class TwoExp(FluoFit):
     def fitfunc(self, t, tau1, tau2, a1, a2, shift):
         """Function passed to curve_fit, to be fitted to data"""
 
-        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
+        model = a1 * np.exp(-t / tau1) + (1 - a1) * np.exp(-t / tau2)
         return self.makeconvd(shift, model)
 
 

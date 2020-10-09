@@ -881,7 +881,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.pgIntensity.getPlotItem().getAxis('bottom').setLabel('Time', 's')
         self.pgIntensity.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.pgLifetime_Int.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
+        self.pgLifetime_Int.getPlotItem().getAxis('left').setLabel('Int.', 'counts/100ms')
         self.pgLifetime_Int.getPlotItem().getAxis('bottom').setLabel('Time', 's')
         # self.pgLifetime_Int.getPlotItem().getViewBox()\
         #     .setYLink(self.pgIntensity.getPlotItem().getAxis('left').getViewBox())
@@ -889,9 +889,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
         #     .setXLink(self.pgIntensity.getPlotItem().getAxis('bottom').getViewBox())
         self.pgLifetime_Int.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
-        self.pgLifetime.getPlotItem().getAxis('left').setLabel('Num. of occur.', 'counts/bin')
-        self.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
+        self.pgLifetime.getPlotItem().getAxis('left').setLabel('Num. of Occur.', 'counts/bin')
+        # self.pgLifetime.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
         self.pgLifetime.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+
+        self.pgResiduals.getPlotItem().getAxis('left').setLabel('Residual')
+        self.pgResiduals.getPlotItem().getAxis('bottom').setLabel('Decay time', 'ns')
+        self.pgResiduals.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
 
         self.pgGroups.getPlotItem().getAxis('left').setLabel('Intensity', 'counts/100ms')
         self.pgGroups.getPlotItem().getAxis('bottom').setLabel('Time', 's')
@@ -910,7 +914,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.lifetime_controller = LifetimeController(self)
         self.spectra_controller = SpectraController(self)
 
-        plots = [self.pgIntensity, self.pgLifetime_Int, self.pgLifetime,
+        plots = [self.pgIntensity, self.pgLifetime_Int, self.pgLifetime, self.pgResiduals,
                  self.pgGroups, self.pgBIC, self.pgSpectra, self.lifetime_controller.fitparamdialog.pgFitParam]
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
         for plot in plots:
@@ -927,6 +931,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 font.setPointSize(8)
             elif plot == self.pgGroups:
                 font.setPointSize(10)
+            elif plot == self.pgLifetime or plot == self.pgResiduals:
+                font.setPointSize(8)
             else:
                 font.setPointSize(12)
             plot_item.getAxis('left').label.setFont(font)
@@ -1009,15 +1015,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def after_show(self):
         self.pgSpectra.resize(self.tabSpectra.size().height(),
-                                 self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
+                              self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
 
     def resizeEvent(self, a0: QResizeEvent):
         if self.tabSpectra.size().height() <= self.tabSpectra.size().width():
             self.pgSpectra.resize(self.tabSpectra.size().height(),
-                                     self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
+                                  self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
         else:
             self.pgSpectra.resize(self.tabSpectra.size().width(),
-                                     self.tabSpectra.size().width() - 40)
+                                  self.tabSpectra.size().width() - 40)
 
     def check_all_sums(self) -> None:
         """
@@ -1436,7 +1442,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 raise RuntimeError("Couldn't resolve levels.") from exc
 
         elif mode == 'selected':  # Then resolve selected
-            assert resolve_selected is not None,\
+            assert resolve_selected is not None, \
                 'No selected particles provided.'
             try:
                 _, conf = self.get_gui_confidence()
@@ -1452,7 +1458,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
 
-#TODO: remove this function
+    #TODO: remove this function
     def resolve_thread_complete(self, mode: str):
         """
         Is performed after thread has been terminated.
@@ -1579,12 +1585,52 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # test2 = save_dlg.exec()
 
         f_dir = QFileDialog.getExistingDirectory(self)
+        print(f_dir)
 
         if f_dir:
             ex_traces = self.chbEx_Trace.isChecked()
             ex_levels = self.chbEx_Levels.isChecked()
             ex_lifetime = self.chbEx_Lifetimes.isChecked()
             ex_hist = self.chbEx_Hist.isChecked()
+
+            # Export fits of whole traces
+            if ex_lifetime:
+                p = particles[0]
+                if p.numexp == 1:
+                    taucol = ['Lifetime (ns)']
+                    ampcol = ['Amp']
+                elif p.numexp == 2:
+                    taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
+                    ampcol = ['Amp 1', 'Amp 2']
+                elif p.numexp == 3:
+                    taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
+                    ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
+                lifetime_path = os.path.join(f_dir, 'Whole trace lifetimes.csv')
+                rows = list()
+                rows.append(['Particle #'] + taucol + ampcol +
+                            ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG', 'Chi Squared'])
+                for i, p in enumerate(particles):
+                    if p.histogram.tau is None or p.histogram.amp is None:  # Problem with fitting the level
+                        tauexp = ['0' for i in range(p.numexp)]
+                        ampexp = ['0' for i in range(p.numexp)]
+                        other_exp = ['0', '0', '0', '0']
+                    else:
+                        if p.numexp == 1:
+                            tauexp = [str(p.histogram.tau)]
+                            ampexp = [str(p.histogram.amp)]
+                        else:
+                            tauexp = [str(tau) for tau in p.histogram.tau]
+                            ampexp = [str(amp) for amp in p.histogram.amp]
+                        other_exp = [str(p.histogram.avtau), str(p.histogram.shift), str(p.histogram.bg),
+                                     str(p.histogram.irfbg), str(p.histogram.chisq)]
+
+                    rows.append([str(i)] + tauexp + ampexp + other_exp)
+
+                with open(lifetime_path, 'w') as f:
+                    writer = csv.writer(f, dialect=csv.excel)
+                    writer.writerows(rows)
+
+            # Export data for levels
             for num, p in enumerate(particles):
                 if ex_traces:
                     tr_path = os.path.join(f_dir, p.name + ' trace.csv')
@@ -1636,7 +1682,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
-                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG'])
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG', 'Chi Squared'])
                         for i, l in enumerate(p.levels):
                             if l.histogram.tau is None or l.histogram.amp is None:  # Problem with fitting the level
                                 tauexp = ['0' for i in range(p.numexp)]
@@ -1650,7 +1696,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                     tauexp = [str(tau) for tau in l.histogram.tau]
                                     ampexp = [str(amp) for amp in l.histogram.amp]
                                 other_exp = [str(l.histogram.avtau), str(l.histogram.shift), str(l.histogram.bg),
-                                             str(l.histogram.irfbg)]
+                                             str(l.histogram.irfbg), str(l.histogram.chisq)]
 
                             rows.append([str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
                                          str(l.int_p_s), str(l.num_photons)] + tauexp + ampexp + other_exp)
@@ -2168,18 +2214,22 @@ class LifetimeController(QObject):
         shift = histogram.shift
         bg = histogram.bg
         irfbg = histogram.irfbg
+        chisq = histogram.chisq
         try:
             taustring = 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
             ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
+            avtaustring = 'Avg. Tau = {:#.3} ns'.format(np.dot(tau, amp))
         except TypeError:  # only one component
             taustring = 'Tau = {:#.3g} ns'.format(tau)
             ampstring = 'Amp = {:#.3g}'.format(amp)
+            avtaustring = 'Avg. Tau = {:#.3} ns'.format(tau)
         shiftstring = 'Shift = {:#.3g} ns'.format(shift)
         bgstring = 'Decay BG = {:#.3g}'.format(bg)
         irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
+        chisqstring = 'Chi Squared = {:#.3g}'.format(chisq)
         self.mainwindow.textBrowser.setText(
-            taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
-            irfbgstring)
+            taustring + '\n' + ampstring + '\n' + avtaustring + '\n' + shiftstring + '\n' + bgstring + '\n' +
+            irfbgstring + '\n' + chisqstring)
 
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
@@ -2248,6 +2298,7 @@ class LifetimeController(QObject):
         if currentlevel is None:
             try:
                 convd = currentparticle.histogram.convd
+                decay = currentparticle.histogram.fit_decay
                 t = currentparticle.histogram.convd_t
 
             except AttributeError:
@@ -2256,6 +2307,7 @@ class LifetimeController(QObject):
         else:
             try:
                 convd = currentparticle.levels[currentlevel].histogram.convd
+                decay = currentparticle.levels[currentlevel].histogram.fit_decay
                 t = currentparticle.levels[currentlevel].histogram.convd_t
             except ValueError:
                 return
@@ -2279,11 +2331,19 @@ class LifetimeController(QObject):
             #     decay = decay[first:-1]
             # convd = convd[self.first:-1]
 
-            # plot_item.clear()
             plot_item.plot(x=t, y=convd, pen=plot_pen, symbol=None)
             unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
             plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+
+            plot_item = self.mainwindow.pgResiduals.getPlotItem()
+            plot_item.clear()
+            plot_item.plot(x=t, y=(convd-decay) / np.sqrt(np.abs(decay)), pen=None, symbolSize='4', pxMode=True, symbolPen=None)
+            resid = (convd - decay) / np.sqrt(np.abs(decay))
+            print(np.sum((resid) ** 2) / np.size(decay))
+            unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+            plot_item.getAxis('bottom').setLabel('Decay time', unit)
+            plot_item.getViewBox().setLimits(xMin=0, xMax=t[-1], yMin=-0.1)#(convd-decay).min() * 2.1)
 
     def start_fitting_thread(self, mode: str = 'current', thread_finished=None) -> None:
         """
@@ -2542,6 +2602,7 @@ class FittingParameters:
 
     def getfromdialog(self):
         self.numexp = int(self.fpd.combNumExp.currentText())
+        self.update_amps()
         if self.numexp == 1:
             self.tau = [[self.get_from_gui(i) for i in
                          [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max, self.fpd.check1Fix]]]
@@ -2596,6 +2657,17 @@ class FittingParameters:
             self.addopt = self.fpd.lineAddOpt.text()
         else:
             self.addopt = None
+
+    def update_amps(self):
+        try:
+            if self.numexp == 2:
+                self.fpd.line2AmpInit2.setText(str(1 - float(self.fpd.line2AmpInit1.text())))
+            elif self.numexp == 3:
+                self.fpd.line3AmpInit3.setText(str(1 - float(self.fpd.line2AmpInit1.text()) - float(self.fpd.line2AmpInit2.text())))
+        except Exception as err:
+            dbg.p(debug_print='Error Occured: ' + str(err), debug_from='FittingDialog')
+
+
 
     @staticmethod
     def get_from_gui(guiobj):
