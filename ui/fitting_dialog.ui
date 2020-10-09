@@ -396,10 +396,17 @@
         <widget class="QWidget" name="page_4">
          <layout class="QGridLayout" name="gridLayout_2">
           <item row="2" column="1">
-           <widget class="QLineEdit" name="line1AmpMin"/>
+           <widget class="QLineEdit" name="line1AmpMin">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
           </item>
           <item row="2" column="3">
            <widget class="QCheckBox" name="check1AmpFix">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string/>
             </property>
@@ -420,7 +427,11 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLineEdit" name="line1AmpInit"/>
+           <widget class="QLineEdit" name="line1AmpInit">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
           </item>
           <item row="1" column="2">
            <widget class="QLabel" name="label_21">
@@ -437,7 +448,11 @@
            </widget>
           </item>
           <item row="2" column="2">
-           <widget class="QLineEdit" name="line1AmpMax"/>
+           <widget class="QLineEdit" name="line1AmpMax">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
           </item>
           <item row="1" column="1">
            <widget class="QLabel" name="label_19">
@@ -471,7 +486,11 @@
            </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QLineEdit" name="line2AmpInit2"/>
+           <widget class="QLineEdit" name="line2AmpInit2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
           </item>
           <item row="1" column="4">
            <widget class="QLabel" name="label_24">
@@ -489,6 +508,9 @@
           </item>
           <item row="3" column="5">
            <widget class="QCheckBox" name="check2AmpFix2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string/>
             </property>
@@ -497,22 +519,32 @@
           <item row="2" column="4">
            <widget class="QLineEdit" name="line2AmpMax1">
             <property name="text">
-             <string>100000</string>
+             <string>1</string>
             </property>
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLineEdit" name="line2AmpInit1"/>
+           <widget class="QLineEdit" name="line2AmpInit1">
+            <property name="text">
+             <string>0.5</string>
+            </property>
+           </widget>
           </item>
           <item row="3" column="4">
            <widget class="QLineEdit" name="line2AmpMax2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
-             <string>100000</string>
+             <string>1</string>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
            <widget class="QLineEdit" name="line2AmpMin2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>0</string>
             </property>
@@ -584,7 +616,11 @@
            <widget class="QLineEdit" name="line3AmpMax2"/>
           </item>
           <item row="4" column="0">
-           <widget class="QLineEdit" name="line3AmpInit3"/>
+           <widget class="QLineEdit" name="line3AmpInit3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
           </item>
           <item row="2" column="2">
            <widget class="QLineEdit" name="line3AmpMax1"/>
@@ -597,13 +633,21 @@
            </widget>
           </item>
           <item row="4" column="2">
-           <widget class="QLineEdit" name="line3AmpMax3"/>
+           <widget class="QLineEdit" name="line3AmpMax3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
           </item>
           <item row="3" column="1">
            <widget class="QLineEdit" name="line3AmpMin2"/>
           </item>
           <item row="4" column="1">
-           <widget class="QLineEdit" name="line3AmpMin3"/>
+           <widget class="QLineEdit" name="line3AmpMin3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
           </item>
           <item row="2" column="3">
            <widget class="QCheckBox" name="check3AmpFix1">
@@ -624,6 +668,9 @@
           </item>
           <item row="4" column="3">
            <widget class="QCheckBox" name="check3AmpFix3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string/>
             </property>

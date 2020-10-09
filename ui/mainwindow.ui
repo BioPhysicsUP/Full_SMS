@@ -7,8 +7,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1007</width>
-    <height>628</height>
+    <width>1013</width>
+    <height>618</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -164,7 +164,7 @@
          <bool>true</bool>
         </property>
         <attribute name="icon">
-         <iconset resource="../src/icons.qrc">
+         <iconset resource="../icons.qrc">
           <normaloff>:/icons/icons/intensity.png</normaloff>:/icons/icons/intensity.png</iconset>
         </attribute>
         <attribute name="title">
@@ -218,7 +218,7 @@
                 <string>Apply Bin Size</string>
                </property>
                <property name="icon">
-                <iconset resource="../src/icons.qrc">
+                <iconset resource="../icons.qrc">
                  <normaloff>:/icons/icons/apply-one.png</normaloff>:/icons/icons/apply-one.png</iconset>
                </property>
                <property name="iconSize">
@@ -308,7 +308,7 @@
                 <string>Apply To All</string>
                </property>
                <property name="icon">
-                <iconset resource="../src/icons.qrc">
+                <iconset resource="../icons.qrc">
                  <normaloff>:/icons/icons/apply-all.png</normaloff>:/icons/icons/apply-all.png</iconset>
                </property>
                <property name="iconSize">
@@ -354,7 +354,7 @@
                 <string>Resolve</string>
                </property>
                <property name="icon">
-                <iconset resource="../src/icons.qrc">
+                <iconset resource="../icons.qrc">
                  <normaloff>:/icons/icons/resolve-current.png</normaloff>:/icons/icons/resolve-current.png</iconset>
                </property>
                <property name="iconSize">
@@ -383,7 +383,7 @@
                 <string>Resolve All</string>
                </property>
                <property name="icon">
-                <iconset resource="../src/icons.qrc">
+                <iconset resource="../icons.qrc">
                  <normaloff>:/icons/icons/resolve-all.png</normaloff>:/icons/icons/resolve-all.png</iconset>
                </property>
                <property name="iconSize">
@@ -438,7 +438,7 @@
                 <string>Resolve Selected</string>
                </property>
                <property name="icon">
-                <iconset resource="../src/icons.qrc">
+                <iconset resource="../icons.qrc">
                  <normaloff>:/icons/icons/resolve-selected.png</normaloff>:/icons/icons/resolve-selected.png</iconset>
                </property>
                <property name="iconSize">
@@ -518,7 +518,7 @@
          <bool>true</bool>
         </property>
         <attribute name="icon">
-         <iconset resource="../src/icons.qrc">
+         <iconset resource="../icons.qrc">
           <normaloff>:/icons/icons/grouping.png</normaloff>:/icons/icons/grouping.png</iconset>
         </attribute>
         <attribute name="title">
@@ -721,13 +721,134 @@
          <bool>true</bool>
         </property>
         <attribute name="icon">
-         <iconset resource="../src/icons.qrc">
+         <iconset resource="../icons.qrc">
           <normaloff>:/icons/icons/lifetime.png</normaloff>:/icons/icons/lifetime.png</iconset>
         </attribute>
         <attribute name="title">
          <string>Lifetime</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout_2">
+         <item row="8" column="0">
+          <widget class="Line" name="line_3">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0" rowspan="3">
+          <layout class="QHBoxLayout" name="horizontalLayout_9">
+           <property name="sizeConstraint">
+            <enum>QLayout::SetMinimumSize</enum>
+           </property>
+           <item>
+            <widget class="QTabWidget" name="tabWidget_2">
+             <property name="minimumSize">
+              <size>
+               <width>550</width>
+               <height>200</height>
+              </size>
+             </property>
+             <property name="currentIndex">
+              <number>0</number>
+             </property>
+             <widget class="QWidget" name="tabLifetimeGraph">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <attribute name="title">
+               <string>Decay</string>
+              </attribute>
+              <layout class="QGridLayout" name="gridLayout_14">
+               <item row="0" column="0">
+                <widget class="PlotWidget" name="pgLifetime">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>100</height>
+                  </size>
+                 </property>
+                 <property name="renderHints">
+                  <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+             <widget class="QWidget" name="tabResidualsGraph">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <attribute name="title">
+               <string>Residuals</string>
+              </attribute>
+              <layout class="QGridLayout" name="gridLayout_13">
+               <item row="0" column="0">
+                <widget class="PlotWidget" name="pgResiduals">
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>100</height>
+                  </size>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </widget>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="verticalLayout_8">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <item alignment="Qt::AlignHCenter">
+              <widget class="QPushButton" name="btnWholeTrace">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>137</width>
+                 <height>27</height>
+                </size>
+               </property>
+               <property name="layoutDirection">
+                <enum>Qt::LeftToRight</enum>
+               </property>
+               <property name="text">
+                <string>Whole Trace Decay</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QTextBrowser" name="textBrowser">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
          <item row="0" column="0">
           <layout class="QHBoxLayout" name="horizontalLayout_5">
            <item>
@@ -792,7 +913,7 @@
              <property name="maximumSize">
               <size>
                <width>16777215</width>
-               <height>200</height>
+               <height>150</height>
               </size>
              </property>
              <property name="renderHints">
@@ -873,7 +994,7 @@
               <string>Load IRF</string>
              </property>
              <property name="icon">
-              <iconset resource="../src/icons.qrc">
+              <iconset resource="../icons.qrc">
                <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
              </property>
              <property name="iconSize">
@@ -902,7 +1023,7 @@
               <string>Fitting Parameters</string>
              </property>
              <property name="icon">
-              <iconset resource="../src/icons.qrc">
+              <iconset resource="../icons.qrc">
                <normaloff>:/icons/icons/fitting-parameters.png</normaloff>:/icons/icons/fitting-parameters.png</iconset>
              </property>
              <property name="iconSize">
@@ -947,7 +1068,7 @@
               <string>Fit Current Level/Trace</string>
              </property>
              <property name="icon">
-              <iconset resource="../src/icons.qrc">
+              <iconset resource="../icons.qrc">
                <normaloff>:/icons/icons/fit-current-level.png</normaloff>:/icons/icons/fit-current-level.png</iconset>
              </property>
              <property name="iconSize">
@@ -976,7 +1097,7 @@
               <string>Fit Particle Levels</string>
              </property>
              <property name="icon">
-              <iconset resource="../src/icons.qrc">
+              <iconset resource="../icons.qrc">
                <normaloff>:/icons/icons/fit-particle.png</normaloff>:/icons/icons/fit-particle.png</iconset>
              </property>
              <property name="iconSize">
@@ -1005,7 +1126,7 @@
               <string>Fit Selected</string>
              </property>
              <property name="icon">
-              <iconset resource="../src/icons.qrc">
+              <iconset resource="../icons.qrc">
                <normaloff>:/icons/icons/fit-selected.png</normaloff>:/icons/icons/fit-selected.png</iconset>
              </property>
              <property name="iconSize">
@@ -1034,7 +1155,7 @@
               <string>Fit All</string>
              </property>
              <property name="icon">
-              <iconset resource="../src/icons.qrc">
+              <iconset resource="../icons.qrc">
                <normaloff>:/icons/icons/fit-all.png</normaloff>:/icons/icons/fit-all.png</iconset>
              </property>
              <property name="iconSize">
@@ -1042,36 +1163,6 @@
                <width>25</width>
                <height>25</height>
               </size>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item row="4" column="0" rowspan="3">
-          <layout class="QHBoxLayout" name="horizontalLayout_9">
-           <property name="sizeConstraint">
-            <enum>QLayout::SetMinimumSize</enum>
-           </property>
-           <item>
-            <widget class="PlotWidget" name="pgLifetime">
-             <property name="minimumSize">
-              <size>
-               <width>550</width>
-               <height>200</height>
-              </size>
-             </property>
-             <property name="renderHints">
-              <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QTextBrowser" name="textBrowser">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
              </property>
             </widget>
            </item>
@@ -1093,38 +1184,6 @@
            </property>
           </widget>
          </item>
-         <item row="8" column="0">
-          <widget class="Line" name="line_3">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QPushButton" name="btnWholeTrace">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>137</width>
-             <height>27</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>Whole Trace Decay</string>
-           </property>
-          </widget>
-         </item>
         </layout>
        </widget>
        <widget class="QWidget" name="tabSpectra">
@@ -1132,7 +1191,7 @@
          <bool>true</bool>
         </property>
         <attribute name="icon">
-         <iconset resource="../src/icons.qrc">
+         <iconset resource="../icons.qrc">
           <normaloff>:/icons/icons/spectra.png</normaloff>:/icons/icons/spectra.png</iconset>
         </attribute>
         <attribute name="title">
@@ -1302,7 +1361,7 @@
          <bool>true</bool>
         </property>
         <attribute name="icon">
-         <iconset resource="../src/icons.qrc">
+         <iconset resource="../icons.qrc">
           <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
         </attribute>
         <attribute name="title">
@@ -1387,6 +1446,7 @@
                     <weight>50</weight>
                     <bold>false</bold>
                     <underline>false</underline>
+                    <strikeout>false</strikeout>
                    </font>
                   </property>
                   <property name="text">
@@ -1405,6 +1465,7 @@
                     <weight>50</weight>
                     <bold>false</bold>
                     <underline>false</underline>
+                    <strikeout>false</strikeout>
                    </font>
                   </property>
                   <property name="text">
@@ -1423,6 +1484,7 @@
                     <weight>50</weight>
                     <bold>false</bold>
                     <underline>false</underline>
+                    <strikeout>false</strikeout>
                    </font>
                   </property>
                   <property name="text">
@@ -1797,7 +1859,7 @@
                 <string>Export Current</string>
                </property>
                <property name="icon">
-                <iconset resource="../src/icons.qrc">
+                <iconset resource="../icons.qrc">
                  <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
                </property>
                <property name="iconSize">
@@ -1826,7 +1888,7 @@
                 <string>Export Selected</string>
                </property>
                <property name="icon">
-                <iconset resource="../src/icons.qrc">
+                <iconset resource="../icons.qrc">
                  <normaloff>:/icons/icons/export-selected.png</normaloff>:/icons/icons/export-selected.png</iconset>
                </property>
                <property name="iconSize">
@@ -1855,7 +1917,7 @@
                 <string>Export All</string>
                </property>
                <property name="icon">
-                <iconset resource="../src/icons.qrc">
+                <iconset resource="../icons.qrc">
                  <normaloff>:/icons/icons/export-all.png</normaloff>:/icons/icons/export-all.png</iconset>
                </property>
                <property name="iconSize">
@@ -1911,8 +1973,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1007</width>
-     <height>22</height>
+     <width>1013</width>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -2104,7 +2166,7 @@
   <tabstop>btnNextLevel</tabstop>
  </tabstops>
  <resources>
-  <include location="../src/icons.qrc"/>
+  <include location="../icons.qrc"/>
  </resources>
  <connections/>
 </ui>
