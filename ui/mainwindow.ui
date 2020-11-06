@@ -130,7 +130,7 @@
         <enum>QTabWidget::Rounded</enum>
        </property>
        <property name="currentIndex">
-        <number>0</number>
+        <number>1</number>
        </property>
        <property name="iconSize">
         <size>
@@ -456,23 +456,7 @@
          <item row="0" column="0">
           <layout class="QVBoxLayout" name="verticalLayout_8">
            <item>
-            <spacer name="verticalSpacer_3">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>5</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="GraphicsLayoutWidget" name="pgIntensity_Widget" native="true">
+            <widget class="PlotWidget" name="pgIntensity_PlotWidget" native="true">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                <horstretch>0</horstretch>
@@ -506,28 +490,12 @@
             <number>0</number>
            </property>
            <item>
-            <widget class="GraphicsLayoutWidget" name="pgGroups_Int_Widget" native="true">
+            <widget class="GraphicsLayoutWidget" name="pgGroups_Int_GraphicsLayoutWidget" native="true">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="GraphicsLayoutWidget" name="pgGroups_Hist_Widget" native="true">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>200</width>
-               <height>0</height>
-              </size>
              </property>
             </widget>
            </item>
@@ -556,7 +524,7 @@
               </widget>
              </item>
              <item>
-              <widget class="GraphicsLayoutWidget" name="pgGroups_BIC_Widget" native="true">
+              <widget class="PlotWidget" name="pgGroups_BIC_PlotWidget" native="true">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                  <horstretch>0</horstretch>
@@ -768,7 +736,7 @@
              </property>
              <property name="icon">
               <iconset>
-               <normaloff>icons/002-arrowhead-thin-outline-to-the-left.png</normaloff>icons/002-arrowhead-thin-outline-to-the-left.png</iconset>
+               <normaloff>../../../Users/Joshua/.designer/backup/icons/002-arrowhead-thin-outline-to-the-left.png</normaloff>../../../Users/Joshua/.designer/backup/icons/002-arrowhead-thin-outline-to-the-left.png</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -779,7 +747,7 @@
             </widget>
            </item>
            <item>
-            <widget class="GraphicsLayoutWidget" name="pgLifetime_Int_Widget" native="true">
+            <widget class="PlotWidget" name="pgLifetime_Int_PlotWidget" native="true">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                <horstretch>0</horstretch>
@@ -813,7 +781,7 @@
              </property>
              <property name="icon">
               <iconset>
-               <normaloff>icons/003-arrow-point-to-right.png</normaloff>icons/003-arrow-point-to-right.png</iconset>
+               <normaloff>../../../Users/Joshua/.designer/backup/icons/003-arrow-point-to-right.png</normaloff>../../../Users/Joshua/.designer/backup/icons/003-arrow-point-to-right.png</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -1041,7 +1009,7 @@
             <enum>QLayout::SetMinimumSize</enum>
            </property>
            <item>
-            <widget class="GraphicsLayoutWidget" name="pgLifetime_Hist_Widget" native="true">
+            <widget class="PlotWidget" name="pgLifetime_Hist_PlotWidget" native="true">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                <horstretch>0</horstretch>
@@ -1171,7 +1139,7 @@
              </property>
              <property name="icon">
               <iconset>
-               <normaloff>icons/018-subtracting-button-new.png</normaloff>icons/018-subtracting-button-new.png</iconset>
+               <normaloff>../../../Users/Joshua/.designer/backup/icons/018-subtracting-button-new.png</normaloff>../../../Users/Joshua/.designer/backup/icons/018-subtracting-button-new.png</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -1220,7 +1188,7 @@
               <enum>QLayout::SetDefaultConstraint</enum>
              </property>
              <item>
-              <widget class="GraphicsLayoutWidget" name="pgSpectra_Widget" native="true">
+              <widget class="ImageView" name="pgSpectra_ImageView" native="true">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                  <horstretch>0</horstretch>
@@ -1288,19 +1256,32 @@
          <item row="0" column="0">
           <layout class="QVBoxLayout" name="verticalLayout_5">
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_6">
+            <spacer name="verticalSpacer_4">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Preferred</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
-              <spacer name="verticalSpacer_8">
+              <spacer name="horizontalSpacer_12">
                <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Fixed</enum>
+                <enum>Qt::Horizontal</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>20</width>
-                 <height>5</height>
+                 <width>40</width>
+                 <height>20</height>
                 </size>
                </property>
               </spacer>
@@ -1322,73 +1303,8 @@
                <property name="flat">
                 <bool>false</bool>
                </property>
-               <layout class="QGridLayout" name="gridLayout_8">
-                <item row="1" column="5">
-                 <spacer name="horizontalSpacer_16">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="1" column="1">
-                 <spacer name="horizontalSpacer_17">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Fixed</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>66</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="1" column="4">
-                 <widget class="QCheckBox" name="checkBox_9">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>10</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
-                    <underline>false</underline>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Grouped Levels</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="2">
-                 <widget class="QCheckBox" name="chbEx_Levels">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <pointsize>10</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
-                    <underline>false</underline>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Resolved Levels</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="0">
+               <layout class="QVBoxLayout" name="verticalLayout_12">
+                <item>
                  <widget class="QCheckBox" name="chbEx_Trace">
                   <property name="enabled">
                    <bool>false</bool>
@@ -1406,89 +1322,11 @@
                   </property>
                  </widget>
                 </item>
-                <item row="1" column="3">
-                 <spacer name="horizontalSpacer_15">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
+                <item>
+                 <widget class="QCheckBox" name="chbEx_Levels">
+                  <property name="enabled">
+                   <bool>false</bool>
                   </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Fixed</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>110</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-               </layout>
-              </widget>
-             </item>
-             <item>
-              <spacer name="verticalSpacer_4">
-               <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Fixed</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>20</width>
-                 <height>5</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QGroupBox" name="gbxExport_Groups">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>12</pointsize>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                 <underline>true</underline>
-                </font>
-               </property>
-               <property name="title">
-                <string>Grouping</string>
-               </property>
-               <layout class="QGridLayout" name="gridLayout_9">
-                <item row="0" column="1">
-                 <spacer name="horizontalSpacer_18">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Fixed</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>101</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="0" column="3">
-                 <spacer name="horizontalSpacer_19">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="0" column="0">
-                 <widget class="QCheckBox" name="checkBox_3">
                   <property name="font">
                    <font>
                     <pointsize>10</pointsize>
@@ -1498,12 +1336,15 @@
                    </font>
                   </property>
                   <property name="text">
-                   <string>Groups</string>
+                   <string>Resolved Levels</string>
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="2">
-                 <widget class="QCheckBox" name="checkBox_4">
+                <item>
+                 <widget class="QCheckBox" name="checkBox_9">
+                  <property name="enabled">
+                   <bool>false</bool>
+                  </property>
                   <property name="font">
                    <font>
                     <pointsize>10</pointsize>
@@ -1513,7 +1354,7 @@
                    </font>
                   </property>
                   <property name="text">
-                   <string>Grouping Anlysis Results</string>
+                   <string>Grouped Levels</string>
                   </property>
                  </widget>
                 </item>
@@ -1521,17 +1362,14 @@
               </widget>
              </item>
              <item>
-              <spacer name="verticalSpacer_5">
+              <spacer name="horizontalSpacer">
                <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Fixed</enum>
+                <enum>Qt::Horizontal</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>20</width>
-                 <height>5</height>
+                 <width>40</width>
+                 <height>20</height>
                 </size>
                </property>
               </spacer>
@@ -1552,37 +1390,26 @@
                <property name="title">
                 <string>Lifetime</string>
                </property>
-               <layout class="QGridLayout" name="gridLayout_10">
-                <item row="0" column="1">
-                 <spacer name="horizontalSpacer_20">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
+               <layout class="QVBoxLayout" name="verticalLayout_10">
+                <item>
+                 <widget class="QCheckBox" name="chbEx_Lifetimes">
+                  <property name="enabled">
+                   <bool>false</bool>
                   </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Fixed</enum>
+                  <property name="font">
+                   <font>
+                    <pointsize>10</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                    <underline>false</underline>
+                   </font>
                   </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>39</width>
-                    <height>20</height>
-                   </size>
+                  <property name="text">
+                   <string>Fitting Results</string>
                   </property>
-                 </spacer>
+                 </widget>
                 </item>
-                <item row="0" column="3">
-                 <spacer name="horizontalSpacer_21">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="0" column="0">
+                <item>
                  <widget class="QCheckBox" name="chbEx_Hist">
                   <property name="enabled">
                    <bool>false</bool>
@@ -1600,11 +1427,41 @@
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="2">
-                 <widget class="QCheckBox" name="chbEx_Lifetimes">
-                  <property name="enabled">
-                   <bool>false</bool>
-                  </property>
+               </layout>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_10">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QGroupBox" name="gbxExport_Groups">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>12</pointsize>
+                 <weight>75</weight>
+                 <bold>true</bold>
+                 <underline>true</underline>
+                </font>
+               </property>
+               <property name="title">
+                <string>Grouping</string>
+               </property>
+               <layout class="QVBoxLayout" name="verticalLayout_11">
+                <item>
+                 <widget class="QCheckBox" name="checkBox_4">
                   <property name="font">
                    <font>
                     <pointsize>10</pointsize>
@@ -1614,7 +1471,22 @@
                    </font>
                   </property>
                   <property name="text">
-                   <string>Lifetime Fitting Results</string>
+                   <string>Anlysis Results</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="checkBox_3">
+                  <property name="font">
+                   <font>
+                    <pointsize>10</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                    <underline>false</underline>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Group Info</string>
                   </property>
                  </widget>
                 </item>
@@ -1622,17 +1494,14 @@
               </widget>
              </item>
              <item>
-              <spacer name="verticalSpacer_6">
+              <spacer name="horizontalSpacer_11">
                <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Fixed</enum>
+                <enum>Qt::Horizontal</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>20</width>
-                 <height>5</height>
+                 <width>40</width>
+                 <height>20</height>
                 </size>
                </property>
               </spacer>
@@ -1653,52 +1522,8 @@
                <property name="title">
                 <string>Spectra</string>
                </property>
-               <layout class="QGridLayout" name="gridLayout_11">
-                <item row="0" column="1">
-                 <spacer name="horizontalSpacer_22">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeType">
-                   <enum>QSizePolicy::Fixed</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>51</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="0" column="3">
-                 <spacer name="horizontalSpacer_23">
-                  <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
-                  </property>
-                  <property name="sizeHint" stdset="0">
-                   <size>
-                    <width>40</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                 </spacer>
-                </item>
-                <item row="0" column="0">
-                 <widget class="QCheckBox" name="checkBox_7">
-                  <property name="font">
-                   <font>
-                    <pointsize>10</pointsize>
-                    <weight>50</weight>
-                    <bold>false</bold>
-                    <underline>false</underline>
-                   </font>
-                  </property>
-                  <property name="text">
-                   <string>Spectral Traces</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="2">
+               <layout class="QVBoxLayout" name="verticalLayout_9">
+                <item>
                  <widget class="QCheckBox" name="checkBox_8">
                   <property name="font">
                    <font>
@@ -1713,8 +1538,36 @@
                   </property>
                  </widget>
                 </item>
+                <item>
+                 <widget class="QCheckBox" name="checkBox_7">
+                  <property name="font">
+                   <font>
+                    <pointsize>10</pointsize>
+                    <weight>50</weight>
+                    <bold>false</bold>
+                    <underline>false</underline>
+                   </font>
+                  </property>
+                  <property name="text">
+                   <string>Spectral Traces</string>
+                  </property>
+                 </widget>
+                </item>
                </layout>
               </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_13">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
              </item>
             </layout>
            </item>
@@ -1957,7 +1810,7 @@
   <action name="actionOpen_h5">
    <property name="icon">
     <iconset>
-     <normaloff>icons/001-new-file-new.png</normaloff>icons/001-new-file-new.png</iconset>
+     <normaloff>../../../Users/Joshua/.designer/backup/icons/001-new-file-new.png</normaloff>../../../Users/Joshua/.designer/backup/icons/001-new-file-new.png</iconset>
    </property>
    <property name="text">
     <string>Open HDF5 (*.h5)</string>
@@ -1966,7 +1819,7 @@
   <action name="actionOpen_pt3">
    <property name="icon">
     <iconset>
-     <normaloff>icons/004-open-archive-new.png</normaloff>icons/004-open-archive-new.png</iconset>
+     <normaloff>../../../Users/Joshua/.designer/backup/icons/004-open-archive-new.png</normaloff>../../../Users/Joshua/.designer/backup/icons/004-open-archive-new.png</iconset>
    </property>
    <property name="text">
     <string>PT3 Folder (*.pt3)</string>
@@ -1978,7 +1831,7 @@
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>icons/020-cutting-with-a-scissor-on-broken-line-new.png</normaloff>icons/020-cutting-with-a-scissor-on-broken-line-new.png</iconset>
+     <normaloff>../../../Users/Joshua/.designer/backup/icons/020-cutting-with-a-scissor-on-broken-line-new.png</normaloff>../../../Users/Joshua/.designer/backup/icons/020-cutting-with-a-scissor-on-broken-line-new.png</iconset>
    </property>
    <property name="text">
     <string>Trim Dead Traces</string>
@@ -2061,6 +1914,18 @@
    <class>GraphicsLayoutWidget</class>
    <extends>QWidget</extends>
    <header>pyqtgraph</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>PlotWidget</class>
+   <extends>QWidget</extends>
+   <header>pyqtgraph.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ImageView</class>
+   <extends>QWidget</extends>
+   <header>pyqtgraph.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

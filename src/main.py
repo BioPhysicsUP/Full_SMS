@@ -996,13 +996,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.setWindowTitle("Full SMS")
 
-        self.int_controller = IntController(self, int_widget=self.pgIntensity_Widget,
-                                            lifetime_widget=self.pgLifetime_Int_Widget,
-                                            groups_int_widget=self.pgGroups_Int_Widget)
-        self.lifetime_controller = LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_Widget)
-        self.spectra_controller = SpectraController(self, spectra_widget=self.pgSpectra_Widget)
-        self.grouping_controller = GroupingController(self, groups_hist_widget=self.pgGroups_Hist_Widget,
-                                                      bic_widget=self.pgGroups_BIC_Widget)
+        self.int_controller = IntController(self, int_widget=self.pgIntensity_PlotWidget,
+                                            lifetime_widget=self.pgLifetime_Int_PlotWidget,
+                                            groups_layout_widget=self.pgGroups_Int_GraphicsLayoutWidget)
+        self.lifetime_controller = LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget)
+        self.spectra_controller = SpectraController(self, spectra_widget=self.pgSpectra_ImageView)
+        self.grouping_controller = GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
 
         # Connect all GUI buttons with outside class functions
         self.btnApplyBin.clicked.connect(self.int_controller.gui_apply_bin)
@@ -1878,28 +1877,37 @@ def setup_plot(plot: pg.PlotItem):
 class IntController(QObject):
 
     def __init__(self, mainwindow: MainWindow,
-                 int_widget: pg.GraphicsLayoutWidget,
-                 lifetime_widget: pg.GraphicsLayoutWidget,
-                 groups_int_widget: pg.GraphicsLayoutWidget):
+                 int_widget: pg.PlotWidget,
+                 lifetime_widget: pg.PlotWidget,
+                 groups_layout_widget: pg.GraphicsLayoutWidget):
         super().__init__()
         self.mainwindow = mainwindow
 
         self.int_widget = int_widget
-        self.int_plot = int_widget.addPlot()
-        self.int_widget.setBackground(background=None)
-        self.setup_int_plot(self.int_plot)
+        self.int_plot = int_widget.getPlotItem()
+        self.setup_widget(self.int_widget)
+        self.setup_plot(self.int_plot)
 
         self.lifetime_widget = lifetime_widget
-        self.lifetime_plot = lifetime_widget.addPlot()
-        self.lifetime_widget.setBackground(background=None)
-        self.setup_int_plot(self.lifetime_plot)
+        self.lifetime_plot = lifetime_widget.getPlotItem()
+        self.setup_widget(self.lifetime_widget)
+        self.setup_plot(self.lifetime_plot)
 
-        self.groups_int_widget = groups_int_widget
-        self.groups_int_plot = groups_int_widget.addPlot()
-        self.groups_int_widget.setBackground(background=None)
-        self.setup_int_plot(self.groups_int_plot)
+        self.groups_layout_widget = groups_layout_widget
+        self.groups_int_plot = pg.PlotItem()
+        self.groups_layout_widget.addItem(self.groups_int_plot)
+        self.groups_hist_plot = pg.PlotItem()
+        self.groups_layout_widget.addItem(self.groups_hist_plot)
+        self.setup_widget(self.groups_layout_widget)
+        self.setup_plot(self.groups_int_plot)
 
-        # self.int_plot.plot(np.random.normal(size=100))
+        # Setup axes and limits
+        self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
+        self.groups_hist_plot.setYLink(self.groups_int_plot.getViewBox())
+        self.groups_hist_plot.getViewBox().setLimits(xMin=0, yMin=0)
+        self.groups_hist_plot.getAxis('bottom').setStyle(showValues=False)
+        self.groups_hist_plot.getAxis('left').setStyle(showValues=False)
+        self.groups_hist_plot.vb.setLimits(xMin=0, xMax=1)
 
         self.confidence_index = {
             0: 99,
@@ -1908,21 +1916,36 @@ class IntController(QObject):
             3: 69}
 
     @staticmethod
-    def setup_int_plot(plot: pg.PlotItem):
+    def setup_plot(plot_item: pg.PlotItem):
 
         # Set axis label bold and size
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
-        plot.getAxis('left').setPen(axis_line_pen)
-        plot.getAxis('bottom').setPen(axis_line_pen)
-        plot.getAxis('left').label.font().setBold(True)
-        plot.getAxis('left').label.font().setPointSize(12)
-        plot.getAxis('bottom').label.font().setBold(True)
-        plot.getAxis('bottom').label.font().setPointSize(12)
+
+        left_axis = plot_item.getAxis('left')
+        bottom_axis = plot_item.getAxis('bottom')
+
+        left_axis.setPen(axis_line_pen)
+        bottom_axis.setPen(axis_line_pen)
+
+        font = left_axis.label.font()
+        font.setBold(True)
+        font.setPointSize(12)
+
+        left_axis.label.setFont(font)
+        bottom_axis.label.setFont(font)
 
         # Setup axes and limits
-        plot.getAxis('left').setLabel('Intensity', 'counts/100ms')
-        plot.getAxis('bottom').setLabel('Time', 's')
-        plot.getViewBox().setLimits(xMin=0, yMin=0)
+        left_axis.setLabel('Intensity', 'counts/100ms')
+        bottom_axis.setLabel('Time', 's')
+
+        plot_item.getViewBox().setLimits(xMin=0, yMin=0)
+
+    @staticmethod
+    def setup_widget(plot_widget: pg.PlotWidget):
+
+        # Set widget background and antialiasing
+        plot_widget.setBackground(background=None)
+        plot_widget.setAntialiasing(True)
 
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
@@ -2036,15 +2059,15 @@ class IntController(QObject):
             cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
             if cur_tab_name != 'tabSpectra':
                 if cur_tab_name == 'tabIntensity':
-                    plot_item = self.mainwindow.pgIntensity.getPlotItem()
+                    plot_item = self.int_plot
                     plot_pen.setWidthF(1.5)
                     plot_pen.setColor(QColor('green'))
                 elif cur_tab_name == 'tabLifetime':
-                    plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
+                    plot_item = self.lifetime_plot
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor('green'))
                 elif cur_tab_name == 'tabGrouping':
-                    plot_item = self.mainwindow.pgGroups_Int
+                    plot_item = self.groups_int_plot
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor(0, 0, 0, 50))
 
@@ -2070,17 +2093,17 @@ class IntController(QObject):
 
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabIntensity':
-            plot_item = self.mainwindow.pgIntensity.getPlotItem()
+            plot_item = self.int_plot
             # pen_width = 1.5
             plot_pen.setWidthF(1.5)
             plot_pen.setColor(QColor('black'))
         elif cur_tab_name == 'tabLifetime':
-            plot_item = self.mainwindow.pgLifetime_Int.getPlotItem()
+            plot_item = self.lifetime_plot
             # pen_width = 1.1
             plot_pen.setWidthF(1.1)
             plot_pen.setColor(QColor('black'))
         elif cur_tab_name == 'tabGrouping':
-            plot_item = self.mainwindow.pgGroups_Int.getPlotItem()
+            plot_item = self.groups_int_plot
             plot_pen.setWidthF(1)
             plot_pen.setColor(QColor(0, 0, 0, 100))
         else:
@@ -2178,12 +2201,12 @@ class LifetimeController(QObject):
 
     def __init__(self,
                  mainwindow: MainWindow,
-                 lifetime_hist_widget: pg.GraphicsLayoutWidget):
+                 lifetime_hist_widget: pg.PlotWidget):
         super().__init__()
         self.mainwindow = mainwindow
 
         self.lifetime_hist_widget = lifetime_hist_widget
-        self.life_hist_plot = lifetime_hist_widget.addPlot()
+        self.life_hist_plot = lifetime_hist_widget.getPlotItem()
         self.lifetime_hist_widget.setBackground(background=None)
 
         # Set axis label bold and size
@@ -2377,7 +2400,7 @@ class LifetimeController(QObject):
             return  # some levels have no photons
 
         if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
-            plot_item = self.mainwindow.pgLifetime.getPlotItem()
+            plot_item = self.life_hist_plot
             plot_pen = QPen()
             plot_pen.setWidthF(1.5)
             plot_pen.setJoinStyle(Qt.RoundJoin)
@@ -2518,46 +2541,47 @@ class LifetimeController(QObject):
 
 class GroupingController(QObject):
 
-    def __init__(self, mainwidow: MainWindow, groups_hist_widget: pg.GraphicsLayoutWidget, bic_widget: pg.GraphicsLayoutWidget):
+    def __init__(self, mainwidow: MainWindow, bic_plot_widget: pg.PlotWidget):
         super().__init__()
         self.mainwindow = mainwidow
 
-        self.groups_hist_widget = groups_hist_widget
-        self.groups_hist_plot = groups_hist_widget.addPlot()
-        self.groups_hist_widget.setBackground(background=None)
+        # self.groups_hist_widget = groups_hist_widget
+        # self.groups_hist_plot = groups_hist_widget.addPlot()
+        # self.groups_hist_widget.setBackground(background=None)
 
-        self.bic_widget = bic_widget
-        self.bic_plot = groups_hist_widget.addPlot()
-        self.bic_widget.setBackground(background=None)
+        self.bic_plot_widget = bic_plot_widget
+        self.bic_scatter_plot = self.bic_plot_widget.getPlotItem()
+        self.bic_plot_widget.setBackground(background=None)
 
         # Set axis label bold and size
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
-        self.groups_hist_plot.getAxis('left').setPen(axis_line_pen)
-        self.groups_hist_plot.getAxis('bottom').setPen(axis_line_pen)
-        self.groups_hist_plot.getAxis('left').label.font().setBold(True)
-        self.groups_hist_plot.getAxis('bottom').label.font().setBold(True)
-        self.groups_hist_plot.getAxis('left').label.font().setPointSize(12)
-        self.groups_hist_plot.getAxis('bottom').label.font().setPointSize(12)
+        # self.groups_hist_plot.getAxis('left').setPen(axis_line_pen)
+        # self.groups_hist_plot.getAxis('bottom').setPen(axis_line_pen)
+        # self.groups_hist_plot.getAxis('left').label.font().setBold(True)
+        # self.groups_hist_plot.getAxis('bottom').label.font().setBold(True)
+        # self.groups_hist_plot.getAxis('left').label.font().setPointSize(12)
+        # self.groups_hist_plot.getAxis('bottom').label.font().setPointSize(12)
 
-        self.bic_plot.getAxis('left').setPen(axis_line_pen)
-        self.bic_plot.getAxis('bottom').setPen(axis_line_pen)
-        self.bic_plot.getAxis('left').label.font().setBold(True)
-        self.bic_plot.getAxis('bottom').label.font().setBold(True)
-        self.bic_plot.getAxis('left').label.font().setPointSize(12)
-        self.bic_plot.getAxis('bottom').label.font().setPointSize(12)
+        self.bic_scatter_plot.getAxis('left').setPen(axis_line_pen)
+        self.bic_scatter_plot.getAxis('bottom').setPen(axis_line_pen)
+        self.bic_scatter_plot.getAxis('left').label.font().setBold(True)
+        self.bic_scatter_plot.getAxis('bottom').label.font().setBold(True)
+        self.bic_scatter_plot.getAxis('left').label.font().setPointSize(12)
+        self.bic_scatter_plot.getAxis('bottom').label.font().setPointSize(12)
 
         # Setup axes and limits
-        self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
-        self.groups_hist_plot.setYLink(self.mainwindow.int_controller.lifetime_plot.getViewBox())
-        self.groups_hist_plot.getViewBox().setLimits(xMin=0, yMin=0)
-        self.groups_hist_plot.getAxis('bottom').setStyle(showValues=False)
-        self.groups_hist_plot.getAxis('left').setStyle(showValues=False)
-        self.groups_hist_plot.vb.setLimits(xMin=0, xMax=1)
+        # self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
+        # self.groups_hist_plot.setYLink(self.mainwindow.int_controller.lifetime_plot.getViewBox())
+        # self.groups_hist_plot.getViewBox().setLimits(xMin=0, yMin=0)
+        # self.groups_hist_plot.getAxis('bottom').setStyle(showValues=False)
+        # self.groups_hist_plot.getAxis('left').setStyle(showValues=False)
+        # self.groups_hist_plot.vb.setLimits(xMin=0, xMax=1)
 
-        self.bic_plot.getAxis('left').setLabel('BIC')
-        self.bic_plot.getAxis('bottom').setLabel('Number of Groups')
-        self.bic_plot.getViewBox().setLimits(xMin=0)
+        self.bic_scatter_plot.getAxis('left').setLabel('BIC')
+        self.bic_scatter_plot.getAxis('bottom').setLabel('Number of Groups')
+        self.bic_scatter_plot.getViewBox().setLimits(xMin=0)
 
+    # TODO: Move to IntController
     def plot_hist(self):
         try:
             int_data = self.mainwindow.currentparticle.binnedtrace.intdata
@@ -2566,7 +2590,7 @@ class GroupingController(QObject):
         else:
             plot_pen = QPen()
             plot_pen.setColor(QColor(0, 0, 0, 0))
-            plot_item = self.mainwindow.pgGroups_Hist.getPlotItem()
+            plot_item = self.mainwindow.int_controller.groups_hist_plot
             plot_item.clear()
 
             bin_edges = np.histogram_bin_edges(np.negative(int_data), bins='auto')
@@ -2610,8 +2634,20 @@ class GroupingController(QObject):
                 dbg.p('No groups!', 'GroupingController')
             # else:
 
-            int_plot = self.mainwindow.pgGroups_Int.getPlotItem()
-            bic_plot = self.mainwindow.pgGroups_BIC.getPlotItem()
+            self.lastClicked = []
+
+            def clicked(plot, points):
+                lastClicked = self.lastClicked
+                for p in lastClicked:
+                    p.resetPen()
+                print("clicked points", points)
+                for p in points:
+                    p.setPen('b', width=2)
+                lastClicked = points
+                self.lastClicked = lastClicked
+
+            int_plot = self.mainwindow.int_controller.groups_int_plot
+            bic_scatter_plot = self.bic_scatter_plot
 
             int_conv = currentparticle.bin_size / 1000
 
@@ -2644,7 +2680,7 @@ class GroupingController(QObject):
             spot_selected_pen = pg.mkPen(width=1.5, color='b')
             spot_other_brush = pg.mkBrush(color=(50, 50, 50))
 
-            scat_plot = pg.ScatterPlotItem()
+            scat_plot_item = pg.ScatterPlotItem()
             bic_spots = []
             for i, g_bic in enumerate(grouping_bics):
                 if i == best_grouping_ind or i == grouping_selected_ind:
@@ -2659,12 +2695,14 @@ class GroupingController(QObject):
                                   'pen': spot_pen,
                                   'brush': spot_other_brush})
 
-            group_num_ticks = dict(enumerate([f"{ng}" for ng in grouping_num_groups]))
-            bic_plot.getAxis('bottom').setTicks([group_num_ticks.items()])
-            bic_plot.clear()
-            bic_plot.plot(y=grouping_bics, symbol='o')
-            bic_plot.addItem(bic_spots)
+            # group_num_ticks = dict(enumerate([f"{ng}" for ng in grouping_num_groups]))
+            # bic_scatter_plot.getAxis('bottom').setTicks([group_num_ticks.items()])
+            # bic_scatter_plot.clear()
+            # bic_scatter_plot.plot(y=grouping_bics, symbol='o')
+            scat_plot_item.addPoints(bic_spots)
+            bic_scatter_plot.addItem(scat_plot_item)
 
+            scat_plot_item.sigClicked.connect(clicked)
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
@@ -2723,15 +2761,15 @@ class GroupingController(QObject):
 
 class SpectraController(QObject):
 
-    def __init__(self, mainwindow: MainWindow, spectra_widget: pg.GraphicsLayoutWidget):
+    def __init__(self, mainwindow: MainWindow, spectra_widget: pg.ImageView):
         super().__init__()
 
         self.mainwindow = mainwindow
         self.spectra_widget = spectra_widget
 
-        self.spectra_plot = spectra_widget.addPlot()
-        self.spectra_plot_item = pg.ImageItem()
-        self.spectra_plot.addItem(self.spectra_plot_item)
+        # self.spectra_plot = spectra_widget.addPlot()
+        # self.spectra_plot_item = pg.ImageItem()
+        # self.spectra_plot.addItem(self.spectra_plot_item)
 
         # axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
         # self.spectra_image_item.getAxis('left').setPen(axis_line_pen)
