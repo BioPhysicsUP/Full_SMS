@@ -40,6 +40,7 @@ from smsh5 import H5dataset, Particle
 import resource_manager as rm
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
+
 sys.setrecursionlimit(1000 * 10)
 
 main_window_file = rm.path("mainwindow.ui", rm.RMType.UI)
@@ -1249,8 +1250,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         # self.current_level = None
 
-        self.current_ind = current
-        self.pre_ind = prev
+        # self.current_ind = current
+        # self.pre_ind = prev
         if current is not None:
             if hasattr(self, 'currentparticle'):
                 self.currentparticle = self.treemodel.get_particle(current)
@@ -1267,6 +1268,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 if self.currentparticle.has_groups:
                     self.grouping_controller.plot_groups()
 
+            if cur_tab_name == 'tabLifetime':
+                self.lifetime_controller.plot_decay(remove_empty=False)
+                self.lifetime_controller.plot_convd()
+                self.lifetime_controller.update_results()
+
+            if cur_tab_name == 'tabSpectra':
+                self.spectra_controller.plot_spectra()
+
+            # Set Enables
             if self.currentparticle.has_levels:
                 self.int_controller.plot_levels()
                 self.btnGroupCurrent.setEnabled(True)
@@ -1277,10 +1287,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.btnGroupSelected.setEnabled(False)
                 self.btnGroupAll.setEnabled(False)
 
-            if cur_tab_name == 'tabLifetime':
-                self.lifetime_controller.plot_decay(remove_empty=False)
-                self.lifetime_controller.plot_convd()
-                self.lifetime_controller.update_results()
             dbg.p('Current data displayed', 'MainWindow')
 
     def status_message(self, message: str) -> None:
@@ -1894,16 +1900,17 @@ class IntController(QObject):
         self.setup_plot(self.lifetime_plot)
 
         self.groups_layout_widget = groups_layout_widget
-        self.groups_int_plot = pg.PlotItem()
+        self.groups_int_plot = pg.PlotItem(name='groups_int')
         self.groups_layout_widget.addItem(self.groups_int_plot)
-        self.groups_hist_plot = pg.PlotItem()
+        self.groups_hist_plot = pg.PlotItem(name='groups_hist')
         self.groups_layout_widget.addItem(self.groups_hist_plot)
         self.setup_widget(self.groups_layout_widget)
         self.setup_plot(self.groups_int_plot)
 
         # Setup axes and limits
         self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
-        self.groups_hist_plot.setYLink(self.groups_int_plot.getViewBox())
+        # self.groups_hist_plot.setYLink(self.groups_int_plot.getViewBox())
+        self.groups_hist_plot.setYLink('int_plot')
         self.groups_hist_plot.getViewBox().setLimits(xMin=0, yMin=0)
         self.groups_hist_plot.getAxis('bottom').setStyle(showValues=False)
         self.groups_hist_plot.getAxis('left').setStyle(showValues=False)
@@ -1928,8 +1935,8 @@ class IntController(QObject):
         bottom_axis.setPen(axis_line_pen)
 
         font = left_axis.label.font()
-        font.setBold(True)
-        font.setPointSize(12)
+        # font.setBold(True)
+        font.setPointSize(10)
 
         left_axis.label.setFont(font)
         bottom_axis.label.setFont(font)
@@ -2452,7 +2459,7 @@ class LifetimeController(QObject):
         # convd = convd / convd.max()
 
         if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
-            plot_item = self.mainwindow.pgLifetime.getPlotItem()
+            # plot_item = self.pgLifetime.getPlotItem()
             plot_pen = QPen()
             plot_pen.setWidthF(4)
             plot_pen.setJoinStyle(Qt.RoundJoin)
@@ -2466,14 +2473,14 @@ class LifetimeController(QObject):
             # convd = convd[self.first:-1]
 
             # plot_item.clear()
-            plot_item.plot(x=t, y=convd, pen=plot_pen, symbol=None)
+            self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
             unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
-            plot_item.getAxis('bottom').setLabel('Decay time', unit)
-            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
+            self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
 
     def start_fitting_thread(self, mode: str = 'current', thread_finished=None) -> None:
         """
-        Creates a worker to resolve levels.
+        Creates a worker to resolve levels.ckibacxxx
 
         Depending on the ``current_selected_all`` parameter the worker will be
         given the necessary parameter to fit the current, selected or all particles.
@@ -2581,6 +2588,9 @@ class GroupingController(QObject):
         self.bic_scatter_plot.getAxis('bottom').setLabel('Number of Groups')
         self.bic_scatter_plot.getViewBox().setLimits(xMin=0)
 
+        self.last_solution = []
+
+
     # TODO: Move to IntController
     def plot_hist(self):
         try:
@@ -2615,6 +2625,23 @@ class GroupingController(QObject):
                 level_hist.rotate(-90)
                 plot_item.addItem(level_hist)
 
+    def solution_clicked(self, plot, points):
+        last_solution = self.last_solution
+        if last_solution != points[0]:
+            curr_part = self.mainwindow.currentparticle
+            point_num_groups = int(points[0].pos()[0])
+            new_ind = curr_part.ahca.steps_num_groups.index(point_num_groups)
+            curr_part.ahca.set_selected_step(new_ind)
+            for p in last_solution:
+                p.resetPen()
+            print("clicked points", points)
+            for p in points:
+                p.setPen('b', width=2)
+            last_solution = points
+            self.last_solution = last_solution
+
+            self.mainwindow.display_data()
+
     def plot_groups(self):
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabGrouping':
@@ -2633,18 +2660,6 @@ class GroupingController(QObject):
             except AttributeError:
                 dbg.p('No groups!', 'GroupingController')
             # else:
-
-            self.lastClicked = []
-
-            def clicked(plot, points):
-                lastClicked = self.lastClicked
-                for p in lastClicked:
-                    p.resetPen()
-                print("clicked points", points)
-                for p in points:
-                    p.setPen('b', width=2)
-                lastClicked = points
-                self.lastClicked = lastClicked
 
             int_plot = self.mainwindow.int_controller.groups_int_plot
             bic_scatter_plot = self.bic_scatter_plot
@@ -2671,29 +2686,33 @@ class GroupingController(QObject):
                 # int_plot.addItem(pg.InfiniteLine(pos=[g_int, g_int], angle=0, pen=plot_pen, movable=False,
                 #                                  bounds=[0, currentparticle.dwell_time]))
 
-            grouping_num_groups.reverse()
-            grouping_bics.reverse()
+            # grouping_num_groups.reverse()
+            # grouping_bics.reverse()
 
             trans_g_bics = np.add(grouping_bics, -min(grouping_bics))
             spot_other_pen = pg.mkPen(width=1, color='w')
-            spot_best_pen = pg.mkPen(width=2, color='r')
-            spot_selected_pen = pg.mkPen(width=1.5, color='b')
+            # spot_best_pen = pg.mkPen(width=2, color='r')
+            spot_selected_pen = pg.mkPen(width=2, color='b')
             spot_other_brush = pg.mkBrush(color=(50, 50, 50))
+            spot_best_brush = pg.mkBrush(color='r')
 
             scat_plot_item = pg.ScatterPlotItem()
             bic_spots = []
             for i, g_bic in enumerate(grouping_bics):
-                if i == best_grouping_ind or i == grouping_selected_ind:
-                    if i == best_grouping_ind:
-                        spot_pen = spot_best_pen
-                    else:
-                        spot_pen = spot_selected_pen
+                if i == best_grouping_ind:
+                    spot_brush = spot_best_brush
+                else:
+                    spot_brush = spot_other_brush
+
+                if i == grouping_selected_ind:
+                    spot_pen = spot_selected_pen
                 else:
                     spot_pen = spot_other_pen
-                bic_spots.append({'pos': (i, g_bic),
-                                  'size': 20,
+
+                bic_spots.append({'pos': (grouping_num_groups[i], g_bic),
+                                  'size': 10,
                                   'pen': spot_pen,
-                                  'brush': spot_other_brush})
+                                  'brush': spot_brush})
 
             # group_num_ticks = dict(enumerate([f"{ng}" for ng in grouping_num_groups]))
             # bic_scatter_plot.getAxis('bottom').setTicks([group_num_ticks.items()])
@@ -2702,7 +2721,8 @@ class GroupingController(QObject):
             scat_plot_item.addPoints(bic_spots)
             bic_scatter_plot.addItem(scat_plot_item)
 
-            scat_plot_item.sigClicked.connect(clicked)
+            scat_plot_item.sigClicked.connect(self.solution_clicked)
+
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
@@ -2793,6 +2813,9 @@ class SpectraController(QObject):
 
         print("gui_sub_bkg")
 
+    def plot_spectra(self):
+        pass
+
 
 class FittingDialog(QDialog, UI_Fitting_Dialog):
     """Class for dialog that is used to choose lifetime fit parameters."""
@@ -2804,6 +2827,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         self.mainwindow = mainwindow
         self.lifetime_controller = lifetime_controller
+        self.pgFitParam.setBackground(background=None)
         for widget in self.findChildren(QLineEdit):
             widget.textChanged.connect(self.updateplot)
         for widget in self.findChildren(QCheckBox):
@@ -2862,6 +2886,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             dbg.p(debug_print='No Decay!', debug_from='FittingDialog')
         else:
             plot_item = self.pgFitParam.getPlotItem()
+
             plot_item.setLogMode(y=True)
             plot_pen = QPen()
             plot_pen.setWidthF(3)

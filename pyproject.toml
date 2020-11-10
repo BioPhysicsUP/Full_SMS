@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "full_sms"
+version = "0.1.0"
+description = "Application to display and analyse single-molecule spectroscopy measurements."
+authors = ["Josh <Joshua.Botha@up.ac.za>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+h5py = "^3.1.0"
+numpy = "^1.19.4"
+scipy = "^1.5.4"
+PyQt5-stubs = "^5.14.2"
+PyQt5 = "^5.15.1"
+termcolor = "^1.1.0"
+statsmodels = "^0.12.1"
+pyqtgraph = "^0.11.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
