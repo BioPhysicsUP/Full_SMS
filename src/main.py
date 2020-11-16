@@ -20,7 +20,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, \
     Qt, QThreadPool, QRunnable, pyqtSlot
 from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
-    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox, QStyleFactory
+    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox, QStyleFactory, QWidget, QFrame
 from PyQt5 import uic
 import pyqtgraph as pg
 from typing import Union
@@ -998,8 +998,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.setWindowTitle("Full SMS")
 
         self.int_controller = IntController(self, int_widget=self.pgIntensity_PlotWidget,
+                                            int_hist_container=self.wdgInt_Hist_Container,
+                                            int_hist_line=self.lineInt_Hist,
+                                            int_hist_widget=self.pgInt_Hist_PlotWidget,
                                             lifetime_widget=self.pgLifetime_Int_PlotWidget,
-                                            groups_layout_widget=self.pgGroups_Int_GraphicsLayoutWidget)
+                                            groups_int_widget=self.pgGroups_Int_PlotWidget,
+                                            groups_hist_widget=self.pgGroups_Hist_PlotWidget)
         self.lifetime_controller = LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget)
         self.spectra_controller = SpectraController(self, spectra_widget=self.pgSpectra_ImageView)
         self.grouping_controller = GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
@@ -1010,6 +1014,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnResolve.clicked.connect(self.int_controller.gui_resolve)
         self.btnResolve_Selected.clicked.connect(self.int_controller.gui_resolve_selected)
         self.btnResolveAll.clicked.connect(self.int_controller.gui_resolve_all)
+        self.chbInt_Show_Hist.stateChanged.connect(self.int_controller.hide_unhide_hist)
         self.actionTime_Resolve_Current.triggered.connect(self.int_controller.time_resolve_current)
         self.actionTime_Resolve_Selected.triggered.connect(self.int_controller.time_resolve_selected)
         self.actionTime_Resolve_All.triggered.connect(self.int_controller.time_resolve_all)
@@ -1262,11 +1267,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
                 self.int_controller.set_bin(self.currentparticle.bin_size)
                 self.int_controller.plot_trace()
+                self.int_controller.plot_hist()
 
-            if cur_tab_name == 'tabGrouping':
-                self.grouping_controller.plot_hist()
                 if self.currentparticle.has_groups:
-                    self.grouping_controller.plot_groups()
+                    self.int_controller.plot_group_bounds()
+                    if cur_tab_name == 'tabGrouping':
+                        self.grouping_controller.plot_group_bic()
 
             if cur_tab_name == 'tabLifetime':
                 self.lifetime_controller.plot_decay(remove_empty=False)
@@ -1858,7 +1864,6 @@ def get_plot(ui_pg_layout_widget: pg.GraphicsLayoutWidget) -> pg.PlotItem:
 
 
 def setup_plot(plot: pg.PlotItem):
-
     # plot.setBackground(background=None)
     # plot_item = plot.getPlotItem()
 
@@ -1884,8 +1889,12 @@ class IntController(QObject):
 
     def __init__(self, mainwindow: MainWindow,
                  int_widget: pg.PlotWidget,
+                 int_hist_container: QWidget,
+                 int_hist_line: QFrame,
+                 int_hist_widget: pg.PlotWidget,
                  lifetime_widget: pg.PlotWidget,
-                 groups_layout_widget: pg.GraphicsLayoutWidget):
+                 groups_int_widget: pg.PlotWidget,
+                 groups_hist_widget: pg.PlotWidget):
         super().__init__()
         self.mainwindow = mainwindow
 
@@ -1894,27 +1903,31 @@ class IntController(QObject):
         self.setup_widget(self.int_widget)
         self.setup_plot(self.int_plot)
 
+        self.int_hist_container = int_hist_container
+        self.show_int_hist = self.mainwindow.chbInt_Show_Hist.isChecked()
+        self.int_hist_line = int_hist_line
+        self.int_hist_widget = int_hist_widget
+        self.int_hist_plot = int_hist_widget.getPlotItem()
+        self.setup_widget(self.int_hist_widget)
+        self.setup_plot(self.int_hist_plot, is_int_hist=True)
+
         self.lifetime_widget = lifetime_widget
         self.lifetime_plot = lifetime_widget.getPlotItem()
         self.setup_widget(self.lifetime_widget)
         self.setup_plot(self.lifetime_plot)
 
-        self.groups_layout_widget = groups_layout_widget
-        self.groups_int_plot = pg.PlotItem(name='groups_int')
-        self.groups_layout_widget.addItem(self.groups_int_plot)
-        self.groups_hist_plot = pg.PlotItem(name='groups_hist')
-        self.groups_layout_widget.addItem(self.groups_hist_plot)
-        self.setup_widget(self.groups_layout_widget)
+        self.group_int_widget = groups_int_widget
+        self.groups_int_plot = groups_int_widget.getPlotItem()
+        self.setup_widget(self.group_int_widget)
         self.setup_plot(self.groups_int_plot)
 
+        self.groups_hist_widget = groups_hist_widget
+        self.groups_hist_plot = groups_hist_widget.getPlotItem()
+        self.setup_widget(self.groups_hist_widget)
+        self.setup_plot(self.groups_hist_plot, is_group_hist=True)
+
         # Setup axes and limits
-        self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
-        # self.groups_hist_plot.setYLink(self.groups_int_plot.getViewBox())
-        self.groups_hist_plot.setYLink('int_plot')
-        self.groups_hist_plot.getViewBox().setLimits(xMin=0, yMin=0)
-        self.groups_hist_plot.getAxis('bottom').setStyle(showValues=False)
-        self.groups_hist_plot.getAxis('left').setStyle(showValues=False)
-        self.groups_hist_plot.vb.setLimits(xMin=0, xMax=1)
+        # self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
 
         self.confidence_index = {
             0: 99,
@@ -1922,8 +1935,9 @@ class IntController(QObject):
             2: 90,
             3: 69}
 
-    @staticmethod
-    def setup_plot(plot_item: pg.PlotItem):
+    def setup_plot(self, plot_item: pg.PlotItem,
+                   is_int_hist: bool = False,
+                   is_group_hist: bool = False):
 
         # Set axis label bold and size
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
@@ -1941,11 +1955,20 @@ class IntController(QObject):
         left_axis.label.setFont(font)
         bottom_axis.label.setFont(font)
 
-        # Setup axes and limits
-        left_axis.setLabel('Intensity', 'counts/100ms')
-        bottom_axis.setLabel('Time', 's')
-
-        plot_item.getViewBox().setLimits(xMin=0, yMin=0)
+        if is_int_hist or is_group_hist:
+            # Setup axes and limits
+            left_axis.setStyle(showValues=False)
+            bottom_axis.setStyle(showValues=False)
+            bottom_axis.setLabel('Relative Frequency')
+            if is_int_hist:
+                plot_item.setYLink(self.int_plot.getViewBox())
+            else:
+                plot_item.setYLink(self.groups_int_plot.getViewBox())
+            plot_item.vb.setLimits(xMin=0, xMax=1, yMin=0)
+        else:
+            left_axis.setLabel('Intensity', 'counts/100ms')
+            bottom_axis.setLabel('Time', 's')
+            plot_item.vb.setLimits(xMin=0, yMin=0)
 
     @staticmethod
     def setup_widget(plot_widget: pg.PlotWidget):
@@ -1953,6 +1976,19 @@ class IntController(QObject):
         # Set widget background and antialiasing
         plot_widget.setBackground(background=None)
         plot_widget.setAntialiasing(True)
+
+    def hide_unhide_hist(self):
+
+        self.show_int_hist = self.mainwindow.chbInt_Show_Hist.isChecked()
+
+        if self.show_int_hist:
+            self.int_hist_container.show()
+            self.int_hist_line.show()
+            self.plot_hist()
+        else:
+            self.int_hist_container.hide()
+            self.int_hist_line.hide()
+
 
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
@@ -2116,7 +2152,6 @@ class IntController(QObject):
         else:
             return
 
-
         plot_pen.brush()
         plot_pen.setJoinStyle(Qt.RoundJoin)
         plot_pen.setCosmetic(True)
@@ -2134,6 +2169,87 @@ class IntController(QObject):
                 plot_item.plot(x=current_times, y=current_ints, pen=plot_pen, symbol=None)
             else:
                 dbg.p('Infinity in level', 'IntController')
+
+    def plot_hist(self):
+        try:
+            int_data = self.mainwindow.currentparticle.binnedtrace.intdata
+        except AttributeError:
+            dbg.p('No trace!', 'IntController')
+        else:
+            plot_pen = QPen()
+            plot_pen.setColor(QColor(0, 0, 0, 0))
+
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+            if cur_tab_name == 'tabIntensity':
+                if self.show_int_hist:
+                    plot_item = self.int_hist_plot
+                else:
+                    return
+            elif cur_tab_name == 'tabGrouping':
+                plot_item = self.groups_hist_plot
+            else:
+                return
+
+            plot_item.clear()
+
+            bin_edges = np.histogram_bin_edges(np.negative(int_data), bins='auto')
+            freq, hist_bins = np.histogram(np.negative(int_data), bins=bin_edges, density=True)
+            freq /= np.max(freq)
+            int_hist = pg.PlotCurveItem(x=hist_bins, y=freq, pen=plot_pen,
+                                        stepMode=True, fillLevel=0, brush=(0, 0, 0, 50))
+            int_hist.rotate(-90)
+            plot_item.addItem(int_hist)
+
+            if self.mainwindow.currentparticle.has_levels:
+                level_ints = self.mainwindow.currentparticle.level_ints
+
+                level_ints *= self.mainwindow.currentparticle.bin_size / 1000
+                dwell_times = [level.dwell_time_s for level in self.mainwindow.currentparticle.levels]
+                level_freq, level_hist_bins = np.histogram(np.negative(level_ints), bins=bin_edges,
+                                                           weights=dwell_times, density=True)
+                level_freq /= np.max(level_freq)
+                level_hist = pg.PlotCurveItem(x=level_hist_bins, y=level_freq, stepMode=True,
+                                              pen=plot_pen, fillLevel=0, brush=(0, 0, 0, 255))
+
+                level_hist.rotate(-90)
+                plot_item.addItem(level_hist)
+
+    def plot_group_bounds(self):
+        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+        if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
+            currentparticle = self.mainwindow.currentparticle
+            if not currentparticle.has_groups:
+                return
+            try:
+                groups = currentparticle.groups
+                group_bounds = currentparticle.groups_bounds
+            except AttributeError:
+                dbg.p('No groups!', 'IntController')
+
+            if cur_tab_name == 'tabIntensity':
+                int_plot = self.int_plot
+            elif cur_tab_name == 'tabGrouping':
+                int_plot = self.groups_int_plot
+
+            int_conv = currentparticle.bin_size / 1000
+
+            for i, bound in enumerate(group_bounds):
+                if i % 2:
+                    bound = (bound[0] * int_conv, bound[1] * int_conv)
+                    int_plot.addItem(pg.LinearRegionItem(values=bound, orientation='horizontal', movable=False,
+                                                         pen=QPen().setWidthF(0)))
+
+            line_pen = QPen()
+            line_pen.setWidthF(1)
+            line_pen.setStyle(Qt.DashLine)
+            line_pen.brush()
+            # plot_pen.setJoinStyle(Qt.RoundJoin)
+            line_pen.setColor(QColor(0, 0, 0, 150))
+            line_pen.setCosmetic(True)
+            line_times = [0, currentparticle.dwell_time]
+            for group in groups:
+                g_ints = [group.int * int_conv, group.int * int_conv]
+                int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
 
     def start_resolve_thread(self, mode: str = 'current', thread_finished=None, end_time_s=None) -> None:
         """
@@ -2562,12 +2678,6 @@ class GroupingController(QObject):
 
         # Set axis label bold and size
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
-        # self.groups_hist_plot.getAxis('left').setPen(axis_line_pen)
-        # self.groups_hist_plot.getAxis('bottom').setPen(axis_line_pen)
-        # self.groups_hist_plot.getAxis('left').label.font().setBold(True)
-        # self.groups_hist_plot.getAxis('bottom').label.font().setBold(True)
-        # self.groups_hist_plot.getAxis('left').label.font().setPointSize(12)
-        # self.groups_hist_plot.getAxis('bottom').label.font().setPointSize(12)
 
         self.bic_scatter_plot.getAxis('left').setPen(axis_line_pen)
         self.bic_scatter_plot.getAxis('bottom').setPen(axis_line_pen)
@@ -2576,20 +2686,11 @@ class GroupingController(QObject):
         self.bic_scatter_plot.getAxis('left').label.font().setPointSize(12)
         self.bic_scatter_plot.getAxis('bottom').label.font().setPointSize(12)
 
-        # Setup axes and limits
-        # self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
-        # self.groups_hist_plot.setYLink(self.mainwindow.int_controller.lifetime_plot.getViewBox())
-        # self.groups_hist_plot.getViewBox().setLimits(xMin=0, yMin=0)
-        # self.groups_hist_plot.getAxis('bottom').setStyle(showValues=False)
-        # self.groups_hist_plot.getAxis('left').setStyle(showValues=False)
-        # self.groups_hist_plot.vb.setLimits(xMin=0, xMax=1)
-
         self.bic_scatter_plot.getAxis('left').setLabel('BIC')
         self.bic_scatter_plot.getAxis('bottom').setLabel('Number of Groups')
         self.bic_scatter_plot.getViewBox().setLimits(xMin=0)
 
         self.last_solution = []
-
 
     # TODO: Move to IntController
     def plot_hist(self):
@@ -2614,7 +2715,7 @@ class GroupingController(QObject):
             if self.mainwindow.currentparticle.has_levels:
                 level_ints = self.mainwindow.currentparticle.level_ints
 
-                level_ints *= self.mainwindow.currentparticle.bin_size/1000
+                level_ints *= self.mainwindow.currentparticle.bin_size / 1000
                 dwell_times = [level.dwell_time_s for level in self.mainwindow.currentparticle.levels]
                 level_freq, level_hist_bins = np.histogram(np.negative(level_ints), bins=bin_edges,
                                                            weights=dwell_times, density=True)
@@ -2636,21 +2737,19 @@ class GroupingController(QObject):
                 p.resetPen()
             print("clicked points", points)
             for p in points:
-                p.setPen('b', width=2)
+                p.setPen('w', width=2)
             last_solution = points
             self.last_solution = last_solution
 
             self.mainwindow.display_data()
 
-    def plot_groups(self):
+    def plot_group_bic(self):
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabGrouping':
             currentparticle = self.mainwindow.currentparticle
             # print('levels plto')
             try:
                 groups = currentparticle.groups
-                num_groups = currentparticle.num_groups
-                num_levels = currentparticle.num_levels
                 group_bounds = currentparticle.groups_bounds
                 grouping_bics = currentparticle.grouping_bics.copy()
                 grouping_selected_ind = currentparticle.grouping_selected_ind
@@ -2659,39 +2758,8 @@ class GroupingController(QObject):
 
             except AttributeError:
                 dbg.p('No groups!', 'GroupingController')
-            # else:
 
-            int_plot = self.mainwindow.int_controller.groups_int_plot
-            bic_scatter_plot = self.bic_scatter_plot
-
-            int_conv = currentparticle.bin_size / 1000
-
-            for i, bound in enumerate(group_bounds):
-                if i % 2:
-                    bound = (bound[0] * int_conv, bound[1] * int_conv)
-                    int_plot.addItem(pg.LinearRegionItem(values=bound, orientation='horizontal', movable=False,
-                                                         pen=QPen().setWidthF(0)))
-
-            line_pen = QPen()
-            line_pen.setWidthF(1)
-            line_pen.setStyle(Qt.DashLine)
-            line_pen.brush()
-            # plot_pen.setJoinStyle(Qt.RoundJoin)
-            line_pen.setColor(QColor(0, 0, 0, 150))
-            line_pen.setCosmetic(True)
-            line_times = [0, currentparticle.dwell_time]
-            for group in groups:
-                g_ints = [group.int * int_conv, group.int * int_conv]
-                int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
-                # int_plot.addItem(pg.InfiniteLine(pos=[g_int, g_int], angle=0, pen=plot_pen, movable=False,
-                #                                  bounds=[0, currentparticle.dwell_time]))
-
-            # grouping_num_groups.reverse()
-            # grouping_bics.reverse()
-
-            trans_g_bics = np.add(grouping_bics, -min(grouping_bics))
             spot_other_pen = pg.mkPen(width=1, color='w')
-            # spot_best_pen = pg.mkPen(width=2, color='r')
             spot_selected_pen = pg.mkPen(width=2, color='b')
             spot_other_brush = pg.mkBrush(color=(50, 50, 50))
             spot_best_brush = pg.mkBrush(color='r')
@@ -2714,15 +2782,10 @@ class GroupingController(QObject):
                                   'pen': spot_pen,
                                   'brush': spot_brush})
 
-            # group_num_ticks = dict(enumerate([f"{ng}" for ng in grouping_num_groups]))
-            # bic_scatter_plot.getAxis('bottom').setTicks([group_num_ticks.items()])
-            # bic_scatter_plot.clear()
-            # bic_scatter_plot.plot(y=grouping_bics, symbol='o')
             scat_plot_item.addPoints(bic_spots)
-            bic_scatter_plot.addItem(scat_plot_item)
+            self.bic_scatter_plot.addItem(scat_plot_item)
 
             scat_plot_item.sigClicked.connect(self.solution_clicked)
-
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
@@ -3067,7 +3130,7 @@ def main():
     main_window.after_show()
     main_window.tabSpectra.repaint()
     dbg.p(debug_print='Main Window shown', debug_from='Main')
-    app.exec_()
+    app.instance().exec_()
     dbg.p(debug_print='App excuted', debug_from='Main')
 
 

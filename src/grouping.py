@@ -341,7 +341,7 @@ class AHCA:
             dbg.p(f"{self.particle.name} has no levels to group", "ACHA")
 
     def set_selected_step(self, step_ind: int):
-        assert 0 < step_ind < self.num_steps, "AHCA: Provided step index out of range."
+        assert 0 <= step_ind < self.num_steps, "AHCA: Provided step index out of range."
         self.selected_step_ind = step_ind
 
     def reset_selected_step(self):
