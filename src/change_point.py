@@ -323,7 +323,7 @@ class TauData:
             assert os.path.isfile(
                 full_path), 'TauData:\tTau data file ' + file_name + ' does not exist. Look in' + full_path + '.'
             data = np.loadtxt(full_path, usecols=1)
-            if tau_type[-1] is 'a':
+            if tau_type[-1] == 'a':
                 self._a = data
             else:
                 self._b = data
