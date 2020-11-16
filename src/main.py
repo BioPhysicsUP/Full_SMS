@@ -997,6 +997,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.setWindowTitle("Full SMS")
 
+        self.chbInt_Disp_Resolved.hide()
+        self.chbInt_Disp_Photon_Bursts.hide()
+        self.chbInt_Disp_Grouped.hide()
+        self.chbInt_Disp_Using_Groups.hide()
+        self.chbInt_Show_Groups.setEnabled(False)
+
         self.int_controller = IntController(self, int_widget=self.pgIntensity_PlotWidget,
                                             int_hist_container=self.wdgInt_Hist_Container,
                                             int_hist_line=self.lineInt_Hist,
@@ -1015,6 +1021,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnResolve_Selected.clicked.connect(self.int_controller.gui_resolve_selected)
         self.btnResolveAll.clicked.connect(self.int_controller.gui_resolve_all)
         self.chbInt_Show_Hist.stateChanged.connect(self.int_controller.hide_unhide_hist)
+        self.chbInt_Show_Groups.stateChanged.connect(self.int_controller.plot_all)
         self.actionTime_Resolve_Current.triggered.connect(self.int_controller.time_resolve_current)
         self.actionTime_Resolve_Selected.triggered.connect(self.int_controller.time_resolve_selected)
         self.actionTime_Resolve_All.triggered.connect(self.int_controller.time_resolve_all)
@@ -1031,6 +1038,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnGroupCurrent.clicked.connect(self.grouping_controller.gui_group_current)
         self.btnGroupSelected.clicked.connect(self.grouping_controller.gui_group_selected)
         self.btnGroupAll.clicked.connect(self.grouping_controller.gui_group_all)
+        self.btnApplyGroupsCurrent.clicked.connect(self.grouping_controller.gui_apply_groups_current)
+        self.btnApplyGroupsSelected.clicked.connect(self.grouping_controller.gui_apply_groups_selected)
+        self.btnApplyGroupsAll.clicked.connect(self.grouping_controller.gui_apply_groups_all)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
@@ -1240,6 +1250,31 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if self.tabWidget.currentIndex() in [0, 1, 2, 3]:
                 self.display_data()
 
+    def update_int_gui(self):
+        cur_part = self.currentparticle
+
+        if cur_part.has_levels:
+            self.chbInt_Disp_Resolved.show()
+        else:
+            self.chbInt_Disp_Resolved.hide()
+
+        if cur_part.has_burst:
+            self.chbInt_Disp_Photon_Bursts.show()
+        else:
+            self.chbInt_Disp_Photon_Bursts.hide()
+
+        if cur_part.has_groups:
+            self.chbInt_Disp_Grouped.show()
+            self.chbInt_Show_Groups.setEnabled(True)
+        else:
+            self.chbInt_Disp_Grouped.hide()
+            self.chbInt_Show_Groups.setEnabled(False)
+
+        if cur_part.using_group_levels:
+            self.chbInt_Disp_Using_Groups.show()
+        else:
+            self.chbInt_Disp_Using_Groups.hide()
+
     def display_data(self, current=None, prev=None) -> None:
         """ Displays the intensity trace and the histogram of the current particle.
 
@@ -1265,6 +1300,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             cur_tab_name = self.tabWidget.currentWidget().objectName()
 
             if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
+                if cur_tab_name == 'tabIntensity':
+                    self.update_int_gui()
                 self.int_controller.set_bin(self.currentparticle.bin_size)
                 self.int_controller.plot_trace()
                 self.int_controller.plot_hist()
@@ -1273,6 +1310,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.int_controller.plot_group_bounds()
                     if cur_tab_name == 'tabGrouping':
                         self.grouping_controller.plot_group_bic()
+                else:
+                    self.grouping_controller.clear_bic()
 
             if cur_tab_name == 'tabLifetime':
                 self.lifetime_controller.plot_decay(remove_empty=False)
@@ -1285,13 +1324,19 @@ class MainWindow(QMainWindow, UI_Main_Window):
             # Set Enables
             if self.currentparticle.has_levels:
                 self.int_controller.plot_levels()
-                self.btnGroupCurrent.setEnabled(True)
-                self.btnGroupSelected.setEnabled(True)
-                self.btnGroupAll.setEnabled(True)
+                set_group = True
+                if self.currentparticle.has_groups:
+                    set_apply_groups = True
+                else:
+                    set_apply_groups = False
             else:
-                self.btnGroupCurrent.setEnabled(False)
-                self.btnGroupSelected.setEnabled(False)
-                self.btnGroupAll.setEnabled(False)
+                set_group = False
+            self.btnGroupCurrent.setEnabled(set_group)
+            self.btnGroupSelected.setEnabled(set_group)
+            self.btnGroupAll.setEnabled(set_group)
+            self.btnApplyGroupsCurrent.setEnabled(set_apply_groups)
+            self.btnApplyGroupsSelected.setEnabled(set_apply_groups)
+            self.btnApplyGroupsAll.setEnabled(set_apply_groups)
 
             dbg.p('Current data displayed', 'MainWindow')
 
@@ -1393,7 +1438,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.treeViewParticles.setCurrentIndex(self.part_index[0])
             self.display_data(self.part_index[1])
 
-            msgbx = TimedMessageBox(30)
+            msgbx = TimedMessageBox(30, parent=self)
             msgbx.setIcon(QMessageBox.Question)
             msgbx.setText("Would you like to resolve levels now?")
             msgbx.set_timeout_text(message_pretime="(Resolving levels in ", message_posttime=" seconds)")
@@ -1581,7 +1626,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if sum(has_burst):
             if not removed_bursts:
                 removed_bursts = True
-            msgbx = TimedMessageBox(30)
+            msgbx = TimedMessageBox(30, parent=self)
             msgbx.setIcon(QMessageBox.Question)
             msgbx.setText("Would you like to remove the photon bursts?")
             msgbx.set_timeout_text(message_pretime="(Removing photon bursts in ", message_posttime=" seconds)")
@@ -1617,7 +1662,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
             assert all_selected.lower() in ['all', 'selected'], "mode parameter must be either 'all' or 'selected'."
 
-            if all_selected is 'all':
+            if all_selected == 'all':
                 data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
                 # assert data.
         except Exception as exc:
@@ -2125,7 +2170,8 @@ class IntController(QObject):
     def plot_levels(self):
         """ Used to plot the resolved intensity levels of the current particle. """
         currentparticle = self.mainwindow.currentparticle
-        # print('levels plto')
+        if not currentparticle.has_levels:
+            return
         try:
             level_ints, times = currentparticle.levels2data()
             level_ints = level_ints * self.get_bin() / 1E3
@@ -2227,7 +2273,10 @@ class IntController(QObject):
                 dbg.p('No groups!', 'IntController')
 
             if cur_tab_name == 'tabIntensity':
-                int_plot = self.int_plot
+                if self.mainwindow.chbInt_Show_Groups.isChecked():
+                    int_plot = self.int_plot
+                else:
+                    return
             elif cur_tab_name == 'tabGrouping':
                 int_plot = self.groups_int_plot
 
@@ -2250,6 +2299,12 @@ class IntController(QObject):
             for group in groups:
                 g_ints = [group.int * int_conv, group.int * int_conv]
                 int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
+
+    def plot_all(self):
+        self.plot_trace()
+        self.plot_levels()
+        self.plot_hist()
+        self.plot_group_bounds()
 
     def start_resolve_thread(self, mode: str = 'current', thread_finished=None, end_time_s=None) -> None:
         """
@@ -2690,41 +2745,10 @@ class GroupingController(QObject):
         self.bic_scatter_plot.getAxis('bottom').setLabel('Number of Groups')
         self.bic_scatter_plot.getViewBox().setLimits(xMin=0)
 
-        self.last_solution = []
+        self.last_solution = None
 
-    # TODO: Move to IntController
-    def plot_hist(self):
-        try:
-            int_data = self.mainwindow.currentparticle.binnedtrace.intdata
-        except AttributeError:
-            dbg.p('No trace!', 'GroupingController')
-        else:
-            plot_pen = QPen()
-            plot_pen.setColor(QColor(0, 0, 0, 0))
-            plot_item = self.mainwindow.int_controller.groups_hist_plot
-            plot_item.clear()
-
-            bin_edges = np.histogram_bin_edges(np.negative(int_data), bins='auto')
-            freq, hist_bins = np.histogram(np.negative(int_data), bins=bin_edges, density=True)
-            freq /= np.max(freq)
-            int_hist = pg.PlotCurveItem(x=hist_bins, y=freq, pen=plot_pen,
-                                        stepMode=True, fillLevel=0, brush=(0, 0, 0, 50))
-            int_hist.rotate(-90)
-            plot_item.addItem(int_hist)
-
-            if self.mainwindow.currentparticle.has_levels:
-                level_ints = self.mainwindow.currentparticle.level_ints
-
-                level_ints *= self.mainwindow.currentparticle.bin_size / 1000
-                dwell_times = [level.dwell_time_s for level in self.mainwindow.currentparticle.levels]
-                level_freq, level_hist_bins = np.histogram(np.negative(level_ints), bins=bin_edges,
-                                                           weights=dwell_times, density=True)
-                level_freq /= np.max(level_freq)
-                level_hist = pg.PlotCurveItem(x=level_hist_bins, y=level_freq, stepMode=True,
-                                              pen=plot_pen, fillLevel=0, brush=(0, 0, 0, 255))
-
-                level_hist.rotate(-90)
-                plot_item.addItem(level_hist)
+    def clear_bic(self):
+        self.bic_scatter_plot.clear()
 
     def solution_clicked(self, plot, points):
         last_solution = self.last_solution
@@ -2733,13 +2757,15 @@ class GroupingController(QObject):
             point_num_groups = int(points[0].pos()[0])
             new_ind = curr_part.ahca.steps_num_groups.index(point_num_groups)
             curr_part.ahca.set_selected_step(new_ind)
-            for p in last_solution:
-                p.resetPen()
-            print("clicked points", points)
+            # last_solution.resetPen()
+            if last_solution:
+                last_solution.setPen(pg.mkPen(width=1, color='k'))
+            # print("clicked points", points)
             for p in points:
-                p.setPen('w', width=2)
-            last_solution = points
+                p.setPen('c', width=2)
+            last_solution = points[0]
             self.last_solution = last_solution
+            curr_part.bic_plot_data.selected_spot = last_solution
 
             self.mainwindow.display_data()
 
@@ -2747,10 +2773,7 @@ class GroupingController(QObject):
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabGrouping':
             currentparticle = self.mainwindow.currentparticle
-            # print('levels plto')
             try:
-                groups = currentparticle.groups
-                group_bounds = currentparticle.groups_bounds
                 grouping_bics = currentparticle.grouping_bics.copy()
                 grouping_selected_ind = currentparticle.grouping_selected_ind
                 best_grouping_ind = currentparticle.best_grouping_ind
@@ -2759,30 +2782,41 @@ class GroupingController(QObject):
             except AttributeError:
                 dbg.p('No groups!', 'GroupingController')
 
-            spot_other_pen = pg.mkPen(width=1, color='w')
-            spot_selected_pen = pg.mkPen(width=2, color='b')
-            spot_other_brush = pg.mkBrush(color=(50, 50, 50))
-            spot_best_brush = pg.mkBrush(color='r')
-
-            scat_plot_item = pg.ScatterPlotItem()
-            bic_spots = []
-            for i, g_bic in enumerate(grouping_bics):
-                if i == best_grouping_ind:
-                    spot_brush = spot_best_brush
+            if currentparticle.bic_plot_data.has_plot:
+                scat_plot_item = currentparticle.bic_plot_data.scatter_plot_item
+                if currentparticle.bic_plot_data.has_selected_spot:
+                    self.last_solution = currentparticle.bic_plot_data.selected_spot
                 else:
-                    spot_brush = spot_other_brush
+                    self.last_solution = None
+            else:
+                spot_other_pen = pg.mkPen(width=1, color='k')
+                spot_selected_pen = pg.mkPen(width=2, color='c')
+                spot_other_brush = pg.mkBrush(color='k')
+                spot_best_brush = pg.mkBrush(color='r')
 
-                if i == grouping_selected_ind:
-                    spot_pen = spot_selected_pen
-                else:
-                    spot_pen = spot_other_pen
+                scat_plot_item = pg.ScatterPlotItem()
+                bic_spots = []
+                for i, g_bic in enumerate(grouping_bics):
+                    if i == best_grouping_ind:
+                        spot_brush = spot_best_brush
+                    else:
+                        spot_brush = spot_other_brush
 
-                bic_spots.append({'pos': (grouping_num_groups[i], g_bic),
-                                  'size': 10,
-                                  'pen': spot_pen,
-                                  'brush': spot_brush})
+                    if i == grouping_selected_ind:
+                        spot_pen = spot_selected_pen
+                    else:
+                        spot_pen = spot_other_pen
 
-            scat_plot_item.addPoints(bic_spots)
+                    bic_spots.append({'pos': (grouping_num_groups[i], g_bic),
+                                      'size': 10,
+                                      'pen': spot_pen,
+                                      'brush': spot_brush})
+
+                scat_plot_item.addPoints(bic_spots)
+                currentparticle.bic_plot_data.scatter_plot_item = scat_plot_item
+                self.last_solution = scat_plot_item.points()[best_grouping_ind]
+                currentparticle.bic_plot_data.selected_spot = self.last_solution
+
             self.bic_scatter_plot.addItem(scat_plot_item)
 
             scat_plot_item.sigClicked.connect(self.solution_clicked)
@@ -2795,6 +2829,15 @@ class GroupingController(QObject):
 
     def gui_group_all(self):
         self.start_grouping_thread(mode='all')
+
+    def gui_apply_groups_current(self):
+        self.apply_groups()
+
+    def gui_apply_groups_selected(self):
+        self.apply_groups('selected')
+
+    def gui_apply_groups_all(self):
+        self.apply_groups('all')
 
     def start_grouping_thread(self, mode: str = 'current') -> None:
         """
@@ -2840,6 +2883,10 @@ class GroupingController(QObject):
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         dbg.p('Grouping levels complete', 'Grouping Thread')
+
+    def apply_groups(self, mode:str = 'current'):
+        if mode == 'current':
+            self.mainwindow.currentparticle.using_group_levels = True
 
 
 class SpectraController(QObject):

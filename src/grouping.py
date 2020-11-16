@@ -15,6 +15,7 @@ from typing import List, Tuple, TYPE_CHECKING
 import numpy as np
 from scipy.stats import poisson
 from matplotlib import pyplot as plt
+from change_point import Level
 
 if TYPE_CHECKING:
     from smsh5 import Particle
@@ -106,6 +107,9 @@ class ClusteringStep:
         self.groups = None
         self.bic = None
         self.num_groups = None
+        self.level_group_ind = None
+
+        self.group_levels = None
 
     @property
     def group_ints(self) -> List[float]:
@@ -256,11 +260,54 @@ class ClusteringStep:
         self.groups = new_groups
         self.num_groups = len(new_groups)
 
+        level_group_ind = [None]*self._num_levels
+        for group_num, group in enumerate(self.groups):
+            for level in group.lvls_inds:
+                level_group_ind[level] = group_num
+        self.level_group_ind = level_group_ind
+
     def calc_bic(self):
         num_cp = self._particle.cpts.num_cpts
         num_g = self.num_groups
 
         self.bic = 2 * self._em_log_l - (2 * num_g - 1) * np.log(num_cp) - num_cp * np.log(self._particle.num_photons)
+
+    def group_2_levels(self):
+        part_levels = self._particle.levels
+        abs_times = self._particle.abstimes
+        micro_times = self._particle.microtimes
+
+        start_ind = 0
+        group_levels = []
+        for i, part_level in enumerate(part_levels):
+            end_ind = part_level.level_inds[1]
+            group_int = self.group_ints[self.level_group_ind[i]]
+            if i < self._num_levels-1:
+                if self.level_group_ind[i] != self.level_group_ind[i+1]:
+                    group_levels.append(Level(abs_times=abs_times,
+                                              microtimes=micro_times,
+                                              level_inds=(start_ind, end_ind),
+                                              int_p_s=group_int))
+                    start_ind = part_levels[i+1].level_inds[0]
+            else:
+                group_levels.append(Level(abs_times=abs_times,
+                                          microtimes=micro_times,
+                                          level_inds=(start_ind, end_ind),
+                                          int_p_s=group_int))
+
+        self.group_levels = group_levels
+
+    @property
+    def group_level_dwelltimes(self):
+        return [level.dwell_time_s for level in self.group_levels]
+
+    @property
+    def group_num_levels(self):
+        return len(self.group_levels)
+
+    @property
+    def group_level_ints(self):
+        return np.array([level.int_p_s for level in self.group_levels])
 
     def setup_next_step(self) -> ClusteringStep:
         return ClusteringStep(self._particle, first=False, seed_groups=self.groups)
@@ -286,6 +333,7 @@ class AHCA:
         self.bics = None
         self.selected_step_ind = None
         self.num_steps = None
+
 
     @property
     def selected_step(self) -> ClusteringStep:
@@ -318,6 +366,8 @@ class AHCA:
 
         if self.particle.has_levels:
 
+            self.particle.bic_plot_data.clear_scatter_plot_item()
+
             steps = []
             c_step = ClusteringStep(self.particle, first=True)
             current_num_groups = self.particle.num_levels
@@ -325,6 +375,7 @@ class AHCA:
                 c_step.ahc()
                 c_step.emc()
                 c_step.calc_bic()
+                c_step.group_2_levels()
                 steps.append(c_step)
                 current_num_groups = c_step.num_groups
                 if current_num_groups != 1:
@@ -346,3 +397,4 @@ class AHCA:
 
     def reset_selected_step(self):
         self.selected_step_ind = self.best_step_ind
+

@@ -167,7 +167,7 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="4">
+          <item row="3" column="4">
            <widget class="Line" name="lineInt_Hist">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -180,39 +180,7 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="3" colspan="2">
-           <widget class="QCheckBox" name="chbInt_Show_Hist">
-            <property name="layoutDirection">
-             <enum>Qt::RightToLeft</enum>
-            </property>
-            <property name="text">
-             <string>Show Hist</string>
-            </property>
-            <property name="iconSize">
-             <size>
-              <width>16</width>
-              <height>16</height>
-             </size>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
-           <widget class="Line" name="lineInt_3">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="3">
+          <item row="3" column="3">
            <widget class="Line" name="lineInt_4">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -225,7 +193,20 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="3" column="2">
+           <widget class="Line" name="lineInt_3">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
            <widget class="Line" name="lineInt_1">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -238,7 +219,7 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="3" column="1">
            <widget class="Line" name="lineInt_2">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -297,6 +278,178 @@
              </item>
             </layout>
            </widget>
+          </item>
+          <item row="1" column="0" colspan="3">
+           <layout class="QHBoxLayout" name="layInt_Display">
+            <property name="spacing">
+             <number>20</number>
+            </property>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Disp_Resolved">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Resoved</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Disp_Photon_Bursts">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Removed Photon Bursts</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Disp_Grouped">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Grouped</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Disp_Using_Groups">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Using Groups</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>10</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="3" colspan="2">
+           <layout class="QHBoxLayout" name="layInt_Chbs">
+            <property name="spacing">
+             <number>20</number>
+            </property>
+            <item>
+             <spacer name="horizontalSpacer_2">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Show_Groups">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>10</pointsize>
+               </font>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::RightToLeft</enum>
+              </property>
+              <property name="text">
+               <string>Show Groups</string>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>16</width>
+                <height>16</height>
+               </size>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Show_Hist">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>10</pointsize>
+               </font>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::RightToLeft</enum>
+              </property>
+              <property name="text">
+               <string>Show Hist</string>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>16</width>
+                <height>16</height>
+               </size>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
          </layout>
         </item>
@@ -734,30 +887,23 @@
           <item>
            <layout class="QVBoxLayout" name="layGroups_BIC_Right">
             <property name="spacing">
-             <number>10</number>
+             <number>6</number>
             </property>
             <item>
-             <spacer name="spcGroups_BIC">
+             <spacer name="spcGroup_Buttons_Top">
               <property name="orientation">
                <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
                 <width>20</width>
-                <height>40</height>
+                <height>10</height>
                </size>
               </property>
              </spacer>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbUseGrouped">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>Use Grouped Levels</string>
-              </property>
-             </widget>
             </item>
             <item>
              <widget class="QPushButton" name="btnGroupCurrent">
@@ -855,6 +1001,152 @@
               </property>
              </widget>
             </item>
+            <item>
+             <spacer name="spcGroup_Buttons_Mid">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Fixed</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>10</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QLabel" name="lblGroup_2Levels">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>10</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>16</height>
+               </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>10</pointsize>
+                <underline>true</underline>
+               </font>
+              </property>
+              <property name="text">
+               <string>Groups -&gt; Levels</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnApplyGroupsCurrent">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>30</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Apply Current</string>
+              </property>
+              <property name="icon">
+               <iconset resource="../src/icons.qrc">
+                <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnApplyGroupsSelected">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>30</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Apply Selected</string>
+              </property>
+              <property name="icon">
+               <iconset resource="../src/icons.qrc">
+                <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnApplyGroupsAll">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>30</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Apply All</string>
+              </property>
+              <property name="icon">
+               <iconset resource="../src/icons.qrc">
+                <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+             </widget>
+            </item>
            </layout>
           </item>
          </layout>
@@ -899,8 +1191,8 @@
              <string/>
             </property>
             <property name="icon">
-             <iconset>
-              <normaloff>../../../Users/Joshua/.designer/backup/icons/002-arrowhead-thin-outline-to-the-left.png</normaloff>../../../Users/Joshua/.designer/backup/icons/002-arrowhead-thin-outline-to-the-left.png</iconset>
+             <iconset resource="../src/icons.qrc">
+              <normaloff>:/icons/icons/arrow-left.png</normaloff>:/icons/icons/arrow-left.png</iconset>
             </property>
             <property name="iconSize">
              <size>
@@ -944,8 +1236,8 @@
              <string/>
             </property>
             <property name="icon">
-             <iconset>
-              <normaloff>../../../Users/Joshua/.designer/backup/icons/003-arrow-point-to-right.png</normaloff>../../../Users/Joshua/.designer/backup/icons/003-arrow-point-to-right.png</iconset>
+             <iconset resource="../src/icons.qrc">
+              <normaloff>:/icons/icons/arrow-right.png</normaloff>:/icons/icons/arrow-right.png</iconset>
             </property>
             <property name="iconSize">
              <size>
@@ -1210,15 +1502,15 @@
         <item row="3" column="0">
          <widget class="QPushButton" name="btnWholeTrace">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="maximumSize">
            <size>
-            <width>137</width>
-            <height>27</height>
+            <width>150</width>
+            <height>25</height>
            </size>
           </property>
           <property name="text">
@@ -1683,7 +1975,7 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>2D Image</string>
+                  <string>2D Array</string>
                  </property>
                 </widget>
                </item>

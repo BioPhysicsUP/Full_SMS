@@ -20,6 +20,7 @@ from PyQt5.QtCore import pyqtSignal
 from change_point import ChangePoints
 from grouping import AHCA
 from generate_sums import CPSums
+from pyqtgraph import ScatterPlotItem, SpotItem
 
 # import inspect
 
@@ -117,6 +118,51 @@ class H5dataset:
         new_h5file.close()
 
 
+class BICPlotData:
+
+    def __init__(self):
+        self._scatter_plot_item = None
+        self._selected_spot = None
+
+    @property
+    def has_plot(self) -> bool:
+        if self._scatter_plot_item:
+            return True
+        else:
+            return False
+
+    @property
+    def has_selected_spot(self) -> bool:
+        if self._selected_spot:
+            return True
+        else:
+            return False
+
+    @property
+    def scatter_plot_item(self):
+        if self.has_plot:
+            return self._scatter_plot_item
+
+    @scatter_plot_item.setter
+    def scatter_plot_item(self, scatter_plot_item: ScatterPlotItem):
+        assert type(scatter_plot_item) == ScatterPlotItem, "scatter_plot_item not correct type."
+        self._scatter_plot_item = scatter_plot_item
+
+    @property
+    def selected_spot(self):
+        if self.has_plot:
+            return self._selected_spot
+
+    @selected_spot.setter
+    def selected_spot(self, selected_spot: SpotItem):
+        assert type(selected_spot) == SpotItem, "selected_spot is not correct type."
+        self._selected_spot = selected_spot
+
+    def clear_scatter_plot_item(self):
+        self._scatter_plot_item = None
+        self._selected_spot = None
+
+
 class Particle:
     """
     Class for particle in H5dataset.
@@ -182,6 +228,8 @@ class Particle:
         self.numexp = None
 
         self.startpoint = None
+        self.bic_plot_data = BICPlotData()
+        self.using_group_levels = False
 
     # def get_levels(self):
     #     assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
@@ -245,11 +293,17 @@ class Particle:
 
     @property
     def levels(self):
-        return self.cpts.levels
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_levels
+        else:
+            return self.cpts.levels
 
     @property
     def num_levels(self):
-        return self.cpts.num_levels
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_num_levels
+        else:
+            return self.cpts.num_levels
 
     @property
     def dwell_time(self):
@@ -257,11 +311,17 @@ class Particle:
 
     @property
     def level_ints(self):
-        return self.cpts.level_ints
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_level_ints
+        else:
+            return self.cpts.level_ints
 
     @property
     def level_dwelltimes(self):
-        return self.cpts.level_dwelltimes
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_level_dwelltimes
+        else:
+            return self.cpts.level_dwelltimes
 
     @property
     def has_burst(self) -> bool:

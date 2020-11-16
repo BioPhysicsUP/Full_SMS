@@ -232,7 +232,7 @@ class Level:
     """ Defines the start, end and intensity of a single level. """
 
     def __init__(self, abs_times: Dataset, microtimes: Dataset,
-                 level_inds: Tuple[int, int]):
+                 level_inds: Tuple[int, int], int_p_s:float = None):
                 # conf_regions: Any[List[Tuple[int, int], Tuple[int, int]], Tuple[int, int]]
         """
         Initiate Level
@@ -254,7 +254,10 @@ class Level:
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
         self.times_ns = (abs_times[self.level_inds[0]], abs_times[self.level_inds[1]])
         self.dwell_time_ns = self.times_ns[1] - self.times_ns[0]
-        self.int_p_s = self.num_photons / self.dwell_time_s
+        if int_p_s:
+            self.int_p_s = int_p_s
+        else:
+            self.int_p_s = self.num_photons / self.dwell_time_s
         self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
 
         # TODO: Incorporate error margins
@@ -323,7 +326,7 @@ class TauData:
             assert os.path.isfile(
                 full_path), 'TauData:\tTau data file ' + file_name + ' does not exist. Look in' + full_path + '.'
             data = np.loadtxt(full_path, usecols=1)
-            if tau_type[-1] is 'a':
+            if tau_type[-1] == 'a':
                 self._a = data
             else:
                 self._b = data
