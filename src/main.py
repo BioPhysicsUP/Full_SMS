@@ -997,6 +997,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.setWindowTitle("Full SMS")
 
+        pg.setConfigOption('antialias', True)
+        # pg.setConfigOption('leftButtonPan', False)
+
         self.chbInt_Disp_Resolved.hide()
         self.chbInt_Disp_Photon_Bursts.hide()
         self.chbInt_Disp_Grouped.hide()
@@ -2884,9 +2887,19 @@ class GroupingController(QObject):
             self.mainwindow.display_data()
         dbg.p('Grouping levels complete', 'Grouping Thread')
 
-    def apply_groups(self, mode:str = 'current'):
+    def apply_groups(self, mode: str = 'current'):
         if mode == 'current':
-            self.mainwindow.currentparticle.using_group_levels = True
+            particles = [self.mainwindow.currentparticle]
+        elif mode == 'selected':
+            particles = self.mainwindow.get_checked_particles()
+        else:
+            particles = self.mainwindow.tree2dataset().particles
+
+        bool_use = not all([part.using_group_levels for part in particles])
+        for particle in particles:
+            particle.using_group_levels = bool_use
+
+        self.mainwindow.int_controller.plot_all()
 
 
 class SpectraController(QObject):
@@ -2924,6 +2937,7 @@ class SpectraController(QObject):
         print("gui_sub_bkg")
 
     def plot_spectra(self):
+        # curr_part = self.mainwindow.currentparticle
         pass
 
 
