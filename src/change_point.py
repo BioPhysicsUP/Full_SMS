@@ -18,7 +18,7 @@ from statsmodels.stats.weightstats import DescrStatsW
 from h5py import Dataset
 
 import dbg
-import resource_manager as rm
+import file_manager as fm
 
 MIN_PHOTONS = 10
 BURST_MIN_DWELL = 0.1  # Seconds
@@ -298,38 +298,43 @@ class TauData:
         :param confidence: Confidence of tau_a and tau_b to retrieve. Valid values are 0.99, 0.95, 0.90 and 0.69.
         :type confidence: float
         """
-        tau_data_path = rm.path('tau_data')  # os.getcwd() + os.path.sep + 'tau data'
-        assert os.path.isdir(tau_data_path), "TauData:\tTau data directory not found."
-        tau_data_files = {'99_a': 'Ta-99.txt',
-                          '99_b': 'Tb-99.txt',
-                          '95_a': 'Ta-95.txt',
-                          '95_b': 'Tb-95.txt',
-                          '90_a': 'Ta-90.txt',
-                          '90_b': 'Tb-90.txt',
-                          '69_a': 'Ta-69.txt',
-                          '69_b': 'Tb-69.txt'}
+        try:
+            tau_data_path = fm.folder_path(folder_name='tau_data', resource_type=fm.Type.Data)
+            assert os.path.isdir(tau_data_path), "TauData:\tTau data directory not found."
+            tau_data_files = {'99_a': 'Ta-99.txt',
+                              '99_b': 'Tb-99.txt',
+                              '95_a': 'Ta-95.txt',
+                              '95_b': 'Tb-95.txt',
+                              '90_a': 'Ta-90.txt',
+                              '90_b': 'Tb-90.txt',
+                              '69_a': 'Ta-69.txt',
+                              '69_b': 'Tb-69.txt'}
 
-        assert confidence in [0.99, 0.95, 0.90,
-                              0.69], "TauData:\tInvalid confidence provided. Can not provide confidence key."
-        if confidence == 0.99:
-            conf_keys = ['99_a', '99_b']
-        elif confidence == 0.95:
-            conf_keys = ['95_a', '95_b']
-        elif confidence == 0.90:
-            conf_keys = ['90_a', '90_b']
-        else:
-            conf_keys = ['69_a', '69_b']
-
-        for tau_type in conf_keys:
-            file_name = tau_data_files[tau_type]
-            full_path = tau_data_path + os.path.sep + file_name
-            assert os.path.isfile(
-                full_path), 'TauData:\tTau data file ' + file_name + ' does not exist. Look in' + full_path + '.'
-            data = np.loadtxt(full_path, usecols=1)
-            if tau_type[-1] == 'a':
-                self._a = data
+            assert confidence in [0.99, 0.95, 0.90, 0.69],\
+                "TauData:\tInvalid confidence provided. Can not provide confidence key."
+            if confidence == 0.99:
+                conf_keys = ['99_a', '99_b']
+            elif confidence == 0.95:
+                conf_keys = ['95_a', '95_b']
+            elif confidence == 0.90:
+                conf_keys = ['90_a', '90_b']
             else:
-                self._b = data
+                conf_keys = ['69_a', '69_b']
+
+            for tau_type in conf_keys:
+                file_name = tau_data_files[tau_type]
+                full_path = tau_data_path + os.path.sep + file_name
+                assert os.path.isfile(full_path),\
+                    'TauData:\tTau data file ' + file_name + ' does not exist. Look in' +\
+                    full_path + '.'
+
+                data = np.loadtxt(full_path, usecols=1)
+                if tau_type[-1] == 'a':
+                    self._a = data
+                else:
+                    self._b = data
+        except Exception as err:
+            logger.error(err)
 
     def get_tau_a(self, num_data_points=None):
         """

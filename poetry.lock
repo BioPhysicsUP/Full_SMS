@@ -1,4 +1,12 @@
 [[package]]
+name = "cachetools"
+version = "4.1.1"
+description = "Extensible memoizing collections and decorators"
+category = "main"
+optional = false
+python-versions = "~=3.5"
+
+[[package]]
 name = "cycler"
 version = "0.10.0"
 description = "Composable style cycles"
@@ -8,6 +16,18 @@ python-versions = "*"
 
 [package.dependencies]
 six = "*"
+
+[[package]]
+name = "h5pickle"
+version = "0.4.2"
+description = "Wrap h5py objects to allow pickling"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+cachetools = "*"
+h5py = "*"
 
 [[package]]
 name = "h5py"
@@ -202,12 +222,20 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "e92c21e037d02036c10e37c9b2f168e9087ebce7488d08d7278177bcd0765109"
+content-hash = "0c78a424dc76e149bc143aeb3ce5f92c1ab9bec82dc86152e222d01e05d01ed4"
 
 [metadata.files]
+cachetools = [
+    {file = "cachetools-4.1.1-py3-none-any.whl", hash = "sha256:513d4ff98dd27f85743a8dc0e92f55ddb1b49e060c2d5961512855cda2c01a98"},
+    {file = "cachetools-4.1.1.tar.gz", hash = "sha256:bbaa39c3dede00175df2dc2b03d0cf18dd2d32a7de7beb68072d13043c9edb20"},
+]
 cycler = [
     {file = "cycler-0.10.0-py2.py3-none-any.whl", hash = "sha256:1d8a5ae1ff6c5cf9b93e8811e581232ad8920aeec647c37316ceac982b08cb2d"},
     {file = "cycler-0.10.0.tar.gz", hash = "sha256:cd7b2d1018258d7247a71425e9f26463dfb444d411c39569972f4ce586b0c9d8"},
+]
+h5pickle = [
+    {file = "h5pickle-0.4.2-py3-none-any.whl", hash = "sha256:d659d5583086f5c0f2f610cf422d542b0440f7b6dcbe2a5ea5528fdb83266fe6"},
+    {file = "h5pickle-0.4.2.tar.gz", hash = "sha256:cfad571010e8018aaa5f7909a58fef2afe61e685bba8b3bca63fdcde494507b3"},
 ]
 h5py = [
     {file = "h5py-3.1.0-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:1cd367f89a5441236bdbb795e9fb9a9e3424929c00b4a54254ca760437f83d69"},

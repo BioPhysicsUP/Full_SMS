@@ -10,20 +10,21 @@ __docformat__ = 'NumPy'
 import csv
 import os
 import sys
-import traceback
+from enum import IntEnum, auto
 from platform import system
+from typing import Union, List
+import copy
+import time
 
 import numpy as np
+import pyqtgraph as pg
 import scipy
-# noinspection PyPackageRequirements
 from PyQt5.QtCore import QObject, pyqtSignal, QAbstractItemModel, QModelIndex, \
     Qt, QThreadPool, QRunnable, pyqtSlot
 from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QLineEdit, QComboBox, QDialog, QCheckBox, QStyleFactory, QWidget, QFrame
 from PyQt5 import uic
-import pyqtgraph as pg
-from typing import Union
 
 try:
     import pkg_resources.py2_warn
@@ -31,23 +32,39 @@ except ImportError:
     pass
 
 import tcspcfit
-import dbg
 import smsh5
 from generate_sums import CPSums
-from smsh5 import start_at_value
 from custom_dialogs import TimedMessageBox
 from smsh5 import H5dataset, Particle
-import resource_manager as rm
+import file_manager as fm
+from my_logger import setup_logger
+import processes as prcs
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
 sys.setrecursionlimit(1000 * 10)
 
-main_window_file = rm.path("mainwindow.ui", rm.RMType.UI)
+main_window_file = fm.path(name="mainwindow.ui", file_type=fm.Type.UI)
 UI_Main_Window, _ = uic.loadUiType(main_window_file)
 
-fitting_dialog_file = rm.path("fitting_dialog.ui", rm.RMType.UI)
+fitting_dialog_file = fm.path(name="fitting_dialog.ui", file_type=fm.Type.UI)
 UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
+
+logger = setup_logger(__name__, is_main=True)
+
+
+class ProgressCmd(IntEnum):
+    SetMax = auto()
+    AddMax = auto()
+    Single = auto()
+    Step = auto()
+    SetValue = auto()
+    Complete = auto()
+
+
+class StatusCmd(IntEnum):
+    ShowMessage = auto()
+    Reset = auto()
 
 
 class WorkerSignals(QObject):
@@ -58,7 +75,7 @@ class WorkerSignals(QObject):
     fitting_finished = pyqtSignal(str)
     grouping_finished = pyqtSignal(str)
     openfile_finished = pyqtSignal(bool)
-    error = pyqtSignal(tuple)
+    error = pyqtSignal(Exception)
     result = pyqtSignal(object)
 
     progress = pyqtSignal()
@@ -79,6 +96,187 @@ class WorkerSignals(QObject):
     reset_gui = pyqtSignal()
     set_start = pyqtSignal(float)
     set_tmin = pyqtSignal(float)
+
+
+class ProcessThreadSignals(QObject):
+    """
+    Defines the signals available from the running worker thread
+    """
+
+    finished = pyqtSignal(object)
+    result = pyqtSignal(object)
+    progress = pyqtSignal(int, int)
+    status_update = pyqtSignal(int, str)
+    error = pyqtSignal(tuple)
+    test = pyqtSignal(str)
+
+
+class ProcessThread(QRunnable):
+    """
+    Worker thread
+    """
+
+    def __init__(self, num_processes: int = None,
+                 tasks: Union[prcs.ProcessTask, List[prcs.ProcessTask]] = None,
+                 signals: WorkerSignals = None,
+                 task_buffer_size: int = None):
+        super().__init__()
+        self._processes = []
+        self.task_queue = prcs.create_queue()
+        self.result_queue = prcs.create_queue()
+        self.process_queue = prcs.create_queue()
+        self.force_stop = False
+        self.is_running = False
+
+        if num_processes:
+            # assert type(num_processes) is int, 'Provided num_processes is ' \
+            #                                    'not int'
+            if type(num_processes) is not int:
+                raise TypeError("Provided num_processes must be of type int")
+            self.num_processes = num_processes
+        else:
+            self.num_processes = prcs.get_max_num_processes()
+
+        if not task_buffer_size:
+            task_buffer_size = self.num_processes
+        self.task_buffer_size = task_buffer_size
+
+        if not signals:
+            self.signals = ProcessThreadSignals()
+        else:
+            # assert type(signals) is ThreadSignals, 'Provided signals wrong ' \
+            #                                        'type'
+            if type(signals) is not WorkerSignals:
+                raise TypeError("Provided signals must be of type "
+                                "ThreadSignals")
+            self.signals = signals
+
+        self.tasks = []
+        if tasks:
+            self.add_task(tasks)
+        self.results = []
+
+    def add_tasks(self, tasks: Union[prcs.ProcessTask,
+                                     List[prcs.ProcessTask]]):
+        if type(tasks) is not List:
+            tasks = [tasks]
+        all_valid = all([type(task) is prcs.ProcessTask for task in tasks])
+        # assert all_valid, "At least some provided tasks are not correct type"
+        if not all_valid:
+            raise TypeError("At least some of provided tasks are not of "
+                            "type ProcessTask")
+        self.tasks.extend(tasks)
+
+    def add_tasks_from_methods(self, objects: Union[object, List[object]],
+                               method_name: str):
+        if type(objects) is not list:
+            objects = [objects]
+        # assert type(method_name) is str, 'Method_name is not str'
+        if type(method_name) is not str:
+            raise TypeError("Provided method_name must be of type str")
+
+        all_valid = all([hasattr(obj, method_name) for obj in objects])
+        # assert all_valid, 'Some or all objects do not have specified method'
+        if not all_valid:
+            raise TypeError("Some or all objects do not have " "the specified method")
+
+        for obj in objects:
+            self.tasks.append(prcs.ProcessTask(obj=obj,
+                                               method_name=method_name))
+
+    @pyqtSlot()
+    def run(self, num_processes: int = None):
+        """
+        Your code goes in this function
+        """
+
+        self.is_running = True
+        num_active_processes = 0
+        try:
+            self.results = [None]*len(self.tasks)
+            self.signals.status_update.emit(StatusCmd.ShowMessage,
+                                            'Busy with generic worker')
+            prog_tracker = prcs.ProgressTracker(len(self.tasks))
+            self.signals.progress.emit(ProgressCmd.SetMax, 100)
+            num_init_tasks = len(self.tasks)
+            task_uuids = [task.uuid for task in self.tasks]
+            # assert num_init_tasks, 'No tasks were provided'
+            if not num_init_tasks: raise TypeError("No tasks were provided")
+
+            num_used_processes = self.num_processes
+            if num_init_tasks < self.num_processes:
+                num_used_processes = num_init_tasks
+            num_active_processes = 0
+            for _ in range(num_used_processes):
+                process = prcs.SingleProcess(task_queue=self.task_queue,
+                                             result_queue=self.result_queue)
+                self._processes.append(process)
+                process.start()
+                num_active_processes += 1
+
+            num_task_left = len(self.tasks)
+            tasks_todo = copy.copy(self.tasks)
+
+            init_num = num_used_processes + self.task_buffer_size
+            rest = len(tasks_todo) - init_num
+            if rest < 0:
+                init_num += rest
+
+            for _ in range(init_num):
+                self.task_queue.put(tasks_todo.pop(0))
+
+            while num_task_left and not self.force_stop:
+                try:
+                    result = self.result_queue.get(timeout=1)
+                except prcs.get_empty_queue_exception():
+                    pass
+                else:
+                    if len(tasks_todo):
+                        self.task_queue.put(tasks_todo.pop(0))
+
+                    if type(result) is not prcs.ProcessTaskResult:
+                        raise TypeError("Task result is not of type "
+                                        "ProcessTaskResult")
+
+                    ind = task_uuids.index(result.task_uuid)
+                    # self.tasks[ind].obj = result.new_task_obj
+                    self.results[ind] = result
+                    self.result_queue.task_done()
+                    num_task_left -= 1
+                    prog_value = prog_tracker.iterate()
+                    if prog_value:
+                        self.signals.progress.emit(ProgressCmd.Step,
+                                                   prog_value)
+
+        except Exception as exception:
+            self.signals.error.emit(exception)
+        # else:
+        #     self.signals.result.emit(self.tasks)
+        finally:
+            if self.force_stop:
+                while not self.task_queue.empty():
+                    self.task_queue.get()
+                    self.task_queue.task_done()
+                while not self.result_queue.empty():
+                    self.result_queue.get()
+                    self.result_queue.task_done()
+            if len(self._processes):
+                for _ in range(num_used_processes):
+                    self.task_queue.put(None)
+                for _ in range(num_used_processes):
+                    if self.result_queue.get() is True:
+                        self.result_queue.task_done()
+                        num_active_processes -= 1
+                self.task_queue.close()
+                self.result_queue.close()
+                while any([p.is_alive() for p in self._processes]):
+                    time.sleep(1)
+
+            self.signals.result.emit(self.results)
+            self.signals.finished.emit(self)
+            self.signals.status_update.emit(StatusCmd.Reset, '')
+            self.signals.progress.emit(ProgressCmd.Complete, 0)
+            self.is_running = False
 
 
 class WorkerOpenFile(QRunnable):
@@ -117,11 +315,9 @@ class WorkerOpenFile(QRunnable):
 
         try:
             self.openfile_func(self.fname, self.tmin)
-        except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
-        finally:
+        except Exception as err:
+            self.signals.error.emit(err)
+        else:
             self.signals.openfile_finished.emit(self.irf)
 
     def open_h5(self, fname, tmin=None) -> None:
@@ -203,8 +399,9 @@ class WorkerOpenFile(QRunnable):
 
             status_sig.emit("Done")
             data_loaded_sig.emit()
-        except Exception as exc:
-            raise RuntimeError("h5 data file was not loaded successfully.") from exc
+        except Exception as err:
+            logger.error(err, exc_info=True)
+            raise err
 
     def open_irf(self, fname, tmin) -> None:
         """
@@ -237,8 +434,8 @@ class WorkerOpenFile(QRunnable):
 
             start_progress_sig.emit(dataset.numpart)
             status_sig.emit("Done")
-        except Exception as exc:
-            raise RuntimeError("h5 data file was not loaded successfully.") from exc
+        except Exception as err:
+            self.signals.error.emit(err)
 
     def load_data(self, fname):
 
@@ -250,7 +447,7 @@ class WorkerOpenFile(QRunnable):
         status_sig = self.signals.status_message
 
         status_sig.emit("Opening file...")
-        dataset = smsh5.H5dataset(fname[0], progress_sig, auto_prog_sig)
+        dataset = smsh5.H5dataset(fname[0])  # , progress_sig, auto_prog_sig)
         bin_all(dataset, 100, start_progress_sig, progress_sig, status_sig, bin_size_sig)
         start_progress_sig.emit(dataset.numpart)
         status_sig.emit("Opening file: Building decay histograms...")
@@ -291,10 +488,8 @@ class WorkerBinAll(QRunnable):
             self.binall_func(self.dataset, self.bin_size, self.signals.start_progress,
                              self.signals.progress, self.signals.status_message,
                              self.signals.bin_size)
-        except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        except Exception as err:
+            self.signals.error.emit(err)
         finally:
             # self.signals.resolve_finished.emit(False)  ?????
             pass
@@ -319,7 +514,7 @@ def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin
     #     part = ""
     # status_sig.emit(part + "Binning traces...")
     status_sig.emit("Binning traces...")
-    dataset.bin_all_ints(bin_size, progress_sig)
+    dataset.bin_all_ints(bin_size)
     bin_size_sig.emit(bin_size)
     status_sig.emit("Done")
 
@@ -327,7 +522,8 @@ def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin
 class WorkerResolveLevels(QRunnable):
     """ A QRunnable class to create a worker thread for resolving levels. """
 
-    def __init__(self, resolve_levels_func, conf: Union[int, float], data: H5dataset, currentparticle: Particle,
+    def __init__(self, resolve_levels_func, conf: Union[int, float], data: H5dataset,
+                 currentparticle: Particle,
                  mode: str,
                  resolve_selected=None,
                  end_time_s=None) -> None:
@@ -365,19 +561,19 @@ class WorkerResolveLevels(QRunnable):
 
         try:
             self.resolve_levels_func(self.signals.start_progress, self.signals.progress,
-                                     self.signals.status_message, self.signals.reset_gui, self.signals.level_resolved,
+                                     self.signals.status_message, self.signals.reset_gui,
+                                     self.signals.level_resolved,
                                      self.conf, self.data, self.currentparticle,
                                      self.mode, self.resolve_selected, self.end_time_s)
-        except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        except Exception as err:
+            self.signals.error.emit(err)
         finally:
             self.signals.resolve_finished.emit(self.mode)
 
 
 def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal, level_resolved_sig: pyqtSignal,
+                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal,
+                   level_resolved_sig: pyqtSignal,
                    conf: Union[int, float], data: H5dataset, currentparticle: Particle, mode: str,
                    resolve_selected=None,
                    end_time_s=None) -> None:
@@ -428,7 +624,7 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
             status_sig.emit(status_text)
             start_progress_sig.emit(len(parts))
             for num, part in enumerate(parts):
-                dbg.p(f'Busy Resolving Particle {num + 1}')
+                logger.info(f'Busy Resolving Particle {num + 1}')
                 part.cpts.run_cpa(confidence=conf, run_levels=True, end_time_s=end_time_s)
                 progress_sig.emit()
             status_sig.emit('Done')
@@ -443,7 +639,8 @@ def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 class WorkerFitLifetimes(QRunnable):
     """ A QRunnable class to create a worker thread for fitting lifetimes. """
 
-    def __init__(self, fit_lifetimes_func, data, currentparticle, fitparam, mode: str, resolve_selected=None) -> None:
+    def __init__(self, fit_lifetimes_func, data, currentparticle, fitparam, mode: str,
+                 resolve_selected=None) -> None:
         """
         Initiate Resolve Levels Worker
 
@@ -479,10 +676,8 @@ class WorkerFitLifetimes(QRunnable):
                                     self.signals.status_message, self.signals.reset_gui,
                                     self.data, self.currentparticle, self.fitparam,
                                     self.mode, self.resolve_selected)
-        except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        except Exception as err:
+            self.signals.error.emit(err)
         finally:
             self.signals.fitting_finished.emit(self.mode)
 
@@ -638,7 +833,7 @@ def group_levels(start_progress_sig: pyqtSignal,
         status_sig.emit(status_text)
         start_progress_sig.emit(len(parts))
         for num, part in enumerate(parts):
-            dbg.p(f'Busy Grouping Particle {num + 1}')
+            logger.info(f'Busy Grouping Particle {num + 1}')
             part.ahca.run_grouping()
             progress_sig.emit()
         status_sig.emit('Done')
@@ -697,10 +892,8 @@ class WorkerGrouping(QRunnable):
                                mode=self.mode,
                                currentparticle=self.currentparticle,
                                group_selected=self.group_selected)
-        except:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
+        except Exception as err:
+            self.signals.error.emit(err)
         finally:
             self.signals.grouping_finished.emit(self.mode)
             pass
@@ -972,7 +1165,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """
 
         self.threadpool = QThreadPool()
-        dbg.p("Multi-threading with maximum %d threads" % self.threadpool.maxThreadCount(), "MainWindow")
+        logger.info(f"Multi-threading with maximum {self.threadpool.maxThreadCount()} threads")
 
         self.confidence_index = {
             0: 99,
@@ -981,17 +1174,17 @@ class MainWindow(QMainWindow, UI_Main_Window):
             3: 69}
 
         if system() == "Windows":
-            dbg.p("System -> Windows", "MainWindow")
+            logger.info("System -> Windows")
         elif system() == "Darwin":
-            dbg.p("System -> Unix/Linus", "MainWindow")
+            logger.info("System -> Unix/Linus")
         else:
-            dbg.p("System -> Other", "MainWindow")
+            logger.info("System -> Other")
 
         QMainWindow.__init__(self)
         UI_Main_Window.__init__(self)
         self.setupUi(self)
 
-        self.setWindowIcon(QIcon(rm.path('Full-SMS.ico', rm.RMType.Icons)))
+        self.setWindowIcon(QIcon(fm.path('Full-SMS.ico', fm.Type.Icons)))
 
         self.tabWidget.setCurrentIndex(0)
 
@@ -1013,9 +1206,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                             lifetime_widget=self.pgLifetime_Int_PlotWidget,
                                             groups_int_widget=self.pgGroups_Int_PlotWidget,
                                             groups_hist_widget=self.pgGroups_Hist_PlotWidget)
-        self.lifetime_controller = LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget)
+        self.lifetime_controller = LifetimeController(self,
+                                                      lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget)
         self.spectra_controller = SpectraController(self, spectra_widget=self.pgSpectra_ImageView)
-        self.grouping_controller = GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
+        self.grouping_controller = GroupingController(self,
+                                                      bic_plot_widget=self.pgGroups_BIC_PlotWidget)
 
         # Connect all GUI buttons with outside class functions
         self.btnApplyBin.clicked.connect(self.int_controller.gui_apply_bin)
@@ -1026,7 +1221,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbInt_Show_Hist.stateChanged.connect(self.int_controller.hide_unhide_hist)
         self.chbInt_Show_Groups.stateChanged.connect(self.int_controller.plot_all)
         self.actionTime_Resolve_Current.triggered.connect(self.int_controller.time_resolve_current)
-        self.actionTime_Resolve_Selected.triggered.connect(self.int_controller.time_resolve_selected)
+        self.actionTime_Resolve_Selected.triggered.connect(
+            self.int_controller.time_resolve_selected)
         self.actionTime_Resolve_All.triggered.connect(self.int_controller.time_resolve_all)
 
         self.btnPrevLevel.clicked.connect(self.lifetime_controller.gui_prev_lev)
@@ -1041,8 +1237,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnGroupCurrent.clicked.connect(self.grouping_controller.gui_group_current)
         self.btnGroupSelected.clicked.connect(self.grouping_controller.gui_group_selected)
         self.btnGroupAll.clicked.connect(self.grouping_controller.gui_group_all)
-        self.btnApplyGroupsCurrent.clicked.connect(self.grouping_controller.gui_apply_groups_current)
-        self.btnApplyGroupsSelected.clicked.connect(self.grouping_controller.gui_apply_groups_selected)
+        self.btnApplyGroupsCurrent.clicked.connect(
+            self.grouping_controller.gui_apply_groups_current)
+        self.btnApplyGroupsSelected.clicked.connect(
+            self.grouping_controller.gui_apply_groups_selected)
         self.btnApplyGroupsAll.clicked.connect(self.grouping_controller.gui_apply_groups_all)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
@@ -1154,6 +1352,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             of_worker.signals.bin_size.connect(self.spbBinSize.setValue)
             of_worker.signals.set_start.connect(self.set_startpoint)
             of_worker.signals.set_tmin.connect(self.lifetime_controller.set_tmin)
+            of_worker.signals.error.connect(self.open_file_error)
 
             self.threadpool.start(of_worker)
 
@@ -1177,7 +1376,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             return
 
         fname, _ = QFileDialog.getSaveFileName(self, 'New or Existing HDF5 file', '',
-                                               'HDF5 files (*.h5)', options=QFileDialog.DontConfirmOverwrite)
+                                               'HDF5 files (*.h5)',
+                                               options=QFileDialog.DontConfirmOverwrite)
         if os.path.exists(fname[0]):
             msg = QMessageBox(self)
             msg.setIcon(QMessageBox.Question)
@@ -1228,7 +1428,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if self.lifetime_controller.startpoint is None:
             self.lifetime_controller.startpoint = start
         self.display_data()
-        dbg.p('Set startpoint', 'MainWindow')
+        logger.info('Set startpoint')
 
     """#######################################
     ############ Internal Methods ############
@@ -1325,6 +1525,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.spectra_controller.plot_spectra()
 
             # Set Enables
+            set_apply_groups = False
             if self.currentparticle.has_levels:
                 self.int_controller.plot_levels()
                 set_group = True
@@ -1341,7 +1542,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.btnApplyGroupsSelected.setEnabled(set_apply_groups)
             self.btnApplyGroupsAll.setEnabled(set_apply_groups)
 
-            dbg.p('Current data displayed', 'MainWindow')
+            logger.info('Current data displayed')
 
     def status_message(self, message: str) -> None:
         """
@@ -1444,7 +1645,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             msgbx = TimedMessageBox(30, parent=self)
             msgbx.setIcon(QMessageBox.Question)
             msgbx.setText("Would you like to resolve levels now?")
-            msgbx.set_timeout_text(message_pretime="(Resolving levels in ", message_posttime=" seconds)")
+            msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
+                                   message_posttime=" seconds)")
             msgbx.setWindowTitle("Resolve Levels?")
             msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
             msgbx.setDefaultButton(QMessageBox.Yes)
@@ -1455,7 +1657,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     index = 0
                 else:
                     item, ok = QInputDialog.getItem(self, "Choose Confidence",
-                                                    "Select confidence interval to use.", confidences, 0, False)
+                                                    "Select confidence interval to use.",
+                                                    confidences, 0, False)
                     if ok:
                         index = list(self.confidence_index.values()).index(int(float(item) * 100))
                 self.cmbConfIndex.setCurrentIndex(index)
@@ -1463,7 +1666,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.reset_gui()
         self.gbxExport_Int.setEnabled(True)
         self.chbEx_Trace.setEnabled(True)
-        dbg.p('File opened', 'MainWindow')
+        logger.info('File opened')
+
+    @pyqtSlot(Exception)
+    def open_file_error(self, err: Exception):
+        # logger.error(err)
+        pass
 
     def start_binall_thread(self, bin_size) -> None:
         """
@@ -1487,7 +1695,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.status_message('Done')
         self.plot_trace()
-        dbg.p('Binnig all levels complete', 'MainWindow')
+        logger.info('Binnig all levels complete')
 
     def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
         """
@@ -1514,7 +1722,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             selected = self.get_checked_particles()
 
         resolve_thread = WorkerResolveLevels(resolve_levels,
-                                             conf=self.confidence_index[self.cmbConfIndex.currentIndex()],
+                                             conf=self.confidence_index[
+                                                 self.cmbConfIndex.currentIndex()],
                                              data=self.tree2dataset(),
                                              currentparticle=self.currentparticle,
                                              mode=mode,
@@ -1527,7 +1736,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.threadpool.start(resolve_thread)
 
-    # @dbg.profile
     # TODO: remove this method as it has been replaced by function
     def resolve_levels(self, start_progress_sig: pyqtSignal,
                        progress_sig: pyqtSignal, status_sig: pyqtSignal,
@@ -1611,7 +1819,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.tabGrouping.setEnabled(True)
         if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.display_data()
-        dbg.p('Resolving levels complete', 'MainWindow')
+        logger.info('Resolving levels complete')
         self.check_remove_bursts(mode=mode)
         self.set_startpoint()
         self.chbEx_Levels.setEnabled(True)
@@ -1632,7 +1840,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             msgbx = TimedMessageBox(30, parent=self)
             msgbx.setIcon(QMessageBox.Question)
             msgbx.setText("Would you like to remove the photon bursts?")
-            msgbx.set_timeout_text(message_pretime="(Removing photon bursts in ", message_posttime=" seconds)")
+            msgbx.set_timeout_text(message_pretime="(Removing photon bursts in ",
+                                   message_posttime=" seconds)")
             msgbx.setWindowTitle("Photon bursts detected")
             msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
             msgbx.setDefaultButton(QMessageBox.Yes)
@@ -1663,13 +1872,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if all_selected is None:
                 all_selected = 'all'
 
-            assert all_selected.lower() in ['all', 'selected'], "mode parameter must be either 'all' or 'selected'."
+            assert all_selected.lower() in ['all',
+                                            'selected'], "mode parameter must be either 'all' or 'selected'."
 
             if all_selected == 'all':
                 data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
                 # assert data.
         except Exception as exc:
-            dbg.p('Switching frequency analysis failed: ' + exc, "MainWidnow")
+            logger.info('Switching frequency analysis failed: ')
         else:
             pass
 
@@ -1759,8 +1969,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'])
                         for i, l in enumerate(p.levels):
-                            rows.append([str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
-                                         str(l.int_p_s), str(l.num_photons)])
+                            rows.append(
+                                [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
+                                 str(l.int_p_s), str(l.num_photons)])
                         with open(lvl_path, 'w') as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
@@ -1793,11 +2004,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                 else:
                                     tauexp = [str(tau) for tau in l.histogram.tau]
                                     ampexp = [str(amp) for amp in l.histogram.amp]
-                                other_exp = [str(l.histogram.avtau), str(l.histogram.shift), str(l.histogram.bg),
+                                other_exp = [str(l.histogram.avtau), str(l.histogram.shift),
+                                             str(l.histogram.bg),
                                              str(l.histogram.irfbg)]
 
-                            rows.append([str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
-                                         str(l.int_p_s), str(l.num_photons)] + tauexp + ampexp + other_exp)
+                            rows.append(
+                                [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
+                                 str(l.int_p_s), str(l.num_photons)] + tauexp + ampexp + other_exp)
 
                         with open(lvl_path, 'w') as f:
                             writer = csv.writer(f, dialect=csv.excel)
@@ -1840,12 +2053,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                 writer = csv.writer(f, dialect=csv.excel)
                                 writer.writerows(rows)
 
-                    dbg.p('Exporting Finished', 'MainWindow')
+                    logger.info('Exporting Finished')
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
 
-        dbg.p('Reset GUI', 'MainWindow')
+        logger.info('Reset GUI')
         if self.data_loaded:
             new_state = True
         else:
@@ -2037,28 +2250,16 @@ class IntController(QObject):
             self.int_hist_container.hide()
             self.int_hist_line.hide()
 
-
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
-
-        # self.pgSpectra.centralWidget
-        #
-        # self.pgIntensity.getPlotItem().setFixedWidth(500)
-        # self.pgSpectra.resize(100, 200)
-        # self.pgIntensity.getPlotItem().getAxis('left').setRange(0, 100)
-        # window_color = self.palette().color(QPalette.Window)
-        # rgba_color = (window_color.red()/255, window_color.green()/255, window_color.blue()/255, 1)
-        # self.pgIntensity.setBackground(background=rgba_color)
-        # self.pgIntensity.setXRange(0, 10, 0)
-        # self.pgIntensity.getPlotItem().plot(y=[1, 2, 3, 4, 5])
         try:
             self.mainwindow.currentparticle.binints(self.get_bin())
         except Exception as err:
-            dbg.p('Error Occured:' + str(err), "IntController")
+            logger.error('Error Occured:')
         else:
             self.mainwindow.display_data()
             self.mainwindow.repaint()
-            dbg.p('Single trace binned', 'IntController')
+            logger.info('Single trace binned')
 
     def get_bin(self) -> int:
         """ Returns current GUI value for bin size in ms.
@@ -2087,16 +2288,17 @@ class IntController(QObject):
         try:
             self.mainwindow.start_binall_thread(self.get_bin())
         except Exception as err:
-            dbg.p('Error Occured:' + str(err), "IntController")
+            logger.info('Error Occured: ' + str(err))
         else:
             self.plot_trace()
             self.mainwindow.repaint()
-            dbg.p('All traces binned', 'IntController')
+            logger.info('All traces binned')
 
     def ask_end_time(self):
         """ Prompts the user to supply an end time."""
 
-        end_time_s, ok = QInputDialog.getDouble(self.mainwindow, 'End Time', 'Provide end time in seconds', 0, 1, 10000, 3)
+        end_time_s, ok = QInputDialog.getDouble(self.mainwindow, 'End Time',
+                                                'Provide end time in seconds', 0, 1, 10000, 3)
         return end_time_s, ok
 
     def time_resolve_current(self):
@@ -2143,7 +2345,7 @@ class IntController(QObject):
             trace = self.mainwindow.currentparticle.binnedtrace.intdata
             times = self.mainwindow.currentparticle.binnedtrace.inttimes / 1E3
         except AttributeError:
-            dbg.p('No trace!', 'IntController')
+            logger.error('No trace!')
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
@@ -2179,7 +2381,7 @@ class IntController(QObject):
             level_ints, times = currentparticle.levels2data()
             level_ints = level_ints * self.get_bin() / 1E3
         except AttributeError:
-            dbg.p('No levels!', 'IntController')
+            logger.error('No levels!')
         # else:
         plot_pen = QPen()
 
@@ -2208,7 +2410,8 @@ class IntController(QObject):
         plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
 
         if self.mainwindow.current_level is not None:
-            current_ints, current_times = currentparticle.current2data(self.mainwindow.current_level)
+            current_ints, current_times = currentparticle.current2data(
+                self.mainwindow.current_level)
             current_ints = current_ints * self.get_bin() / 1E3
             # print(current_ints, current_times)
 
@@ -2217,13 +2420,13 @@ class IntController(QObject):
                 plot_pen.setWidthF(3)
                 plot_item.plot(x=current_times, y=current_ints, pen=plot_pen, symbol=None)
             else:
-                dbg.p('Infinity in level', 'IntController')
+                logger.info('Infinity in level')
 
     def plot_hist(self):
         try:
             int_data = self.mainwindow.currentparticle.binnedtrace.intdata
         except AttributeError:
-            dbg.p('No trace!', 'IntController')
+            logger.error('No trace!')
         else:
             plot_pen = QPen()
             plot_pen.setColor(QColor(0, 0, 0, 0))
@@ -2253,7 +2456,8 @@ class IntController(QObject):
                 level_ints = self.mainwindow.currentparticle.level_ints
 
                 level_ints *= self.mainwindow.currentparticle.bin_size / 1000
-                dwell_times = [level.dwell_time_s for level in self.mainwindow.currentparticle.levels]
+                dwell_times = [level.dwell_time_s for level in
+                               self.mainwindow.currentparticle.levels]
                 level_freq, level_hist_bins = np.histogram(np.negative(level_ints), bins=bin_edges,
                                                            weights=dwell_times, density=True)
                 level_freq /= np.max(level_freq)
@@ -2273,7 +2477,7 @@ class IntController(QObject):
                 groups = currentparticle.groups
                 group_bounds = currentparticle.groups_bounds
             except AttributeError:
-                dbg.p('No groups!', 'IntController')
+                logger.error('No groups!')
 
             if cur_tab_name == 'tabIntensity':
                 if self.mainwindow.chbInt_Show_Groups.isChecked():
@@ -2288,8 +2492,9 @@ class IntController(QObject):
             for i, bound in enumerate(group_bounds):
                 if i % 2:
                     bound = (bound[0] * int_conv, bound[1] * int_conv)
-                    int_plot.addItem(pg.LinearRegionItem(values=bound, orientation='horizontal', movable=False,
-                                                         pen=QPen().setWidthF(0)))
+                    int_plot.addItem(
+                        pg.LinearRegionItem(values=bound, orientation='horizontal', movable=False,
+                                            pen=QPen().setWidthF(0)))
 
             line_pen = QPen()
             line_pen.setWidthF(1)
@@ -2309,7 +2514,8 @@ class IntController(QObject):
         self.plot_hist()
         self.plot_group_bounds()
 
-    def start_resolve_thread(self, mode: str = 'current', thread_finished=None, end_time_s=None) -> None:
+    def start_resolve_thread(self, mode: str = 'current', thread_finished=None,
+                             end_time_s=None) -> None:
         """
         Creates a worker to resolve levels.
 
@@ -2339,12 +2545,15 @@ class IntController(QObject):
         if mode == 'current':
             # sig = WorkerSignals()
             # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, end_time_s=end_time_s)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode,
+                                                 end_time_s=end_time_s)
         elif mode == 'selected':
             resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode,
-                                                 resolve_selected=self.mainwindow.get_checked_particles(), end_time_s=end_time_s)
+                                                 resolve_selected=self.mainwindow.get_checked_particles(),
+                                                 end_time_s=end_time_s)
         elif mode == 'all':
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode, end_time_s=end_time_s)
+            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode,
+                                                 end_time_s=end_time_s)
             # resolve_thread.signals.finished.connect(thread_finished)
             # resolve_thread.signals.start_progress.connect(self.start_progress)
             # resolve_thread.signals.progress.connect(self.update_progress)
@@ -2369,7 +2578,7 @@ class IntController(QObject):
         self.mainwindow.check_remove_bursts(mode=mode)
         self.mainwindow.chbEx_Levels.setEnabled(True)
         self.mainwindow.set_startpoint()
-        dbg.p('Resolving levels complete', 'IntController')
+        logger.info('Resolving levels complete')
 
     def get_gui_confidence(self):
         """ Return current GUI value for confidence percentage. """
@@ -2441,7 +2650,8 @@ class LifetimeController(QObject):
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
 
-        fname = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '', "HDF5 files (*.h5)")
+        fname = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '',
+                                            "HDF5 files (*.h5)")
         if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
             of_worker = WorkerOpenFile(fname, irf=True, tmin=self.tmin)
             of_worker.signals.openfile_finished.connect(self.mainwindow.open_file_thread_complete)
@@ -2452,7 +2662,8 @@ class LifetimeController(QObject):
             of_worker.signals.status_message.connect(self.mainwindow.status_message)
             of_worker.signals.add_datasetindex.connect(self.mainwindow.add_dataset)
             of_worker.signals.add_particlenode.connect(self.mainwindow.add_node)
-            of_worker.signals.reset_tree.connect(lambda: self.mainwindow.treemodel.modelReset.emit())
+            of_worker.signals.reset_tree.connect(
+                lambda: self.mainwindow.treemodel.modelReset.emit())
             of_worker.signals.data_loaded.connect(self.mainwindow.set_data_loaded)
             of_worker.signals.bin_size.connect(self.mainwindow.spbBinSize.setValue)
             of_worker.signals.add_irf.connect(self.add_irf)
@@ -2501,7 +2712,7 @@ class LifetimeController(QObject):
                                  self.fitparam.irf, self.fitparam.shiftfix):
                 return  # fit unsuccessful
         except AttributeError:
-            dbg.p("No decay", "Lifetime Fitting")
+            logger.error("No decay")
         else:
             self.mainwindow.display_data()
 
@@ -2564,7 +2775,7 @@ class LifetimeController(QObject):
                     t = currentparticle.histogram.t
 
                 except AttributeError:
-                    dbg.p(debug_print='No Decay!', debug_from='LifetimeController')
+                    logger.error('No Decay!')
                     return
         else:
             if currentparticle.levels[currentlevel].histogram.fitted:
@@ -2618,7 +2829,7 @@ class LifetimeController(QObject):
                 t = currentparticle.histogram.convd_t
 
             except AttributeError:
-                dbg.p(debug_print='No Decay!', debug_from='LifetimeController')
+                logger.error('No Decay!')
                 return
         else:
             try:
@@ -2677,12 +2888,15 @@ class LifetimeController(QObject):
 
         print(mode)
         if mode == 'current':
-            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode)
+            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam,
+                                                mode)
         elif mode == 'selected':
-            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode,
+            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam,
+                                                mode,
                                                 resolve_selected=self.mainwindow.get_checked_particles())
         elif mode == 'all':
-            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam, mode)
+            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam,
+                                                mode)
 
         fitting_thread.signals.fitting_finished.connect(self.fitting_thread_complete)
         fitting_thread.signals.start_progress.connect(self.mainwindow.start_progress)
@@ -2699,7 +2913,7 @@ class LifetimeController(QObject):
         self.mainwindow.chbEx_Lifetimes.setEnabled(True)
         self.mainwindow.chbEx_Hist.setEnabled(True)
         print(self.mainwindow.chbEx_Lifetimes.isChecked())
-        dbg.p('Fitting levels complete', 'Fitting Thread')
+        logger.info('Fitting levels complete')
 
     def change_irf_start(self, start):
         dataset = self.fitparam.irfdata
@@ -2783,7 +2997,7 @@ class GroupingController(QObject):
                 grouping_num_groups = currentparticle.grouping_num_groups.copy()
 
             except AttributeError:
-                dbg.p('No groups!', 'GroupingController')
+                logger.error('No groups!')
 
             if currentparticle.bic_plot_data.has_plot:
                 scat_plot_item = currentparticle.bic_plot_data.scatter_plot_item
@@ -2885,7 +3099,7 @@ class GroupingController(QObject):
     def grouping_thread_complete(self, mode):
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
-        dbg.p('Grouping levels complete', 'Grouping Thread')
+        logger.info('Grouping levels complete')
 
     def apply_groups(self, mode: str = 'current'):
         if mode == 'current':
@@ -2968,7 +3182,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         try:
             model = self.make_model()
         except Exception as err:
-            dbg.p(debug_print='Error Occured:' + str(err), debug_from='FittingDialog')
+            logger.error('Error Occured: ' + str(err))
             return
 
         fp = self.lifetime_controller.fitparam
@@ -2976,7 +3190,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             irf = fp.irf
             irft = fp.irft
         except AttributeError:
-            dbg.p(debug_print='No IRF!', debug_from='FittingDialog')
+            logger.error('No IRF!')
             return
 
         shift, decaybg, irfbg, start, end = self.getparams()
@@ -3007,7 +3221,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             irft = irft[irft > 0]
 
         except AttributeError:
-            dbg.p(debug_print='No Decay!', debug_from='FittingDialog')
+            logger.error('No Decay!')
         else:
             plot_item = self.pgFitParam.getPlotItem()
 
@@ -3019,10 +3233,12 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             plot_pen.setCosmetic(True)
 
             plot_item.clear()
-            plot_item.plot(x=t, y=np.clip(decay, a_min=0.001, a_max=None), pen=plot_pen, symbol=None)
+            plot_item.plot(x=t, y=np.clip(decay, a_min=0.001, a_max=None), pen=plot_pen,
+                           symbol=None)
             plot_pen.setWidthF(4)
             plot_pen.setColor(QColor('dark blue'))
-            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.001, a_max=None), pen=plot_pen, symbol=None)
+            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.001, a_max=None), pen=plot_pen,
+                           symbol=None)
             # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time (ns)')
             # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
@@ -3112,15 +3328,19 @@ class FittingParameters:
         self.numexp = int(self.fpd.combNumExp.currentText())
         if self.numexp == 1:
             self.tau = [[self.get_from_gui(i) for i in
-                         [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max, self.fpd.check1Fix]]]
+                         [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max,
+                          self.fpd.check1Fix]]]
             self.amp = [[self.get_from_gui(i) for i in
-                         [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax, self.fpd.check1AmpFix]]]
+                         [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax,
+                          self.fpd.check1AmpFix]]]
 
         elif self.numexp == 2:
             self.tau = [[self.get_from_gui(i) for i in
-                         [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1, self.fpd.check2Fix1]],
+                         [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1,
+                          self.fpd.check2Fix1]],
                         [self.get_from_gui(i) for i in
-                         [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2, self.fpd.check2Fix2]]]
+                         [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2,
+                          self.fpd.check2Fix2]]]
             self.amp = [[self.get_from_gui(i) for i in
                          [self.fpd.line2AmpInit1, self.fpd.line2AmpMin1, self.fpd.line2AmpMax1,
                           self.fpd.check2AmpFix1]],
@@ -3130,11 +3350,14 @@ class FittingParameters:
 
         elif self.numexp == 3:
             self.tau = [[self.get_from_gui(i) for i in
-                         [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1, self.fpd.check3Fix1]],
+                         [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1,
+                          self.fpd.check3Fix1]],
                         [self.get_from_gui(i) for i in
-                         [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2, self.fpd.check3Fix2]],
+                         [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2,
+                          self.fpd.check3Fix2]],
                         [self.get_from_gui(i) for i in
-                         [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3, self.fpd.check3Fix3]]]
+                         [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3,
+                          self.fpd.check3Fix3]]]
             self.amp = [[self.get_from_gui(i) for i in
                          [self.fpd.line3AmpInit1, self.fpd.line3AmpMin1, self.fpd.line3AmpMax1,
                           self.fpd.check3AmpFix1]],
@@ -3184,15 +3407,15 @@ def main():
     app = QApplication([])
     print('Currently used style:', app.style().metaObject().className())
     print('Available styles:', QStyleFactory.keys())
-    dbg.p(debug_print='App created', debug_from='Main')
+    logger.info('App created')
     main_window = MainWindow()
-    dbg.p(debug_print='Main Window created', debug_from='Main')
+    logger.info('Main Window created')
     main_window.show()
     main_window.after_show()
     main_window.tabSpectra.repaint()
-    dbg.p(debug_print='Main Window shown', debug_from='Main')
+    logger.info('Main Window shown')
     app.instance().exec_()
-    dbg.p(debug_print='App excuted', debug_from='Main')
+    logger.info('App excuted')
 
 
 if __name__ == '__main__':

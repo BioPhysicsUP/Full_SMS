@@ -1,0 +1,2 @@
+#  Use the following to compilte the qt resource file into a .py file
+pyrcc5 -o src\icons_rc.py src\icons.qrc

@@ -9,34 +9,26 @@ import os
 
 import ast
 
-import h5py
+import h5pickle
 from typing import List
 import numpy as np
 import tcspcfit
 import dbg
-# from main.MainWindow import start_at_value
 import re
-from PyQt5.QtCore import pyqtSignal
 from change_point import ChangePoints
 from grouping import AHCA
 from generate_sums import CPSums
 from pyqtgraph import ScatterPlotItem, SpotItem
 
-# import inspect
-
 
 class H5dataset:
 
-    def __init__(self, filename, progress_sig: pyqtSignal = None,
-                 auto_prog_sig: pyqtSignal = None):
+    def __init__(self, filename):
 
         self.cpa_has_run = False
         self.use_parallel = False
-        self.progress_sig = progress_sig
-        self.auto_prog_sig = auto_prog_sig
-        # self.main_signals.progress.connect()
         self.name = filename
-        self.file = h5py.File(self.name, 'r')
+        self.file = h5pickle.File(self.name, 'r')
         try:
             self.version = self.file.attrs['Version']
         except KeyError:
@@ -52,7 +44,7 @@ class H5dataset:
         for num, key_num in enumerate(natural_key):
             natural_p_names[key_num-1] = unsorted_names[num]
 
-        self.all_sums = CPSums(n_min=10, n_max=1000, auto_prog_sig=self.auto_prog_sig)
+        self.all_sums = CPSums(n_min=10, n_max=1000)
         self.particles = []
         for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
@@ -60,7 +52,7 @@ class H5dataset:
         assert self.numpart == self.file.attrs['# Particles']
         self.channelwidth = None
 
-    def makehistograms(self, progress=True, remove_zeros=True, startpoint=None, channel=True):
+    def makehistograms(self, remove_zeros=True, startpoint=None, channel=True):
         """Put the arrival times into histograms"""
 
         for particle in self.particles:
@@ -75,18 +67,12 @@ class H5dataset:
                 particle.histogram.decay = particle.histogram.decay[maxim:]
                 particle.histogram.t = particle.histogram.t[maxim:]
 
-    def bin_all_ints(self, binsize, progress_sig=None):
+    def bin_all_ints(self, binsize):
         """Bin the absolute times into traces using binsize
             binsize is in ms
         """
-
-        if progress_sig is not None:
-            self.progress_sig = progress_sig
-
         for particle in self.particles:
             particle.binints(binsize)
-            if hasattr(self, 'progress_sig'):
-                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
         dbg.p('Binning all done', 'H5Dataset')
 
     def save_particles(self, file_path, selected_nums: List[int]):
@@ -193,14 +179,8 @@ class Particle:
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
-        # self.cpt_inds = None  # Needs to move to ChangePoints()
-        # self.num_cpts = None  # Needs to move to ChangePoints()
-        # self.has_levels = False
-        # self.levels = None
-        # self.num_levels = None
         self.avg_int_weighted = None
         self.int_std_weighted = None
-        # self.burst_std_factor = 3
 
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
@@ -230,17 +210,6 @@ class Particle:
         self.startpoint = None
         self.bic_plot_data = BICPlotData()
         self.using_group_levels = False
-
-    # def get_levels(self):
-    #     assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
-    #     self.add_levels(self.cpts.get_levels())
-
-    # def add_levels(self, levels=None, num_levels=None):
-    #     assert levels is not None and num_levels is not None, \
-    #         "Particle:\tBoth arguments need to be non-None to add level."
-    #     self.levels = levels
-    #     self.num_levels = num_levels
-    #     self.has_levels = True
 
     @property
     def has_levels(self):
@@ -353,18 +322,6 @@ class Particle:
         """
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
 
-        # ############## Old, for Matplotlib ##############
-        # levels_data = np.empty(shape=self.num_levels+1)
-        # times = np.empty(shape=self.num_levels+1)
-        # accum_time = 0
-        # for num, level in enumerate(self.levels):
-        #     times[num] = accum_time
-        #     accum_time += level.dwell_time/1E9
-        #     levels_data[num] = level.int
-        #     if num+1 == self.num_levels:
-        #         levels_data[num+1] = accum_time
-        #         times[num+1] = level.int
-
         levels_data = np.empty(shape=self.num_levels * 2)
         times = np.empty(shape=self.num_levels * 2)
         accum_time = 0
@@ -441,8 +398,6 @@ class Trace:
     """
 
     def __init__(self, particle, binsize: int):
-
-        # self.particle = particle
         self.binsize = binsize
         data = particle.abstimes[:]
 
@@ -498,7 +453,6 @@ class Histogram:
             window = tmax-tmin
             numpoints = int(window//self.particle.channelwidth)
 
-            # t = np.linspace(0, window, numpoints)
             t = np.arange(tmin, tmax, self.particle.channelwidth)
 
             self.decay, self.t = np.histogram(self.microtimes, bins=t)
@@ -513,15 +467,11 @@ class Histogram:
                 else:
                     if level is not None:
                         self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=self.decaystart)
-            # else:
-            #     self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=startpoint)
 
             try:
                 self.t -= self.t.min()
             except ValueError:
                 dbg.p(f"Histogram object of {self.particle.name} does not have a valid self.t attribute", "Histogram")
-            # plt.plot(self.decay)
-            # plt.show()
 
         self.convd = None
         self.convd_t = None
@@ -546,9 +496,6 @@ class Histogram:
         self._t = value
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, shiftfix):
-
-        # irf, irft = start_at_value(irf, self.t, neg_t=False)
-
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
@@ -605,9 +552,7 @@ class Histogram:
 
 
 class RasterScan:
-
     def __init__(self, particle):
-
         self.particle = particle
         try:
             self.image = self.particle.datadict['Raster Scan']
@@ -617,19 +562,11 @@ class RasterScan:
 
 
 class Spectra:
-
     def __init__(self, particle):
         self.particle = particle
         self.spectra = self.particle.datadict['Spectra (counts\s)']
         self.wavelengths = self.spectra.attrs['Wavelengths']
         self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
-
-# Level class has been defined in change_point.py
-# class Levels:
-#
-#     def __init__(self):
-#
-#         pass  # Change points code called here?
 
 
 def start_at_value(decay, t, neg_t=True, decaystart=None):

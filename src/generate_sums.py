@@ -10,18 +10,20 @@ import os
 import numpy as np
 import pickle
 import dbg
-from PyQt5.QtCore import pyqtSignal
-import resource_manager as rm
+import file_manager as fm
+from my_logger import setup_logger
+
+
+logger = setup_logger(__name__)
 
 
 class CPSums:
     """Calculates, stores and get's sum values."""
     
     def __init__(self, n_max: int = None, n_min: int = None,
-                 only_pickle: bool = False, auto_prog_sig: pyqtSignal = None):
+                 only_pickle: bool = False):
         self._version = 1.4
-        self.auto_prog_sig = auto_prog_sig
-        
+
         if n_max is None:
             self.n_max = 1000
         else:
@@ -42,11 +44,10 @@ class CPSums:
         if only_pickle:
             self._calc_and_store()
         else:
-            if os.path.exists(rm.path('all_sums.pickle')) \
-                    and os.path.isfile(rm.path('all_sums.pickle')):
-                all_sums_file = open(rm.path('all_sums.pickle'), 'rb')
-                all_sums = dict(pickle.load(all_sums_file))
-                all_sums_file.close()
+            all_sums_path = fm.path('all_sums.pickle', fm.Type.Data)
+            if os.path.exists(all_sums_path) and os.path.isfile(all_sums_path):
+                with open(all_sums_path, 'rb') as all_sums_file:
+                    all_sums:dict = pickle.load(all_sums_file)
                 if ('version' not in all_sums.keys()) or all_sums['version'] != self._version:
                     self._calc_and_store()
                 else:
@@ -55,6 +56,7 @@ class CPSums:
                     self._sums_v2_k = all_sums['sums_v2_k']
                     self._sums_v2_n_k = all_sums['sums_v2_n_k']
                     self._sums_sig_e = all_sums['sums_sig_e']
+                    logger.info('all_sums.pickle found')
             else:
                 self._calc_and_store()
     
@@ -64,10 +66,6 @@ class CPSums:
         change points.
         """
         
-        tot_inds = sum(n for n in range(self.n_min, self.n_max))
-        # print(tot_inds)
-        accum_inds = int()
-        dbg.u('Calculating sums: [{0}] {1}%'.format(' ' * 20, 0.0), 'CPSums')
         for n in range(self.n_min+1, self.n_max+1):
             self._sums_sig_e[n-self.n_min-1] = (np.pi**2)/6 \
                                                     - sum(1/j**2 for j in range(1, (n-1)+1))
@@ -77,16 +75,8 @@ class CPSums:
                 self._sums_v2_k[k-1, n-self.n_min-1] = sum(1/j**2 for j in range(k, (n-1)+1))
                 self._sums_v2_n_k[k-1, n-self.n_min-1] = sum(1/j**2 for j in range(n-k, (n-1)+1))
 
-            accum_inds += n-1
-            prog = round(100*accum_inds/tot_inds, 1)
-            if hasattr(self, 'prog_sig') and self.prog_sig is not None:
-                self.prog_sig.emit(prog, 'Calculating change point sums...')
-            prog20 = int(prog//5)
-            dbg.u('Calculating sums: [{0}{1}] {2}%'.format('#' * prog20, ' ' * (20 - prog20), prog),
-                  'CPSums', n == self.n_max)
-        # dbg.p('Calculating sums: [{0}] {1}%'.format('#'*20, 100.0), 'CPSums')
-    
     def _calc_and_store(self):
+        logger.info('Calculating all_sums.pickle')
         self._calc_sums()
         all_sums = {
             'version': self._version,
@@ -96,10 +86,10 @@ class CPSums:
             'sums_v2_n_k': self._sums_v2_n_k,
             'sums_sig_e': self._sums_sig_e
         }
-        all_sums_file = open(rm.path('all_sums.pickle'), 'wb')
-        pickle.dump(all_sums, all_sums_file)
-        all_sums_file.close()
-    
+        with open(fm.path('all_sums.pickle', fm.Type.Data), 'wb') as all_sums_file:
+            pickle.dump(all_sums, all_sums_file)
+            logger.info('all_sums.pickle calculated and saved')
+
     def get_u_k(self, n, k) -> np.float64:
         """
         Used to get the sum value for u_k.
