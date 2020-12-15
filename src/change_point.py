@@ -14,15 +14,18 @@ import os
 from typing import Tuple, Optional
 
 import numpy as np
-from statsmodels.stats.weightstats import DescrStatsW
 from h5py import Dataset
+from statsmodels.stats.weightstats import DescrStatsW
 
 import dbg
 import file_manager as fm
+from my_logger import setup_logger
 
 MIN_PHOTONS = 10
 BURST_MIN_DWELL = 0.1  # Seconds
 BURST_INT_SIGMA = 3
+
+logger = setup_logger(__name__)
 
 
 class ChangePoints:

@@ -1,10 +1,10 @@
 import multiprocessing as mp
+from enum import IntEnum, auto
 from queue import Empty
 from typing import List, Union
 from uuid import UUID, uuid1
-from my_logger import setup_logger
-from enum import IntEnum, auto
 
+from my_logger import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -66,11 +66,40 @@ class ProcessProgressTask:
 
 
 class ProgressTracker:
-    def __init__(self, num_iterations: int, num_of_trackers: int = 1):
-        self._num_iterations = num_iterations
-        self._num_of_trackers = num_of_trackers
-        self._step_value = 100/num_of_trackers/num_iterations
+    def __init__(self, num_iterations: int = None, num_trackers: int = 1):
+        self._num_iterations = None
+        self._num_trackers = None
+        self._step_value = None
         self._current_value = 0.0
+
+        if num_iterations:
+            self._num_iterations = num_iterations
+        if num_trackers:
+            self._num_trackers = num_trackers
+        self.calc_step_value()
+
+
+    @property
+    def num_iterations(self) -> int:
+        return self._num_iterations
+
+    @num_iterations.setter
+    def num_iterations(self, num_iterations: int):
+        assert type(num_iterations) is int, 'num_iterations is not of type int'
+        self._num_iterations = num_iterations
+
+    @property
+    def num_trackers(self) -> int:
+        return self._num_trackers
+
+    @num_trackers.setter
+    def num_tracker(self, num_tracker: int):
+        assert type(num_tracker) is int, 'num_tracker is not of type int'
+        self._num_trackers = num_tracker
+
+    def calc_step_value(self):
+        if self._num_trackers and self.num_iterations:
+            self._step_value = 100 / self._num_trackers / self._num_iterations
 
     def iterate(self) -> int:
         prev_value = self._current_value
@@ -81,8 +110,8 @@ class ProgressTracker:
 
 class ProcessProgress(ProgressTracker):
     def __init__(self, progress_queue: Union[mp.Queue, mp.JoinableQueue],
-                 num_iterations: int, num_of_processes: int = 1):
-        super().__init__(num_iterations=num_iterations, num_of_trackers=num_of_processes)
+                 num_iterations: int = None, num_of_processes: int = 1):
+        super().__init__(num_iterations=num_iterations, num_trackers=num_of_processes)
         self.progress_queue = progress_queue
 
     def iterate(self):

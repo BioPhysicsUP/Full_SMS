@@ -4,21 +4,24 @@ Bertus van Heerden and Joshua Botha
 University of Pretoria
 2018
 """
-import traceback
-import os
-
 import ast
+import os
+import re
+import traceback
+from typing import List
 
 import h5pickle
-from typing import List
 import numpy as np
-import tcspcfit
-import dbg
-import re
-from change_point import ChangePoints
-from grouping import AHCA
-from generate_sums import CPSums
 from pyqtgraph import ScatterPlotItem, SpotItem
+
+import dbg
+import tcspcfit
+from change_point import ChangePoints
+from generate_sums import CPSums
+from grouping import AHCA
+from my_logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class H5dataset:

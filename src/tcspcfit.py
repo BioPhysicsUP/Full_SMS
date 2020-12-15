@@ -8,10 +8,15 @@ University of Pretoria
 """
 
 import numpy as np
+from PyQt5.QtWidgets import QLineEdit, QCheckBox
+from matplotlib import pyplot as plt
 from scipy.fftpack import fft, ifft
 from scipy.optimize import curve_fit, nnls
 from scipy.signal import convolve
-from matplotlib import pyplot as plt
+
+from my_logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def makerow(vector):
@@ -568,3 +573,92 @@ class ThreeExp(FluoFit):
         return self.makeconvd(shift, model)
 
 
+class FittingParameters:
+    def __init__(self, parent):
+        self.parent = parent
+        self.fpd = self.parent.fitparamdialog
+        self.irf = None
+        self.tau = None
+        self.amp = None
+        self.shift = None
+        self.shiftfix = None
+        self.decaybg = None
+        self.irfbg = None
+        self.start = None
+        self.end = None
+        self.numexp = None
+        self.addopt = None
+
+    def getfromdialog(self):
+        self.numexp = int(self.fpd.combNumExp.currentText())
+        if self.numexp == 1:
+            self.tau = [[self.get_from_gui(i) for i in
+                         [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max,
+                          self.fpd.check1Fix]]]
+            self.amp = [[self.get_from_gui(i) for i in
+                         [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax,
+                          self.fpd.check1AmpFix]]]
+
+        elif self.numexp == 2:
+            self.tau = [[self.get_from_gui(i) for i in
+                         [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1,
+                          self.fpd.check2Fix1]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2,
+                          self.fpd.check2Fix2]]]
+            self.amp = [[self.get_from_gui(i) for i in
+                         [self.fpd.line2AmpInit1, self.fpd.line2AmpMin1, self.fpd.line2AmpMax1,
+                          self.fpd.check2AmpFix1]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line2AmpInit2, self.fpd.line2AmpMin2, self.fpd.line2AmpMax2,
+                          self.fpd.check2AmpFix2]]]
+
+        elif self.numexp == 3:
+            self.tau = [[self.get_from_gui(i) for i in
+                         [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1,
+                          self.fpd.check3Fix1]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2,
+                          self.fpd.check3Fix2]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3,
+                          self.fpd.check3Fix3]]]
+            self.amp = [[self.get_from_gui(i) for i in
+                         [self.fpd.line3AmpInit1, self.fpd.line3AmpMin1, self.fpd.line3AmpMax1,
+                          self.fpd.check3AmpFix1]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line3AmpInit2, self.fpd.line3AmpMin2, self.fpd.line3AmpMax2,
+                          self.fpd.check3AmpFix2]],
+                        [self.get_from_gui(i) for i in
+                         [self.fpd.line3AmpInit3, self.fpd.line3AmpMin3, self.fpd.line3AmpMax3,
+                          self.fpd.check3AmpFix3]]]
+
+        self.shift = self.get_from_gui(self.fpd.lineShift)
+        self.shiftfix = self.get_from_gui(self.fpd.checkFixIRF)
+        self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
+        self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
+        self.start = self.get_from_gui(self.fpd.lineStartTime)
+        self.end = self.get_from_gui(self.fpd.lineEndTime)
+        # try:
+        #     self.start = int(self.get_from_gui(self.fpd.lineStartTime))
+        # except TypeError:
+        #     self.start = self.get_from_gui(self.fpd.lineStartTime)
+        # try:
+        #     self.end = int(self.get_from_gui(self.fpd.lineEndTime))
+        # except TypeError:
+        #     self.end = self.get_from_gui(self.fpd.lineEndTime)
+
+        if self.fpd.lineAddOpt.text() != '':
+            self.addopt = self.fpd.lineAddOpt.text()
+        else:
+            self.addopt = None
+
+    @staticmethod
+    def get_from_gui(guiobj):
+        if type(guiobj) == QLineEdit:
+            if guiobj.text() == '':
+                return None
+            else:
+                return float(guiobj.text())
+        elif type(guiobj) == QCheckBox:
+            return float(guiobj.isChecked())
