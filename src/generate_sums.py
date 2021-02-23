@@ -11,6 +11,7 @@ import numpy as np
 import pickle
 import dbg
 import file_manager as fm
+from processes import ProcessProgFeedback
 from my_logger import setup_logger
 
 
@@ -21,8 +22,9 @@ class CPSums:
     """Calculates, stores and get's sum values."""
     
     def __init__(self, n_max: int = None, n_min: int = None,
-                 only_pickle: bool = False):
+                 only_pickle: bool = False, prog_fb: ProcessProgFeedback = None):
         self._version = 1.4
+        self.prog_fb = prog_fb
 
         if n_max is None:
             self.n_max = 1000
@@ -59,7 +61,7 @@ class CPSums:
                     logger.info('all_sums.pickle found')
             else:
                 self._calc_and_store()
-    
+
     def _calc_sums(self) -> None:
         """
         Calculates the all the possible sums that might be used in the change_point module to detect
@@ -77,6 +79,7 @@ class CPSums:
 
     def _calc_and_store(self):
         logger.info('Calculating all_sums.pickle')
+        self.prog_fb.set_status(status="Calculating sums...")
         self._calc_sums()
         all_sums = {
             'version': self._version,

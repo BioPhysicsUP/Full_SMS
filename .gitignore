@@ -154,3 +154,4 @@ src/ui/mainwindow.ui.autosave
 Syncfolders_Database_db
 
 poetry.toml
+/docs/

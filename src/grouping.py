@@ -16,11 +16,14 @@ import numpy as np
 from scipy.stats import poisson
 from matplotlib import pyplot as plt
 from change_point import Level
+from my_logger import setup_logger
 
 if TYPE_CHECKING:
     from smsh5 import Particle
 
 import dbg
+
+logger = setup_logger(__name__)
 
 
 def max_jm(array: np.ndarray):
@@ -328,6 +331,7 @@ class AHCA:
 
         self.has_groups = False
         self.particle = particle
+        self.uuid = self.particle.uuid
         self.steps = None
         self.best_step_ind = None
         self.bics = None
@@ -379,7 +383,7 @@ class AHCA:
                 steps.append(c_step)
                 current_num_groups = c_step.num_groups
                 if current_num_groups != 1:
-                    print(current_num_groups)
+                    # print(current_num_groups)
                     c_step = c_step.setup_next_step()
 
             self.steps = steps
@@ -388,8 +392,9 @@ class AHCA:
             self.best_step_ind = np.argmax(self.bics)
             self.selected_step_ind = self.best_step_ind
             self.has_groups = True
+            logger.info(f"{self.particle.name} levels grouped")
         else:
-            dbg.p(f"{self.particle.name} has no levels to group", "ACHA")
+            logger.info(f"{self.particle.name} has no levels to group")
 
     def set_selected_step(self, step_ind: int):
         assert 0 <= step_ind < self.num_steps, "AHCA: Provided step index out of range."

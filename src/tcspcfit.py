@@ -8,15 +8,24 @@ University of Pretoria
 """
 
 import numpy as np
-from PyQt5.QtWidgets import QLineEdit, QCheckBox
+import pyqtgraph as pg
+import scipy
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPen, QColor
+from PyQt5.QtWidgets import QLineEdit, QCheckBox, QDialog, QComboBox, QMessageBox
 from matplotlib import pyplot as plt
 from scipy.fftpack import fft, ifft
 from scipy.optimize import curve_fit, nnls
 from scipy.signal import convolve
+import file_manager as fm
+from PyQt5 import uic
 
 from my_logger import setup_logger
 
 logger = setup_logger(__name__)
+
+fitting_dialog_file = fm.path(name="fitting_dialog.ui", file_type=fm.Type.UI)
+UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
 
 
 def makerow(vector):
@@ -662,3 +671,156 @@ class FittingParameters:
                 return float(guiobj.text())
         elif type(guiobj) == QCheckBox:
             return float(guiobj.isChecked())
+
+
+class FittingDialog(QDialog, UI_Fitting_Dialog):
+    """Class for dialog that is used to choose lifetime fit parameters."""
+
+    def __init__(self, mainwindow, lifetime_controller):
+        QDialog.__init__(self)
+        UI_Fitting_Dialog.__init__(self)
+        self.setupUi(self)
+
+        self.mainwindow = mainwindow
+        self.lifetime_controller = lifetime_controller
+        self.pgFitParam.setBackground(background=None)
+        for widget in self.findChildren(QLineEdit):
+            widget.textChanged.connect(self.updateplot)
+        for widget in self.findChildren(QCheckBox):
+            widget.stateChanged.connect(self.updateplot)
+        for widget in self.findChildren(QComboBox):
+            widget.currentTextChanged.connect(self.updateplot)
+        self.updateplot()
+
+        # self.lineStartTime.setValidator(QIntValidator())
+        # self.lineEndTime.setValidator(QIntValidator())
+
+    def updateplot(self, *args):
+
+        try:
+            model = self.make_model()
+        except Exception as err:
+            logger.error('Error Occured: ' + str(err))
+            return
+
+        fp = self.lifetime_controller.fitparam
+        try:
+            irf = fp.irf
+            irft = fp.irft
+        except AttributeError:
+            logger.error('No IRF!')
+            return
+
+        shift, decaybg, irfbg, start, end = self.getparams()
+
+        channelwidth = self.mainwindow.currentparticle.channelwidth
+        shift = shift / channelwidth
+        start = int(start / channelwidth)
+        end = int(end / channelwidth)
+        irf = tcspcfit.colorshift(irf, shift)
+        convd = scipy.signal.convolve(irf, model)
+        convd = convd[:np.size(irf)]
+        convd = convd / convd.max()
+
+        try:
+            if self.mainwindow.current_level is None:
+                histogram = self.mainwindow.currentparticle.histogram
+            else:
+                level = self.mainwindow.current_level
+                histogram = self.mainwindow.currentparticle.levels[level].histogram
+            decay = histogram.decay
+            decay = decay / decay.max()
+            t = histogram.t
+
+            # decay, t = start_at_value(decay, t)
+            end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
+
+            convd = convd[irft > 0]
+            irft = irft[irft > 0]
+
+        except AttributeError:
+            logger.error('No Decay!')
+        else:
+            plot_item = self.pgFitParam.getPlotItem()
+
+            plot_item.setLogMode(y=True)
+            plot_pen = QPen()
+            plot_pen.setWidthF(3)
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setColor(QColor('blue'))
+            plot_pen.setCosmetic(True)
+
+            plot_item.clear()
+            plot_item.plot(x=t, y=np.clip(decay, a_min=0.001, a_max=None), pen=plot_pen,
+                           symbol=None)
+            plot_pen.setWidthF(4)
+            plot_pen.setColor(QColor('dark blue'))
+            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.001, a_max=None), pen=plot_pen,
+                           symbol=None)
+            # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+            plot_item.getAxis('bottom').setLabel('Decay time (ns)')
+            # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
+            # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            # self.MW_fitparam.axes.clear()
+            # self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
+            # self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
+            # self.MW_fitparam.axes.set_ylim(bottom=1e-2)
+
+        try:
+            plot_pen.setColor(QColor('gray'))
+            plot_pen.setWidth(3)
+            startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
+            endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
+            plot_item.addItem(startline)
+            plot_item.addItem(endline)
+            # self.MW_fitparam.axes.axvline(t[start])
+            # self.MW_fitparam.axes.axvline(t[end])
+        except IndexError:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setText('Value out of bounds!')
+            msg.exec_()
+
+    def getparams(self):
+        fp = self.lifetime_controller.fitparam
+        irf = fp.irf
+        shift = fp.shift
+        if shift is None:
+            shift = 0
+        decaybg = fp.decaybg
+        if decaybg is None:
+            decaybg = 0
+        irfbg = fp.irfbg
+        if irfbg is None:
+            irfbg = 0
+        start = fp.start
+        if start is None:
+            start = 0
+        end = fp.end
+        if end is None:
+            end = np.size(irf)
+        return shift, decaybg, irfbg, start, end
+
+    def make_model(self):
+        fp = self.lifetime_controller.fitparam
+        t = self.mainwindow.currentparticle.histogram.t
+        fp.getfromdialog()
+        if fp.numexp == 1:
+            tau = fp.tau[0][0]
+            model = np.exp(-t / tau)
+        elif fp.numexp == 2:
+            tau1 = fp.tau[0][0]
+            tau2 = fp.tau[1][0]
+            amp1 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
+            # print(amp1, amp2, tau1, tau2)
+            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2)
+        elif fp.numexp == 3:
+            tau1 = fp.tau[0][0]
+            tau2 = fp.tau[1][0]
+            tau3 = fp.tau[2][0]
+            amp1 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
+            amp3 = fp.amp[2][0]
+            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2) + amp3 * np.exp(-t / tau3)
+        return model

@@ -9,6 +9,7 @@ import os
 import re
 import traceback
 from typing import List
+from uuid import uuid1
 
 import h5pickle
 import numpy as np
@@ -19,6 +20,8 @@ import tcspcfit
 from change_point import ChangePoints
 from generate_sums import CPSums
 from grouping import AHCA
+from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
+# from signals import PassSigFeedback
 from my_logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -26,11 +29,15 @@ logger = setup_logger(__name__)
 
 class H5dataset:
 
-    def __init__(self, filename):
+    def __init__(self, filename, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
+
+        # self.sig_fb = sig_fb
+        # self.prog_fb = prog_fb
 
         self.cpa_has_run = False
         self.use_parallel = False
         self.name = filename
+        prog_fb.set_status(status="Reading file...")
         self.file = h5pickle.File(self.name, 'r')
         try:
             self.version = self.file.attrs['Version']
@@ -48,6 +55,7 @@ class H5dataset:
             natural_p_names[key_num-1] = unsorted_names[num]
 
         self.all_sums = CPSums(n_min=10, n_max=1000)
+
         self.particles = []
         for particlename in natural_p_names:
             self.particles.append(Particle(particlename, self))
@@ -70,13 +78,25 @@ class H5dataset:
                 particle.histogram.decay = particle.histogram.decay[maxim:]
                 particle.histogram.t = particle.histogram.t[maxim:]
 
-    def bin_all_ints(self, binsize):
+    def bin_all_ints(self, binsize:float,
+                     sig_fb: PassSigFeedback = None,
+                     prog_fb: ProcessProgFeedback = None):
         """Bin the absolute times into traces using binsize
             binsize is in ms
         """
+        if prog_fb:
+            proc_tracker = ProcessProgress(prog_fb=prog_fb, num_iterations=len(self.particles))
+
+        # if proc_tracker:
+        #     if not proc_tracker.has_num_iterations:
+        #         proc_tracker.num_iterations = len(self.particles)
         for particle in self.particles:
             particle.binints(binsize)
-        dbg.p('Binning all done', 'H5Dataset')
+            if prog_fb:
+                proc_tracker.iterate()
+        if prog_fb:
+            prog_fb.end()
+        # dbg.p('Binning all done', 'H5Dataset')
 
     def save_particles(self, file_path, selected_nums: List[int]):
         """ Save selected particle to a new or existing HDF5 file.
@@ -91,10 +111,10 @@ class H5dataset:
 
         add = os.path.exists(file_path)
         if add:
-            new_h5file = h5py.File(file_path, mode='r+')
+            new_h5file = h5pickle.File(file_path, mode='r+')
             num_existing = new_h5file.attrs.get('# Particles')
         else:
-            new_h5file = h5py.File(file_path, mode='w')
+            new_h5file = h5pickle.File(file_path, mode='w')
             num_existing = 0
 
         for i, selected in enumerate(selected_nums):
@@ -107,6 +127,7 @@ class H5dataset:
         new_h5file.close()
 
 
+# TODO: This is in the incorrect file.
 class BICPlotData:
 
     def __init__(self):
@@ -174,6 +195,7 @@ class Particle:
             TODO
         channelwidth: TODO
         """
+        self.uuid = uuid1()
         self.name = name
         self.dataset = dataset
         self.datadict = self.dataset.file[self.name]

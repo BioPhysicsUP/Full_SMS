@@ -12,27 +12,26 @@ import os
 import sys
 from platform import system
 
-import numpy as np
 import pyqtgraph as pg
-import scipy
 from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot
-from PyQt5.QtGui import QIcon, QResizeEvent, QPen, QColor
+from PyQt5.QtGui import QIcon, QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
-    QApplication, QLineEdit, QComboBox, QDialog, QCheckBox, QStyleFactory
+    QApplication, QStyleFactory
 from PyQt5 import uic
+from typing import Union
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController, \
     resolve_levels
 from thread_tasks import bin_all, OpenFile
 from threads import ProcessThread, WorkerResolveLevels, WorkerBinAll
 from tree_model import DatasetTreeNode, DatasetTreeModel
+from signals import worker_sig_pass
 
 try:
     import pkg_resources.py2_warn
 except ImportError:
     pass
 
-import tcspcfit
 import smsh5
 from generate_sums import CPSums
 from custom_dialogs import TimedMessageBox
@@ -46,9 +45,6 @@ sys.setrecursionlimit(1000 * 10)
 
 main_window_file = fm.path(name="mainwindow.ui", file_type=fm.Type.UI)
 UI_Main_Window, _ = uic.loadUiType(main_window_file)
-
-fitting_dialog_file = fm.path(name="fitting_dialog.ui", file_type=fm.Type.UI)
-UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
 
 logger = setup_logger(__name__, is_main=True)
 
@@ -71,6 +67,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.threadpool = QThreadPool()
         logger.info(f"Multi-threading with maximum {self.threadpool.maxThreadCount()} threads")
+        self.active_threads = []
 
         self.confidence_index = {
             0: 99,
@@ -185,6 +182,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.progress.setVisible(False)
         self.progress.setValue(0)  # Range of values is from 0 to 100
         self.statusBar().addPermanentWidget(self.progress)
+        self.current_progress = float()
         self.data_loaded = False
         self.level_resolved = False
         self.irf_loaded = False
@@ -227,26 +225,43 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.status_message('Ready...')
 
     def gui_export_current(self):
-
         self.export(mode='current')
 
     def gui_export_selected(self):
-
         self.export(mode='selected')
 
     def gui_export_all(self):
-
         self.export(mode='all')
+
+    def set_bin_size(self, bin_size: int):
+        self.spbBinSize.setValue(bin_size)
 
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
 
         file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
-        if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
+        if file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
+            self.status_message(message="Opening file...")
             of_process_thread = ProcessThread(num_processes=1)
-            progress_queue = of_process_thread.progress_queue
-            of_progress = prcs.ProcessProgress(progress_queue=progress_queue)
-            of_task = OpenFile(file_path=file_path)
+            of_process_thread.worker_signals.add_datasetindex.connect(self.add_dataset)
+            of_process_thread.worker_signals.add_particlenode.connect(self.add_node)
+            of_process_thread.worker_signals.add_all_particlenodes.connect(self.add_all_nodes)
+            of_process_thread.worker_signals.bin_size.connect(self.set_bin_size)
+            of_process_thread.worker_signals.data_loaded.connect(self.set_data_loaded)
+            of_process_thread.signals.status_update.connect(self.status_message)
+            of_process_thread.signals.start_progress.connect(self.start_progress)
+            of_process_thread.signals.set_progress.connect(self.set_progress)
+            of_process_thread.signals.step_progress.connect(self.update_progress)
+            of_process_thread.signals.add_progress.connect(self.update_progress)
+            of_process_thread.signals.end_progress.connect(self.end_progress)
+            of_process_thread.signals.error.connect(self.error_handler)
+            of_process_thread.signals.finished.connect(self.open_file_thread_complete)
+
+            of_obj = OpenFile(file_path=file_path)  # , progress_tracker=of_progress_tracker)
+            of_process_thread.add_tasks_from_methods(of_obj, 'open_h5')
+            self.threadpool.start(of_process_thread)
+            self.active_threads.append(of_process_thread)
+
             # of_worker = WorkerOpenFile(fname)
             # of_worker.signals.openfile_finished.connect(self.open_file_thread_complete)
             # of_worker.signals.start_progress.connect(self.start_progress)
@@ -344,18 +359,25 @@ class MainWindow(QMainWindow, UI_Main_Window):
     #######################################"""
 
     def add_dataset(self, datasetnode):
-
         self.datasetindex = self.treemodel.addChild(datasetnode)
 
-    def add_node(self, particlenode, progress_sig, i):
-
-        index = self.treemodel.addChild(particlenode, self.datasetindex, progress_sig)
-        if i == 1:
+    def add_node(self, particlenode, num):
+        index = self.treemodel.addChild(particlenode, self.datasetindex)  #, progress_sig)
+        if num == 0:
             self.treeViewParticles.expand(self.datasetindex)
             self.treeViewParticles.setCurrentIndex(index)
 
         self.part_nodes.append(particlenode)
         self.part_index.append(index)
+
+    def add_all_nodes(self, all_particlenodes):
+        for particlenode, num in all_particlenodes:
+            index = self.treemodel.addChild(particlenode, self.datasetindex)  # , progress_sig)
+            if num == 0:
+                self.treeViewParticles.expand(self.datasetindex)
+                self.treeViewParticles.setCurrentIndex(index)
+            self.part_nodes.append(particlenode)
+            self.part_index.append(index)
 
     def tab_change(self, active_tab_index: int):
         if self.data_loaded and hasattr(self, 'currentparticle'):
@@ -469,7 +491,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         else:
             self.statusBar().clearMessage()
 
-    def start_progress(self, max_num: int) -> None:
+    def start_progress(self, max_num: int = None) -> None:
         """
         Sets the maximum value of the progress bar before use.
 
@@ -481,34 +503,61 @@ class MainWindow(QMainWindow, UI_Main_Window):
             The number of iterations or steps that the complete process is made up of.
         """
 
-        assert type(max_num) is int, "MainWindow:\tThe type of the 'max_num' parameter is not int."
-        self.progress.setMaximum(max_num)
+        if max_num:
+            assert type(max_num) is int, "MainWindow:\tThe type of the 'max_num' parameter is not int."
+            self.progress.setMaximum(max_num)
+            # print(max_num)
         self.progress.setValue(0)
         self.progress.setVisible(True)
+        self.current_progress = 0
 
-    def update_progress(self, value: int = None, text: str = None) -> None:
+        self.progress.repaint()
+        self.statusBar().repaint()
+        self.repaint()
+
+    def set_progress(self, progress_value: int) -> None:
+        """
+        Sets the maximum value of the progress bar before use.
+
+        reset parameter can be optionally set to False to prevent the setting of the progress bar value to 0.
+
+        Parameters
+        ----------
+        progress_value : int
+            The number of iterations or steps that the complete process is made up of.
+        """
+
+        assert type(progress_value) is int,\
+            "MainWindow:\tThe type of the 'max_num' parameter is not int."
+        self.progress.setValue(progress_value)
+
+        self.progress.repaint()
+        self.statusBar().repaint()
+        self.repaint()
+
+    def update_progress(self, value: Union[int, float] = None) -> None:
         """ Used to update the progress bar by an increment of one. If at maximum sets progress bars visibility to False """
 
-        # print("Update progress")
+        if not value:
+            value = 1.
+
         if self.progress.isVisible():
-            if value is not None:
-                self.progress.setValue(value)
-                if value == self.progress.maximum():
-                    self.progress.setVisible(False)
-            else:
-                current_value = self.progress.value()
-                self.progress.setValue(current_value + 1)
-                if current_value + 1 == self.progress.maximum():
-                    self.progress.setVisible(False)
+            self.current_progress += value
+            new_show_value = int(self.current_progress//1)
+            self.progress.setValue(new_show_value)
+            # print(self.current_progress)
+            if self.current_progress >= self.progress.maximum():
+                self.end_progress()
 
-        elif value is not None:
-            if text is None:
-                text = 'Progress.'
-            self.status_message(text)
-            self.progress.setMaximum(100)
-            self.progress.setValue(value)
-            self.progress.setVisible(True)
+        self.progress.repaint()
+        self.statusBar().repaint()
+        self.repaint()
 
+    def end_progress(self):
+        self.current_progress = 0
+        self.progress.setValue(0)
+        self.progress.setMaximum(0)
+        self.progress.setVisible(False)
         self.progress.repaint()
         self.statusBar().repaint()
         self.repaint()
@@ -526,7 +575,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         """
         if type(identifier) is int:
-            return self.part_nodes[identifier].dataobj
+            return self.datasetindex.child(identifier,0).data(Qt.UserRole)
         if type(identifier) is DatasetTreeNode:
             return identifier.dataobj
 
@@ -537,19 +586,20 @@ class MainWindow(QMainWindow, UI_Main_Window):
         -------
         smsh5.H5dataset
         """
-        return self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
+        # return self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
+        return self.datasetindex.data(Qt.UserRole)
 
     def set_data_loaded(self):
         self.data_loaded = True
 
-    def open_file_thread_complete(self, irf=False) -> None:
+    def open_file_thread_complete(self, thread: ProcessThread, irf=False) -> None:
         """ Is called as soon as all of the threads have finished. """
 
         if self.data_loaded and not irf:
-            self.currentparticle = self.tree2particle(0)
+            self.currentparticle = self.tree2particle(1)
             self.treeViewParticles.expandAll()
-            self.treeViewParticles.setCurrentIndex(self.part_index[0])
-            self.display_data(self.part_index[1])
+            self.treeViewParticles.setCurrentIndex(self.part_index[1])
+            self.display_data()
 
             msgbx = TimedMessageBox(30, parent=self)
             msgbx.setIcon(QMessageBox.Question)
@@ -723,7 +773,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         mode : {'current', 'selected', 'all'}
             Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
         """
-
         if self.tree2dataset().cpa_has_run:
             self.tabGrouping.setEnabled(True)
         if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
@@ -739,9 +788,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         elif mode == 'selected':
             particles = self.get_checked_particles()
         else:
-            particles = self.tree2dataset().particles
+            # particles = self.tree2dataset().particles
+            particles = self.currentparticle.dataset.particles  #TODO: This needs to change.
 
-        removed_bursts = False
+        removed_bursts = False  # TODO: Remove
         has_burst = [particle.has_burst for particle in particles]
         if sum(has_burst):
             if not removed_bursts:
@@ -820,7 +870,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         print(self.level_resolved)
 
     def export(self, mode: str = None):
-
         assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
 
         if mode == 'current':
@@ -966,7 +1015,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
-
         logger.info('Reset GUI')
         if self.data_loaded:
             new_state = True
@@ -1027,159 +1075,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self._current_level = value
             except:
                 pass
-
-
-class FittingDialog(QDialog, UI_Fitting_Dialog):
-    """Class for dialog that is used to choose lifetime fit parameters."""
-
-    def __init__(self, mainwindow, lifetime_controller):
-        QDialog.__init__(self)
-        UI_Fitting_Dialog.__init__(self)
-        self.setupUi(self)
-
-        self.mainwindow = mainwindow
-        self.lifetime_controller = lifetime_controller
-        self.pgFitParam.setBackground(background=None)
-        for widget in self.findChildren(QLineEdit):
-            widget.textChanged.connect(self.updateplot)
-        for widget in self.findChildren(QCheckBox):
-            widget.stateChanged.connect(self.updateplot)
-        for widget in self.findChildren(QComboBox):
-            widget.currentTextChanged.connect(self.updateplot)
-        self.updateplot()
-
-        # self.lineStartTime.setValidator(QIntValidator())
-        # self.lineEndTime.setValidator(QIntValidator())
-
-    def updateplot(self, *args):
-
-        try:
-            model = self.make_model()
-        except Exception as err:
-            logger.error('Error Occured: ' + str(err))
-            return
-
-        fp = self.lifetime_controller.fitparam
-        try:
-            irf = fp.irf
-            irft = fp.irft
-        except AttributeError:
-            logger.error('No IRF!')
-            return
-
-        shift, decaybg, irfbg, start, end = self.getparams()
-
-        channelwidth = self.mainwindow.currentparticle.channelwidth
-        shift = shift / channelwidth
-        start = int(start / channelwidth)
-        end = int(end / channelwidth)
-        irf = tcspcfit.colorshift(irf, shift)
-        convd = scipy.signal.convolve(irf, model)
-        convd = convd[:np.size(irf)]
-        convd = convd / convd.max()
-
-        try:
-            if self.mainwindow.current_level is None:
-                histogram = self.mainwindow.currentparticle.histogram
-            else:
-                level = self.mainwindow.current_level
-                histogram = self.mainwindow.currentparticle.levels[level].histogram
-            decay = histogram.decay
-            decay = decay / decay.max()
-            t = histogram.t
-
-            # decay, t = start_at_value(decay, t)
-            end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
-
-            convd = convd[irft > 0]
-            irft = irft[irft > 0]
-
-        except AttributeError:
-            logger.error('No Decay!')
-        else:
-            plot_item = self.pgFitParam.getPlotItem()
-
-            plot_item.setLogMode(y=True)
-            plot_pen = QPen()
-            plot_pen.setWidthF(3)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setColor(QColor('blue'))
-            plot_pen.setCosmetic(True)
-
-            plot_item.clear()
-            plot_item.plot(x=t, y=np.clip(decay, a_min=0.001, a_max=None), pen=plot_pen,
-                           symbol=None)
-            plot_pen.setWidthF(4)
-            plot_pen.setColor(QColor('dark blue'))
-            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.001, a_max=None), pen=plot_pen,
-                           symbol=None)
-            # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
-            plot_item.getAxis('bottom').setLabel('Decay time (ns)')
-            # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
-            # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
-            # self.MW_fitparam.axes.clear()
-            # self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
-            # self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
-            # self.MW_fitparam.axes.set_ylim(bottom=1e-2)
-
-        try:
-            plot_pen.setColor(QColor('gray'))
-            plot_pen.setWidth(3)
-            startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
-            endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
-            plot_item.addItem(startline)
-            plot_item.addItem(endline)
-            # self.MW_fitparam.axes.axvline(t[start])
-            # self.MW_fitparam.axes.axvline(t[end])
-        except IndexError:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Warning)
-            msg.setText('Value out of bounds!')
-            msg.exec_()
-
-    def getparams(self):
-        fp = self.lifetime_controller.fitparam
-        irf = fp.irf
-        shift = fp.shift
-        if shift is None:
-            shift = 0
-        decaybg = fp.decaybg
-        if decaybg is None:
-            decaybg = 0
-        irfbg = fp.irfbg
-        if irfbg is None:
-            irfbg = 0
-        start = fp.start
-        if start is None:
-            start = 0
-        end = fp.end
-        if end is None:
-            end = np.size(irf)
-        return shift, decaybg, irfbg, start, end
-
-    def make_model(self):
-        fp = self.lifetime_controller.fitparam
-        t = self.mainwindow.currentparticle.histogram.t
-        fp.getfromdialog()
-        if fp.numexp == 1:
-            tau = fp.tau[0][0]
-            model = np.exp(-t / tau)
-        elif fp.numexp == 2:
-            tau1 = fp.tau[0][0]
-            tau2 = fp.tau[1][0]
-            amp1 = fp.amp[0][0]
-            amp2 = fp.amp[1][0]
-            # print(amp1, amp2, tau1, tau2)
-            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2)
-        elif fp.numexp == 3:
-            tau1 = fp.tau[0][0]
-            tau2 = fp.tau[1][0]
-            tau3 = fp.tau[2][0]
-            amp1 = fp.amp[0][0]
-            amp2 = fp.amp[1][0]
-            amp3 = fp.amp[2][0]
-            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2) + amp3 * np.exp(-t / tau3)
-        return model
+            
+    def error_handler(self, e: Exception):
+        # logger(e)
+        raise e
 
 
 def main():
