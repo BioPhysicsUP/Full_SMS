@@ -1,11 +1,21 @@
+
+# from __future__ import annotations
+# from typing import TYPE_CHECKING
 import os
 
 import numpy as np
 
-import processes as prcs
+import multiprocessing as mp
+from processes import ProgressTracker, ProcessProgressTask as PProgTask,\
+    ProcessSigPassTask as PSigTask, ProcessProgressCmd as PProgCmd, ProcessProgress, \
+    ProcessProgFeedback, PassSigFeedback
+from signals import WorkerSigPassType as WSType  #, PassSigFeedback
+import multiprocessing as mp
 import smsh5
 from my_logger import setup_logger
 from tree_model import DatasetTreeNode
+
+# if TYPE_CHECKING:
 
 logger = setup_logger(__name__)
 
@@ -13,8 +23,10 @@ logger = setup_logger(__name__)
 class OpenFile:
     """ A QRunnable class to create a worker thread for opening h5 file. """
 
-    def __init__(self, file_path: str, irf: bool = False, tmin=None,
-                 progress_tracker: prcs.ProgressTracker = None):
+    def __init__(self, file_path: str,
+                 is_irf: bool = False,
+                 tmin=None,
+                 progress_tracker: ProgressTracker = None):
         """
         Initiate Open File Worker
 
@@ -26,12 +38,13 @@ class OpenFile:
         ----------
         fname : str
             The name of the file.
-        irf : bool
+        is_irf : bool
             Whether the thread is loading an IRF or not.
         """
-        self._file_path = None
-        self._is_irf = None
-        self._tmin = None
+        self._file_path = file_path
+        self._is_irf = is_irf
+        self._tmin = tmin
+        self.progress_tracker = progress_tracker
 
     @property
     def file_path(self) -> str:
@@ -62,7 +75,7 @@ class OpenFile:
         # assert
         self._tmin = tmin
 
-    def open_h5(self) -> smsh5.H5dataset:
+    def open_h5(self, feedback_queue: mp.JoinableQueue) -> smsh5.H5dataset:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
 
@@ -75,21 +88,29 @@ class OpenFile:
         ----------
         fname : str
             Path name to h5 file.
+        feedback_queue : multiprocessing.JoinableQueue
+            Queue to send feedback to ProcessThread
         """
         try:
-            dataset = self.load_data(self.file_path)
+            sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
+            prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
+
+            dataset = self.load_data(fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb)
 
             datasetnode = DatasetTreeNode(self.file_path[0][self.file_path[0].rfind('/') + 1:-3],
                                           dataset, 'dataset')
-            add_dataset_sig.emit(datasetnode)
 
-            start_progress_sig.emit(dataset.numpart)
-            status_sig.emit("Opening file: Adding particles...")
+            sig_fb.add_datasetnode(node=datasetnode)
+            prog_fb.set_status(status="Adding particles...")
+            # prog_fb.start(max_value=dataset.numpart)
+
+            all_particles = list()
             for i, particle in enumerate(dataset.particles):
                 particlenode = DatasetTreeNode(particle.name, particle, 'particle')
-                add_node_sig.emit(particlenode, progress_sig, i)
-                progress_sig.emit()
-            reset_tree_sig.emit()
+                all_particles.append((particlenode, i))
+            sig_fb.add_all_particlenodes(all_nodes=all_particles)
+
+            sig_fb.reset_tree()
 
             starttimes = []
             tmins = []
@@ -121,16 +142,14 @@ class OpenFile:
                 tmins.append(tmin)
 
             av_start = np.average(starttimes)
-            set_start_sig.emit(av_start)
-
+            sig_fb.set_start(start=av_start)
             global_tmin = np.min(tmins)
             for particle in dataset.particles:
                 particle.tmin = global_tmin
+            sig_fb.set_tmin(tmin=global_tmin)
+            sig_fb.data_loaded()
+            prog_fb.set_status(status="Done")
 
-            set_tmin_sig.emit(global_tmin)
-
-            status_sig.emit("Done")
-            data_loaded_sig.emit()
         except Exception as err:
             logger.error(err, exc_info=True)
             raise err
@@ -164,48 +183,42 @@ class OpenFile:
             # irfhist.t -= irfhist.t.min()
             add_irf_sig.emit(irfhist.decay, irfhist.t, dataset)
 
-            start_progress_sig.emit(dataset.numpart)
+            start_progress_sig.emit(100)
             status_sig.emit("Done")
         except Exception as err:
             self.signals.error.emit(err)
 
-    def load_data(self, fname):
+    def load_data(self, fname:str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
 
-        auto_prog_sig = self.signals.auto_progress
-        bin_size_sig = self.signals.bin_size
-        progress_sig = self.signals.progress
-        start_progress_sig = self.signals.start_progress
-
-        status_sig = self.signals.status_message
-
-        status_sig.emit("Opening file...")
-        dataset = smsh5.H5dataset(fname[0])  # , progress_sig, auto_prog_sig)
-        bin_all(dataset, 100, start_progress_sig, progress_sig, status_sig, bin_size_sig)
-        start_progress_sig.emit(dataset.numpart)
-        status_sig.emit("Opening file: Building decay histograms...")
+        # prog_fb.set_status(status="Opening file...")
+        dataset = smsh5.H5dataset(fname[0], sig_fb=sig_fb, prog_fb=prog_fb)
+        bin_all(dataset=dataset, bin_size=100, sig_fb=sig_fb, prog_fb=prog_fb)
+        # start_progress_sig.emit(dataset.numpart)
+        # status_sig.emit("Opening file: Building decay histograms...")
+        # prog_fb.start(max_value=0)
         dataset.makehistograms()
         return dataset
 
 
-def bin_all(dataset, bin_size, start_progress_sig, progress_sig, status_sig, bin_size_sig) -> None:
+def bin_all(dataset: smsh5.H5dataset,
+            bin_size: float,
+            sig_fb: PassSigFeedback = None,
+            prog_fb: ProcessProgFeedback = None) -> None:
     """
 
     Parameters
     ----------
     bin_size
     dataset
-    start_progress_sig
-    progress_sig
-    status_sig
+    sig_fb
+    prog_fb
     """
 
-    start_progress_sig.emit(dataset.numpart)
-    # if not self.data_loaded:
-    #     part = "Opening file: "
-    # else:
-    #     part = ""
-    # status_sig.emit(part + "Binning traces...")
-    status_sig.emit("Binning traces...")
-    dataset.bin_all_ints(bin_size)
-    bin_size_sig.emit(bin_size)
-    status_sig.emit("Done")
+    if prog_fb:
+        prog_fb.start(max_value=0)
+        prog_fb.set_status(status="Binning traces...")
+    dataset.bin_all_ints(bin_size, sig_fb=sig_fb, prog_fb=prog_fb)
+    if sig_fb:
+        sig_fb.bin_size(bin_size=bin_size)
+    # if prog_fb:
+    #     prog_fb.set_status("Done")

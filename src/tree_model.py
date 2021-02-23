@@ -1,7 +1,12 @@
+from __future__ import annotations
 from PyQt5.QtCore import QAbstractItemModel, Qt, QModelIndex
 
-import smsh5
+# import smsh5
 from my_logger import setup_logger
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import smsh5
 
 logger = setup_logger(__name__)
 
@@ -131,7 +136,7 @@ class DatasetTreeModel(QAbstractItemModel):
             return in_index.internalPointer().childCount()
         return self._root.childCount()
 
-    def addChild(self, in_node, in_parent=None, progress_sig=None):
+    def addChild(self, in_node, in_parent=None):  #, progress_sig=None):
         """
         TODO: Docstring
 
@@ -150,8 +155,8 @@ class DatasetTreeModel(QAbstractItemModel):
         row = parent.addChild(in_node)
         self.layoutChanged.emit()
         self.modelReset.emit()
-        if progress_sig is not None:
-            progress_sig.emit()  # Increment progress bar on MainWindow GUI
+        # if progress_sig is not None:
+        #     progress_sig.emit()  # Increment progress bar on MainWindow GUI
         return self.index(row, 0)
 
     def index(self, in_row, in_column, in_parent=None):
@@ -207,7 +212,7 @@ class DatasetTreeModel(QAbstractItemModel):
             return in_index.internalPointer().columnCount()
         return self._root.columnCount()
 
-    def get_particle(self, ind: int) -> smsh5.Particle:
+    def get_particle(self, ind) -> smsh5.Particle:
         """
         Returns the smsh5.Particle object of the ind'th tree particle.
 

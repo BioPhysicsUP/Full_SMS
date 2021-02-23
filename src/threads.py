@@ -4,11 +4,15 @@ from typing import Union, List
 
 from PyQt5.QtCore import QRunnable, pyqtSlot
 
-import processes as prcs
+# import processes as prcs
 from my_logger import setup_logger
-from signals import WorkerSignals, ProcessThreadSignals
+from signals import WorkerSignals, ProcessThreadSignals, worker_sig_pass
 from smsh5 import H5dataset, Particle
 from thread_commands import StatusCmd, ProgressCmd
+from processes import ProcessProgressCmd as PPCmd, ProcessSigPassTask as PSCmd,\
+    ProcessProgressTask as PPTask, ProcessSigPassTask as PSTask, ProcessTask, create_queue,\
+    get_max_num_processes, get_empty_queue_exception, SingleProcess, ProcessTaskResult, \
+    prog_sig_pass, ProcessProgress, ProcessProgFeedback
 
 logger = setup_logger(__name__)
 
@@ -19,16 +23,19 @@ class ProcessThread(QRunnable):
     """
 
     def __init__(self, num_processes: int = None,
-                 tasks: Union[prcs.ProcessTask, List[prcs.ProcessTask]] = None,
-                 signals: WorkerSignals = None,
-                 task_buffer_size: int = None):
+                 tasks: Union[ProcessTask, List[ProcessTask]] = None,
+                 signals: ProcessThreadSignals = None,
+                 worker_signals: WorkerSignals = None,
+                 task_buffer_size: int = None,
+                 status_message: str = None):
         super().__init__()
         self._processes = []
-        self.task_queue = prcs.create_queue()
-        self.result_queue = prcs.create_queue()
-        self.progress_queue = prcs.create_queue()
+        self.task_queue = create_queue()
+        self.result_queue = create_queue()
+        self.feedback_queue = create_queue()
         self.force_stop = False
         self.is_running = False
+        self._status_message = status_message
 
         if num_processes:
             # assert type(num_processes) is int, 'Provided num_processes is ' \
@@ -37,7 +44,7 @@ class ProcessThread(QRunnable):
                 raise TypeError("Provided num_processes must be of type int")
             self.num_processes = num_processes
         else:
-            self.num_processes = prcs.get_max_num_processes()
+            self.num_processes = get_max_num_processes()
 
         if not task_buffer_size:
             task_buffer_size = self.num_processes
@@ -48,21 +55,36 @@ class ProcessThread(QRunnable):
         else:
             # assert type(signals) is ThreadSignals, 'Provided signals wrong ' \
             #                                        'type'
-            if type(signals) is not WorkerSignals:
-                raise TypeError("Provided signals must be of type "
-                                "ThreadSignals")
+            if type(signals) is not ProcessThreadSignals:
+                raise TypeError("Provided signals must be of type ProcessThreadSignals")
             self.signals = signals
+
+        if not worker_signals:
+            self.worker_signals = WorkerSignals()
+        else:
+            if type(worker_signals) is not WorkerSignals:
+                raise TypeError("Provided signals must be of type ProcessThreadSignals")
+            self.worker_signals = worker_signals
 
         self.tasks = []
         if tasks:
             self.add_task(tasks)
         self.results = []
 
-    def add_tasks(self, tasks: Union[prcs.ProcessTask,
-                                     List[prcs.ProcessTask]]):
+    @property
+    def status_message(self):
+        return self._status_message
+
+    @status_message.setter
+    def status_message(self, message: str):
+        assert type(message) is str, "status_message must be str"
+        self._status_message = message
+
+    def add_tasks(self, tasks: Union[ProcessTask,
+                                     List[ProcessTask]]):
         if type(tasks) is not List:
             tasks = [tasks]
-        all_valid = all([type(task) is prcs.ProcessTask for task in tasks])
+        all_valid = all([type(task) is ProcessTask for task in tasks])
         # assert all_valid, "At least some provided tasks are not correct type"
         if not all_valid:
             raise TypeError("At least some of provided tasks are not of "
@@ -70,7 +92,7 @@ class ProcessThread(QRunnable):
         self.tasks.extend(tasks)
 
     def add_tasks_from_methods(self, objects: Union[object, List[object]],
-                               method_name: str):
+                               method_name: str, args=None):
         if type(objects) is not list:
             objects = [objects]
         # assert type(method_name) is str, 'Method_name is not str'
@@ -82,9 +104,12 @@ class ProcessThread(QRunnable):
         if not all_valid:
             raise TypeError("Some or all objects do not have " "the specified method")
 
+        if args is not None and type(args) is not tuple:
+            args = (args,)
         for obj in objects:
-            self.tasks.append(prcs.ProcessTask(obj=obj,
-                                               method_name=method_name))
+            self.tasks.append(ProcessTask(obj=obj,
+                                          method_name=method_name,
+                                          args=args))
 
     @pyqtSlot()
     def run(self, num_processes: int = None):
@@ -96,59 +121,89 @@ class ProcessThread(QRunnable):
         num_active_processes = 0
         try:
             self.results = [None]*len(self.tasks)
-            self.signals.status_update.emit(StatusCmd.ShowMessage,
-                                            'Busy with generic worker')
-            prog_tracker = prcs.ProgressTracker(len(self.tasks))
-            self.signals.progress.emit(ProgressCmd.SetMax, 100)
-            num_init_tasks = len(self.tasks)
-            task_uuids = [task.uuid for task in self.tasks]
-            # assert num_init_tasks, 'No tasks were provided'
-            if not num_init_tasks: raise TypeError("No tasks were provided")
+            # self.signals.status_update.emit("Testing")
+            # prog_tracker = prcs.ProgressTracker(len(self.tasks))
 
+            num_init_tasks = len(self.tasks)
+            if not num_init_tasks:
+                raise TypeError("No tasks were provided")
+
+            if num_init_tasks > 1:
+                if self._status_message is None:
+                    status_message = "Busy..."
+                else:
+                    status_message = self._status_message
+                self.signals.status_update.emit(status_message)
+                self.signals.start_progress.emit(num_init_tasks)
+            elif self._status_message is not None:
+                self.signals.status_update.emit(self._status_message)
+
+            task_uuids = [task.uuid for task in self.tasks]
             num_used_processes = self.num_processes
             if num_init_tasks < self.num_processes:
                 num_used_processes = num_init_tasks
             num_active_processes = 0
             for _ in range(num_used_processes):
-                process = prcs.SingleProcess(task_queue=self.task_queue,
-                                             result_queue=self.result_queue)
+                process = SingleProcess(task_queue=self.task_queue,
+                                        result_queue=self.result_queue,
+                                        feedback_queue=self.feedback_queue)
                 self._processes.append(process)
                 process.start()
                 num_active_processes += 1
 
             num_task_left = len(self.tasks)
-            tasks_todo = copy.copy(self.tasks)
+            single_task = num_task_left == 1
+            # tasks_todo = copy.copy(self.tasks)  #TODO: Why am I doing this? Should test.
+            # self.tasks = self.tasks  #TODO: Why am I doing this? Should test.
 
             init_num = num_used_processes + self.task_buffer_size
-            rest = len(tasks_todo) - init_num
+            rest = len(self.tasks) - init_num
             if rest < 0:
                 init_num += rest
 
+            if not single_task:
+                prog_fb = ProcessProgFeedback(feedback_queue=self.feedback_queue)
+                process_progress = ProcessProgress(prog_fb=prog_fb,
+                                                   num_iterations=num_init_tasks)
+                process_progress.start_progress()
+
+            next_task_ind = 0
             for _ in range(init_num):
-                self.task_queue.put(tasks_todo.pop(0))
+                next_task = self.tasks[next_task_ind]
+                self.task_queue.put(next_task)
+                next_task_ind += 1
 
             while num_task_left and not self.force_stop:
                 try:
-                    result = self.result_queue.get(timeout=1)
-                except prcs.get_empty_queue_exception():
+                    if not self.feedback_queue.empty():
+                        while not self.feedback_queue.empty():
+                            fbk_return = self.feedback_queue.get()
+                            if type(fbk_return) is PPTask:
+                                prog_sig_pass(signals=self.signals,
+                                              cmd=fbk_return.task_cmd,
+                                              args=fbk_return.args)
+                            elif type(fbk_return) is PSTask:
+                                worker_sig_pass(signals=self.worker_signals,
+                                                sig_type=fbk_return.sig_pass_type,
+                                                args=fbk_return.sig_args)
+
+                    result = self.result_queue.get(timeout=0.01)
+                except get_empty_queue_exception():
                     pass
                 else:
-                    if len(tasks_todo):
-                        self.task_queue.put(tasks_todo.pop(0))
+                    if next_task_ind != len(self.tasks):
+                        self.task_queue.put(self.tasks[next_task_ind])
+                        next_task_ind += 1
 
-                    if type(result) is not prcs.ProcessTaskResult:
-                        raise TypeError("Task result is not of type "
-                                        "ProcessTaskResult")
+                    if type(result) is not ProcessTaskResult:
+                        raise TypeError("Task result is not of type ProcessTaskResult")
 
                     ind = task_uuids.index(result.task_uuid)
-                    # self.tasks[ind].obj = result.new_task_obj
                     self.results[ind] = result
                     self.result_queue.task_done()
+                    if not single_task:
+                        process_progress.iterate()
                     num_task_left -= 1
-                    prog_value = prog_tracker.iterate()
-                    if prog_value:
-                        self.signals.progress.emit(ProgressCmd.Step,
-                                                   prog_value)
 
         except Exception as exception:
             self.signals.error.emit(exception)
@@ -162,11 +217,25 @@ class ProcessThread(QRunnable):
                 while not self.result_queue.empty():
                     self.result_queue.get()
                     self.result_queue.task_done()
+            else:
+                time.sleep(1)
+                if not self.feedback_queue.empty():
+                    for _ in range(self.feedback_queue.qsize()):
+                        fbk_return = self.feedback_queue.get()
+                        if type(fbk_return) is PPTask:
+                            prog_sig_pass(signals=self.signals,
+                                          cmd=fbk_return.task_cmd,
+                                          args=fbk_return.args)
+                        elif type(fbk_return) is PSTask:
+                            worker_sig_pass(signals=self.worker_signals,
+                                            sig_type=fbk_return.sig_pass_type,
+                                            args=fbk_return.sig_args)
             if len(self._processes):
                 for _ in range(num_used_processes):
                     self.task_queue.put(None)
                 for _ in range(num_used_processes):
-                    if self.result_queue.get() is True:
+                    result = self.result_queue.get()
+                    if result is True:
                         self.result_queue.task_done()
                         num_active_processes -= 1
                 self.task_queue.close()
@@ -174,11 +243,10 @@ class ProcessThread(QRunnable):
                 while any([p.is_alive() for p in self._processes]):
                     time.sleep(1)
 
-            self.signals.result.emit(self.results)
-            self.signals.finished.emit(self)
-            self.signals.status_update.emit(StatusCmd.Reset, '')
-            self.signals.progress.emit(ProgressCmd.Complete, 0)
+            self.signals.results.emit(self.results)
+            self.signals.end_progress.emit()
             self.is_running = False
+            self.signals.finished.emit(self)
 
 
 class WorkerFitLifetimes(QRunnable):

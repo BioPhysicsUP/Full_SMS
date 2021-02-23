@@ -46,6 +46,7 @@ class ChangePoints:
         run_levels
         """
         self._particle = particle
+        self.uuid = self._particle.uuid
         # self.cpa_has_run = False
         self._cpa = ChangePointAnalysis(particle, confidence)
         self.has_burst = False
@@ -172,6 +173,7 @@ class ChangePoints:
             if self.has_levels:
                 self.calc_mean_std()  # self.level_ints
                 self.check_burst()  # self.level_ints, self.level_dwelltimes
+        logger.info(msg=f"{self._particle.name} levels resolved")
 
     def calc_mean_std(self):  # , intensities: np.ndarray = None
         assert self.has_levels, "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."

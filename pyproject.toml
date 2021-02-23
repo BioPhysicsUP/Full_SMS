@@ -5,7 +5,7 @@ description = "Application to display and analyse single-molecule spectroscopy m
 authors = ["Josh <Joshua.Botha@up.ac.za>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.9.1"
 h5py = "^3.1.0"
 numpy = "1.19.3"
 scipy = "^1.5.4"

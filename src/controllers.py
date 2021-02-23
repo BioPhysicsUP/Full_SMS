@@ -1,16 +1,22 @@
-from typing import Union
+
+from __future__ import annotations
+from typing import Union, List, TYPE_CHECKING
 
 import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog
+import time
 
-from main import MainWindow, FittingDialog
+if TYPE_CHECKING:
+    from main import MainWindow
+
 from my_logger import setup_logger
 from smsh5 import H5dataset, Particle
-from tcspcfit import FittingParameters
-from threads import WorkerFitLifetimes, WorkerGrouping, WorkerResolveLevels
+from tcspcfit import FittingParameters, FittingDialog
+from threads import WorkerFitLifetimes, WorkerGrouping, WorkerResolveLevels, \
+    ProcessThread, ProcessTask, ProcessTaskResult
 
 logger = setup_logger(__name__)
 
@@ -27,6 +33,8 @@ class IntController(QObject):
                  groups_hist_widget: pg.PlotWidget):
         super().__init__()
         self.mainwindow = mainwindow
+        self.resolve_mode = None
+        self.results_gathered = False
 
         self.int_widget = int_widget
         self.int_plot = int_widget.getPlotItem()
@@ -399,61 +407,103 @@ class IntController(QObject):
             Possible values are 'current' (default), 'selected', and 'all'.
         """
 
+        mw = self.mainwindow
         if thread_finished is None:
-            if self.mainwindow.data_loaded:
+            if mw.data_loaded:
                 thread_finished = self.resolve_thread_complete
             else:
-                thread_finished = self.mainwindow.open_file_thread_complete
+                thread_finished = mw.open_file_thread_complete
 
         _, conf = self.get_gui_confidence()
-        data = self.mainwindow.tree2dataset()
-        currentparticle = self.mainwindow.currentparticle
+        data = mw.tree2dataset()
+        currentparticle = mw.currentparticle
         # print(currentparticle)
 
-        # print(mode)
+        self.resolve_mode = mode
         if mode == 'current':
-            # sig = WorkerSignals()
-            # self.resolve_levels(sig.start_progress, sig.progress, sig.status_message)
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode,
-                                                 end_time_s=end_time_s)
+            status_message = "Resolving current particle levels..."
+            cpt_objs = [currentparticle.cpts]
         elif mode == 'selected':
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode,
-                                                 resolve_selected=self.mainwindow.get_checked_particles(),
-                                                 end_time_s=end_time_s)
+            status_message = "Resolving selected particle levels..."
+            checked_parts = mw.get_checked_particles()
+            cpt_objs = [part.cpts for part in checked_parts]
         elif mode == 'all':
-            resolve_thread = WorkerResolveLevels(resolve_levels, conf, data, currentparticle, mode,
-                                                 end_time_s=end_time_s)
-            # resolve_thread.signals.finished.connect(thread_finished)
-            # resolve_thread.signals.start_progress.connect(self.start_progress)
-            # resolve_thread.signals.progress.connect(self.update_progress)
-            # resolve_thread.signals.status_message.connect(self.status_message)
-            # self.resolve_levels(resolve_thread.signals.start_progress, resolve_thread.signals.progress,
-            #                     resolve_thread.signals.status_message, resolve_all=True, parallel=True)
+            status_message = "Resolving all particle levels..."
+            cpt_objs = [part.cpts for part in data.particles]
+        else:
+            logger.error(msg="Provided mode not valid")
+            raise TypeError
 
-        resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
-        resolve_thread.signals.start_progress.connect(self.mainwindow.start_progress)
-        resolve_thread.signals.progress.connect(self.mainwindow.update_progress)
-        resolve_thread.signals.status_message.connect(self.mainwindow.status_message)
-        resolve_thread.signals.reset_gui.connect(self.mainwindow.reset_gui)
-        resolve_thread.signals.level_resolved.connect(self.mainwindow.set_level_resolved)
+        r_process_thread = ProcessThread()
+        r_process_thread.add_tasks_from_methods(objects=cpt_objs,
+                                                method_name='run_cpa',
+                                                args=(conf, True))
 
-        self.mainwindow.threadpool.start(resolve_thread)
+        r_process_thread.signals.start_progress.connect(mw.start_progress)
+        r_process_thread.signals.status_update.connect(mw.status_message)
+        # r_process_thread.signals.set_progress.connect(mw.set_progress)
+        r_process_thread.signals.step_progress.connect(mw.update_progress)
+        r_process_thread.signals.end_progress.connect(mw.end_progress)
+        r_process_thread.signals.error.connect(self.error)
+        r_process_thread.signals.results.connect(self.gather_replace_results)
+        r_process_thread.signals.finished.connect(thread_finished)
+        r_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
+        r_process_thread.worker_signals.level_resolved.connect(mw.set_level_resolved)
+        r_process_thread.status_message = status_message
 
-    def resolve_thread_complete(self, mode):
-        if self.mainwindow.tree2dataset().cpa_has_run:
+        # resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
+        # resolve_thread.signals.start_progress.connect(self.mainwindow.start_progress)
+        # resolve_thread.signals.progress.connect(self.mainwindow.update_progress)
+        # resolve_thread.signals.status_message.connect(self.mainwindow.status_message)
+        # resolve_thread.signals.reset_gui.connect(self.mainwindow.reset_gui)
+        # resolve_thread.signals.level_resolved.connect(self.mainwindow.set_level_resolved)
+
+        # self.mainwindow.threadpool.start(resolve_thread)
+        mw.threadpool.start(r_process_thread)
+        mw.active_threads.append(r_process_thread)
+
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
+        particles = self.mainwindow.currentparticle.dataset.particles
+        part_uuids = [part.uuid for part in particles]
+        result_part_uuids = [result.new_task_obj.uuid for result in results]
+        try:
+            for num, result in enumerate(results):
+                result_part_ind = part_uuids.index(result_part_uuids[num])
+                self.mainwindow.tree2particle(result_part_ind).cpts = result.new_task_obj
+            self.results_gathered = True
+        except ValueError as e:
+            logger.error(e)
+
+    def resolve_thread_complete(self, thread: ProcessThread):
+        count = 0
+
+        while self.results_gathered is False:
+            time.time(1)
+            count += 1
+            if count >= 5:
+                logger.error(msg="Results gathering timeout")
+                raise RuntimeError
+
+        if self.mainwindow.currentparticle.has_levels:  # tree2dataset().cpa_has_run:
             self.mainwindow.tabGrouping.setEnabled(True)
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
-        self.mainwindow.check_remove_bursts(mode=mode)
+        self.mainwindow.check_remove_bursts(mode=self.resolve_mode)
         self.mainwindow.chbEx_Levels.setEnabled(True)
         self.mainwindow.set_startpoint()
+        self.mainwindow.status_message("Done")
         logger.info('Resolving levels complete')
+
+        self.results_gathered = False
 
     def get_gui_confidence(self):
         """ Return current GUI value for confidence percentage. """
 
         return [self.mainwindow.cmbConfIndex.currentIndex(),
                 self.confidence_index[self.mainwindow.cmbConfIndex.currentIndex()]]
+
+    def error(self, e):
+        logger.error(e)
 
 
 class LifetimeController(QObject):
@@ -939,35 +989,59 @@ class GroupingController(QObject):
             Possible values are 'current' (default), 'selected', and 'all'.
         """
 
-        data = self.mainwindow.tree2dataset()
+        # data = self.mainwindow.currentparticle.dataset
 
-        print(mode)
+        mw = self.mainwindow
+
         if mode == 'current':
-            grouping_worker = WorkerGrouping(data=data,
-                                             grouping_func=group_levels,
-                                             currentparticle=self.mainwindow.currentparticle,
-                                             mode='current')
+            grouping_objs = [mw.currentparticle.ahca]
+            status_message = "Grouping levels for current particle..."
         elif mode == 'selected':
-            grouping_worker = WorkerGrouping(data=data,
-                                             grouping_func=group_levels,
-                                             mode='selected',
-                                             group_selected=self.mainwindow.get_checked_particles())
+            checked_particles = mw.get_checked_particles()
+            grouping_objs = [particle.ahca for particle in checked_particles]
+            status_message = "Grouping levels for selected particle..."
         elif mode == 'all':
-            grouping_worker = WorkerGrouping(data=data,
-                                             grouping_func=group_levels,
-                                             mode='all')
+            all_particles = mw.currentparticle.dataset.particles
+            grouping_objs = [particle.ahca for particle in all_particles]
+            status_message = "Grouping levels for all particle..."
 
-        grouping_worker.signals.grouping_finished.connect(self.grouping_thread_complete)
-        grouping_worker.signals.start_progress.connect(self.mainwindow.start_progress)
-        grouping_worker.signals.progress.connect(self.mainwindow.update_progress)
-        grouping_worker.signals.status_message.connect(self.mainwindow.status_message)
-        grouping_worker.signals.reset_gui.connect(self.mainwindow.reset_gui)
+        g_process_thread = ProcessThread()
+        g_process_thread.add_tasks_from_methods(objects=grouping_objs, method_name='run_grouping')
 
-        self.mainwindow.threadpool.start(grouping_worker)
+        g_process_thread.signals.status_update.connect(mw.status_message)
+        g_process_thread.signals.start_progress.connect(mw.start_progress)
+        g_process_thread.signals.step_progress.connect(mw.update_progress)
+        g_process_thread.signals.end_progress.connect(mw.end_progress)
+        g_process_thread.signals.error.connect(self.error)
+        g_process_thread.signals.results.connect(self.gather_replace_results)
+        g_process_thread.signals.finished.connect(self.grouping_thread_complete)
+        g_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
+        g_process_thread.status_message = status_message
+
+        # grouping_worker.signals.grouping_finished.connect(self.grouping_thread_complete)
+        # grouping_worker.signals.start_progress.connect(self.mainwindow.start_progress)
+        # grouping_worker.signals.progress.connect(self.mainwindow.update_progress)
+        # grouping_worker.signals.status_message.connect(self.mainwindow.status_message)
+        # grouping_worker.signals.reset_gui.connect(self.mainwindow.reset_gui)
+
+        self.mainwindow.threadpool.start(g_process_thread)
+
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
+        particles = self.mainwindow.currentparticle.dataset.particles
+        part_uuids = [part.uuid for part in particles]
+        result_part_uuids = [result.new_task_obj.uuid for result in results]
+        try:
+            for num, result in enumerate(results):
+                result_part_ind = part_uuids.index(result_part_uuids[num])
+                self.mainwindow.tree2particle(result_part_ind).ahca = result.new_task_obj
+            self.results_gathered = True
+        except ValueError as e:
+            logger.error(e)
 
     def grouping_thread_complete(self, mode):
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
+        self.mainwindow.status_message("Done")
         logger.info('Grouping levels complete')
 
     def apply_groups(self, mode: str = 'current'):
@@ -983,6 +1057,9 @@ class GroupingController(QObject):
             particle.using_group_levels = bool_use
 
         self.mainwindow.int_controller.plot_all()
+
+    def error(self, e: Exception):
+        logger.error(e)
 
 
 class SpectraController(QObject):
