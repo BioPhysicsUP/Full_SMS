@@ -12,7 +12,7 @@ from thread_commands import StatusCmd, ProgressCmd
 from processes import ProcessProgressCmd as PPCmd, ProcessSigPassTask as PSCmd,\
     ProcessProgressTask as PPTask, ProcessSigPassTask as PSTask, ProcessTask, create_queue,\
     get_max_num_processes, get_empty_queue_exception, SingleProcess, ProcessTaskResult, \
-    prog_sig_pass, ProcessProgress, ProcessProgFeedback
+    prog_sig_pass, ProcessProgress, ProcessProgFeedback, apply_autoproxy_fix
 
 logger = setup_logger(__name__)
 
@@ -32,6 +32,7 @@ class ProcessThread(QRunnable):
         self._processes = []
         self.task_queue = create_queue()
         self.result_queue = create_queue()
+
         self.feedback_queue = create_queue()
         self.force_stop = False
         self.is_running = False
@@ -238,8 +239,8 @@ class ProcessThread(QRunnable):
                     if result is True:
                         self.result_queue.task_done()
                         num_active_processes -= 1
-                self.task_queue.close()
-                self.result_queue.close()
+                # self.task_queue.close()
+                # self.result_queue.close()
                 while any([p.is_alive() for p in self._processes]):
                     time.sleep(1)
 

@@ -11,11 +11,55 @@ import numpy as np
 import pickle
 import dbg
 import file_manager as fm
-from processes import ProcessProgFeedback
+from processes import ProcessProgFeedback, ProcessProgress
 from my_logger import setup_logger
 
 
 logger = setup_logger(__name__)
+
+SUMS_VERSION = 1.4
+
+
+def calc_and_store_sums(n_min: int, n_max: int, prog_fb: ProcessProgFeedback = None):
+
+    cp_sums = CPSums(n_min=n_min, n_max=n_max)
+    cp_sums._calc_and_store()
+    #
+    # n_range = n_max - n_min
+    # sums_u_k = np.empty(shape=(n_max, n_range), dtype=np.float64)
+    # sums_u_n_k = np.empty(shape=(n_max, n_range), dtype=np.float64)
+    # sums_v2_k = np.empty(shape=(n_max, n_range), dtype=np.float64)
+    # sums_v2_n_k = np.empty(shape=(n_max, n_range), dtype=np.float64)
+    # sums_sig_e = np.empty(shape=n_range, dtype=np.float64)
+    #
+    # all_sums = dict()
+    #
+    # if prog_fb:
+    #     prog_fb.set_status(status="Calculating sums...")
+    #     progress = ProcessProgress(prog_fb=prog_fb,
+    #                                num_iterations=n_max - n_min)
+    #
+    # for n in range(n_min + 1, n_max + 1):
+    #     sums_sig_e[n - n_min - 1] = (np.pi ** 2) / 6 \
+    #                                 - sum(1 / j ** 2 for j in range(1, (n - 1) + 1))
+    #     for k in range(1, n):
+    #         sums_u_k[k - 1, n - n_min - 1] = -sum(1 / j for j in range(k, (n - 1) + 1))
+    #         sums_u_n_k[k - 1, n - n_min - 1] = -sum(
+    #             1 / j for j in range(n - k, (n - 1) + 1))
+    #         sums_v2_k[k - 1, n - n_min - 1] = sum(
+    #             1 / j ** 2 for j in range(k, (n - 1) + 1))
+    #         sums_v2_n_k[k - 1, n - n_min - 1] = sum(
+    #             1 / j ** 2 for j in range(n - k, (n - 1) + 1))
+    #         if prog_fb:
+    #             progress.iterate()
+    #
+    # all_sums['sums_u_k'] = sums_u_k
+    # all_sums['sums_u_k_n'] = sums_u_n_k
+    # all_sums['sums_v2_k'] = sums_v2_k
+    # all_sums['sums_v2_n_k'] = sums_v2_n_k
+    # all_sums['sums_sig_e'] = sums_sig_e
+    #
+    # return all_sums
 
 
 class CPSums:
@@ -23,7 +67,7 @@ class CPSums:
     
     def __init__(self, n_max: int = None, n_min: int = None,
                  only_pickle: bool = False, prog_fb: ProcessProgFeedback = None):
-        self._version = 1.4
+        self._version = SUMS_VERSION
         self.prog_fb = prog_fb
 
         if n_max is None:
@@ -67,19 +111,24 @@ class CPSums:
         Calculates the all the possible sums that might be used in the change_point module to detect
         change points.
         """
-        
+
+        if self.prog_fb:
+            self.prog_fb.set_status(status="Calculating sums...")
+            progress = ProcessProgress(prog_fb=self.prog_fb,
+                                       num_iterations=self.n_max - self.n_min)
         for n in range(self.n_min+1, self.n_max+1):
             self._sums_sig_e[n-self.n_min-1] = (np.pi**2)/6 \
-                                                    - sum(1/j**2 for j in range(1, (n-1)+1))
+                                               - sum(1/j**2 for j in range(1, (n-1)+1))
             for k in range(1, n):
                 self._sums_u_k[k-1, n-self.n_min-1] = -sum(1/j for j in range(k, (n-1)+1))
                 self._sums_u_n_k[k-1, n-self.n_min-1] = -sum(1/j for j in range(n-k, (n-1)+1))
                 self._sums_v2_k[k-1, n-self.n_min-1] = sum(1/j**2 for j in range(k, (n-1)+1))
                 self._sums_v2_n_k[k-1, n-self.n_min-1] = sum(1/j**2 for j in range(n-k, (n-1)+1))
+            if self.prog_fb:
+                progress.iterate()
 
     def _calc_and_store(self):
         logger.info('Calculating all_sums.pickle')
-        self.prog_fb.set_status(status="Calculating sums...")
         self._calc_sums()
         all_sums = {
             'version': self._version,

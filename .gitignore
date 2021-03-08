@@ -155,3 +155,5 @@ Syncfolders_Database_db
 
 poetry.toml
 /docs/
+
+log.txt

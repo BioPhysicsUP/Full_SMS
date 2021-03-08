@@ -1,19 +1,65 @@
 
 import multiprocessing as mp
+from multiprocessing import managers
 from enum import IntEnum, auto
 from queue import Empty
 from typing import List, Union
 from uuid import UUID, uuid1
+import time
 
 from my_logger import setup_logger
 from signals import WorkerSigPassType, ProcessThreadSignals
 from tree_model import DatasetTreeNode
 
+from inspect import signature
+from functools import wraps
+
 logger = setup_logger(__name__)
+orig_AutoProxy = managers.AutoProxy
+
+
+@wraps(managers.AutoProxy)
+def AutoProxy(*args, incref=True, manager_owned=False, **kwargs):
+    # Create the autoproxy without the manager_owned flag, then
+    # update the flag on the generated instance. If the manager_owned flag
+    # is set, `incref` is disabled, so set it to False here for the same
+    # result.
+    autoproxy_incref = False if manager_owned else incref
+    proxy = orig_AutoProxy(*args, incref=autoproxy_incref, **kwargs)
+    proxy._owned_by_manager = manager_owned
+    return proxy
+
+
+def apply_autoproxy_fix():
+    if "manager_owned" in signature(managers.AutoProxy).parameters:
+        return
+
+    logger.debug("Patching multiprocessing.managers.AutoProxy to add manager_owned")
+    managers.AutoProxy = AutoProxy
+
+    # re-register any types already registered to SyncManager without a custom
+    # proxy type, as otherwise these would all be using the old unpatched AutoProxy
+    SyncManager = managers.SyncManager
+    registry = managers.SyncManager._registry
+    for typeid, (callable, exposed, method_to_typeid, proxytype) in registry.items():
+        if proxytype is not orig_AutoProxy:
+            continue
+        create_method = hasattr(managers.SyncManager, typeid)
+        SyncManager.register(
+            typeid,
+            callable=callable,
+            exposed=exposed,
+            method_to_typeid=method_to_typeid,
+            create_method=create_method,
+        )
+
+
+apply_autoproxy_fix()
 
 
 def create_queue() -> mp.JoinableQueue:
-    return mp.JoinableQueue()
+    # return mp.JoinableQueue()
+    return mp.Manager().Queue()
 
 
 def get_empty_queue_exception() -> type:
@@ -254,13 +300,13 @@ class SingleProcess(mp.Process):
                  result_queue: mp.JoinableQueue,
                  feedback_queue: mp.JoinableQueue = None):
         mp.Process.__init__(self)
-        assert type(task_queue) is mp.queues.JoinableQueue, \
-            'task_queue is not of type JoinableQueue'
-        assert type(result_queue) is mp.queues.JoinableQueue, \
-            'result_queue is not of type JoinableQueue'
-        if feedback_queue:
-            assert type(feedback_queue) is mp.queues.JoinableQueue, \
-                'progress_queue is not of type JoinableQueue'
+        # assert type(task_queue) in [mp.queues.JoinableQueue, mp.managers.AutoProxy[Queue]], \
+        #     'task_queue is not of type JoinableQueue'
+        # assert type(result_queue) is mp.queues.JoinableQueue, \
+        #     'result_queue is not of type JoinableQueue'
+        # if feedback_queue:
+        #     assert type(feedback_queue) is mp.queues.JoinableQueue, \
+        #         'progress_queue is not of type JoinableQueue'
 
         self.task_queue = task_queue
         self.result_queue = result_queue
@@ -270,6 +316,9 @@ class SingleProcess(mp.Process):
         try:
             done = False
             while not done:
+                # if self.task_queue.empty():
+                #     time.sleep(0.1)
+                #     continue
                 task = self.task_queue.get()
                 if task is None:
                     done = True

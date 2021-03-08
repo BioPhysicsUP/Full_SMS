@@ -13,12 +13,13 @@ import sys
 from platform import system
 
 import pyqtgraph as pg
-from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot
+from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot, QTimer, QEvent
 from PyQt5.QtGui import QIcon, QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QStyleFactory
 from PyQt5 import uic
 from typing import Union
+import time
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController, \
     resolve_levels
@@ -79,6 +80,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             logger.info("System -> Windows")
         elif system() == "Darwin":
             logger.info("System -> Unix/Linus")
+            os.environ["QT_MAC_WANTS_LAYER"] = '1'
         else:
             logger.info("System -> Other")
 
@@ -202,6 +204,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def after_show(self):
         # self.pgSpectra.resize(self.tabSpectra.size().height(),
         #                       self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
+        # QEvent.
+        # QTimer.singleShot(1000)
+        self.calc_store_sums()
+        for i in range(100):
+            time.sleep(1)
+            print(i)
         pass
 
     def resizeEvent(self, a0: QResizeEvent):
@@ -213,16 +221,25 @@ class MainWindow(QMainWindow, UI_Main_Window):
         #                           self.tabSpectra.size().width() - 40)
         pass
 
-    def check_all_sums(self) -> None:
+    def sums_file_check(self) -> bool:
+
+        should_calc = False
+        sums_path = fm.path(name="all_sums.pickle", file_type=fm.Type.Data)
+        if (not os.path.exists(sums_path)) and \
+                (not os.path.isfile(sums_path)):
+            self.status_message('Calculating change point sums, this may take several minutes.')
+            should_calc = True
+
+        return should_calc
+
+    def calc_store_sums(self) -> None:
         """
         Check if the all_sums.pickle file exists, and if it doesn't creates it
         """
-        if (not os.path.exists(rm.path('all_sums.pickle'))) and \
-                (not os.path.isfile(rm.path('all_sums.pickle'))):
-            self.status_message('Calculating change point sums, this may take several minutes.')
-            create_all_sums = CPSums(only_pickle=True, n_min=10, n_max=1000)
-            del create_all_sums
-            self.status_message('Ready...')
+
+        create_all_sums = CPSums(only_pickle=True, n_min=10, n_max=1000)
+        del create_all_sums
+        self.status_message('Ready...')
 
     def gui_export_current(self):
         self.export(mode='current')
@@ -1093,8 +1110,12 @@ def main():
     main_window = MainWindow()
     logger.info('Main Window created')
     main_window.show()
-    main_window.after_show()
-    main_window.tabSpectra.repaint()
+    should_calc = main_window.sums_file_check()
+    if should_calc:
+        app.processEvents()
+        main_window.calc_store_sums()
+        app.processEvents()
+    # main_window.tabSpectra.repaint()
     logger.info('Main Window shown')
     app.instance().exec_()
     logger.info('App excuted')

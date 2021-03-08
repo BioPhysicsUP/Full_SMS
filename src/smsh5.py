@@ -54,7 +54,7 @@ class H5dataset:
         for num, key_num in enumerate(natural_key):
             natural_p_names[key_num-1] = unsorted_names[num]
 
-        self.all_sums = CPSums(n_min=10, n_max=1000)
+        self.all_sums = CPSums(n_min=10, n_max=1000, prog_fb=prog_fb)
 
         self.particles = []
         for particlename in natural_p_names:
