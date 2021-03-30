@@ -2338,9 +2338,9 @@ class LifetimeController(QObject):
 
             plot_item = self.mainwindow.pgResiduals.getPlotItem()
             plot_item.clear()
-            plot_item.plot(x=t, y=(convd-decay) / np.sqrt(np.abs(decay)), pen=None, symbolSize='4', pxMode=True, symbolPen=None)
             resid = (convd - decay) / np.sqrt(np.abs(decay))
-            print(np.sum((resid) ** 2) / np.size(decay))
+            acf = np.correlate(resid, resid, mode='full')
+            plot_item.plot(x=t, y=acf[:np.size(t)], pen=None, symbolSize='4', pxMode=True, symbolPen=None)
             unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
             plot_item.getViewBox().setLimits(xMin=0, xMax=t[-1], yMin=-0.1)#(convd-decay).min() * 2.1)
