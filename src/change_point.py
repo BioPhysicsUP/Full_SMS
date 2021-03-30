@@ -612,7 +612,10 @@ class ChangePointAnalysis:
 
         return next_start_ind, next_end_ind
 
-    def _find_all_cpts(self, _seg_inds: Tuple[int, int] = None, _side: str = None, _right_cpt: int = None):
+    def _find_all_cpts(self,
+                       _seg_inds: Tuple[int, int] = None,
+                       _side: str = None,
+                       _right_cpt: int = None):
         """
         Find all change points in particle.
 

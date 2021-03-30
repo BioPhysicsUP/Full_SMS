@@ -1,9 +1,8 @@
-
 import multiprocessing as mp
 from multiprocessing import managers
 from enum import IntEnum, auto
 from queue import Empty
-from typing import List, Union
+from typing import List, Union, TYPE_CHECKING
 from uuid import UUID, uuid1
 import time
 
@@ -13,6 +12,8 @@ from tree_model import DatasetTreeNode
 
 from inspect import signature
 from functools import wraps
+
+from change_point import ChangePoints
 
 logger = setup_logger(__name__)
 orig_AutoProxy = managers.AutoProxy
@@ -57,9 +58,15 @@ def apply_autoproxy_fix():
 apply_autoproxy_fix()
 
 
+def create_manager() -> mp.Manager:
+    manager = mp.Manager()
+    apply_autoproxy_fix()
+    return manager
+
+
 def create_queue() -> mp.JoinableQueue:
-    # return mp.JoinableQueue()
-    return mp.Manager().Queue()
+    return mp.JoinableQueue()
+    # return mp.Queue()
 
 
 def get_empty_queue_exception() -> type:
@@ -88,32 +95,40 @@ class PassSigFeedback:
     def add_particlenode(self, node: DatasetTreeNode, num: int):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.add_particlenode,
                                         sig_args=(node, num)))
+        self.fbq.task_done()
 
     def add_all_particlenodes(self, all_nodes: list):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.add_all_particlenodes,
                                         sig_args=all_nodes))
+        self.fbq.task_done()
 
     def add_datasetnode(self, node: DatasetTreeNode):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.add_datasetindex,
                                         sig_args=node))
+        self.fbq.task_done()
 
     def reset_tree(self):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.reset_tree))
+        self.fbq.task_done()
 
     def bin_size(self, bin_size: int):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.bin_size,
                                         sig_args=bin_size))
+        self.fbq.task_done()
 
     def set_start(self, start: float):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.set_start,
                                         sig_args=start))
+        self.fbq.task_done()
 
     def set_tmin(self, tmin: float):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.set_tmin,
                                         sig_args=tmin))
+        self.fbq.task_done()
 
     def data_loaded(self):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.data_loaded))
+        self.fbq.task_done()
 
 
 class ProcessProgressCmd(IntEnum):
@@ -339,6 +354,9 @@ class SingleProcess(mp.Process):
                             task_return = task_run(*task_args)
                         else:
                             task_return = task_run()
+                    if type(task.obj) is ChangePoints:
+                        task.obj._particle = None
+                        task.obj._cpa._particle = None
                     process_result = ProcessTaskResult(task_uuid=task.uuid,
                                                        task_return=task_return,
                                                        new_task_obj=task.obj)

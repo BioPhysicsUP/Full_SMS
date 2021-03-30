@@ -138,6 +138,7 @@ class ProcessThreadSignals(QObject):
     """
 
     finished = pyqtSignal(object)
+    # single_result = pyqtSignal(object)
     results = pyqtSignal(object)
     start_progress = pyqtSignal(int)
     set_progress = pyqtSignal(int)

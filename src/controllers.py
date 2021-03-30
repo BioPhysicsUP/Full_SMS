@@ -8,6 +8,7 @@ from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog
 import time
+from multiprocessing import Queue
 
 if TYPE_CHECKING:
     from main import MainWindow
@@ -445,6 +446,7 @@ class IntController(QObject):
         r_process_thread.signals.step_progress.connect(mw.update_progress)
         r_process_thread.signals.end_progress.connect(mw.end_progress)
         r_process_thread.signals.error.connect(self.error)
+        # r_process_thread.signals.single_result.connect(self.handle_single_result)
         r_process_thread.signals.results.connect(self.gather_replace_results)
         r_process_thread.signals.finished.connect(thread_finished)
         r_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
@@ -462,14 +464,32 @@ class IntController(QObject):
         mw.threadpool.start(r_process_thread)
         mw.active_threads.append(r_process_thread)
 
+    # def handle_single_result(self):
+    #     particles = self.mainwindow.currentparticle.dataset.particles
+    #     part_uuids = [part.uuid for part in particles]
+    #     result_part_uuids = [result.new_task_obj.uuid for result in results]
+    #     try:
+    #         for num, result in enumerate(results):
+    #             result_part_ind = part_uuids.index(result_part_uuids[num])
+    #             self.mainwindow.tree2particle(result_part_ind).cpts = result.new_task_obj
+    #         self.results_gathered = True
+    #     except ValueError as e:
+    #         logger.error(e)
+    #     pass
+
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
         particles = self.mainwindow.currentparticle.dataset.particles
         part_uuids = [part.uuid for part in particles]
+        if type(results) is not list:
+            results = [results]
         result_part_uuids = [result.new_task_obj.uuid for result in results]
         try:
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
-                self.mainwindow.tree2particle(result_part_ind).cpts = result.new_task_obj
+                target_particle = self.mainwindow.tree2particle(result_part_ind).cpts._particle
+                result.new_task_obj._particle = target_particle
+                result.new_task_obj._cpa._particle = target_particle
+                target_particle.cpts = result.new_task_obj
             self.results_gathered = True
         except ValueError as e:
             logger.error(e)
@@ -478,7 +498,7 @@ class IntController(QObject):
         count = 0
 
         while self.results_gathered is False:
-            time.time(1)
+            time.sleep(1)
             count += 1
             if count >= 5:
                 logger.error(msg="Results gathering timeout")
@@ -1029,6 +1049,8 @@ class GroupingController(QObject):
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
         particles = self.mainwindow.currentparticle.dataset.particles
         part_uuids = [part.uuid for part in particles]
+        if type(results) is not list:
+            results = [results]
         result_part_uuids = [result.new_task_obj.uuid for result in results]
         try:
             for num, result in enumerate(results):
