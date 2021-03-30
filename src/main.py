@@ -11,6 +11,7 @@ import csv
 import os
 import sys
 from platform import system
+import ctypes
 
 import pyqtgraph as pg
 from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot, QTimer, QEvent
@@ -1098,6 +1099,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
         raise e
 
 
+def display_on():
+    print("Always On")
+    ctypes.windll.kernel32.SetThreadExecutionState(0x80000002)
+
+def display_reset():
+    ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
+    sys.exit(0)
+
+
 def main():
     """
     Creates QApplication and runs MainWindow().
@@ -1117,7 +1127,11 @@ def main():
         app.processEvents()
     # main_window.tabSpectra.repaint()
     logger.info('Main Window shown')
+    if system() == "Windows":
+        display_on()
     app.instance().exec_()
+    if system() == "Windows":
+        display_reset()
     logger.info('App excuted')
 
 

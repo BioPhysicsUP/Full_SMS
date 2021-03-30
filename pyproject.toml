@@ -17,9 +17,6 @@ pyqtgraph = "^0.11.0"
 matplotlib = "^3.3.3"
 h5pickle = "^0.4.2"
 
-[tool.poetry.dev-dependencies]
-Pympler = "^0.9"
-
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

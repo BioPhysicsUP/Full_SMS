@@ -12,7 +12,7 @@ from thread_commands import StatusCmd, ProgressCmd
 from processes import ProcessProgressCmd as PPCmd, ProcessSigPassTask as PSCmd,\
     ProcessProgressTask as PPTask, ProcessSigPassTask as PSTask, ProcessTask, create_queue,\
     get_max_num_processes, get_empty_queue_exception, SingleProcess, ProcessTaskResult, \
-    prog_sig_pass, ProcessProgress, ProcessProgFeedback, apply_autoproxy_fix
+    prog_sig_pass, ProcessProgress, ProcessProgFeedback, apply_autoproxy_fix, create_manager
 
 logger = setup_logger(__name__)
 
@@ -30,10 +30,11 @@ class ProcessThread(QRunnable):
                  status_message: str = None):
         super().__init__()
         self._processes = []
+        self._manager = create_manager()
         self.task_queue = create_queue()
         self.result_queue = create_queue()
-
-        self.feedback_queue = create_queue()
+        self.feedback_queue = self._manager.Queue()
+        # self.feedback_queue = create_queue()
         self.force_stop = False
         self.is_running = False
         self._status_message = status_message
@@ -67,7 +68,8 @@ class ProcessThread(QRunnable):
                 raise TypeError("Provided signals must be of type ProcessThreadSignals")
             self.worker_signals = worker_signals
 
-        self.tasks = []
+        # self.tasks = self._manager.list()
+        self.tasks = list()
         if tasks:
             self.add_task(tasks)
         self.results = []
@@ -108,9 +110,7 @@ class ProcessThread(QRunnable):
         if args is not None and type(args) is not tuple:
             args = (args,)
         for obj in objects:
-            self.tasks.append(ProcessTask(obj=obj,
-                                          method_name=method_name,
-                                          args=args))
+            self.tasks.append(ProcessTask(obj=obj, method_name=method_name, args=args))
 
     @pyqtSlot()
     def run(self, num_processes: int = None):
@@ -170,8 +170,9 @@ class ProcessThread(QRunnable):
 
             next_task_ind = 0
             for _ in range(init_num):
-                next_task = self.tasks[next_task_ind]
+                next_task = self.tasks.pop(0)
                 self.task_queue.put(next_task)
+                del next_task
                 next_task_ind += 1
 
             while num_task_left and not self.force_stop:
@@ -192,15 +193,21 @@ class ProcessThread(QRunnable):
                 except get_empty_queue_exception():
                     pass
                 else:
-                    if next_task_ind != len(self.tasks):
-                        self.task_queue.put(self.tasks[next_task_ind])
+                    # if next_task_ind != len(self.tasks):
+                    if len(self.tasks):
+                        self.task_queue.put(self.tasks.pop(0))
+                        # self.task_queue.put(self.tasks[next_task_ind])
                         next_task_ind += 1
 
                     if type(result) is not ProcessTaskResult:
                         raise TypeError("Task result is not of type ProcessTaskResult")
 
-                    ind = task_uuids.index(result.task_uuid)
-                    self.results[ind] = result
+                    self.signals.results.emit(result)
+                    del result
+
+                    # ind = task_uuids.index(result.task_uuid)
+                    # self.results[ind] = result
+
                     self.result_queue.task_done()
                     if not single_task:
                         process_progress.iterate()
@@ -239,12 +246,14 @@ class ProcessThread(QRunnable):
                     if result is True:
                         self.result_queue.task_done()
                         num_active_processes -= 1
-                # self.task_queue.close()
-                # self.result_queue.close()
+                # self.task_queue.join()
+                # self.result_queue.join()
+                # self.feedback_queue.join()
+                # self._manager.shutdown()
                 while any([p.is_alive() for p in self._processes]):
                     time.sleep(1)
 
-            self.signals.results.emit(self.results)
+            # self.signals.results.emit(self.results)
             self.signals.end_progress.emit()
             self.is_running = False
             self.signals.finished.emit(self)
