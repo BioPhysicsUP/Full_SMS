@@ -901,13 +901,15 @@ class GroupingController(QObject):
         self.bic_scatter_plot.getAxis('bottom').setLabel('Number of Groups')
         self.bic_scatter_plot.getViewBox().setLimits(xMin=0)
 
-        self.last_solution = None
+        self.all_bic_plots = None
+        self.all_last_solutions = None
+        # self.last_solution = None
 
     def clear_bic(self):
         self.bic_scatter_plot.clear()
 
     def solution_clicked(self, plot, points):
-        last_solution = self.last_solution
+        last_solution = self.all_last_solutions[self.mainwindow.currentparticle.dataset_ind]
         if last_solution != points[0]:
             curr_part = self.mainwindow.currentparticle
             point_num_groups = int(points[0].pos()[0])
@@ -920,31 +922,30 @@ class GroupingController(QObject):
             for p in points:
                 p.setPen('c', width=2)
             last_solution = points[0]
-            self.last_solution = last_solution
-            curr_part.bic_plot_data.selected_spot = last_solution
+            self.all_last_solutions[self.mainwindow.currentparticle.dataset_ind] = last_solution
 
             self.mainwindow.display_data()
 
     def plot_group_bic(self):
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabGrouping':
-            currentparticle = self.mainwindow.currentparticle
+            cur_part = self.mainwindow.currentparticle
             try:
-                grouping_bics = currentparticle.grouping_bics.copy()
-                grouping_selected_ind = currentparticle.grouping_selected_ind
-                best_grouping_ind = currentparticle.best_grouping_ind
-                grouping_num_groups = currentparticle.grouping_num_groups.copy()
+                grouping_bics = cur_part.grouping_bics.copy()
+                grouping_selected_ind = cur_part.grouping_selected_ind
+                best_grouping_ind = cur_part.best_grouping_ind
+                grouping_num_groups = cur_part.grouping_num_groups.copy()
 
             except AttributeError:
                 logger.error('No groups!')
 
-            if currentparticle.bic_plot_data.has_plot:
-                scat_plot_item = currentparticle.bic_plot_data.scatter_plot_item
-                if currentparticle.bic_plot_data.has_selected_spot:
-                    self.last_solution = currentparticle.bic_plot_data.selected_spot
-                else:
-                    self.last_solution = None
-            else:
+            if self.all_bic_plots is None and self.all_last_solutions is None:
+                num_parts = self.mainwindow.tree2dataset().num_parts
+                self.all_bic_plots = [None] * num_parts
+                self.all_last_solutions = [None] * num_parts
+
+            scat_plot_item = self.all_bic_plots[cur_part.dataset_ind]
+            if scat_plot_item is None:
                 spot_other_pen = pg.mkPen(width=1, color='k')
                 spot_selected_pen = pg.mkPen(width=2, color='c')
                 spot_other_brush = pg.mkBrush(color='k')
@@ -969,13 +970,16 @@ class GroupingController(QObject):
                                       'brush': spot_brush})
 
                 scat_plot_item.addPoints(bic_spots)
-                currentparticle.bic_plot_data.scatter_plot_item = scat_plot_item
-                self.last_solution = scat_plot_item.points()[best_grouping_ind]
-                currentparticle.bic_plot_data.selected_spot = self.last_solution
 
+
+                self.all_bic_plots[cur_part.dataset_ind] = scat_plot_item
+                best_solution = scat_plot_item.points()[best_grouping_ind]
+                self.all_last_solutions[cur_part.dataset_ind] = best_solution
+                scat_plot_item.sigClicked.connect(self.solution_clicked)
+
+            self.bic_plot_widget.getPlotItem().clear()
             self.bic_scatter_plot.addItem(scat_plot_item)
 
-            scat_plot_item.sigClicked.connect(self.solution_clicked)
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
@@ -1317,7 +1321,7 @@ def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 
     elif mode == 'all':  # Fit all levels in all particles
         status_sig.emit('Fitting All Particle Levels...')
-        start_progress_sig.emit(data.numpart)
+        start_progress_sig.emit(data.num_parts)
 
         for particle in data.particles:
             fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)

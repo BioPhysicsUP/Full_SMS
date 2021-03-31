@@ -57,10 +57,10 @@ class H5dataset:
         self.all_sums = CPSums(n_min=10, n_max=1000, prog_fb=prog_fb)
 
         self.particles = []
-        for particlename in natural_p_names:
-            self.particles.append(Particle(particlename, self))
-        self.numpart = len(self.particles)
-        assert self.numpart == self.file.attrs['# Particles']
+        for num, particlename in enumerate(natural_p_names):
+            self.particles.append(Particle(name=particlename, dataset_ind=num, dataset=self))
+        self.num_parts = len(self.particles)
+        assert self.num_parts == self.file.attrs['# Particles']
         self.channelwidth = None
 
     def makehistograms(self, remove_zeros=True, startpoint=None, channel=True):
@@ -178,7 +178,7 @@ class Particle:
     Class for particle in H5dataset.
     """
 
-    def __init__(self, name, dataset, tmin=None, tmax=None,
+    def __init__(self, name:str, dataset_ind: int, dataset:H5dataset, tmin=None, tmax=None,
                  channelwidth=None):  # , number, irf, tmin, tmax, channelwidth=None):
         """
         Creates an instance of Particle
@@ -198,6 +198,7 @@ class Particle:
         self.uuid = uuid1()
         self.name = name
         self.dataset = dataset
+        self.dataset_ind = dataset_ind
         self.datadict = self.dataset.file[self.name]
         self.microtimes = self.datadict['Micro Times (s)']
         self.abstimes = self.datadict['Absolute Times (ns)']

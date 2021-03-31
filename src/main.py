@@ -748,7 +748,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             _, conf = self.get_gui_confidence()
             try:
                 status_sig.emit('Resolving All Particle Levels...')
-                start_progress_sig.emit(data.numpart)
+                start_progress_sig.emit(data.num_parts)
                 # if parallel:
                 #     self.conf_parallel = conf
                 #     Parallel(n_jobs=-2, backend='threading')(
@@ -757,7 +757,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 #     )
                 #     del self.conf_parallel
                 # else:
-                for num in range(data.numpart):
+                for num in range(data.num_parts):
                     data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
                     progress_sig.emit()
                 status_sig.emit('Done')
