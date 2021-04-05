@@ -118,35 +118,36 @@ class MainWindow(QMainWindow, UI_Main_Window):
             GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
 
         # Connect all GUI buttons with outside class functions
-        self.btnApplyBin.clicked.connect(self.int_controller.gui_apply_bin)
-        self.btnApplyBinAll.clicked.connect(self.int_controller.gui_apply_bin_all)
-        self.btnResolve.clicked.connect(self.int_controller.gui_resolve)
-        self.btnResolve_Selected.clicked.connect(self.int_controller.gui_resolve_selected)
-        self.btnResolveAll.clicked.connect(self.int_controller.gui_resolve_all)
-        self.chbInt_Show_Hist.stateChanged.connect(self.int_controller.hide_unhide_hist)
-        self.chbInt_Show_Groups.stateChanged.connect(self.int_controller.plot_all)
-        self.actionTime_Resolve_Current.triggered.connect(self.int_controller.time_resolve_current)
-        self.actionTime_Resolve_Selected.triggered.connect(
-            self.int_controller.time_resolve_selected)
-        self.actionTime_Resolve_All.triggered.connect(self.int_controller.time_resolve_all)
+        i_c = self.int_controller
+        self.btnApplyBin.clicked.connect(i_c.gui_apply_bin)
+        self.btnApplyBinAll.clicked.connect(i_c.gui_apply_bin_all)
+        self.btnResolve.clicked.connect(i_c.gui_resolve)
+        self.btnResolve_Selected.clicked.connect(i_c.gui_resolve_selected)
+        self.btnResolveAll.clicked.connect(i_c.gui_resolve_all)
+        self.chbInt_Show_Hist.stateChanged.connect(i_c.hide_unhide_hist)
+        self.chbInt_Show_Groups.stateChanged.connect(i_c.plot_all)
+        self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
+        self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
+        self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
 
-        self.btnPrevLevel.clicked.connect(self.lifetime_controller.gui_prev_lev)
-        self.btnNextLevel.clicked.connect(self.lifetime_controller.gui_next_lev)
-        self.btnWholeTrace.clicked.connect(self.lifetime_controller.gui_whole_trace)
-        self.btnLoadIRF.clicked.connect(self.lifetime_controller.gui_load_irf)
-        self.btnFitParameters.clicked.connect(self.lifetime_controller.gui_fit_param)
-        self.btnFitCurrent.clicked.connect(self.lifetime_controller.gui_fit_current)
-        self.btnFit.clicked.connect(self.lifetime_controller.gui_fit_levels)
-        self.btnFitSelected.clicked.connect(self.lifetime_controller.gui_fit_selected)
-        self.btnFitAll.clicked.connect(self.lifetime_controller.gui_fit_all)
-        self.btnGroupCurrent.clicked.connect(self.grouping_controller.gui_group_current)
-        self.btnGroupSelected.clicked.connect(self.grouping_controller.gui_group_selected)
-        self.btnGroupAll.clicked.connect(self.grouping_controller.gui_group_all)
-        self.btnApplyGroupsCurrent.clicked.connect(
-            self.grouping_controller.gui_apply_groups_current)
-        self.btnApplyGroupsSelected.clicked.connect(
-            self.grouping_controller.gui_apply_groups_selected)
-        self.btnApplyGroupsAll.clicked.connect(self.grouping_controller.gui_apply_groups_all)
+        l_c = self.lifetime_controller
+        self.btnPrevLevel.clicked.connect(l_c.gui_prev_lev)
+        self.btnNextLevel.clicked.connect(l_c.gui_next_lev)
+        self.btnWholeTrace.clicked.connect(l_c.gui_whole_trace)
+        self.btnLoadIRF.clicked.connect(l_c.gui_load_irf)
+        self.btnFitParameters.clicked.connect(l_c.gui_fit_param)
+        self.btnFitCurrent.clicked.connect(l_c.gui_fit_current)
+        self.btnFit.clicked.connect(l_c.gui_fit_levels)
+        self.btnFitSelected.clicked.connect(l_c.gui_fit_selected)
+        self.btnFitAll.clicked.connect(l_c.gui_fit_all)
+
+        g_c = self.grouping_controller
+        self.btnGroupCurrent.clicked.connect(g_c.gui_group_current)
+        self.btnGroupSelected.clicked.connect(g_c.gui_group_selected)
+        self.btnGroupAll.clicked.connect(g_c.gui_group_all)
+        self.btnApplyGroupsCurrent.clicked.connect(g_c.gui_apply_groups_current)
+        self.btnApplyGroupsSelected.clicked.connect(g_c.gui_apply_groups_selected)
+        self.btnApplyGroupsAll.clicked.connect(g_c.gui_apply_groups_all)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
@@ -280,23 +281,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.threadpool.start(of_process_thread)
             self.active_threads.append(of_process_thread)
 
-            # of_worker = WorkerOpenFile(fname)
-            # of_worker.signals.openfile_finished.connect(self.open_file_thread_complete)
-            # of_worker.signals.start_progress.connect(self.start_progress)
-            # of_worker.signals.progress.connect(self.update_progress)
-            # of_worker.signals.auto_progress.connect(self.update_progress)
-            # of_worker.signals.start_progress.connect(self.start_progress)
-            # of_worker.signals.status_message.connect(self.status_message)
-            # of_worker.signals.add_datasetindex.connect(self.add_dataset)
-            # of_worker.signals.add_particlenode.connect(self.add_node)
-            # of_worker.signals.reset_tree.connect(lambda: self.treemodel.modelReset.emit())
-            # of_worker.signals.data_loaded.connect(self.set_data_loaded)
-            # of_worker.signals.bin_size.connect(self.spbBinSize.setValue)
-            # of_worker.signals.set_start.connect(self.set_startpoint)
-            # of_worker.signals.set_tmin.connect(self.lifetime_controller.set_tmin)
-            # of_worker.signals.error.connect(self.open_file_error)
-            #
-            # self.threadpool.start(of_worker)
 
     def act_open_pt3(self):
         """ Allows a user to load a group of .pt3 files that are in a folder and loads them. NOT YET IMPLEMENTED. """
@@ -362,7 +346,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if start is None:
             start = self.lifetime_controller.startpoint
         try:
-            self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start, channel=True)
+            # self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start, channel=True)
+            dataset = self.currentparticle.dataset
+            dataset.makehistograms(remove_zeros=False, startpoint=start, channel=True)
         except Exception as exc:
             print(exc)
         if self.lifetime_controller.irf_loaded:
@@ -451,12 +437,17 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if hasattr(self, 'currentparticle') and type(self.currentparticle) is smsh5.Particle:
             cur_tab_name = self.tabWidget.currentWidget().objectName()
 
-            if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
+            if cur_tab_name in ['tabIntensity', 'tabGrouping', 'tabLifetime']:
                 if cur_tab_name == 'tabIntensity':
                     self.update_int_gui()
                 self.int_controller.set_bin(self.currentparticle.bin_size)
                 self.int_controller.plot_trace()
-                self.int_controller.plot_hist()
+                if cur_tab_name != 'tabLifetime':
+                    self.int_controller.plot_hist()
+                else:
+                    self.lifetime_controller.plot_decay(remove_empty=False)
+                    self.lifetime_controller.plot_convd()
+                    self.lifetime_controller.update_results()
 
                 if self.currentparticle.has_groups:
                     self.int_controller.plot_group_bounds()
@@ -464,11 +455,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         self.grouping_controller.plot_group_bic()
                 else:
                     self.grouping_controller.clear_bic()
-
-            if cur_tab_name == 'tabLifetime':
-                self.lifetime_controller.plot_decay(remove_empty=False)
-                self.lifetime_controller.plot_convd()
-                self.lifetime_controller.update_results()
 
             if cur_tab_name == 'tabSpectra':
                 self.spectra_controller.plot_spectra()

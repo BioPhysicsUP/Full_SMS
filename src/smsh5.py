@@ -20,9 +20,10 @@ import tcspcfit
 from change_point import ChangePoints
 from generate_sums import CPSums
 from grouping import AHCA
-from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
 # from signals import PassSigFeedback
 from my_logger import setup_logger
+from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
+from tcspcfit import FittingParameters
 
 logger = setup_logger(__name__)
 
@@ -178,7 +179,7 @@ class Particle:
     Class for particle in H5dataset.
     """
 
-    def __init__(self, name:str, dataset_ind: int, dataset:H5dataset, tmin=None, tmax=None,
+    def __init__(self, name: str, dataset_ind: int, dataset: H5dataset, tmin=None, tmax=None,
                  channelwidth=None):  # , number, irf, tmin, tmax, channelwidth=None):
         """
         Creates an instance of Particle
@@ -234,7 +235,7 @@ class Particle:
         self.numexp = None
 
         self.startpoint = None
-        self.bic_plot_data = BICPlotData()
+        # self.bic_plot_data = BICPlotData()
         self.using_group_levels = False
 
     @property
@@ -410,6 +411,28 @@ class Particle:
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
 
+    def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
+        if not self.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                  fit_param.shift / channelwidth, fit_param.decaybg, fit_param.irfbg,
+                                  start, end, fit_param.addopt, fit_param.irf, fit_param.shiftfix):
+            pass  # fit unsuccessful
+        self.numexp = fit_param.numexp
+        # progress_sig.emit()
+        if not self.has_levels:
+            return
+        for level in self.levels:
+            if not hasattr(level, 'histogram'):
+                level.histogram = Histogram()
+            try:
+                if not level.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                           fit_param.shift / channelwidth, fit_param.decaybg,
+                                           fit_param.irfbg,
+                                           start, end, fit_param.addopt,
+                                           fit_param.irf, fit_param.shiftfix):
+                    pass  # fit unsuccessful
+            except AttributeError:
+                print("No decay")
+
 
 class Trace:
     """Binned intensity trace
@@ -575,6 +598,38 @@ class Histogram:
         decay, t = np.histogram(levelobj.microtimes[:], bins=t)
         t = t[:-1]  # Remove last value so the arrays are the same size
         return decay, t
+
+
+class ParticleAllHists:
+    def __init__(self, particle:Particle):
+        self.part_uuid = particle.uuid
+        self.numexp = None
+        self.part_hist = particle.histogram
+        self.level_hists = list()
+        self.has_levels = particle.has_levels
+        if self.has_levels:
+            for level in particle.levels:
+                if hasattr(level, 'histogram'):
+                    self.level_hists.append(level.histogram)
+
+    def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
+        if not self.part_hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                  fit_param.shift / channelwidth, fit_param.decaybg,
+                                  fit_param.irfbg, start, end, fit_param.addopt,
+                                  fit_param.irf, fit_param.shiftfix):
+            pass  # fit unsuccessful
+        self.numexp = fit_param.numexp
+        if not self.has_levels:
+            return
+        for hist in self.level_hists:
+            try:
+                if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                fit_param.shift / channelwidth, fit_param.decaybg,
+                                fit_param.irfbg, start, end, fit_param.addopt,
+                                fit_param.irf, fit_param.shiftfix):
+                    pass  # fit unsuccessful
+            except AttributeError:
+                print("No decay")
 
 
 class RasterScan:

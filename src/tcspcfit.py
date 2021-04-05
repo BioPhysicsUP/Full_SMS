@@ -717,7 +717,8 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         shift = shift / channelwidth
         start = int(start / channelwidth)
         end = int(end / channelwidth)
-        irf = tcspcfit.colorshift(irf, shift)
+        # irf = tcspcfit.colorshift(irf, shift)
+        irf = colorshift(irf, shift)
         convd = scipy.signal.convolve(irf, model)
         convd = convd[:np.size(irf)]
         convd = convd / convd.max()

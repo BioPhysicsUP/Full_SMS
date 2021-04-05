@@ -145,15 +145,12 @@ class ChangePoints:
         Performs the change point analysis on the parent particle object with the confidence
             either provided as an argument here or in the __init__ method.
 
-        :param confidence: Confidence level with which to resolve the
-                change points with. Must be 0.99, 0.95, 0.90 or 0.69.
-        :type confidence: int, optional
-        :param run_levels: If true the change point analysis will be used to
-                add a list of levels to the parent particle object by running its add_levels method.
-        :type run_levels: bool, optional
-
         Parameters
         ----------
+        confidence : Confidence level with which to resolve the change points with.
+         Must be 0.99, 0.95, 0.90 or 0.69.
+        run_levels : If true the change point analysis will be used to add a list of levels to the
+         parent particle object by running its add_levels method.
         end_time_s
         """
 

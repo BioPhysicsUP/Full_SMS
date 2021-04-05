@@ -179,15 +179,7 @@ class ProcessThread(QRunnable):
                 try:
                     if not self.feedback_queue.empty():
                         while not self.feedback_queue.empty():
-                            fbk_return = self.feedback_queue.get()
-                            if type(fbk_return) is PPTask:
-                                prog_sig_pass(signals=self.signals,
-                                              cmd=fbk_return.task_cmd,
-                                              args=fbk_return.args)
-                            elif type(fbk_return) is PSTask:
-                                worker_sig_pass(signals=self.worker_signals,
-                                                sig_type=fbk_return.sig_pass_type,
-                                                args=fbk_return.sig_args)
+                            self.check_fbk_queue()
 
                     result = self.result_queue.get(timeout=0.01)
                 except get_empty_queue_exception():
@@ -229,15 +221,7 @@ class ProcessThread(QRunnable):
                 time.sleep(1)
                 if not self.feedback_queue.empty():
                     for _ in range(self.feedback_queue.qsize()):
-                        fbk_return = self.feedback_queue.get()
-                        if type(fbk_return) is PPTask:
-                            prog_sig_pass(signals=self.signals,
-                                          cmd=fbk_return.task_cmd,
-                                          args=fbk_return.args)
-                        elif type(fbk_return) is PSTask:
-                            worker_sig_pass(signals=self.worker_signals,
-                                            sig_type=fbk_return.sig_pass_type,
-                                            args=fbk_return.sig_args)
+                        self.check_fbk_queue()
             if len(self._processes):
                 for _ in range(num_used_processes):
                     self.task_queue.put(None)
@@ -257,6 +241,17 @@ class ProcessThread(QRunnable):
             self.signals.end_progress.emit()
             self.is_running = False
             self.signals.finished.emit(self)
+
+    def check_fbk_queue(self):
+        fbk_return = self.feedback_queue.get()
+        if type(fbk_return) is PPTask:
+            prog_sig_pass(signals=self.signals,
+                          cmd=fbk_return.task_cmd,
+                          args=fbk_return.args)
+        elif type(fbk_return) is PSTask:
+            worker_sig_pass(signals=self.worker_signals,
+                            sig_type=fbk_return.sig_pass_type,
+                            args=fbk_return.sig_args)
 
 
 class WorkerFitLifetimes(QRunnable):

@@ -1,3 +1,4 @@
+from __future__ import  annotations
 import multiprocessing as mp
 from multiprocessing import managers
 from enum import IntEnum, auto
@@ -5,6 +6,7 @@ from queue import Empty
 from typing import List, Union, TYPE_CHECKING
 from uuid import UUID, uuid1
 import time
+from numpy import ndarray
 
 from my_logger import setup_logger
 from signals import WorkerSigPassType, ProcessThreadSignals
@@ -15,6 +17,10 @@ from functools import wraps
 
 from change_point import ChangePoints
 from grouping import AHCA
+# from smsh5 import Histogram
+
+if TYPE_CHECKING:
+    from smsh5 import H5dataset, Histogram
 
 logger = setup_logger(__name__)
 orig_AutoProxy = managers.AutoProxy
@@ -129,6 +135,11 @@ class PassSigFeedback:
 
     def data_loaded(self):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.data_loaded))
+        self.fbq.task_done()
+
+    def add_irf(self, decay:ndarray, time_series:ndarray, dataset:H5dataset):
+        self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.add_irf,
+                                        sig_args=(decay, time_series, dataset)))
         self.fbq.task_done()
 
 
@@ -355,14 +366,21 @@ class SingleProcess(mp.Process):
                             task_return = task_run(*task_args)
                         else:
                             task_return = task_run()
-                    if type(task.obj) is ChangePoints:
+                    if task.method_name == 'run_cpa':
                         task.obj._particle = None
                         task.obj._cpa._particle = None
-                    elif type(task.obj) is AHCA:
+                    elif task.method_name == "run_grouping":
                         task.obj.particle = None
                         task.obj.best_step._particle = None
                         for step in task.obj.steps:
                             step._particle = None
+                    elif task.method_name == 'fit_part_and_levels':
+                        task.obj.part_hist.particle = None
+                        task.obj.microtimes = None
+                        for hist in task.obj.level_hists:
+                            hist.particle = None
+                            hist.microtimes = None
+                            hist.level = None
                     process_result = ProcessTaskResult(task_uuid=task.uuid,
                                                        task_return=task_return,
                                                        new_task_obj=task.obj)

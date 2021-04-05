@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 from typing import Union, List, TYPE_CHECKING
+from copy import copy
 
 import numpy as np
 import pyqtgraph as pg
@@ -14,10 +15,11 @@ if TYPE_CHECKING:
     from main import MainWindow
 
 from my_logger import setup_logger
-from smsh5 import H5dataset, Particle
+from smsh5 import H5dataset, Particle, ParticleAllHists
 from tcspcfit import FittingParameters, FittingDialog
 from threads import WorkerFitLifetimes, WorkerGrouping, WorkerResolveLevels, \
     ProcessThread, ProcessTask, ProcessTaskResult
+from thread_tasks import OpenFile
 
 logger = setup_logger(__name__)
 
@@ -511,6 +513,8 @@ class IntController(QObject):
         self.mainwindow.check_remove_bursts(mode=self.resolve_mode)
         self.mainwindow.chbEx_Levels.setEnabled(True)
         self.mainwindow.set_startpoint()
+        self.mainwindow.level_resolved = True
+        self.mainwindow.reset_gui()
         self.mainwindow.status_message("Done")
         logger.info('Resolving levels complete')
 
@@ -589,25 +593,49 @@ class LifetimeController(QObject):
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
 
-        fname = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '',
-                                            "HDF5 files (*.h5)")
-        if fname != ('', ''):  # fname will equal ('', '') if the user canceled.
-            of_worker = WorkerOpenFile(fname, irf=True, tmin=self.tmin)
-            of_worker.signals.openfile_finished.connect(self.mainwindow.open_file_thread_complete)
-            of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
-            of_worker.signals.progress.connect(self.mainwindow.update_progress)
-            of_worker.signals.auto_progress.connect(self.mainwindow.update_progress)
-            of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
-            of_worker.signals.status_message.connect(self.mainwindow.status_message)
-            of_worker.signals.add_datasetindex.connect(self.mainwindow.add_dataset)
-            of_worker.signals.add_particlenode.connect(self.mainwindow.add_node)
-            of_worker.signals.reset_tree.connect(
-                lambda: self.mainwindow.treemodel.modelReset.emit())
-            of_worker.signals.data_loaded.connect(self.mainwindow.set_data_loaded)
-            of_worker.signals.bin_size.connect(self.mainwindow.spbBinSize.setValue)
-            of_worker.signals.add_irf.connect(self.add_irf)
+        file_path = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '',
+                                                "HDF5 files (*.h5)")
+        if file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
+            mw = self.mainwindow
+            mw.status_message(message="Opening IRF file...")
+            of_process_thread = ProcessThread(num_processes=1)
+            of_process_thread.worker_signals.add_datasetindex.connect(mw.add_dataset)
+            of_process_thread.worker_signals.add_particlenode.connect(mw.add_node)
+            of_process_thread.worker_signals.add_all_particlenodes.connect(mw.add_all_nodes)
+            of_process_thread.worker_signals.bin_size.connect(mw.set_bin_size)
+            of_process_thread.worker_signals.data_loaded.connect(mw.set_data_loaded)
+            of_process_thread.worker_signals.add_irf.connect(self.add_irf)
+            of_process_thread.signals.status_update.connect(mw.status_message)
+            of_process_thread.signals.start_progress.connect(mw.start_progress)
+            of_process_thread.signals.set_progress.connect(mw.set_progress)
+            of_process_thread.signals.step_progress.connect(mw.update_progress)
+            of_process_thread.signals.add_progress.connect(mw.update_progress)
+            of_process_thread.signals.end_progress.connect(mw.end_progress)
+            of_process_thread.signals.error.connect(mw.error_handler)
+            of_process_thread.signals.finished.connect(mw.reset_gui)
 
-            self.mainwindow.threadpool.start(of_worker)
+            of_obj = OpenFile(file_path=file_path, is_irf=True, tmin=self.tmin)
+            of_process_thread.add_tasks_from_methods(of_obj, 'open_irf')
+            mw.threadpool.start(of_process_thread)
+            mw.active_threads.append(of_process_thread)
+
+
+            # of_worker = WorkerOpenFile(fname, irf=True, tmin=self.tmin)
+            # of_worker.signals.openfile_finished.connect(self.mainwindow.open_file_thread_complete)
+            # of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
+            # of_worker.signals.progress.connect(self.mainwindow.update_progress)
+            # of_worker.signals.auto_progress.connect(self.mainwindow.update_progress)
+            # of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
+            # of_worker.signals.status_message.connect(self.mainwindow.status_message)
+            # of_worker.signals.add_datasetindex.connect(self.mainwindow.add_dataset)
+            # of_worker.signals.add_particlenode.connect(self.mainwindow.add_node)
+            # of_worker.signals.reset_tree.connect(
+            #     lambda: self.mainwindow.treemodel.modelReset.emit())
+            # of_worker.signals.data_loaded.connect(self.mainwindow.set_data_loaded)
+            # of_worker.signals.bin_size.connect(self.mainwindow.spbBinSize.setValue)
+            # of_worker.signals.add_irf.connect(self.add_irf)
+            #
+            # self.mainwindow.threadpool.start(of_worker)
 
     def add_irf(self, decay, t, irfdata):
 
@@ -802,7 +830,7 @@ class LifetimeController(QObject):
             self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
             self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
 
-    def start_fitting_thread(self, mode: str = 'current', thread_finished=None) -> None:
+    def start_fitting_thread(self, mode: str = 'current') -> None:
         """
         Creates a worker to resolve levels.ckibacxxx
 
@@ -811,39 +839,90 @@ class LifetimeController(QObject):
 
         Parameters
         ----------
-        thread_finished
         mode : {'current', 'selected', 'all'}
             Possible values are 'current' (default), 'selected', and 'all'.
         """
 
-        if thread_finished is None:
-            if self.mainwindow.data_loaded:
-                thread_finished = self.fitting_thread_complete
-            else:
-                thread_finished = self.mainwindow.open_file_thread_complete
+        assert mode in ['current', 'selected', 'all'], \
+            "'resolve_all' and 'resolve_selected' can not both be given as parameters."
 
-        data = self.mainwindow.tree2dataset()
-        currentparticle = self.mainwindow.currentparticle
-
-        print(mode)
+        mw = self.mainwindow
         if mode == 'current':
-            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam,
-                                                mode)
+            status_message = "Fitting Levels for Current Particle..."
+            particles = [mw.currentparticle]
         elif mode == 'selected':
-            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam,
-                                                mode,
-                                                resolve_selected=self.mainwindow.get_checked_particles())
+            status_message = "Fitting Levels for Selected Particles..."
+            particles = mw.get_checked_particles()
         elif mode == 'all':
-            fitting_thread = WorkerFitLifetimes(fit_lifetimes, data, currentparticle, self.fitparam,
-                                                mode)
+            status_message = "Fitting Levels for All Particles..."
+            particles = mw.tree2dataset().particles
 
-        fitting_thread.signals.fitting_finished.connect(self.fitting_thread_complete)
-        fitting_thread.signals.start_progress.connect(self.mainwindow.start_progress)
-        fitting_thread.signals.progress.connect(self.mainwindow.update_progress)
-        fitting_thread.signals.status_message.connect(self.mainwindow.status_message)
-        fitting_thread.signals.reset_gui.connect(self.mainwindow.reset_gui)
+        f_p = self.fitparam
+        channelwidth = particles[0].channelwidth
+        if f_p.start is None:
+            start = None
+        else:
+            start = int(f_p.start / channelwidth)
+        if f_p.end is None:
+            end = None
+        else:
+            end = int(f_p.end / channelwidth)
 
-        self.mainwindow.threadpool.start(fitting_thread)
+        part_hists = list()
+        for part in particles:
+            part_hists.append(ParticleAllHists(particle=part))
+
+        clean_fit_param = copy(self.fitparam)
+        clean_fit_param.parent = None
+        clean_fit_param.fpd = None
+
+        f_process_thread = ProcessThread()
+        f_process_thread.add_tasks_from_methods(objects=part_hists,
+                                                method_name='fit_part_and_levels',
+                                                args=(channelwidth, start, end, clean_fit_param))
+        f_process_thread.signals.start_progress.connect(mw.start_progress)
+        f_process_thread.signals.status_update.connect(mw.status_message)
+        f_process_thread.signals.step_progress.connect(mw.update_progress)
+        f_process_thread.signals.end_progress.connect(mw.end_progress)
+        f_process_thread.signals.error.connect(self.error)
+        f_process_thread.signals.results.connect(self.gather_replace_results)  # Todo
+        f_process_thread.signals.finished.connect(self.fitting_thread_complete)
+        f_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
+        f_process_thread.status_message = status_message
+
+        mw.threadpool.start(f_process_thread)
+        mw.active_threads.append(f_process_thread)
+
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
+        particles = self.mainwindow.currentparticle.dataset.particles
+        part_uuids = [part.uuid for part in particles]
+        if type(results) is not list:
+            results = [results]
+        result_part_uuids = [result.new_task_obj.part_uuid for result in results]
+        try:
+            for num, result in enumerate(results):
+                result_part_ind = part_uuids.index(result_part_uuids[num])
+                target_particle = self.mainwindow.tree2particle(result_part_ind)
+
+                target_hist = target_particle.histogram
+                target_microtimes = target_hist.microtimes
+
+                result.new_task_obj.part_hist.particle = target_particle
+                result.new_task_obj.part_hist.microtimes = target_microtimes
+
+                target_particle.histogram = result.new_task_obj.part_hist
+
+                for num, res_hist in enumerate(result.new_task_obj.level_hists):
+                    target_level = target_particle.levels[num]
+                    target_level_microtimes = target_level.microtimes
+
+                    res_hist.particle = target_particle
+                    res_hist.microtimes = target_level_microtimes
+                    res_hist.level = target_level
+
+                    target_level.histogram = res_hist
+        except ValueError as e:
+            logger.error(e)
 
     def fitting_thread_complete(self, mode):
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
@@ -871,6 +950,9 @@ class LifetimeController(QObject):
 
     def set_tmin(self, tmin=0):
         self.tmin = tmin
+
+    def error(self, e):
+        logger.error(e)
 
 
 class GroupingController(QObject):
@@ -1264,102 +1346,102 @@ def group_levels(start_progress_sig: pyqtSignal,
     # reset_gui_sig.emit()
 
 
-def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-                  status_sig: pyqtSignal, reset_gui_sig: pyqtSignal,
-                  data, currentparticle, fitparam, mode: str,
-                  resolve_selected=None) -> None:  # parallel: bool = False
-    """
-    TODO: edit the docstring
-    Resolves the levels in particles by finding the change points in the
-    abstimes data of a Particle instance.
+# def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
+#                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal,
+#                   data, particles, fitparam, mode: str,
+#                   resolve_selected=None) -> None:  # parallel: bool = False
+#     """
+#     TODO: edit the docstring
+#     Resolves the levels in particles by finding the change points in the
+#     abstimes data of a Particle instance.
+#
+#     Parameters
+#     ----------
+#     start_progress_sig : pyqtSignal
+#         Used to call method to set up progress bar on G
+#     progress_sig : pyqtSignal
+#         Used to call method to increment progress bar on G
+#     status_sig : pyqtSignal
+#         Used to call method to show status bar message on G
+#     mode : {'current', 'selected', 'all'}
+#         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+#     resolve_selected : list[smsh5.Partilce]
+#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+#     """
+#
+#     print(mode)
+#     assert mode in ['current', 'selected', 'all'], \
+#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+#
+#     channelwidth = particles.channelwidth
+#     if fitparam.start is None:
+#         start = None
+#     else:
+#         start = int(fitparam.start / channelwidth)
+#     if fitparam.end is None:
+#         end = None
+#     else:
+#         end = int(fitparam.end / channelwidth)
+#
+#     if mode == 'current':  # Fit all levels in current particle
+#         status_sig.emit('Fitting Levels for Selected Particles...')
+#         start_progress_sig.emit(len(particles.levels))
+#
+#         for level in particles.levels:
+#             try:
+#                 if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
+#                                            fitparam.shift / channelwidth, fitparam.decaybg,
+#                                            fitparam.irfbg,
+#                                            start, end, fitparam.addopt,
+#                                            fitparam.irf, fitparam.shiftfix):
+#                     pass  # fit unsuccessful
+#                 progress_sig.emit()
+#             except AttributeError:
+#                 print("No decay")
+#         particles.numexp = fitparam.numexp
+#         status_sig.emit("Ready...")
+#
+#     elif mode == 'all':  # Fit all levels in all particles
+#         status_sig.emit('Fitting All Particle Levels...')
+#         start_progress_sig.emit(data.num_parts)
+#
+#         for particle in data.particles:
+#             fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
+#         status_sig.emit("Ready...")
+#
+#     elif mode == 'selected':  # Fit all levels in selected particles
+#         assert resolve_selected is not None, \
+#             'No selected particles provided.'
+#         status_sig.emit('Resolving Selected Particle Levels...')
+#         start_progress_sig.emit(len(resolve_selected))
+#         for particle in resolve_selected:
+#             fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
+#         status_sig.emit('Ready...')
+#
+#     reset_gui_sig.emit()
 
-    Parameters
-    ----------
-    start_progress_sig : pyqtSignal
-        Used to call method to set up progress bar on G
-    progress_sig : pyqtSignal
-        Used to call method to increment progress bar on G
-    status_sig : pyqtSignal
-        Used to call method to show status bar message on G
-    mode : {'current', 'selected', 'all'}
-        Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-    resolve_selected : list[smsh5.Partilce]
-        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-    """
 
-    print(mode)
-    assert mode in ['current', 'selected', 'all'], \
-        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-
-    channelwidth = currentparticle.channelwidth
-    if fitparam.start is None:
-        start = None
-    else:
-        start = int(fitparam.start / channelwidth)
-    if fitparam.end is None:
-        end = None
-    else:
-        end = int(fitparam.end / channelwidth)
-
-    if mode == 'current':  # Fit all levels in current particle
-        status_sig.emit('Fitting Particle Levels...')
-        start_progress_sig.emit(len(currentparticle.levels))
-
-        for level in currentparticle.levels:
-            try:
-                if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                           fitparam.shift / channelwidth, fitparam.decaybg,
-                                           fitparam.irfbg,
-                                           start, end, fitparam.addopt,
-                                           fitparam.irf, fitparam.shiftfix):
-                    pass  # fit unsuccessful
-                progress_sig.emit()
-            except AttributeError:
-                print("No decay")
-        currentparticle.numexp = fitparam.numexp
-        status_sig.emit("Ready...")
-
-    elif mode == 'all':  # Fit all levels in all particles
-        status_sig.emit('Fitting All Particle Levels...')
-        start_progress_sig.emit(data.num_parts)
-
-        for particle in data.particles:
-            fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
-        status_sig.emit("Ready...")
-
-    elif mode == 'selected':  # Fit all levels in selected particles
-        assert resolve_selected is not None, \
-            'No selected particles provided.'
-        status_sig.emit('Resolving Selected Particle Levels...')
-        start_progress_sig.emit(len(resolve_selected))
-        for particle in resolve_selected:
-            fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
-        status_sig.emit('Ready...')
-
-    reset_gui_sig.emit()
-
-
-def fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start):
-    if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                  fitparam.shift / channelwidth, fitparam.decaybg,
-                                  fitparam.irfbg,
-                                  start, end, fitparam.addopt,
-                                  fitparam.irf, fitparam.shiftfix):
-        pass  # fit unsuccessful
-    particle.numexp = fitparam.numexp
-    progress_sig.emit()
-    if not particle.has_levels:
-        return
-    for level in particle.levels:
-        try:
-            if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-                                       fitparam.shift / channelwidth, fitparam.decaybg,
-                                       fitparam.irfbg,
-                                       start, end, fitparam.addopt,
-                                       fitparam.irf, fitparam.shiftfix):
-                pass  # fit unsuccessful
-        except AttributeError:
-            print("No decay")
+# def fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start):
+#     if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
+#                                   fitparam.shift / channelwidth, fitparam.decaybg,
+#                                   fitparam.irfbg,
+#                                   start, end, fitparam.addopt,
+#                                   fitparam.irf, fitparam.shiftfix):
+#         pass  # fit unsuccessful
+#     particle.numexp = fitparam.numexp
+#     progress_sig.emit()
+#     if not particle.has_levels:
+#         return
+#     for level in particle.levels:
+#         try:
+#             if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
+#                                        fitparam.shift / channelwidth, fitparam.decaybg,
+#                                        fitparam.irfbg,
+#                                        start, end, fitparam.addopt,
+#                                        fitparam.irf, fitparam.shiftfix):
+#                 pass  # fit unsuccessful
+#         except AttributeError:
+#             print("No decay")
 
 
 # def get_plot(ui_pg_layout_widget: pg.GraphicsLayoutWidget) -> pg.PlotItem:

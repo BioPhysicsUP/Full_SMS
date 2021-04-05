@@ -154,7 +154,7 @@ class OpenFile:
             logger.error(err, exc_info=True)
             raise err
 
-    def open_irf(self, fname, tmin) -> None:
+    def open_irf(self, feedback_queue: mp.JoinableQueue) -> None:
         """
         Read the selected h5 file and populates the tree on the gui with the file and the particles.
 
@@ -169,39 +169,38 @@ class OpenFile:
             Path name to h5 file.
         """
 
-        start_progress_sig = self.signals.start_progress
-        status_sig = self.signals.status_message
-        add_irf_sig = self.signals.add_irf
-
         try:
-            dataset = self.load_data(fname)
+            sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
+            prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
+
+            dataset = self.load_data(fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb)
 
             for particle in dataset.particles:
-                particle.tmin = tmin
+                particle.tmin = self.tmin
                 # particle.tmin = np.min(particle.histogram.microtimes)
+
             irfhist = dataset.particles[0].histogram
             # irfhist.t -= irfhist.t.min()
-            add_irf_sig.emit(irfhist.decay, irfhist.t, dataset)
+            sig_fb.add_irf(irfhist.decay, irfhist.t, dataset)
+            prog_fb.set_status(status="Done")
 
-            start_progress_sig.emit(100)
-            status_sig.emit("Done")
+            # start_progress_sig.emit(100)
+            # status_sig.emit("Done")
         except Exception as err:
             self.signals.error.emit(err)
 
     def load_data(self, fname:str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
 
-        # prog_fb.set_status(status="Opening file...")
         dataset = smsh5.H5dataset(fname[0], sig_fb=sig_fb, prog_fb=prog_fb)
-        bin_all(dataset=dataset, bin_size=100, sig_fb=sig_fb, prog_fb=prog_fb)
-        # start_progress_sig.emit(dataset.numpart)
-        # status_sig.emit("Opening file: Building decay histograms...")
-        # prog_fb.start(max_value=0)
+        bin_all(dataset=dataset, bin_size=100, for_irf=self.irf, sig_fb=sig_fb,
+                prog_fb=prog_fb)
         dataset.makehistograms()
         return dataset
 
 
 def bin_all(dataset: smsh5.H5dataset,
             bin_size: float,
+            for_irf: bool = False,
             sig_fb: PassSigFeedback = None,
             prog_fb: ProcessProgFeedback = None) -> None:
     """
@@ -216,9 +215,10 @@ def bin_all(dataset: smsh5.H5dataset,
 
     if prog_fb:
         prog_fb.start(max_value=0)
-        prog_fb.set_status(status="Binning traces...")
+        if not for_irf:
+            prog_fb.set_status(status="Binning traces...")
+        else:
+            prog_fb.set_status(status="Binning IRF trace...")
     dataset.bin_all_ints(bin_size, sig_fb=sig_fb, prog_fb=prog_fb)
     if sig_fb:
-        sig_fb.bin_size(bin_size=bin_size)
-    # if prog_fb:
-    #     prog_fb.set_status("Done")
+        sig_fb.bin_size(bin_size=int(bin_size))
