@@ -28,6 +28,72 @@ BURST_INT_SIGMA = 3
 logger = setup_logger(__name__)
 
 
+class DatasetSubset:
+    """ A container for a custom list that accesses a subset of a H5 dataset"""
+
+    def __init__(self, dataset, start_ind:int, end_ind:int):
+        assert dataset is not None, "No dataset provided"
+
+        if not 0 <= start_ind < len(dataset) - 1:
+            raise IndexError("Start index out of bounds")
+        if not 0 < end_ind <= len(dataset) - 1:
+            raise IndexError("End index out of bounds")
+
+        self._dataset = dataset
+        self._start_ind = start_ind
+        self._end_ind = end_ind
+
+    def __len__(self):
+        return 1 + self._end_ind - self._start_ind
+
+    def _get_ind(self, ind) -> int:
+        if ind >= 0:
+            return self._start_ind + ind
+        else:
+            return self._end_ind + ind + 1
+
+    def __getitem__(self, i):
+        if type(i) is int:
+            ind = self._get_ind(i)
+            if not self._start_ind <= ind <= self._end_ind:
+                raise IndexError("Index out of defined range")
+
+            return self._dataset[ind]
+
+        elif type(i) is slice:
+            slice_start = i.start
+            slice_stop = i.stop
+            slice_step = i.step
+
+            if slice_start is not None:
+                slice_start = self._get_ind(slice_start)
+                if not self._start_ind <= slice_start <= self._end_ind:
+                    raise IndexError("Index out of defined dataset range")
+            else:
+                slice_start = self._start_ind
+
+            if slice_stop is not None:
+                slice_stop = self._get_ind(slice_stop)
+                if not self._start_ind <= slice_stop <= self._end_ind + 1:
+                    raise IndexError("Index out of defined dataset range")
+            else:
+                slice_stop = self._end_ind + 1
+
+            new_slice = slice(slice_start, slice_stop, slice_step)
+            return self._dataset[new_slice]
+
+    def __iter__(self):
+        for elem in self._dataset[self._start_ind:self._end_ind]:
+            yield elem
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} with index range ({self._start_ind}, " \
+               f"{self._end_ind}) of {self._dataset.__repr__()[1:-1]}>"
+
+    def __eq__(self, other):
+        return self.__getitem__(slice(None)) == other
+
+
 class ChangePoints:
     """ Contains all the attributes to describe the found change points in an analysed particles. """
 
@@ -234,8 +300,7 @@ class Level:
     """ Defines the start, end and intensity of a single level. """
 
     def __init__(self, abs_times: Dataset, microtimes: Dataset,
-                 level_inds: Tuple[int, int], int_p_s:float = None):
-                # conf_regions: Any[List[Tuple[int, int], Tuple[int, int]], Tuple[int, int]]
+                 level_inds: Tuple[int, int], int_p_s:float = None, group_ind: int = None):
         """
         Initiate Level
 
@@ -260,7 +325,9 @@ class Level:
             self.int_p_s = int_p_s
         else:
             self.int_p_s = self.num_photons / self.dwell_time_s
-        self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
+        self.microtimes = DatasetSubset(microtimes, self.level_inds[0], self.level_inds[1])
+        # self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
+        self.group_ind = group_ind
 
         # TODO: Incorporate error margins
         # conf_ind_lower = conf_regions[0]
@@ -730,20 +797,32 @@ class ChangePointAnalysis:
                         else:
                             end_ind = self.num_photons
                         level_inds = (cpt, end_ind - 1)
-                        self.levels[num + 1] = Level(self._abstimes, self._microtimes,
+                        self.levels[num + 1] = Level(abs_times=self._abstimes,
+                                                     microtimes=self._microtimes,
                                                      level_inds=level_inds)
 
                         level_inds = (self.cpt_inds[num - 1], cpt - 1)
                     else:
                         level_inds = (self.cpt_inds[num - 1], cpt)
 
-                    self.levels[num] = Level(self._abstimes, self._microtimes, level_inds=level_inds)
+                    self.levels[num] = Level(abs_times=self._abstimes,
+                                             microtimes=self._microtimes,
+                                             level_inds=level_inds)
             else:
-                self.levels[0] = Level(self._abstimes, self._microtimes,
+                self.levels[0] = Level(abs_times=self._abstimes,
+                                       microtimes=self._microtimes,
                                        level_inds=(0, self.cpt_inds[0] - 1))
-                self.levels[1] = Level(self._abstimes, self._microtimes,
+                self.levels[1] = Level(abs_times=self._abstimes,
+                                       microtimes=self._microtimes,
                                        level_inds=(self.cpt_inds[0], self.num_photons - 1))
 
+            self.has_levels = True
+        elif self.has_run:  # Has run, no cpts -> One single level
+            self.levels = [Level(abs_times=self._abstimes,
+                                 microtimes=self._microtimes,
+                                 level_inds=(0, self.num_photons-1))]
+            self.num_levels = 1
+            self.num_cpts = 0
             self.has_levels = True
 
     # @dbg.profile

@@ -351,7 +351,7 @@ class IntController(QObject):
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
             currentparticle = self.mainwindow.currentparticle
-            if not currentparticle.has_groups:
+            if not currentparticle.has_groups or currentparticle.ahca.best_step.single_level:
                 return
             try:
                 groups = currentparticle.groups
@@ -1012,6 +1012,8 @@ class GroupingController(QObject):
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabGrouping':
             cur_part = self.mainwindow.currentparticle
+            if cur_part.ahca.best_step.single_level:
+                return
             try:
                 grouping_bics = cur_part.grouping_bics.copy()
                 grouping_selected_ind = cur_part.grouping_selected_ind

@@ -899,6 +899,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if f_dir:
             ex_traces = self.chbEx_Trace.isChecked()
             ex_levels = self.chbEx_Levels.isChecked()
+            ex_grouped_levels = self.chbEx_Grouped_Levels.isChecked()
+            ex_group_info = self.chbEx_Group_Info.isChecked()
+            ex_grouping_results = self.chbEx_Group_Results.isChecked()
             ex_lifetime = self.chbEx_Lifetimes.isChecked()
             ex_hist = self.chbEx_Hist.isChecked()
             for num, p in enumerate(particles):
@@ -917,7 +920,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 if ex_levels:
                     if p.has_levels:
                         lvl_tr_path = os.path.join(f_dir, p.name + ' levels-plot.csv')
-                        ints, times = p.levels2data()
+                        ints, times = p.levels2data(use_grouped=False)
                         rows = list()
                         rows.append(['Level #', 'Time (s)', 'Int (counts/s)'])
                         for i in range(len(ints)):
@@ -937,6 +940,37 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         with open(lvl_path, 'w') as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
+
+                if ex_grouped_levels:
+                    if p.has_levels:
+                        grp_lvl_tr_path = os.path.join(f_dir, p.name + ' grouped_levels-plot.csv')
+                        ints, times = p.levels2data(use_grouped=True)
+                        rows = list()
+                        rows.append(['Grouped Level #', 'Time (s)', 'Int (counts/s)'])
+                        for i in range(len(ints)):
+                            rows.append([str(i // 2), str(times[i]), str(ints[i])])
+                        with open(grp_lvl_tr_path, 'w') as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                        grp_lvl_path = os.path.join(f_dir, p.name + ' grouped_levels.csv')
+                        rows = list()
+                        rows.append(['Grouped Level #', 'Start Time (s)', 'End Time (s)',
+                                     'Dwell Time (/s)', 'Int (counts/s)', 'Num of Photons',
+                                     'Group Index'])
+                        for i, l in enumerate(p.levels):
+                            rows.append(
+                                [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
+                                 str(l.int_p_s), str(l.num_photons), str(l.group_ind)])
+                        with open(grp_lvl_path, 'w') as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                if ex_group_info:
+                    if p.has_groups:
+                        # TODO: Here
+                        group_info_path = os.path.join(f_dir, p.name + ' grouping_info.csv')
+
 
                 if ex_lifetime:
                     if p.numexp == 1:

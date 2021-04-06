@@ -84,23 +84,15 @@ class ClusteringStep:
     def __init__(self,
                  particle: Particle,
                  first: bool = False,
-                 seed_groups: List[Group] = None):
+                 seed_groups: List[Group] = None,
+                 single_level: bool = False):
 
         self._particle = particle
         self._num_levels = particle.num_levels
+        self.first = first
+        self.single_level = single_level
+        self.last = False or single_level
 
-        if first:
-            self._seed_groups = [Group([i], particle) for i in range(self._num_levels)]
-            self._seed_p_mj = np.identity(n=self._num_levels)
-        else:
-            assert seed_groups is not None, "ClusteringStep: parameters not provided"
-            self._seed_groups = seed_groups
-            seed_p_mj = np.zeros(shape=(len(self._seed_groups), self._num_levels))
-            for m, group in enumerate(seed_groups):
-                seed_p_mj[m, group.lvls_inds] = 1
-            self._seed_p_mj = seed_p_mj
-
-        self._num_prev_groups = len(self._seed_groups)
         self._log_l_em = None
         self._em_p_mj = None
         self._em_log_l = None
@@ -113,6 +105,24 @@ class ClusteringStep:
         self.level_group_ind = None
 
         self.group_levels = None
+
+        if self.first or self.single_level:
+            self._seed_groups = [Group([i], particle) for i in range(self._num_levels)]
+            self._seed_p_mj = np.identity(n=self._num_levels)
+            if self.single_level:
+                self.groups = self._seed_groups
+                self.group_levels = self._particle.levels
+                self.num_groups = self._num_levels
+                self.level_group_ind = list(range(self._num_levels))
+        else:
+            assert seed_groups is not None, "ClusteringStep: parameters not provided"
+            self._seed_groups = seed_groups
+            seed_p_mj = np.zeros(shape=(len(self._seed_groups), self._num_levels))
+            for m, group in enumerate(seed_groups):
+                seed_p_mj[m, group.lvls_inds] = 1
+            self._seed_p_mj = seed_p_mj
+
+        self._num_prev_groups = len(self._seed_groups)
 
     @property
     def group_ints(self) -> List[float]:
@@ -128,7 +138,7 @@ class ClusteringStep:
             Option are 'descending' and 'ascending'
         """
 
-        if self.groups is not None:
+        if self.groups is not None and self.single_level is False:
             assert order in ['descending', 'ascending'], "Solution: Order provided not valid"
 
             g_ints = self.group_ints.copy()
@@ -262,6 +272,8 @@ class ClusteringStep:
                 new_groups.append(Group(lvls_inds=g_m_levels, particle=self._particle))
         self.groups = new_groups
         self.num_groups = len(new_groups)
+        if self.num_groups == 1:
+            self.last = True
 
         level_group_ind = [None]*self._num_levels
         for group_num, group in enumerate(self.groups):
@@ -290,19 +302,26 @@ class ClusteringStep:
                     group_levels.append(Level(abs_times=abs_times,
                                               microtimes=micro_times,
                                               level_inds=(start_ind, end_ind),
-                                              int_p_s=group_int))
+                                              int_p_s=group_int,
+                                              group_ind=self.level_group_ind[i]))
                     start_ind = part_levels[i+1].level_inds[0]
             else:
+                # TODO: Make sure it shouldn't be append
                 group_levels.append(Level(abs_times=abs_times,
                                           microtimes=micro_times,
                                           level_inds=(start_ind, end_ind),
-                                          int_p_s=group_int))
+                                          int_p_s=group_int,
+                                          group_ind=self.level_group_ind[i]))
 
         self.group_levels = group_levels
 
     @property
     def group_level_dwelltimes(self):
         return [level.dwell_time_s for level in self.group_levels]
+
+    @property
+    def group_total_dwelltime(self):
+        return np.sum(self.group_level_dwelltimes)
 
     @property
     def group_num_levels(self):
@@ -368,33 +387,44 @@ class AHCA:
 
         """
 
-        if self.particle.has_levels:
+        try:
+            if self.particle.has_levels:
 
-            self.particle.bic_plot_data.clear_scatter_plot_item()
+                # self.particle.bic_plot_data.clear_scatter_plot_item()
 
-            steps = []
-            c_step = ClusteringStep(self.particle, first=True)
-            current_num_groups = self.particle.num_levels
-            while current_num_groups != 1:
-                c_step.ahc()
-                c_step.emc()
-                c_step.calc_bic()
-                c_step.group_2_levels()
-                steps.append(c_step)
-                current_num_groups = c_step.num_groups
-                if current_num_groups != 1:
-                    # print(current_num_groups)
-                    c_step = c_step.setup_next_step()
+                steps = []
+                if self.particle.num_levels == 1:
+                    self.steps = [ClusteringStep(self.particle, single_level=True)]
+                    self.num_steps = 1
+                    self.best_step_ind = 0
+                    self.selected_step_ind = 0
+                    self.has_groups = True
+                else:
+                    c_step = ClusteringStep(self.particle, first=True)
+                    current_num_groups = self.particle.num_levels
+                    while current_num_groups != 1:
+                        c_step.ahc()
+                        c_step.emc()
+                        c_step.calc_bic()
+                        c_step.group_2_levels()
+                        steps.append(c_step)
+                        current_num_groups = c_step.num_groups
+                        if current_num_groups != 1:
+                            # print(current_num_groups)
+                            c_step = c_step.setup_next_step()
 
-            self.steps = steps
-            self.num_steps = len(steps)
-            self.bics = [step.bic for step in steps]
-            self.best_step_ind = np.argmax(self.bics)
-            self.selected_step_ind = self.best_step_ind
-            self.has_groups = True
-            logger.info(f"{self.particle.name} levels grouped")
-        else:
-            logger.info(f"{self.particle.name} has no levels to group")
+                    self.steps = steps
+                    self.num_steps = len(steps)
+                    self.bics = [step.bic for step in steps]
+                    self.best_step_ind = np.argmax(self.bics)
+                    self.selected_step_ind = self.best_step_ind
+                    self.has_groups = True
+                    logger.info(f"{self.particle.name} levels grouped")
+            else:
+                logger.info(f"{self.particle.name} has no levels to group")
+        except Exception as e:
+            logger.error(e)
+            pass
 
     def set_selected_step(self, step_ind: int):
         assert 0 <= step_ind < self.num_steps, "AHCA: Provided step index out of range."

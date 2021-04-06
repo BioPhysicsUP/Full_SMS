@@ -192,7 +192,10 @@ class ProcessThread(QRunnable):
                         next_task_ind += 1
 
                     if type(result) is not ProcessTaskResult:
-                        raise TypeError("Task result is not of type ProcessTaskResult")
+                        if isinstance(result, Exception):
+                            raise result
+                        else:
+                            raise TypeError("Task result is not of type ProcessTaskResult")
 
                     self.signals.results.emit(result)
                     del result

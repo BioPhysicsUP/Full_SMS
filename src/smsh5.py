@@ -8,7 +8,7 @@ import ast
 import os
 import re
 import traceback
-from typing import List
+from typing import List, Union, Tuple
 from uuid import uuid1
 
 import h5pickle
@@ -26,6 +26,8 @@ from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
 from tcspcfit import FittingParameters
 
 logger = setup_logger(__name__)
+
+
 
 
 class H5dataset:
@@ -335,12 +337,13 @@ class Particle:
     def burst_levels(self, value: np.ndarray):
         self.cpts.burst_levels = value
 
-    def levels2data(self, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
+    def levels2data(self, use_grouped: bool = None) -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
         Parameters
         ----------
+        use_grouped
         plot_type: str, {'line', 'step'}
 
         Returns
@@ -348,11 +351,17 @@ class Particle:
         [np.ndarray, np.ndarray]
         """
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        levels = self.levels
+        if use_grouped is not None:
+            if use_grouped == False:
+                levels = self.cpts.levels
+            else:
+                levels = self.ahca.best_step.group_levels
 
         levels_data = np.empty(shape=self.num_levels * 2)
         times = np.empty(shape=self.num_levels * 2)
         accum_time = 0
-        for num, level in enumerate(self.levels):
+        for num, level in enumerate(levels):
             times[num * 2] = accum_time
             accum_time += level.dwell_time_s
             times[num * 2 + 1] = accum_time
