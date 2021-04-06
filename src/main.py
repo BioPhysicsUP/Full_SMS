@@ -189,6 +189,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.current_progress = float()
         self.data_loaded = False
         self.level_resolved = False
+        self.levels_grouped = False
         self.irf_loaded = False
         self.has_spectra = False
 

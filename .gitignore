@@ -157,3 +157,5 @@ poetry.toml
 /docs/
 
 log.txt
+
+poetry.lock

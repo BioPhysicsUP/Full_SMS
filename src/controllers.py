@@ -350,12 +350,14 @@ class IntController(QObject):
     def plot_group_bounds(self):
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
-            currentparticle = self.mainwindow.currentparticle
-            if not currentparticle.has_groups or currentparticle.ahca.best_step.single_level:
+            cur_part = self.mainwindow.currentparticle
+            if not cur_part.has_groups \
+                    or cur_part.ahca.best_step.single_level\
+                    or cur_part.ahca.selected_step.num_groups < 2:
                 return
             try:
-                groups = currentparticle.groups
-                group_bounds = currentparticle.groups_bounds
+                groups = cur_part.groups
+                group_bounds = cur_part.groups_bounds
             except AttributeError:
                 logger.error('No groups!')
 
@@ -367,7 +369,7 @@ class IntController(QObject):
             elif cur_tab_name == 'tabGrouping':
                 int_plot = self.groups_int_plot
 
-            int_conv = currentparticle.bin_size / 1000
+            int_conv = cur_part.bin_size / 1000
 
             for i, bound in enumerate(group_bounds):
                 if i % 2:
@@ -383,7 +385,7 @@ class IntController(QObject):
             # plot_pen.setJoinStyle(Qt.RoundJoin)
             line_pen.setColor(QColor(0, 0, 0, 150))
             line_pen.setCosmetic(True)
-            line_times = [0, currentparticle.dwell_time]
+            line_times = [0, cur_part.dwell_time]
             for group in groups:
                 g_ints = [group.int * int_conv, group.int * int_conv]
                 int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
@@ -444,40 +446,18 @@ class IntController(QObject):
 
         r_process_thread.signals.start_progress.connect(mw.start_progress)
         r_process_thread.signals.status_update.connect(mw.status_message)
-        # r_process_thread.signals.set_progress.connect(mw.set_progress)
         r_process_thread.signals.step_progress.connect(mw.update_progress)
         r_process_thread.signals.end_progress.connect(mw.end_progress)
         r_process_thread.signals.error.connect(self.error)
-        # r_process_thread.signals.single_result.connect(self.handle_single_result)
         r_process_thread.signals.results.connect(self.gather_replace_results)
         r_process_thread.signals.finished.connect(thread_finished)
         r_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
         r_process_thread.worker_signals.level_resolved.connect(mw.set_level_resolved)
         r_process_thread.status_message = status_message
 
-        # resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
-        # resolve_thread.signals.start_progress.connect(self.mainwindow.start_progress)
-        # resolve_thread.signals.progress.connect(self.mainwindow.update_progress)
-        # resolve_thread.signals.status_message.connect(self.mainwindow.status_message)
-        # resolve_thread.signals.reset_gui.connect(self.mainwindow.reset_gui)
-        # resolve_thread.signals.level_resolved.connect(self.mainwindow.set_level_resolved)
-
-        # self.mainwindow.threadpool.start(resolve_thread)
         mw.threadpool.start(r_process_thread)
         mw.active_threads.append(r_process_thread)
 
-    # def handle_single_result(self):
-    #     particles = self.mainwindow.currentparticle.dataset.particles
-    #     part_uuids = [part.uuid for part in particles]
-    #     result_part_uuids = [result.new_task_obj.uuid for result in results]
-    #     try:
-    #         for num, result in enumerate(results):
-    #             result_part_ind = part_uuids.index(result_part_uuids[num])
-    #             self.mainwindow.tree2particle(result_part_ind).cpts = result.new_task_obj
-    #         self.results_gathered = True
-    #     except ValueError as e:
-    #         logger.error(e)
-    #     pass
 
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
         particles = self.mainwindow.currentparticle.dataset.particles
@@ -930,6 +910,7 @@ class LifetimeController(QObject):
         self.mainwindow.chbEx_Lifetimes.setEnabled(False)
         self.mainwindow.chbEx_Lifetimes.setEnabled(True)
         self.mainwindow.chbEx_Hist.setEnabled(True)
+        self.mainwindow.status_message("Done")
         print(self.mainwindow.chbEx_Lifetimes.isChecked())
         logger.info('Fitting levels complete')
 
@@ -985,7 +966,6 @@ class GroupingController(QObject):
 
         self.all_bic_plots = None
         self.all_last_solutions = None
-        # self.last_solution = None
 
     def clear_bic(self):
         self.bic_scatter_plot.clear()
@@ -997,10 +977,8 @@ class GroupingController(QObject):
             point_num_groups = int(points[0].pos()[0])
             new_ind = curr_part.ahca.steps_num_groups.index(point_num_groups)
             curr_part.ahca.set_selected_step(new_ind)
-            # last_solution.resetPen()
             if last_solution:
                 last_solution.setPen(pg.mkPen(width=1, color='k'))
-            # print("clicked points", points)
             for p in points:
                 p.setPen('c', width=2)
             last_solution = points[0]
@@ -1013,6 +991,7 @@ class GroupingController(QObject):
         if cur_tab_name == 'tabGrouping':
             cur_part = self.mainwindow.currentparticle
             if cur_part.ahca.best_step.single_level:
+                self.bic_plot_widget.getPlotItem().clear()
                 return
             try:
                 grouping_bics = cur_part.grouping_bics.copy()
@@ -1055,7 +1034,6 @@ class GroupingController(QObject):
 
                 scat_plot_item.addPoints(bic_spots)
 
-
                 self.all_bic_plots[cur_part.dataset_ind] = scat_plot_item
                 best_solution = scat_plot_item.points()[best_grouping_ind]
                 self.all_last_solutions[cur_part.dataset_ind] = best_solution
@@ -1063,7 +1041,6 @@ class GroupingController(QObject):
 
             self.bic_plot_widget.getPlotItem().clear()
             self.bic_scatter_plot.addItem(scat_plot_item)
-
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
@@ -1097,8 +1074,6 @@ class GroupingController(QObject):
             Possible values are 'current' (default), 'selected', and 'all'.
         """
 
-        # data = self.mainwindow.currentparticle.dataset
-
         mw = self.mainwindow
 
         if mode == 'current':
@@ -1126,12 +1101,6 @@ class GroupingController(QObject):
         g_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
         g_process_thread.status_message = status_message
 
-        # grouping_worker.signals.grouping_finished.connect(self.grouping_thread_complete)
-        # grouping_worker.signals.start_progress.connect(self.mainwindow.start_progress)
-        # grouping_worker.signals.progress.connect(self.mainwindow.update_progress)
-        # grouping_worker.signals.status_message.connect(self.mainwindow.status_message)
-        # grouping_worker.signals.reset_gui.connect(self.mainwindow.reset_gui)
-
         self.mainwindow.threadpool.start(g_process_thread)
 
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
@@ -1151,7 +1120,7 @@ class GroupingController(QObject):
                     step._paricle = new_part
                 new_part.ahca = result_ahca
 
-            self.results_gathered = True
+            # self.results_gathered = True
         except ValueError as e:
             logger.error(e)
 
@@ -1159,6 +1128,12 @@ class GroupingController(QObject):
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
+        self.mainwindow.levels_grouped = True
+        self.mainwindow.chbEx_Grouped_Levels.setEnabled(True)
+        self.mainwindow.gbxExport_Groups.setEnabled(True)
+        self.mainwindow.chbEx_Group_Info.setEnabled(True)
+        self.mainwindow.chbEx_Groups_Results.setEnabled(True)
+        self.mainwindow.reset_gui()
         logger.info('Grouping levels complete')
 
     def apply_groups(self, mode: str = 'current'):
