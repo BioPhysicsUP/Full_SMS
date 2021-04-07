@@ -406,6 +406,7 @@ class Particle:
         """Put the arrival times into a histogram"""
 
         self.histogram = Histogram(self, startpoint=self.startpoint, channel=channel)
+        print(np.max(self.histogram.decay))
 
     def makelevelhists(self, channel=True):
         """Make level histograms"""
@@ -588,6 +589,7 @@ class Histogram:
             self.shift = fit.shift
             self.bg = fit.bg
             self.irfbg = fit.irfbg
+            self.chisq = fit.chisq
             self.fitted = True
             if numexp == 1:
                 self.avtau = self.tau
