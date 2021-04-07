@@ -241,6 +241,10 @@ class Particle:
         self.using_group_levels = False
 
     @property
+    def has_spectra(self) -> bool:
+        return self.spectra._has_spectra
+
+    @property
     def has_levels(self):
         return self.cpts.has_levels
 
@@ -406,6 +410,7 @@ class Particle:
         """Put the arrival times into a histogram"""
 
         self.histogram = Histogram(self, startpoint=self.startpoint, channel=channel)
+        # print(np.max(self.histogram.decay))
 
     def makelevelhists(self, channel=True):
         """Make level histograms"""
@@ -588,6 +593,7 @@ class Histogram:
             self.shift = fit.shift
             self.bg = fit.bg
             self.irfbg = fit.irfbg
+            self.chisq = fit.chisq
             self.fitted = True
             if numexp == 1:
                 self.avtau = self.tau
@@ -643,20 +649,24 @@ class ParticleAllHists:
 
 class RasterScan:
     def __init__(self, particle):
-        self.particle = particle
-        try:
-            self.image = self.particle.datadict['Raster Scan']
-        except KeyError:
-            dbg.p("Problem loading raster scan for " + self.particle.name, 'RasterScan')
-            self.image = None
+        self._particle = particle
+        self.data = particle.datadict['Raster Scan']
+        self.integration_time = self.data.attrs["Int. Time (ms/um)"]
+        self.pixel_per_line = self.data.attrs["Pixels per Line"]
+        self.range = self.data.attrs["Range (um)"]
+        self.x_start = self.data.attrs["XStart (um)"]
+        self.y_start = self.data.attrs["YStart (um)"]
 
 
 class Spectra:
     def __init__(self, particle):
         self.particle = particle
-        self.spectra = self.particle.datadict['Spectra (counts\s)']
-        self.wavelengths = self.spectra.attrs['Wavelengths']
-        self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
+        self._has_spectra = False
+        if 'Spectra (counts\\s)' in particle.datadict.keys():
+            self._has_spectra = True
+            self.data = particle.datadict['Spectra (counts\\s)']
+            self.wavelengths = self.data.attrs['Wavelengths']
+            self.series_times = self.data.attrs['Spectra Abs. Times (s)']
 
 
 def start_at_value(decay, t, neg_t=True, decaystart=None):

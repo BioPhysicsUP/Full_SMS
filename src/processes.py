@@ -281,9 +281,7 @@ class ProcessProgress(ProgressTracker):
 
     def iterate(self):
         iterate_value = super().strict_iterate()
-        # print(iterate_value)
         if self._accum_step + iterate_value >= 1.0:
-            # print("Stepping")
             self._prog_fb.step(value=iterate_value)
             self._accum_step = 0
         else:

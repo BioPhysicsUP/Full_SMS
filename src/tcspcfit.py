@@ -95,8 +95,8 @@ def colorshift(irf, shift, irflength=None):
     irf = irf.flatten()
     irflength = np.size(irf)
     t = np.arange(irflength)
-    new_index_left = np.fmod(np.fmod(t - np.floor(shift) - 1, irflength) + irflength, irflength).astype(int)
-    new_index_right = np.fmod(np.fmod(t - np.ceil(shift) - 1, irflength) + irflength, irflength).astype(int)
+    new_index_left = np.fmod(np.fmod(t - np.floor(shift), irflength) + irflength, irflength).astype(int)
+    new_index_right = np.fmod(np.fmod(t - np.ceil(shift), irflength) + irflength, irflength).astype(int)
     integer_left_shift = irf[new_index_left]
     integer_right_shift = irf[new_index_right]
     irs = (1 - shift + np.floor(shift)) * integer_left_shift + (shift - np.floor(shift)) * integer_right_shift
@@ -146,7 +146,7 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     decays = decays / np.sum(decays)
     amplitudes, residuals = nnls(decays.T, measured.flatten())
     tau = 1/tau
-    print(period)
+    # print(period)
     plt.plot(amplitudes)
     plt.show()
     peak_amplitudes = amplitudes > 0.1 * np.max(amplitudes)  # Pick out peaks
@@ -249,10 +249,14 @@ class FluoFit:
         self.endpoint = None
         self.calculate_boundaries(endpoint, measured, startpoint)
 
-        self.meas_max = measured.max()
+        # self.meas_max = measured.max()
+        # measured = measured / self.meas_max  # Normalize measured
+        self.meas_max = measured.sum()
+        meas_std = np.sqrt(np.abs(measured))
         measured = measured / self.meas_max  # Normalize measured
-        # measured = measured / measured.max()  # Normalize measured
+        meas_std = meas_std / self.meas_max
         self.measured = measured[self.startpoint:self.endpoint]
+        self.meas_std = meas_std[self.startpoint:self.endpoint]
         self.dtau = None
         self.chisq = None
         self.residuals = None
@@ -423,12 +427,14 @@ class FluoFit:
         self.amp = amp
         self.shift = shift*self.channelwidth
 
-        residuals = self.convd - self.measured
-        residuals = residuals / np.sqrt(np.abs(self.measured))
+        # residuals = self.convd - self.measured
+        # residuals = residuals / np.sqrt(np.abs(self.measured))
+        residuals = (self.convd - self.measured) * self.meas_max
+        residuals = residuals / np.sqrt(np.abs(self.measured * self.meas_max))
         residualsnotinf = residuals != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
         chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - 4 - 1)
-        chisquared = chisquared * self.meas_max  # This is necessary because of normalisation
+        # chisquared = chisquared * self.meas_max  # This is necessary because of normalisation
         self.chisq = chisquared
         self.t = self.t[self.startpoint:self.endpoint]
         self.residuals = residuals
@@ -451,7 +457,7 @@ class FluoFit:
                 # ax1.text(textx, texty / 2, 'Amp = {:#.3g}\% '.format(amp))
                 # ax1.text(textx, texty / 2, 'Tau err = %s' % dtau)
             ax2.plot(self.t[residualsnotinf], residuals, '.', markersize=2)
-            print(residuals.max())
+            # print(residuals.max())
             ax2.text(textx, residuals.max() / 1.1, r'$\chi ^2 = $ {:3.4f}'.format(chisquared))
             ax2.set_xlabel('Time (ns)')
             ax2.set_ylabel('Weighted residual')
@@ -474,6 +480,7 @@ class FluoFit:
         irf = self.irf
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
+        convd = convd / convd.sum()
         convd = convd[self.startpoint:self.endpoint]
         return convd
 
@@ -531,11 +538,13 @@ class TwoExp(FluoFit):
         paraminit = self.tau + self.amp + [self.shift]
         if addopt is None:
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+            # sigma=np.sqrt(np.abs(self.measured)))
         else:
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
 
         tau = param[0:2]
-        amp = np.append(param[2], param[3])
+        # amp = np.append(param[2], param[3])
+        amp = np.append(param[2], 1 - param[2])
         shift = param[4]
         dtau = np.sqrt(np.diag(pcov[0:2]))
 
@@ -545,7 +554,7 @@ class TwoExp(FluoFit):
     def fitfunc(self, t, tau1, tau2, a1, a2, shift):
         """Function passed to curve_fit, to be fitted to data"""
 
-        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
+        model = a1 * np.exp(-t / tau1) + (1 - a1) * np.exp(-t / tau2)
         return self.makeconvd(shift, model)
 
 
@@ -668,7 +677,12 @@ class FittingParameters:
             if guiobj.text() == '':
                 return None
             else:
-                return float(guiobj.text())
+                text = guiobj.text()
+                num_chs = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',']
+                if all([ch in num_chs for ch in text]):
+                    return float(text)
+                else:
+                    return None
         elif type(guiobj) == QCheckBox:
             return float(guiobj.isChecked())
 
@@ -696,6 +710,17 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         # self.lineEndTime.setValidator(QIntValidator())
 
     def updateplot(self, *args):
+
+        if not hasattr(self.lifetime_controller, 'fitparam'):
+            return
+        else:
+            self.lifetime_controller.fitparam.getfromdialog()
+            crit_params = list()
+            crit_params.extend(self.lifetime_controller.fitparam.tau)
+            crit_params.extend(self.lifetime_controller.fitparam.amp)
+            for param in crit_params:
+                if None in param:
+                    return
 
         try:
             model = self.make_model()

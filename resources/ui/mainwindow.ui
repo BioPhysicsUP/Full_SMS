@@ -93,7 +93,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -127,7 +127,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../src/icons.qrc">
+        <iconset>
          <normaloff>:/icons/icons/intensity.png</normaloff>:/icons/icons/intensity.png</iconset>
        </attribute>
        <attribute name="title">
@@ -158,7 +158,7 @@
            <number>0</number>
           </property>
           <item row="0" column="0" colspan="4">
-           <widget class="PlotWidget" name="pgIntensity_PlotWidget" native="true">
+           <widget class="PlotWidget" name="pgIntensity_PlotWidget">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
               <horstretch>0</horstretch>
@@ -251,7 +251,7 @@
               <number>0</number>
              </property>
              <item>
-              <widget class="PlotWidget" name="pgInt_Hist_PlotWidget" native="true">
+              <widget class="PlotWidget" name="pgInt_Hist_PlotWidget">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
                  <horstretch>0</horstretch>
@@ -476,7 +476,7 @@
              <string>Resolve Selected</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/resolve-selected.png</normaloff>:/icons/icons/resolve-selected.png</iconset>
             </property>
             <property name="iconSize">
@@ -505,7 +505,7 @@
              <string>Apply To All</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/apply-all.png</normaloff>:/icons/icons/apply-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -595,7 +595,7 @@
              <string>Apply Bin Size</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/apply-one.png</normaloff>:/icons/icons/apply-one.png</iconset>
             </property>
             <property name="iconSize">
@@ -624,7 +624,7 @@
              <string>Resolve All</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/resolve-all.png</normaloff>:/icons/icons/resolve-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -680,7 +680,7 @@
              <string>Resolve</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/resolve-current.png</normaloff>:/icons/icons/resolve-current.png</iconset>
             </property>
             <property name="iconSize">
@@ -719,7 +719,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../src/icons.qrc">
+        <iconset>
          <normaloff>:/icons/icons/grouping.png</normaloff>:/icons/icons/grouping.png</iconset>
        </attribute>
        <attribute name="title">
@@ -735,7 +735,7 @@
            <number>0</number>
           </property>
           <item row="0" column="0" colspan="4">
-           <widget class="PlotWidget" name="pgGroups_Int_PlotWidget" native="true">
+           <widget class="PlotWidget" name="pgGroups_Int_PlotWidget">
             <property name="enabled">
              <bool>true</bool>
             </property>
@@ -802,7 +802,7 @@
           <item row="0" column="4">
            <layout class="QVBoxLayout" name="layGroups_Int_Hist">
             <item>
-             <widget class="PlotWidget" name="pgGroups_Hist_PlotWidget" native="true">
+             <widget class="PlotWidget" name="pgGroups_Hist_PlotWidget">
               <property name="enabled">
                <bool>true</bool>
               </property>
@@ -870,7 +870,7 @@
              </widget>
             </item>
             <item>
-             <widget class="PlotWidget" name="pgGroups_BIC_PlotWidget" native="true">
+             <widget class="PlotWidget" name="pgGroups_BIC_PlotWidget">
               <property name="enabled">
                <bool>true</bool>
               </property>
@@ -926,7 +926,7 @@
                <string>Group Current</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/group-current.png</normaloff>:/icons/icons/group-current.png</iconset>
               </property>
               <property name="iconSize">
@@ -958,7 +958,7 @@
                <string>Group Selected</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/group-selected.png</normaloff>:/icons/icons/group-selected.png</iconset>
               </property>
               <property name="iconSize">
@@ -990,7 +990,7 @@
                <string>Group All</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -1072,7 +1072,7 @@
                <string>Apply Current</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -1104,7 +1104,7 @@
                <string>Apply Selected</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -1136,7 +1136,7 @@
                <string>Apply All</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -1158,125 +1158,14 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../src/icons.qrc">
+        <iconset>
          <normaloff>:/icons/icons/lifetime.png</normaloff>:/icons/icons/lifetime.png</iconset>
        </attribute>
        <attribute name="title">
         <string>Lifetime</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="0" column="0">
-         <layout class="QHBoxLayout" name="layLifetime_Int">
-          <item>
-           <widget class="QPushButton" name="btnPrevLevel">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>30</width>
-              <height>200</height>
-             </size>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="../src/icons.qrc">
-              <normaloff>:/icons/icons/arrow-left.png</normaloff>:/icons/icons/arrow-left.png</iconset>
-            </property>
-            <property name="iconSize">
-             <size>
-              <width>25</width>
-              <height>25</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="PlotWidget" name="pgLifetime_Int_PlotWidget" native="true">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="btnNextLevel">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>100</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>30</width>
-              <height>200</height>
-             </size>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="../src/icons.qrc">
-              <normaloff>:/icons/icons/arrow-right.png</normaloff>:/icons/icons/arrow-right.png</iconset>
-            </property>
-            <property name="iconSize">
-             <size>
-              <width>25</width>
-              <height>25</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item row="5" column="0" rowspan="3">
-         <layout class="QHBoxLayout" name="layLifetime_Hist">
-          <property name="sizeConstraint">
-           <enum>QLayout::SetMinimumSize</enum>
-          </property>
-          <item>
-           <widget class="PlotWidget" name="pgLifetime_Hist_PlotWidget" native="true">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QTextBrowser" name="textBrowser">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item row="11" column="0">
+        <item row="8" column="0">
          <layout class="QHBoxLayout" name="layLifetime_Buttons">
           <item>
            <widget class="QPushButton" name="btnLoadIRF">
@@ -1296,7 +1185,7 @@
              <string>Load IRF</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
             </property>
             <property name="iconSize">
@@ -1325,7 +1214,7 @@
              <string>Fitting Parameters</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/fitting-parameters.png</normaloff>:/icons/icons/fitting-parameters.png</iconset>
             </property>
             <property name="iconSize">
@@ -1370,7 +1259,7 @@
              <string>Fit Current Level/Trace</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/fit-current-level.png</normaloff>:/icons/icons/fit-current-level.png</iconset>
             </property>
             <property name="iconSize">
@@ -1399,7 +1288,7 @@
              <string>Fit Particle Levels</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/fit-particle.png</normaloff>:/icons/icons/fit-particle.png</iconset>
             </property>
             <property name="iconSize">
@@ -1428,7 +1317,7 @@
              <string>Fit Selected</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/fit-selected.png</normaloff>:/icons/icons/fit-selected.png</iconset>
             </property>
             <property name="iconSize">
@@ -1457,7 +1346,7 @@
              <string>Fit All</string>
             </property>
             <property name="icon">
-             <iconset resource="../src/icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/fit-all.png</normaloff>:/icons/icons/fit-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -1486,7 +1375,7 @@
           </property>
          </widget>
         </item>
-        <item row="9" column="0">
+        <item row="6" column="0">
          <widget class="Line" name="lineLifetime_Buttons">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -1500,23 +1389,196 @@
          </widget>
         </item>
         <item row="3" column="0">
-         <widget class="QPushButton" name="btnWholeTrace">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+         <layout class="QHBoxLayout" name="horizontalLayout_12">
+          <property name="sizeConstraint">
+           <enum>QLayout::SetMinimumSize</enum>
           </property>
-          <property name="maximumSize">
-           <size>
-            <width>150</width>
-            <height>25</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Whole Trace Decay</string>
-          </property>
-         </widget>
+          <item>
+           <widget class="QTabWidget" name="tabWidget_Lifetime">
+            <property name="minimumSize">
+             <size>
+              <width>550</width>
+              <height>200</height>
+             </size>
+            </property>
+            <property name="currentIndex">
+             <number>0</number>
+            </property>
+            <widget class="QWidget" name="tabLifetimeGraph_2">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <attribute name="title">
+              <string>Decay</string>
+             </attribute>
+             <layout class="QGridLayout" name="gridLayout_17">
+              <item row="0" column="0">
+               <widget class="PlotWidget" name="pgLifetime_Hist_PlotWidget">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>100</height>
+                 </size>
+                </property>
+                <property name="renderHints">
+                 <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="tabResidualsGraph_2">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <attribute name="title">
+              <string>Residuals</string>
+             </attribute>
+             <layout class="QGridLayout" name="gridLayout_18">
+              <item row="0" column="0">
+               <widget class="PlotWidget" name="pgLieftime_Residuals_PlotWidget">
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>100</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="layLifetime_Results">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <item alignment="Qt::AlignHCenter">
+             <widget class="QPushButton" name="btnWholeTrace">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>137</width>
+                <height>27</height>
+               </size>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::LeftToRight</enum>
+              </property>
+              <property name="text">
+               <string>Whole Trace Decay</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QTextBrowser" name="textBrowser">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+        <item row="0" column="0">
+         <layout class="QHBoxLayout" name="layLifetime_Int">
+          <item>
+           <widget class="QPushButton" name="btnPrevLevel">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>100</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>30</width>
+              <height>200</height>
+             </size>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset>
+              <normaloff>:/icons/icons/arrow-left.png</normaloff>:/icons/icons/arrow-left.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>25</width>
+              <height>25</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="PlotWidget" name="pgLifetime_Int_PlotWidget">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnNextLevel">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>100</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>30</width>
+              <height>200</height>
+             </size>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset>
+              <normaloff>:/icons/icons/arrow-right.png</normaloff>:/icons/icons/arrow-right.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>25</width>
+              <height>25</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>
@@ -1525,7 +1587,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../src/icons.qrc">
+        <iconset>
          <normaloff>:/icons/icons/spectra.png</normaloff>:/icons/icons/spectra.png</iconset>
        </attribute>
        <attribute name="title">
@@ -1627,7 +1689,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../src/icons.qrc">
+        <iconset>
          <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
        </attribute>
        <attribute name="title">
@@ -1699,6 +1761,7 @@
                    <weight>50</weight>
                    <bold>false</bold>
                    <underline>false</underline>
+                   <strikeout>false</strikeout>
                   </font>
                  </property>
                  <property name="text">
@@ -1717,6 +1780,7 @@
                    <weight>50</weight>
                    <bold>false</bold>
                    <underline>false</underline>
+                   <strikeout>false</strikeout>
                   </font>
                  </property>
                  <property name="text">
@@ -1735,6 +1799,7 @@
                    <weight>50</weight>
                    <bold>false</bold>
                    <underline>false</underline>
+                   <strikeout>false</strikeout>
                   </font>
                  </property>
                  <property name="text">
@@ -2098,7 +2163,7 @@
                <string>Export Current</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
               </property>
               <property name="iconSize">
@@ -2127,7 +2192,7 @@
                <string>Export Selected</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/export-selected.png</normaloff>:/icons/icons/export-selected.png</iconset>
               </property>
               <property name="iconSize">
@@ -2156,7 +2221,7 @@
                <string>Export All</string>
               </property>
               <property name="icon">
-               <iconset resource="../src/icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/export-all.png</normaloff>:/icons/icons/export-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -2383,7 +2448,7 @@
  <customwidgets>
   <customwidget>
    <class>PlotWidget</class>
-   <extends>QWidget</extends>
+   <extends>QGraphicsView</extends>
    <header>pyqtgraph.h</header>
    <container>1</container>
   </customwidget>

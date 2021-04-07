@@ -457,7 +457,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 else:
                     self.grouping_controller.clear_bic()
 
-            if cur_tab_name == 'tabSpectra':
+            if cur_tab_name == 'tabSpectra' and self.currentparticle.has_spectra:
                 self.spectra_controller.plot_spectra()
 
             # Set Enables
@@ -601,9 +601,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """ Is called as soon as all of the threads have finished. """
 
         if self.data_loaded and not irf:
-            self.currentparticle = self.tree2particle(1)
+            self.currentparticle = self.tree2particle(0)
             self.treeViewParticles.expandAll()
             self.treeViewParticles.setCurrentIndex(self.part_index[1])
+            any_spectra = any([part.has_spectra for part in self.currentparticle.dataset.particles])
+            if any_spectra:
+                self.has_spectra = True
             self.display_data()
 
             msgbx = TimedMessageBox(30, parent=self)
@@ -896,6 +899,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # test2 = save_dlg.exec()
 
         f_dir = QFileDialog.getExistingDirectory(self)
+        print(f_dir)
 
         if f_dir:
             ex_traces = self.chbEx_Trace.isChecked()
@@ -905,6 +909,45 @@ class MainWindow(QMainWindow, UI_Main_Window):
             ex_grouping_results = self.chbEx_Group_Results.isChecked()
             ex_lifetime = self.chbEx_Lifetimes.isChecked()
             ex_hist = self.chbEx_Hist.isChecked()
+
+            # Export fits of whole traces
+            if ex_lifetime:
+                p = particles[0]
+                if p.numexp == 1:
+                    taucol = ['Lifetime (ns)']
+                    ampcol = ['Amp']
+                elif p.numexp == 2:
+                    taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
+                    ampcol = ['Amp 1', 'Amp 2']
+                elif p.numexp == 3:
+                    taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
+                    ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
+                lifetime_path = os.path.join(f_dir, 'Whole trace lifetimes.csv')
+                rows = list()
+                rows.append(['Particle #'] + taucol + ampcol +
+                            ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG', 'Chi Squared'])
+                for i, p in enumerate(particles):
+                    if p.histogram.tau is None or p.histogram.amp is None:  # Problem with fitting the level
+                        tauexp = ['0' for i in range(p.numexp)]
+                        ampexp = ['0' for i in range(p.numexp)]
+                        other_exp = ['0', '0', '0', '0']
+                    else:
+                        if p.numexp == 1:
+                            tauexp = [str(p.histogram.tau)]
+                            ampexp = [str(p.histogram.amp)]
+                        else:
+                            tauexp = [str(tau) for tau in p.histogram.tau]
+                            ampexp = [str(amp) for amp in p.histogram.amp]
+                        other_exp = [str(p.histogram.avtau), str(p.histogram.shift), str(p.histogram.bg),
+                                     str(p.histogram.irfbg), str(p.histogram.chisq)]
+
+                    rows.append([str(i)] + tauexp + ampexp + other_exp)
+
+                with open(lifetime_path, 'w') as f:
+                    writer = csv.writer(f, dialect=csv.excel)
+                    writer.writerows(rows)
+
+            # Export data for levels
             for num, p in enumerate(particles):
                 if ex_traces:
                     tr_path = os.path.join(f_dir, p.name + ' trace.csv')
@@ -988,7 +1031,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
-                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG'])
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG', 'Chi Squared'])
                         for i, l in enumerate(p.levels):
                             if l.histogram.tau is None or l.histogram.amp is None:  # Problem with fitting the level
                                 tauexp = ['0' for i in range(p.numexp)]
@@ -1001,9 +1044,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                 else:
                                     tauexp = [str(tau) for tau in l.histogram.tau]
                                     ampexp = [str(amp) for amp in l.histogram.amp]
-                                other_exp = [str(l.histogram.avtau), str(l.histogram.shift),
-                                             str(l.histogram.bg),
-                                             str(l.histogram.irfbg)]
+                                other_exp = [str(l.histogram.avtau), str(l.histogram.shift), str(l.histogram.bg),
+                                             str(l.histogram.irfbg), str(l.histogram.chisq)]
 
                             rows.append(
                                 [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),

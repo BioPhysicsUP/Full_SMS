@@ -159,3 +159,5 @@ poetry.toml
 log.txt
 
 poetry.lock
+
+pyproject.toml

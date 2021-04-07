@@ -246,7 +246,7 @@ class ClusteringStep:
                     try:
                         p_mj[m, j] = p_hat_g[m, j] / denom[j]
                     except:
-                        print('here')
+                        print('here')  # TODO: Fix div by zero
                         pass
 
             diff_p_mj = np.sum(np.abs(prev_p_mj - p_mj))
