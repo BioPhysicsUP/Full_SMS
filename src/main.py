@@ -457,7 +457,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 else:
                     self.grouping_controller.clear_bic()
 
-            if cur_tab_name == 'tabSpectra':
+            if cur_tab_name == 'tabSpectra' and self.currentparticle.has_spectra:
                 self.spectra_controller.plot_spectra()
 
             # Set Enables
@@ -601,9 +601,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """ Is called as soon as all of the threads have finished. """
 
         if self.data_loaded and not irf:
-            self.currentparticle = self.tree2particle(1)
+            self.currentparticle = self.tree2particle(0)
             self.treeViewParticles.expandAll()
             self.treeViewParticles.setCurrentIndex(self.part_index[1])
+            any_spectra = any([part.has_spectra for part in self.currentparticle.dataset.particles])
+            if any_spectra:
+                self.has_spectra = True
             self.display_data()
 
             msgbx = TimedMessageBox(30, parent=self)

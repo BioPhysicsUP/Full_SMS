@@ -9,6 +9,7 @@ from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog
 import time
+from colour import Color
 from multiprocessing import Queue
 
 if TYPE_CHECKING:
@@ -911,7 +912,7 @@ class LifetimeController(QObject):
         self.mainwindow.chbEx_Lifetimes.setEnabled(True)
         self.mainwindow.chbEx_Hist.setEnabled(True)
         self.mainwindow.status_message("Done")
-        print(self.mainwindow.chbEx_Lifetimes.isChecked())
+        # print(self.mainwindow.chbEx_Lifetimes.isChecked())
         logger.info('Fitting levels complete')
 
     def change_irf_start(self, start):
@@ -1162,6 +1163,11 @@ class SpectraController(QObject):
         self.mainwindow = mainwindow
         self.spectra_widget = spectra_widget
 
+        blue, red = Color('blue'), Color('red')
+        colours = blue.range_to(red, 256)
+        c_array = np.array([np.array(colour.get_rgb())*255 for colour in colours])
+        self._look_up_table = c_array.astype(np.uint8)
+
         # self.spectra_plot = spectra_widget.addPlot()
         # self.spectra_plot_item = pg.ImageItem()
         # self.spectra_plot.addItem(self.spectra_plot_item)
@@ -1190,8 +1196,13 @@ class SpectraController(QObject):
 
     def plot_spectra(self):
         # curr_part = self.mainwindow.currentparticle
-        pass
+        spectra_data = self.mainwindow.currentparticle.spectra.data[:]
+        data_shape = spectra_data.shape
+        current_ratio = data_shape[1]/data_shape[0]
+        self.spectra_widget.getView().setAspectLocked(False, current_ratio)
 
+        self.spectra_widget.setImage(spectra_data)
+        self.spectra_widget.getImageItem().setLookupTable(self._look_up_table)
 
 def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
                    status_sig: pyqtSignal, reset_gui_sig: pyqtSignal,

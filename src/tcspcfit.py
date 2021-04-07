@@ -146,7 +146,7 @@ def distfluofit(irf, measured, period, channelwidth, cshift_bounds=[-3, 3], choo
     decays = decays / np.sum(decays)
     amplitudes, residuals = nnls(decays.T, measured.flatten())
     tau = 1/tau
-    print(period)
+    # print(period)
     plt.plot(amplitudes)
     plt.show()
     peak_amplitudes = amplitudes > 0.1 * np.max(amplitudes)  # Pick out peaks
@@ -457,7 +457,7 @@ class FluoFit:
                 # ax1.text(textx, texty / 2, 'Amp = {:#.3g}\% '.format(amp))
                 # ax1.text(textx, texty / 2, 'Tau err = %s' % dtau)
             ax2.plot(self.t[residualsnotinf], residuals, '.', markersize=2)
-            print(residuals.max())
+            # print(residuals.max())
             ax2.text(textx, residuals.max() / 1.1, r'$\chi ^2 = $ {:3.4f}'.format(chisquared))
             ax2.set_xlabel('Time (ns)')
             ax2.set_ylabel('Weighted residual')
@@ -705,6 +705,17 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         # self.lineEndTime.setValidator(QIntValidator())
 
     def updateplot(self, *args):
+
+        if not hasattr(self.lifetime_controller, 'fitparam'):
+            return
+        else:
+            self.lifetime_controller.fitparam.getfromdialog()
+            crit_params = list()
+            crit_params.extend(self.lifetime_controller.fitparam.tau)
+            crit_params.extend(self.lifetime_controller.fitparam.amp)
+            for param in crit_params:
+                if None in param:
+                    return
 
         try:
             model = self.make_model()
