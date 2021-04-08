@@ -161,3 +161,5 @@ log.txt
 poetry.lock
 
 pyproject.toml
+
+test_data/export/

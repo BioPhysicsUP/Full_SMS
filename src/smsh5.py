@@ -234,7 +234,6 @@ class Particle:
         self.histogram = None
         self.binnedtrace = None
         self.bin_size = None
-        self.numexp = None
 
         self.startpoint = None
         # self.bic_plot_data = BICPlotData()
@@ -341,6 +340,10 @@ class Particle:
     def burst_levels(self, value: np.ndarray):
         self.cpts.burst_levels = value
 
+    @property
+    def numexp(self):
+        return self.histogram.numexp
+
     def levels2data(self, use_grouped: bool = None) -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for
@@ -360,10 +363,11 @@ class Particle:
             if use_grouped == False:
                 levels = self.cpts.levels
             else:
-                levels = self.ahca.best_step.group_levels
+                levels = self.ahca.selected_step.group_levels
 
-        levels_data = np.empty(shape=self.num_levels * 2)
-        times = np.empty(shape=self.num_levels * 2)
+        num_levels = len(levels)
+        levels_data = np.empty(shape=num_levels * 2)
+        times = np.empty(shape=num_levels * 2)
         accum_time = 0
         for num, level in enumerate(levels):
             times[num * 2] = accum_time
@@ -549,6 +553,7 @@ class Histogram:
         self.bg = None
         self.irfbg = None
         self.avtau = None
+        self.numexp = None
 
     @property
     def t(self):
@@ -567,6 +572,8 @@ class Histogram:
 
         if start is None:
             start = 0
+
+        self.numexp = numexp
 
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
