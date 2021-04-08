@@ -112,7 +112,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                             groups_int_widget=self.pgGroups_Int_PlotWidget,
                                             groups_hist_widget=self.pgGroups_Hist_PlotWidget)
         self.lifetime_controller = \
-            LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget)
+            LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
+                               residual_widget=self.pgLieftime_Residuals_PlotWidget)
         self.spectra_controller = SpectraController(self, spectra_widget=self.pgSpectra_ImageView)
         self.grouping_controller = \
             GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
@@ -633,6 +634,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.reset_gui()
         self.gbxExport_Int.setEnabled(True)
         self.chbEx_Trace.setEnabled(True)
+        if self.has_spectra:
+            self.chbEx_Spectra_2D.setEnabled(True)
         logger.info('File opened')
 
     @pyqtSlot(Exception)

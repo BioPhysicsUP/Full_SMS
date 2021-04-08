@@ -515,27 +515,21 @@ class LifetimeController(QObject):
 
     def __init__(self,
                  mainwindow: MainWindow,
-                 lifetime_hist_widget: pg.PlotWidget):
+                 lifetime_hist_widget: pg.PlotWidget,
+                 residual_widget: pg.PlotWidget):
         super().__init__()
         self.mainwindow = mainwindow
 
         self.lifetime_hist_widget = lifetime_hist_widget
         self.life_hist_plot = lifetime_hist_widget.getPlotItem()
-        self.lifetime_hist_widget.setBackground(background=None)
+        self.setup_widget(self.lifetime_hist_widget)
 
-        # Set axis label bold and size
-        axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
-        self.life_hist_plot.getAxis('left').setPen(axis_line_pen)
-        self.life_hist_plot.getAxis('bottom').setPen(axis_line_pen)
-        self.life_hist_plot.getAxis('left').label.font().setBold(True)
-        self.life_hist_plot.getAxis('bottom').label.font().setBold(True)
-        self.life_hist_plot.getAxis('left').label.font().setPointSize(16)
-        self.life_hist_plot.getAxis('bottom').label.font().setPointSize(16)
+        self.residual_widget = residual_widget
+        self.residual_plot = residual_widget.getPlotItem()
+        self.setup_widget(self.residual_widget)
 
-        # Setup axes and limits
-        self.life_hist_plot.getAxis('left').setLabel('Num. of occur.', 'counts/bin')
-        self.life_hist_plot.getAxis('bottom').setLabel('Decay time', 'ns')
-        self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0)
+        self.setup_plot(self.life_hist_plot)
+        self.setup_plot(self.residual_plot)
 
         self.fitparamdialog = FittingDialog(self.mainwindow, self)
         self.fitparam = FittingParameters(self)
@@ -544,6 +538,27 @@ class LifetimeController(QObject):
         self.first = 0
         self.startpoint = None
         self.tmin = 0
+
+    def setup_plot(self, plot: pg.PlotItem):
+        # Set axis label bold and size
+        axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
+        plot.getAxis('left').setPen(axis_line_pen)
+        plot.getAxis('bottom').setPen(axis_line_pen)
+        plot.getAxis('left').label.font().setBold(True)
+        plot.getAxis('bottom').label.font().setBold(True)
+        plot.getAxis('left').label.font().setPointSize(16)
+        plot.getAxis('bottom').label.font().setPointSize(16)
+
+        # Setup axes and limits
+        plot.getAxis('left').setLabel('Num. of occur.', 'counts/bin')
+        plot.getAxis('bottom').setLabel('Decay time', 'ns')
+        plot.getViewBox().setLimits(xMin=0, yMin=0)
+
+    @staticmethod
+    def setup_widget(plot_widget: pg.PlotWidget):
+        # Set widget background and antialiasing
+        plot_widget.setBackground(background=None)
+        plot_widget.setAntialiasing(True)
 
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """

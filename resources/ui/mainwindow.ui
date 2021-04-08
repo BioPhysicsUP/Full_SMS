@@ -1389,7 +1389,7 @@
          </widget>
         </item>
         <item row="3" column="0">
-         <layout class="QHBoxLayout" name="horizontalLayout_12">
+         <layout class="QHBoxLayout" name="layLifetime_Fit">
           <property name="sizeConstraint">
            <enum>QLayout::SetMinimumSize</enum>
           </property>
@@ -1401,15 +1401,21 @@
               <height>200</height>
              </size>
             </property>
+            <property name="autoFillBackground">
+             <bool>true</bool>
+            </property>
             <property name="currentIndex">
              <number>0</number>
             </property>
-            <widget class="QWidget" name="tabLifetimeGraph_2">
+            <widget class="QWidget" name="tabLifetimeGraph">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
+             </property>
+             <property name="autoFillBackground">
+              <bool>true</bool>
              </property>
              <attribute name="title">
               <string>Decay</string>
@@ -1430,12 +1436,15 @@
               </item>
              </layout>
             </widget>
-            <widget class="QWidget" name="tabResidualsGraph_2">
+            <widget class="QWidget" name="tabResidualsGraph">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
+             </property>
+             <property name="autoFillBackground">
+              <bool>true</bool>
              </property>
              <attribute name="title">
               <string>Residuals</string>
@@ -1840,6 +1849,94 @@
              </spacer>
             </item>
             <item>
+             <widget class="QGroupBox" name="gbxExport_Groups">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>12</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+                <underline>true</underline>
+               </font>
+              </property>
+              <property name="title">
+               <string>Grouping</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_11">
+               <property name="spacing">
+                <number>10</number>
+               </property>
+               <item>
+                <widget class="QCheckBox" name="chbEx_Group_Info">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>10</pointsize>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                   <underline>false</underline>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Group Info</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="chbEx_Groups_Results">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>10</pointsize>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                   <underline>false</underline>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Anlysis Results</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="spcEx_Grouping">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeType">
+                  <enum>QSizePolicy::Minimum</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spcEx_Options_3">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
              <widget class="QGroupBox" name="gbxExport_Lifetimes">
               <property name="enabled">
                <bool>true</bool>
@@ -1915,88 +2012,6 @@
              </widget>
             </item>
             <item>
-             <spacer name="spcEx_Options_3">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QGroupBox" name="gbxExport_Groups">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>12</pointsize>
-                <weight>75</weight>
-                <bold>true</bold>
-                <underline>true</underline>
-               </font>
-              </property>
-              <property name="title">
-               <string>Grouping</string>
-              </property>
-              <layout class="QVBoxLayout" name="verticalLayout_11">
-               <property name="spacing">
-                <number>10</number>
-               </property>
-               <item>
-                <widget class="QCheckBox" name="chbEx_Group_Info">
-                 <property name="font">
-                  <font>
-                   <pointsize>10</pointsize>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                   <underline>false</underline>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Group Info</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QCheckBox" name="chbEx_Groups_Results">
-                 <property name="font">
-                  <font>
-                   <pointsize>10</pointsize>
-                   <weight>50</weight>
-                   <bold>false</bold>
-                   <underline>false</underline>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Anlysis Results</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <spacer name="spcEx_Grouping">
-                 <property name="orientation">
-                  <enum>Qt::Vertical</enum>
-                 </property>
-                 <property name="sizeType">
-                  <enum>QSizePolicy::Minimum</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>20</width>
-                   <height>0</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-              </layout>
-             </widget>
-            </item>
-            <item>
              <spacer name="spcEx_Options_4">
               <property name="orientation">
                <enum>Qt::Horizontal</enum>
@@ -2012,7 +2027,7 @@
             <item>
              <widget class="QGroupBox" name="gbxExport_Spectra">
               <property name="enabled">
-               <bool>false</bool>
+               <bool>true</bool>
               </property>
               <property name="font">
                <font>
@@ -2031,6 +2046,9 @@
                </property>
                <item>
                 <widget class="QCheckBox" name="chbEx_Spectra_2D">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
                  <property name="font">
                   <font>
                    <pointsize>10</pointsize>
@@ -2046,6 +2064,9 @@
                </item>
                <item>
                 <widget class="QCheckBox" name="chbEx_Spectra_Fitting">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
                  <property name="font">
                   <font>
                    <pointsize>10</pointsize>
@@ -2061,6 +2082,9 @@
                </item>
                <item>
                 <widget class="QCheckBox" name="chbEx_Spectra_Traces">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
                  <property name="font">
                   <font>
                    <pointsize>10</pointsize>
@@ -2476,7 +2500,7 @@
   <tabstop>btnNextLevel</tabstop>
  </tabstops>
  <resources>
-  <include location="../src/icons.qrc"/>
+  <include location="../../src/icons.qrc"/>
  </resources>
  <connections/>
 </ui>

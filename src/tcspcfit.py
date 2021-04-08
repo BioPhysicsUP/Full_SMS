@@ -1,4 +1,3 @@
-<<<<<<<<< Temporary merge branch 1
 """ Module for fitting TCSPC data.
 
 The function distfluofit is based on MATLAB code by Jörg Enderlein:
