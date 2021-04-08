@@ -132,9 +132,6 @@ dmypy.json
 # NSIS Installer .nsi scripts
 *.nsi
 
-# Affinity Designer files
-*.afdesign
-
 /src/plotting.py
 
 
@@ -155,3 +152,12 @@ src/ui/mainwindow.ui.autosave
 *.pickle
 
 Syncfolders_Database_db
+
+poetry.toml
+/docs/
+
+log.txt
+
+poetry.lock
+
+pyproject.toml

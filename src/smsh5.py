@@ -4,38 +4,44 @@ Bertus van Heerden and Joshua Botha
 University of Pretoria
 2018
 """
-import traceback
-import os
-
 import ast
-
-import h5py
-from typing import List
-import numpy as np
-import tcspcfit
-import dbg
-# from main.MainWindow import start_at_value
+import os
 import re
-from PyQt5.QtCore import pyqtSignal
-from ChangePoint import ChangePoints
-from ClusteringGrouping import AHCA
-from generate_sums import CPSums
+import traceback
+from typing import List, Union, Tuple
+from uuid import uuid1
 
-# import inspect
+import h5pickle
+import numpy as np
+from pyqtgraph import ScatterPlotItem, SpotItem
+
+import dbg
+import tcspcfit
+from change_point import ChangePoints
+from generate_sums import CPSums
+from grouping import AHCA
+# from signals import PassSigFeedback
+from my_logger import setup_logger
+from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
+from tcspcfit import FittingParameters
+
+logger = setup_logger(__name__)
+
+
 
 
 class H5dataset:
 
-    def __init__(self, filename, progress_sig: pyqtSignal = None,
-                 auto_prog_sig: pyqtSignal = None):
+    def __init__(self, filename, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
+
+        # self.sig_fb = sig_fb
+        # self.prog_fb = prog_fb
 
         self.cpa_has_run = False
         self.use_parallel = False
-        self.progress_sig = progress_sig
-        self.auto_prog_sig = auto_prog_sig
-        # self.main_signals.progress.connect()
         self.name = filename
-        self.file = h5py.File(self.name, 'r')
+        prog_fb.set_status(status="Reading file...")
+        self.file = h5pickle.File(self.name, 'r')
         try:
             self.version = self.file.attrs['Version']
         except KeyError:
@@ -51,15 +57,16 @@ class H5dataset:
         for num, key_num in enumerate(natural_key):
             natural_p_names[key_num-1] = unsorted_names[num]
 
-        self.all_sums = CPSums(n_min=10, n_max=1000, auto_prog_sig=self.auto_prog_sig)
+        self.all_sums = CPSums(n_min=10, n_max=1000, prog_fb=prog_fb)
+
         self.particles = []
-        for particlename in natural_p_names:
-            self.particles.append(Particle(particlename, self))
-        self.numpart = len(self.particles)
-        assert self.numpart == self.file.attrs['# Particles']
+        for num, particlename in enumerate(natural_p_names):
+            self.particles.append(Particle(name=particlename, dataset_ind=num, dataset=self))
+        self.num_parts = len(self.particles)
+        assert self.num_parts == self.file.attrs['# Particles']
         self.channelwidth = None
 
-    def makehistograms(self, progress=True, remove_zeros=True, startpoint=None, channel=True):
+    def makehistograms(self, remove_zeros=True, startpoint=None, channel=True):
         """Put the arrival times into histograms"""
 
         for particle in self.particles:
@@ -74,19 +81,25 @@ class H5dataset:
                 particle.histogram.decay = particle.histogram.decay[maxim:]
                 particle.histogram.t = particle.histogram.t[maxim:]
 
-    def bin_all_ints(self, binsize, progress_sig=None):
+    def bin_all_ints(self, binsize:float,
+                     sig_fb: PassSigFeedback = None,
+                     prog_fb: ProcessProgFeedback = None):
         """Bin the absolute times into traces using binsize
             binsize is in ms
         """
+        if prog_fb:
+            proc_tracker = ProcessProgress(prog_fb=prog_fb, num_iterations=len(self.particles))
 
-        if progress_sig is not None:
-            self.progress_sig = progress_sig
-
+        # if proc_tracker:
+        #     if not proc_tracker.has_num_iterations:
+        #         proc_tracker.num_iterations = len(self.particles)
         for particle in self.particles:
             particle.binints(binsize)
-            if hasattr(self, 'progress_sig'):
-                self.progress_sig.emit()  # Increments the progress bar on the MainWindow GUI
-        dbg.p('Binning all done', 'H5Dataset')
+            if prog_fb:
+                proc_tracker.iterate()
+        if prog_fb:
+            prog_fb.end()
+        # dbg.p('Binning all done', 'H5Dataset')
 
     def save_particles(self, file_path, selected_nums: List[int]):
         """ Save selected particle to a new or existing HDF5 file.
@@ -101,10 +114,10 @@ class H5dataset:
 
         add = os.path.exists(file_path)
         if add:
-            new_h5file = h5py.File(file_path, mode='r+')
+            new_h5file = h5pickle.File(file_path, mode='r+')
             num_existing = new_h5file.attrs.get('# Particles')
         else:
-            new_h5file = h5py.File(file_path, mode='w')
+            new_h5file = h5pickle.File(file_path, mode='w')
             num_existing = 0
 
         for i, selected in enumerate(selected_nums):
@@ -117,12 +130,58 @@ class H5dataset:
         new_h5file.close()
 
 
+# TODO: This is in the incorrect file.
+class BICPlotData:
+
+    def __init__(self):
+        self._scatter_plot_item = None
+        self._selected_spot = None
+
+    @property
+    def has_plot(self) -> bool:
+        if self._scatter_plot_item:
+            return True
+        else:
+            return False
+
+    @property
+    def has_selected_spot(self) -> bool:
+        if self._selected_spot:
+            return True
+        else:
+            return False
+
+    @property
+    def scatter_plot_item(self):
+        if self.has_plot:
+            return self._scatter_plot_item
+
+    @scatter_plot_item.setter
+    def scatter_plot_item(self, scatter_plot_item: ScatterPlotItem):
+        assert type(scatter_plot_item) == ScatterPlotItem, "scatter_plot_item not correct type."
+        self._scatter_plot_item = scatter_plot_item
+
+    @property
+    def selected_spot(self):
+        if self.has_plot:
+            return self._selected_spot
+
+    @selected_spot.setter
+    def selected_spot(self, selected_spot: SpotItem):
+        assert type(selected_spot) == SpotItem, "selected_spot is not correct type."
+        self._selected_spot = selected_spot
+
+    def clear_scatter_plot_item(self):
+        self._scatter_plot_item = None
+        self._selected_spot = None
+
+
 class Particle:
     """
     Class for particle in H5dataset.
     """
 
-    def __init__(self, name, dataset, tmin=None, tmax=None,
+    def __init__(self, name: str, dataset_ind: int, dataset: H5dataset, tmin=None, tmax=None,
                  channelwidth=None):  # , number, irf, tmin, tmax, channelwidth=None):
         """
         Creates an instance of Particle
@@ -139,22 +198,18 @@ class Particle:
             TODO
         channelwidth: TODO
         """
+        self.uuid = uuid1()
         self.name = name
         self.dataset = dataset
+        self.dataset_ind = dataset_ind
         self.datadict = self.dataset.file[self.name]
         self.microtimes = self.datadict['Micro Times (s)']
         self.abstimes = self.datadict['Absolute Times (ns)']
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
-        # self.cpt_inds = None  # Needs to move to ChangePoints()
-        # self.num_cpts = None  # Needs to move to ChangePoints()
-        # self.has_levels = False
-        # self.levels = None
-        # self.num_levels = None
         self.avg_int_weighted = None
         self.int_std_weighted = None
-        # self.burst_std_factor = 3
 
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
@@ -182,37 +237,93 @@ class Particle:
         self.numexp = None
 
         self.startpoint = None
+        # self.bic_plot_data = BICPlotData()
+        self.using_group_levels = False
 
-    # def get_levels(self):
-    #     assert self.cpts.cpa_has_run, "Particle:\tChange point analysis needs to run before levels can be defined."
-    #     self.add_levels(self.cpts.get_levels())
-
-    # def add_levels(self, levels=None, num_levels=None):
-    #     assert levels is not None and num_levels is not None, \
-    #         "Particle:\tBoth arguments need to be non-None to add level."
-    #     self.levels = levels
-    #     self.num_levels = num_levels
-    #     self.has_levels = True
+    @property
+    def has_spectra(self) -> bool:
+        return self.spectra._has_spectra
 
     @property
     def has_levels(self):
         return self.cpts.has_levels
 
     @property
+    def has_groups(self):
+        return self.ahca.has_groups
+
+    @property
+    def groups(self):
+        if self.has_groups:
+            return self.ahca.selected_step.groups
+
+    @property
+    def num_groups(self):
+        if self.has_groups:
+            return self.ahca.selected_step.num_groups
+
+    @property
+    def groups_bounds(self):
+        return self.ahca.selected_step.calc_int_bounds()
+
+    @property
+    def groups_ints(self):
+        return self.ahca.selected_step.group_ints
+
+    @property
+    def grouping_bics(self):
+        return self.ahca.bics
+
+    @property
+    def grouping_selected_ind(self):
+        return self.ahca.selected_step_ind
+
+    @property
+    def best_grouping_ind(self):
+        return self.ahca.best_step_ind
+
+    @grouping_selected_ind.setter
+    def grouping_selected_ind(self, ind: int):
+        self.ahca.selected_step_ind = ind
+
+    @property
+    def grouping_num_groups(self):
+        return self.ahca.steps_num_groups
+
+    def reset_grouping_ind(self):
+        self.ahca.reset_selected_step()
+
+    @property
     def levels(self):
-        return self.cpts.levels
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_levels
+        else:
+            return self.cpts.levels
 
     @property
     def num_levels(self):
-        return self.cpts.num_levels
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_num_levels
+        else:
+            return self.cpts.num_levels
+
+    @property
+    def dwell_time(self):
+        return (self.abstimes[-1] - self.abstimes[0]) / 1E9
 
     @property
     def level_ints(self):
-        return self.cpts.level_ints
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_level_ints
+        else:
+            return self.cpts.level_ints
 
     @property
     def level_dwelltimes(self):
-        return self.cpts.level_dwelltimes
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_level_dwelltimes
+        else:
+            return self.cpts.level_dwelltimes
 
     @property
     def has_burst(self) -> bool:
@@ -230,12 +341,13 @@ class Particle:
     def burst_levels(self, value: np.ndarray):
         self.cpts.burst_levels = value
 
-    def levels2data(self, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
+    def levels2data(self, use_grouped: bool = None) -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
         Parameters
         ----------
+        use_grouped
         plot_type: str, {'line', 'step'}
 
         Returns
@@ -243,23 +355,17 @@ class Particle:
         [np.ndarray, np.ndarray]
         """
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
-
-        # ############## Old, for Matplotlib ##############
-        # levels_data = np.empty(shape=self.num_levels+1)
-        # times = np.empty(shape=self.num_levels+1)
-        # accum_time = 0
-        # for num, level in enumerate(self.levels):
-        #     times[num] = accum_time
-        #     accum_time += level.dwell_time/1E9
-        #     levels_data[num] = level.int
-        #     if num+1 == self.num_levels:
-        #         levels_data[num+1] = accum_time
-        #         times[num+1] = level.int
+        levels = self.levels
+        if use_grouped is not None:
+            if use_grouped == False:
+                levels = self.cpts.levels
+            else:
+                levels = self.ahca.best_step.group_levels
 
         levels_data = np.empty(shape=self.num_levels * 2)
         times = np.empty(shape=self.num_levels * 2)
         accum_time = 0
-        for num, level in enumerate(self.levels):
+        for num, level in enumerate(levels):
             times[num * 2] = accum_time
             accum_time += level.dwell_time_s
             times[num * 2 + 1] = accum_time
@@ -304,7 +410,7 @@ class Particle:
         """Put the arrival times into a histogram"""
 
         self.histogram = Histogram(self, startpoint=self.startpoint, channel=channel)
-        print(np.max(self.histogram.decay))
+        # print(np.max(self.histogram.decay))
 
     def makelevelhists(self, channel=True):
         """Make level histograms"""
@@ -318,6 +424,28 @@ class Particle:
 
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
+
+    def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
+        if not self.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                  fit_param.shift / channelwidth, fit_param.decaybg, fit_param.irfbg,
+                                  start, end, fit_param.addopt, fit_param.irf, fit_param.shiftfix):
+            pass  # fit unsuccessful
+        self.numexp = fit_param.numexp
+        # progress_sig.emit()
+        if not self.has_levels:
+            return
+        for level in self.levels:
+            if not hasattr(level, 'histogram'):
+                level.histogram = Histogram()
+            try:
+                if not level.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                           fit_param.shift / channelwidth, fit_param.decaybg,
+                                           fit_param.irfbg,
+                                           start, end, fit_param.addopt,
+                                           fit_param.irf, fit_param.shiftfix):
+                    pass  # fit unsuccessful
+            except AttributeError:
+                print("No decay")
 
 
 class Trace:
@@ -333,8 +461,6 @@ class Trace:
     """
 
     def __init__(self, particle, binsize: int):
-
-        # self.particle = particle
         self.binsize = binsize
         data = particle.abstimes[:]
 
@@ -390,7 +516,6 @@ class Histogram:
             window = tmax-tmin
             numpoints = int(window//self.particle.channelwidth)
 
-            # t = np.linspace(0, window, numpoints)
             t = np.arange(tmin, tmax, self.particle.channelwidth)
 
             self.decay, self.t = np.histogram(self.microtimes, bins=t)
@@ -405,15 +530,11 @@ class Histogram:
                 else:
                     if level is not None:
                         self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=self.decaystart)
-            # else:
-            #     self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=startpoint)
 
             try:
                 self.t -= self.t.min()
             except ValueError:
                 dbg.p(f"Histogram object of {self.particle.name} does not have a valid self.t attribute", "Histogram")
-            # plt.plot(self.decay)
-            # plt.show()
 
         self.convd = None
         self.convd_t = None
@@ -438,9 +559,6 @@ class Histogram:
         self._t = value
 
     def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, shiftfix):
-
-        # irf, irft = start_at_value(irf, self.t, neg_t=False)
-
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
@@ -497,32 +615,58 @@ class Histogram:
         return decay, t
 
 
+class ParticleAllHists:
+    def __init__(self, particle:Particle):
+        self.part_uuid = particle.uuid
+        self.numexp = None
+        self.part_hist = particle.histogram
+        self.level_hists = list()
+        self.has_levels = particle.has_levels
+        if self.has_levels:
+            for level in particle.levels:
+                if hasattr(level, 'histogram'):
+                    self.level_hists.append(level.histogram)
+
+    def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
+        if not self.part_hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                  fit_param.shift / channelwidth, fit_param.decaybg,
+                                  fit_param.irfbg, start, end, fit_param.addopt,
+                                  fit_param.irf, fit_param.shiftfix):
+            pass  # fit unsuccessful
+        self.numexp = fit_param.numexp
+        if not self.has_levels:
+            return
+        for hist in self.level_hists:
+            try:
+                if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                fit_param.shift / channelwidth, fit_param.decaybg,
+                                fit_param.irfbg, start, end, fit_param.addopt,
+                                fit_param.irf, fit_param.shiftfix):
+                    pass  # fit unsuccessful
+            except AttributeError:
+                print("No decay")
+
+
 class RasterScan:
-
     def __init__(self, particle):
-
-        self.particle = particle
-        try:
-            self.image = self.particle.datadict['Raster Scan']
-        except KeyError:
-            dbg.p("Problem loading raster scan for " + self.particle.name, 'RasterScan')
-            self.image = None
+        self._particle = particle
+        self.data = particle.datadict['Raster Scan']
+        self.integration_time = self.data.attrs["Int. Time (ms/um)"]
+        self.pixel_per_line = self.data.attrs["Pixels per Line"]
+        self.range = self.data.attrs["Range (um)"]
+        self.x_start = self.data.attrs["XStart (um)"]
+        self.y_start = self.data.attrs["YStart (um)"]
 
 
 class Spectra:
-
     def __init__(self, particle):
         self.particle = particle
-        self.spectra = self.particle.datadict['Spectra (counts\s)']
-        self.wavelengths = self.spectra.attrs['Wavelengths']
-        self.spectratimes = self.spectra.attrs['Spectra Abs. Times (s)']
-
-# Level class has been defined in ChangePoint.py
-# class Levels:
-#
-#     def __init__(self):
-#
-#         pass  # Change points code called here?
+        self._has_spectra = False
+        if 'Spectra (counts\\s)' in particle.datadict.keys():
+            self._has_spectra = True
+            self.data = particle.datadict['Spectra (counts\\s)']
+            self.wavelengths = self.data.attrs['Wavelengths']
+            self.series_times = self.data.attrs['Spectra Abs. Times (s)']
 
 
 def start_at_value(decay, t, neg_t=True, decaystart=None):

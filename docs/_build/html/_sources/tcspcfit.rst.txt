@@ -1,5 +1,0 @@
-tcspcfit
-========
-
-.. automodule:: tcspcfit
-   :members:
