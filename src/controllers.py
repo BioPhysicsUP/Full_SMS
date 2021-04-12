@@ -5,11 +5,11 @@ from copy import copy
 
 import numpy as np
 import pyqtgraph as pg
+import pyqtgraph.exporters
 from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog
 import time
-from colour import Color
 from multiprocessing import Queue
 
 if TYPE_CHECKING:
@@ -218,19 +218,25 @@ class IntController(QObject):
 
         self.start_resolve_thread(mode='all', end_time_s=end_time_s)
 
-    def plot_trace(self) -> None:
+    def plot_trace(self, particle: Particle = None, for_export: bool = False) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
 
         try:
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
-            trace = self.mainwindow.currentparticle.binnedtrace.intdata
-            times = self.mainwindow.currentparticle.binnedtrace.inttimes / 1E3
+            if particle is None:
+                particle = self.mainwindow.currentparticle
+            trace = particle.binnedtrace.intdata
+            times = particle.binnedtrace.inttimes / 1E3
         except AttributeError:
             logger.error('No trace!')
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
-            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+            if for_export:
+                cur_tab_name = 'tabIntensity'
+            else:
+                cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+
             if cur_tab_name != 'tabSpectra':
                 if cur_tab_name == 'tabIntensity':
                     plot_item = self.int_plot
@@ -253,20 +259,25 @@ class IntController(QObject):
                 plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                 plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
 
-    def plot_levels(self):
+    def plot_levels(self, particle: Particle = None, for_export: bool = False):
         """ Used to plot the resolved intensity levels of the current particle. """
-        currentparticle = self.mainwindow.currentparticle
-        if not currentparticle.has_levels:
+        if particle is None:
+            particle = self.mainwindow.currentparticle
+        if not particle.has_levels:
             return
         try:
-            level_ints, times = currentparticle.levels2data()
+            level_ints, times = particle.levels2data()
             level_ints = level_ints * self.get_bin() / 1E3
         except AttributeError:
             logger.error('No levels!')
         # else:
         plot_pen = QPen()
 
-        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+        if for_export:
+            cur_tab_name = 'tabIntensity'
+        else:
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+
         if cur_tab_name == 'tabIntensity':
             plot_item = self.int_plot
             # pen_width = 1.5
@@ -291,7 +302,7 @@ class IntController(QObject):
         plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
 
         if self.mainwindow.current_level is not None:
-            current_ints, current_times = currentparticle.current2data(
+            current_ints, current_times = particle.current2data(
                 self.mainwindow.current_level)
             current_ints = current_ints * self.get_bin() / 1E3
             # print(current_ints, current_times)
@@ -303,18 +314,24 @@ class IntController(QObject):
             else:
                 logger.info('Infinity in level')
 
-    def plot_hist(self):
+    def plot_hist(self, particle: Particle = None, for_export: bool = False):
+        if particle is None:
+            particle = self.mainwindow.currentparticle
         try:
-            int_data = self.mainwindow.currentparticle.binnedtrace.intdata
+            int_data = particle.binnedtrace.intdata
         except AttributeError:
             logger.error('No trace!')
         else:
             plot_pen = QPen()
             plot_pen.setColor(QColor(0, 0, 0, 0))
 
-            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+            if for_export:
+                cur_tab_name = 'tabIntensity'
+            else:
+                cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+
             if cur_tab_name == 'tabIntensity':
-                if self.show_int_hist:
+                if self.show_int_hist or for_export:
                     plot_item = self.int_hist_plot
                 else:
                     return
@@ -348,29 +365,39 @@ class IntController(QObject):
                 level_hist.rotate(-90)
                 plot_item.addItem(level_hist)
 
-    def plot_group_bounds(self):
-        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+
+    # def export_particle_plot(self, particle:Particle, width:int = 800):
+    #     plt =
+
+    def plot_group_bounds(self, particle: Particle = None, for_export: bool = False):
+        if particle is None:
+            particle = self.mainwindow.currentparticle
+
+        if for_export:
+            cur_tab_name = 'tabIntensity'
+        else:
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+
         if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
-            cur_part = self.mainwindow.currentparticle
-            if not cur_part.has_groups \
-                    or cur_part.ahca.best_step.single_level\
-                    or cur_part.ahca.selected_step.num_groups < 2:
+            if not particle.has_groups \
+                    or particle.ahca.best_step.single_level\
+                    or particle.ahca.selected_step.num_groups < 2:
                 return
             try:
-                groups = cur_part.groups
-                group_bounds = cur_part.groups_bounds
+                groups = particle.groups
+                group_bounds = particle.groups_bounds
             except AttributeError:
                 logger.error('No groups!')
 
             if cur_tab_name == 'tabIntensity':
-                if self.mainwindow.chbInt_Show_Groups.isChecked():
+                if self.mainwindow.chbInt_Show_Groups.isChecked() or for_export:
                     int_plot = self.int_plot
                 else:
                     return
             elif cur_tab_name == 'tabGrouping':
                 int_plot = self.groups_int_plot
 
-            int_conv = cur_part.bin_size / 1000
+            int_conv = particle.bin_size / 1000
 
             for i, bound in enumerate(group_bounds):
                 if i % 2:
@@ -386,7 +413,7 @@ class IntController(QObject):
             # plot_pen.setJoinStyle(Qt.RoundJoin)
             line_pen.setColor(QColor(0, 0, 0, 150))
             line_pen.setCosmetic(True)
-            line_times = [0, cur_part.dwell_time]
+            line_times = [0, particle.dwell_time]
             for group in groups:
                 g_ints = [group.int * int_conv, group.int * int_conv]
                 int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
@@ -396,6 +423,18 @@ class IntController(QObject):
         self.plot_levels()
         self.plot_hist()
         self.plot_group_bounds()
+
+    def export_image(self, particle: Particle,
+                     file_path: str,
+                     only_levels: bool = True,
+                     with_groups: bool = True):
+        int_height = self.int_widget.geometry().height()
+        hist_height = self.int_hist_widget.geometry().height()
+
+        self.plot_trace(particle=particle, for_export=True)
+        self.plot_levels(particle=particle, for_export=True)
+        exporter = pg.exporters.ImageExporter(self.int_plot)
+        # TODO: Here
 
     def start_resolve_thread(self, mode: str = 'current', thread_finished=None,
                              end_time_s=None) -> None:
@@ -506,6 +545,7 @@ class IntController(QObject):
 
         return [self.mainwindow.cmbConfIndex.currentIndex(),
                 self.confidence_index[self.mainwindow.cmbConfIndex.currentIndex()]]
+
 
     def error(self, e):
         logger.error(e)
@@ -1147,8 +1187,8 @@ class GroupingController(QObject):
         self.mainwindow.levels_grouped = True
         self.mainwindow.chbEx_Grouped_Levels.setEnabled(True)
         self.mainwindow.gbxExport_Groups.setEnabled(True)
-        self.mainwindow.chbEx_Group_Info.setEnabled(True)
-        self.mainwindow.chbEx_Groups_Results.setEnabled(True)
+        self.mainwindow.chbEx_Grouping_Info.setEnabled(True)
+        self.mainwindow.chbEx_Grouping_Results.setEnabled(True)
         self.mainwindow.reset_gui()
         logger.info('Grouping levels complete')
 
@@ -1158,7 +1198,7 @@ class GroupingController(QObject):
         elif mode == 'selected':
             particles = self.mainwindow.get_checked_particles()
         else:
-            particles = self.mainwindow.tree2dataset().particles
+            particles = self.mainwindow.currentparticle.dataset.particles
 
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:

@@ -680,6 +680,8 @@ class FittingParameters:
                 text = guiobj.text()
                 num_chs = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',']
                 if all([ch in num_chs for ch in text]):
+                    if text[0] in ['.', ',']:
+                        text = '0' + text
                     return float(text)
                 else:
                     return None
