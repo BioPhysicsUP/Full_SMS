@@ -657,12 +657,13 @@ class ParticleAllHists:
 class RasterScan:
     def __init__(self, particle):
         self._particle = particle
-        self.data = particle.datadict['Raster Scan']
-        self.integration_time = self.data.attrs["Int. Time (ms/um)"]
-        self.pixel_per_line = self.data.attrs["Pixels per Line"]
-        self.range = self.data.attrs["Range (um)"]
-        self.x_start = self.data.attrs["XStart (um)"]
-        self.y_start = self.data.attrs["YStart (um)"]
+        if 'Raster Scan' in particle.datadict.keys():
+            self.data = particle.datadict['Raster Scan']
+            self.integration_time = self.data.attrs["Int. Time (ms/um)"]
+            self.pixel_per_line = self.data.attrs["Pixels per Line"]
+            self.range = self.data.attrs["Range (um)"]
+            self.x_start = self.data.attrs["XStart (um)"]
+            self.y_start = self.data.attrs["YStart (um)"]
 
 
 class Spectra:

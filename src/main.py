@@ -40,6 +40,7 @@ from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
 import processes as prcs
+from convert_pt3 import ConvertPt3Dialog
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -153,12 +154,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
         self.actionOpen_h5.triggered.connect(self.act_open_h5)
-        self.actionOpen_pt3.triggered.connect(self.act_open_pt3)
         self.actionSave_Selected.triggered.connect(self.act_save_selected)
         self.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
         self.actionSwitch_All.triggered.connect(self.act_switch_all)
         self.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
         self.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
+        self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
+
         self.btnEx_Current.clicked.connect(self.gui_export_current)
         self.btnEx_Selected.clicked.connect(self.gui_export_selected)
         self.btnEx_All.clicked.connect(self.gui_export_all)
@@ -282,12 +284,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
             of_process_thread.add_tasks_from_methods(of_obj, 'open_h5')
             self.threadpool.start(of_process_thread)
             self.active_threads.append(of_process_thread)
-
-
-    def act_open_pt3(self):
-        """ Allows a user to load a group of .pt3 files that are in a folder and loads them. NOT YET IMPLEMENTED. """
-
-        print("act_open_pt3")
 
     def act_save_selected(self):
         """" Saves selected particles into a new HDF5 file."""
@@ -1153,6 +1149,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         writer.writerows(rows)
 
                 logger.info('Exporting Finished')
+
+    def convert_pt3_dialog(self):
+        convert_pt3 = ConvertPt3Dialog(mainwindow=self)
+        convert_pt3.exec()
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """

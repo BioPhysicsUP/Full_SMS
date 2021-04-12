@@ -10,7 +10,6 @@ from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog
 import time
-from colour import Color
 from multiprocessing import Queue
 
 if TYPE_CHECKING:

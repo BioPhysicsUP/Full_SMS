@@ -2327,14 +2327,7 @@
     <property name="title">
      <string>File</string>
     </property>
-    <widget class="QMenu" name="menuOpen_other">
-     <property name="title">
-      <string>Open other...</string>
-     </property>
-     <addaction name="actionOpen_pt3"/>
-    </widget>
     <addaction name="actionOpen_h5"/>
-    <addaction name="menuOpen_other"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Selected"/>
    </widget>
@@ -2367,6 +2360,8 @@
     <addaction name="menuIntensity"/>
     <addaction name="menuLifetime"/>
     <addaction name="actionReset_Analysis"/>
+    <addaction name="separator"/>
+    <addaction name="actionConvert_pt3"/>
    </widget>
    <widget class="QMenu" name="menuAnalysis">
     <property name="title">
@@ -2484,6 +2479,11 @@
   <action name="actiontets">
    <property name="text">
     <string>tets</string>
+   </property>
+  </action>
+  <action name="actionConvert_pt3">
+   <property name="text">
+    <string>Convert .pt3's</string>
    </property>
   </action>
  </widget>
