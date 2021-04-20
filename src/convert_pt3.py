@@ -281,12 +281,13 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
         if f_dir != ('', ''):
             if not os.path.exists(f_dir):
                 self._export_path = f_dir
+                display_path = f_dir
                 if len(f_dir) > 48:
                     display_path = f_dir[:22] + '...' + f_dir[-22:]
                 self.edtExportFile.setText(display_path)
             else:
                 msg = QMessageBox(QMessageBox.Warning, 'Convert pt3', 'File exists!',
-                                  buttons= QMessageBox.Ok,
+                                  buttons=QMessageBox.Ok,
                                   parent=self)
 
                 msg.exec_()

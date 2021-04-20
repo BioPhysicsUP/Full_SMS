@@ -35,6 +35,7 @@ class ProcessThread(QRunnable):
         self.result_queue = create_queue()
         self.feedback_queue = self._manager.Queue()
         # self.feedback_queue = create_queue()
+
         self.force_stop = False
         self.is_running = False
         self._status_message = status_message

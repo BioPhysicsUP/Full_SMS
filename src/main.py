@@ -606,27 +606,27 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.has_spectra = True
             self.display_data()
 
-            msgbx = TimedMessageBox(30, parent=self)
-            msgbx.setIcon(QMessageBox.Question)
-            msgbx.setText("Would you like to resolve levels now?")
-            msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
-                                   message_posttime=" seconds)")
-            msgbx.setWindowTitle("Resolve Levels?")
-            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-            msgbx.setDefaultButton(QMessageBox.Yes)
-            msgbx_result, timed_out = msgbx.exec()
-            if msgbx_result == QMessageBox.Yes:
-                confidences = ("0.99", "0.95", "0.90", "0.69")
-                if timed_out:
-                    index = 0
-                else:
-                    item, ok = QInputDialog.getItem(self, "Choose Confidence",
-                                                    "Select confidence interval to use.",
-                                                    confidences, 0, False)
-                    if ok:
-                        index = list(self.confidence_index.values()).index(int(float(item) * 100))
-                self.cmbConfIndex.setCurrentIndex(index)
-                self.int_controller.start_resolve_thread('all')
+            # msgbx = TimedMessageBox(30, parent=self)
+            # msgbx.setIcon(QMessageBox.Question)
+            # msgbx.setText("Would you like to resolve levels now?")
+            # msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
+            #                        message_posttime=" seconds)")
+            # msgbx.setWindowTitle("Resolve Levels?")
+            # msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+            # msgbx.setDefaultButton(QMessageBox.Yes)
+            # msgbx_result, timed_out = msgbx.exec()
+            # if msgbx_result == QMessageBox.Yes:
+            #     confidences = ("0.99", "0.95", "0.90", "0.69")
+            #     if timed_out:
+            #         index = 0
+            #     else:
+            #         item, ok = QInputDialog.getItem(self, "Choose Confidence",
+            #                                         "Select confidence interval to use.",
+            #                                         confidences, 0, False)
+            #         if ok:
+            #             index = list(self.confidence_index.values()).index(int(float(item) * 100))
+            #     self.cmbConfIndex.setCurrentIndex(index)
+            #     self.int_controller.start_resolve_thread('all')
         self.reset_gui()
         self.gbxExport_Int.setEnabled(True)
         self.chbEx_Trace.setEnabled(True)

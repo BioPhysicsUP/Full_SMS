@@ -1144,7 +1144,7 @@ class GroupingController(QObject):
             grouping_objs = [particle.ahca for particle in all_particles]
             status_message = "Grouping levels for all particle..."
 
-        g_process_thread = ProcessThread()
+        g_process_thread = ProcessThread(num_processes=1, task_buffer_size=1)
         g_process_thread.add_tasks_from_methods(objects=grouping_objs, method_name='run_grouping')
 
         g_process_thread.signals.status_update.connect(mw.status_message)
