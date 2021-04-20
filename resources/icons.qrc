@@ -1,0 +1,33 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>icons/apply-all.png</file>
+        <file>icons/apply-one.png</file>
+        <file>icons/arrow-left.png</file>
+        <file>icons/arrow-right.png</file>
+        <file>icons/export.png</file>
+        <file>icons/export-all.png</file>
+        <file>icons/export-selected.png</file>
+        <file>icons/fit-all.png</file>
+        <file>icons/fit-current-level.png</file>
+        <file>icons/fit-particle.png</file>
+        <file>icons/fit-selected.png</file>
+        <file>icons/fitting-parameters.png</file>
+        <file>icons/Full-SMS.ico</file>
+        <file>icons/Full-SMS.png</file>
+        <file>icons/group-all.png</file>
+        <file>icons/group-current.png</file>
+        <file>icons/grouping.png</file>
+        <file>icons/group-selected.png</file>
+        <file>icons/Icons.afdesign</file>
+        <file>icons/intensity.png</file>
+        <file>icons/lifetime.png</file>
+        <file>icons/load-irf.png</file>
+        <file>icons/new-file.png</file>
+        <file>icons/open-file.png</file>
+        <file>icons/open-folder.png</file>
+        <file>icons/resolve-all.png</file>
+        <file>icons/resolve-current.png</file>
+        <file>icons/resolve-selected.png</file>
+        <file>icons/spectra.png</file>
+    </qresource>
+</RCC>

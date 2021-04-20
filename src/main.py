@@ -40,6 +40,7 @@ from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
 import processes as prcs
+from convert_pt3 import ConvertPt3Dialog
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -153,12 +154,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
         self.actionOpen_h5.triggered.connect(self.act_open_h5)
-        self.actionOpen_pt3.triggered.connect(self.act_open_pt3)
         self.actionSave_Selected.triggered.connect(self.act_save_selected)
         self.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
         self.actionSwitch_All.triggered.connect(self.act_switch_all)
         self.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
         self.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
+        self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
+
         self.btnEx_Current.clicked.connect(self.gui_export_current)
         self.btnEx_Selected.clicked.connect(self.gui_export_selected)
         self.btnEx_All.clicked.connect(self.gui_export_all)
@@ -216,14 +218,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
             print(i)
         pass
 
-    def resizeEvent(self, a0: QResizeEvent):
+    # def resizeEvent(self, a0: QResizeEvent):
         # if self.tabSpectra.size().height() <= self.tabSpectra.size().width():
         #     self.pgSpectra.resize(self.tabSpectra.size().height(),
         #                           self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
         # else:
         #     self.pgSpectra.resize(self.tabSpectra.size().width(),
         #                           self.tabSpectra.size().width() - 40)
-        pass
+        # pass
 
     def sums_file_check(self) -> bool:
 
@@ -282,12 +284,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
             of_process_thread.add_tasks_from_methods(of_obj, 'open_h5')
             self.threadpool.start(of_process_thread)
             self.active_threads.append(of_process_thread)
-
-
-    def act_open_pt3(self):
-        """ Allows a user to load a group of .pt3 files that are in a folder and loads them. NOT YET IMPLEMENTED. """
-
-        print("act_open_pt3")
 
     def act_save_selected(self):
         """" Saves selected particles into a new HDF5 file."""
@@ -888,7 +884,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         elif mode == 'selected':
             particles = self.get_checked_particles()
         else:
-            particles = self.tree2dataset().particles
+            particles = self.currentparticle.dataset.particles
 
         # save_dlg = QFileDialog(self)
         # save_dlg.setAcceptMode(QFileDialog.AcceptSave)
@@ -908,10 +904,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
             ex_traces = self.chbEx_Trace.isChecked()
             ex_levels = self.chbEx_Levels.isChecked()
             ex_grouped_levels = self.chbEx_Grouped_Levels.isChecked()
-            ex_group_info = self.chbEx_Group_Info.isChecked()
-            ex_grouping_results = self.chbEx_Group_Results.isChecked()
+            ex_grouping_info = self.chbEx_Grouping_Info.isChecked()
+            ex_grouping_results = self.chbEx_Grouping_Results.isChecked()
             ex_lifetime = self.chbEx_Lifetimes.isChecked()
             ex_hist = self.chbEx_Hist.isChecked()
+            ex_spectra_2d = self.chbEx_Spectra_2D.isChecked()
+
+            def open_file(path:str):
+                return open(path, 'w', newline='')
 
             # Export fits of whole traces
             if ex_lifetime:
@@ -946,7 +946,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
                     rows.append([str(i)] + tauexp + ampexp + other_exp)
 
-                with open(lifetime_path, 'w') as f:
+                with open_file(lifetime_path) as f:
                     writer = csv.writer(f, dialect=csv.excel)
                     writer.writerows(rows)
 
@@ -960,7 +960,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     rows.append(['Bin #', 'Bin Time (s)', f'Bin Int (counts/{p.bin_size}ms)'])
                     for i in range(len(ints)):
                         rows.append([str(i), str(times[i]), str(ints[i])])
-                    with open(tr_path, 'w') as f:
+
+                    with open_file(tr_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
 
@@ -972,7 +973,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         rows.append(['Level #', 'Time (s)', 'Int (counts/s)'])
                         for i in range(len(ints)):
                             rows.append([str(i // 2), str(times[i]), str(ints[i])])
-                        with open(lvl_tr_path, 'w') as f:
+                        with open_file(lvl_tr_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
@@ -984,23 +985,25 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             rows.append(
                                 [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons)])
-                        with open(lvl_path, 'w') as f:
+
+                        with open_file(lvl_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
                 if ex_grouped_levels:
                     if p.has_levels:
-                        grp_lvl_tr_path = os.path.join(f_dir, p.name + ' grouped_levels-plot.csv')
+                        grp_lvl_tr_path = os.path.join(f_dir, p.name + ' levels-grouped-plot.csv')
                         ints, times = p.levels2data(use_grouped=True)
                         rows = list()
                         rows.append(['Grouped Level #', 'Time (s)', 'Int (counts/s)'])
                         for i in range(len(ints)):
                             rows.append([str(i // 2), str(times[i]), str(ints[i])])
-                        with open(grp_lvl_tr_path, 'w') as f:
+
+                        with open_file(grp_lvl_tr_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
-                        grp_lvl_path = os.path.join(f_dir, p.name + ' grouped_levels.csv')
+                        grp_lvl_path = os.path.join(f_dir, p.name + ' levels-grouped.csv')
                         rows = list()
                         rows.append(['Grouped Level #', 'Start Time (s)', 'End Time (s)',
                                      'Dwell Time (/s)', 'Int (counts/s)', 'Num of Photons',
@@ -1009,15 +1012,46 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             rows.append(
                                 [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons), str(l.group_ind)])
-                        with open(grp_lvl_path, 'w') as f:
+
+                        with open_file(grp_lvl_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
-                if ex_group_info:
+                if ex_grouping_info:
                     if p.has_groups:
-                        # TODO: Here
-                        group_info_path = os.path.join(f_dir, p.name + ' grouping_info.csv')
+                        group_info_path = os.path.join(f_dir, p.name + ' group_info.csv')
+                        with open_file(group_info_path) as f:
+                            f.write(f"# of Groups:,{p.ahca.best_step.num_groups}\n")
+                            if p.ahca.best_step_ind == p.ahca.selected_step_ind:
+                                answer = 'Yes'
+                            else:
+                                answer = 'No'
+                            f.write(f"Selected solution highest BIC value? {answer}\n\n")
 
+                            rows = list()
+                            rows.append(['Group #', 'Int (counts/s)', 'Total Dwell Time (s)',
+                                         '# of Levels', '# of Photons'])
+                            for num, group in enumerate(p.ahca.selected_step.groups):
+                                rows.append([str(num), str(group.int), str(group.dwell_time),
+                                             str(len(group.lvls)), str(group.num_photons)])
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                if ex_grouping_results:
+                    if p.has_groups:
+                        group_info_path = os.path.join(f_dir, p.name + ' grouping_results.csv')
+                        with open_file(group_info_path) as f:
+                            f.write(f"# of Steps:,{p.ahca.num_steps}\n")
+                            f.write(f"Step with highest BIC value:,{p.ahca.best_step.bic}\n")
+                            f.write(f"Step selected:,{p.ahca.selected_step_ind}\n\n")
+
+                            rows = list()
+                            rows.append(['Step #', '# of Groups', 'BIC value'])
+                            for num, step in enumerate(p.ahca.steps):
+                                rows.append([str(num), str(step.num_groups), str(step.bic)])
+
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
 
                 if ex_lifetime:
                     if p.numexp == 1:
@@ -1054,7 +1088,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                 [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons)] + tauexp + ampexp + other_exp)
 
-                        with open(lvl_path, 'w') as f:
+                        with open_file(lvl_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
@@ -1069,7 +1103,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         for i, time in enumerate(times):
                             rows.append([str(time), str(decay[i]), str(convd[i])])
 
-                        with open(tr_path, 'w') as f:
+                        with open_file(tr_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
@@ -1091,11 +1125,34 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             for j, time in enumerate(times):
                                 rows.append([str(time), str(decay[j]), str(convd[j])])
 
-                            with open(hist_path, 'w') as f:
+                            with open_file(hist_path) as f:
                                 writer = csv.writer(f, dialect=csv.excel)
                                 writer.writerows(rows)
 
-                    logger.info('Exporting Finished')
+                if ex_spectra_2d:
+                    spectra_2d_path = os.path.join(f_dir, p.name + ' spectra-2D.csv')
+                    with open_file(spectra_2d_path) as f:
+                        f.write("First row:,Wavelength (nm)\n")
+                        f.write("First column:,Time (s)\n")
+                        f.write("Values:,Intensity (counts/s)\n\n")
+
+                        rows = list()
+                        rows.append([''] + p.spectra.wavelengths.tolist())
+                        for num, spec_row in enumerate(p.spectra.data[:]):
+                            this_row = list()
+                            this_row.append(str(p.spectra.series_times[num]))
+                            for single_val in spec_row:
+                                this_row.append(str(single_val))
+                            rows.append(this_row)
+
+                        writer = csv.writer(f, dialect=csv.excel)
+                        writer.writerows(rows)
+
+                logger.info('Exporting Finished')
+
+    def convert_pt3_dialog(self):
+        convert_pt3 = ConvertPt3Dialog(mainwindow=self)
+        convert_pt3.exec()
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
