@@ -307,7 +307,7 @@ class Level:
     """ Defines the start, end and intensity of a single level. """
 
     def __init__(self, abs_times: Dataset, microtimes: Dataset,
-                 level_inds: Tuple[int, int], int_p_s:float = None, group_ind: int = None):
+                 level_inds: Tuple[int, int], int_p_s: float = None, group_ind: int = None):
         """
         Initiate Level
 
@@ -323,7 +323,8 @@ class Level:
 
         assert abs_times is not None, "Levels:\tParameter 'abstimes' not given."
         assert level_inds is not None, "Levels:\tParameter 'level_inds' not given."
-        assert type(level_inds) is tuple, "Level:\tLevel indexes argument is not a tuple (start, end)."
+        assert type(level_inds) is tuple, "Level:\tLevel indexes argument is not a " \
+                                          "tuple (start, end)."
         self.level_inds = level_inds  # (first_ind, last_ind)
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
         self.times_ns = (abs_times[self.level_inds[0]], abs_times[self.level_inds[1]])
@@ -352,7 +353,7 @@ class Level:
 
     @property
     def times_s(self):
-        return (self.times_ns[0]/1E9, self.times_ns[1]/1E9)
+        return self.times_ns[0]/1E9, self.times_ns[1]/1E9
 
     @property
     def dwell_time_s(self):

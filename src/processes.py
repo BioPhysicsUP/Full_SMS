@@ -372,6 +372,15 @@ class SingleProcess(mp.Process):
                         task.obj.best_step._particle = None
                         for step in task.obj.steps:
                             step._particle = None
+                            for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                                if hasattr(step, group_attr_name):
+                                    group_attr = getattr(step, group_attr_name)
+                                    if group_attr is not None:
+                                        for group in group_attr:
+                                            for ahc_lvl in group.lvls:
+                                                ahc_hist = ahc_lvl.histogram
+                                                if hasattr(ahc_hist, 'particle'):
+                                                    ahc_hist.particle = None
                     elif task.method_name == 'fit_part_and_levels':
                         task.obj.part_hist.particle = None
                         task.obj.microtimes = None

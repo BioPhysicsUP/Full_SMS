@@ -210,6 +210,7 @@ class ProcessThread(QRunnable):
                     num_task_left -= 1
 
         except Exception as exception:
+            print(exception)
             self.signals.error.emit(exception)
         # else:
         #     self.signals.result.emit(self.tasks)

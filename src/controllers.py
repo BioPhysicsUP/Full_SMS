@@ -1144,7 +1144,8 @@ class GroupingController(QObject):
             grouping_objs = [particle.ahca for particle in all_particles]
             status_message = "Grouping levels for all particle..."
 
-        g_process_thread = ProcessThread(num_processes=1, task_buffer_size=1)
+        # g_process_thread = ProcessThread(num_processes=1, task_buffer_size=1)
+        g_process_thread = ProcessThread()
         g_process_thread.add_tasks_from_methods(objects=grouping_objs, method_name='run_grouping')
 
         g_process_thread.signals.status_update.connect(mw.status_message)
@@ -1169,11 +1170,22 @@ class GroupingController(QObject):
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
                 new_part = self.mainwindow.tree2particle(result_part_ind)
+
                 result_ahca = result.new_task_obj
                 result_ahca.particle = new_part
                 result_ahca.best_step._particle = new_part
                 for step in result_ahca.steps:
-                    step._paricle = new_part
+                    step._particle = new_part
+                    for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                        if hasattr(step, group_attr_name):
+                            group_attr = getattr(step, group_attr_name)
+                            if group_attr is not None:
+                                for group in group_attr:
+                                    for ahc_lvl in group.lvls:
+                                        ahc_hist = ahc_lvl.histogram
+                                        if hasattr(ahc_hist, 'particle'):
+                                            ahc_hist.particle = new_part
+
                 new_part.ahca = result_ahca
 
             # self.results_gathered = True
@@ -1208,6 +1220,7 @@ class GroupingController(QObject):
 
     def error(self, e: Exception):
         logger.error(e)
+        print(e)
 
 
 class SpectraController(QObject):
