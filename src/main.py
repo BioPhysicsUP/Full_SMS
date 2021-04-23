@@ -22,8 +22,7 @@ from PyQt5 import uic
 from typing import Union
 import time
 
-from controllers import IntController, LifetimeController, GroupingController, SpectraController, \
-    resolve_levels
+from controllers import IntController, LifetimeController, GroupingController, SpectraController
 from thread_tasks import bin_all, OpenFile
 from threads import ProcessThread, WorkerResolveLevels, WorkerBinAll
 from tree_model import DatasetTreeNode, DatasetTreeModel
@@ -663,131 +662,131 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.plot_trace()
         logger.info('Binnig all levels complete')
 
-    def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
-        """
-        Creates a worker to resolve levels.
-
-        Depending on the ``current_selected_all`` parameter the worker will be
-        given the necessary parameter to fit the current, selected or all particles.
-
-        Parameters
-        ----------
-        thread_finished
-        mode : {'current', 'selected', 'all'}
-            Possible values are 'current' (default), 'selected', and 'all'.
-        """
-
-        if thread_finished is None:
-            if self.data_loaded:
-                thread_finished = self.resolve_thread_complete
-            else:
-                thread_finished = self.open_file_thread_complete
-
-        selected = None
-        if mode == 'selected':
-            selected = self.get_checked_particles()
-
-        resolve_thread = WorkerResolveLevels(resolve_levels,
-                                             conf=self.confidence_index[
-                                                 self.cmbConfIndex.currentIndex()],
-                                             data=self.tree2dataset(),
-                                             currentparticle=self.currentparticle,
-                                             mode=mode,
-                                             resolve_selected=selected)
-        resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
-        resolve_thread.signals.start_progress.connect(self.start_progress)
-        resolve_thread.signals.progress.connect(self.update_progress)
-        resolve_thread.signals.status_message.connect(self.status_message)
-        resolve_thread.signals.reset_gconnect(self.reset_gui)
-
-        self.threadpool.start(resolve_thread)
-
-    # TODO: remove this method as it has been replaced by function
-    def resolve_levels(self, start_progress_sig: pyqtSignal,
-                       progress_sig: pyqtSignal, status_sig: pyqtSignal,
-                       mode: str,
-                       resolve_selected=None) -> None:  # parallel: bool = False
-        """
-        Resolves the levels in particles by finding the change points in the
-        abstimes data of a Particle instance.
-
-        Parameters
-        ----------
-        start_progress_sig : pyqtSignal
-            Used to call method to set up progress bar on G
-        progress_sig : pyqtSignal
-            Used to call method to increment progress bar on G
-        status_sig : pyqtSignal
-            Used to call method to show status bar message on G
-        mode : {'current', 'selected', 'all'}
-            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-        resolve_selected : list[smsh5.Partilce]
-            A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-        """
-
-        assert mode in ['current', 'selected', 'all'], \
-            "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-
-        if mode == 'current':  # Then resolve current
-            _, conf = self.get_gui_confidence()
-            self.currentparticle.cpts.run_cpa(confidence=conf, run_levels=True)
-
-        elif mode == 'all':  # Then resolve all
-            data = self.tree2dataset()
-            _, conf = self.get_gui_confidence()
-            try:
-                status_sig.emit('Resolving All Particle Levels...')
-                start_progress_sig.emit(data.num_parts)
-                # if parallel:
-                #     self.conf_parallel = conf
-                #     Parallel(n_jobs=-2, backend='threading')(
-                #         delayed(self.run_parallel_cpa)
-                #         (self.tree2particle(num)) for num in range(data.numpart)
-                #     )
-                #     del self.conf_parallel
-                # else:
-                for num in range(data.num_parts):
-                    data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
-                    progress_sig.emit()
-                status_sig.emit('Done')
-            except Exception as exc:
-                raise RuntimeError("Couldn't resolve levels.") from exc
-
-        elif mode == 'selected':  # Then resolve selected
-            assert resolve_selected is not None, \
-                'No selected particles provided.'
-            try:
-                _, conf = self.get_gui_confidence()
-                status_sig.emit('Resolving Selected Particle Levels...')
-                start_progress_sig.emit(len(resolve_selected))
-                for particle in resolve_selected:
-                    particle.cpts.run_cpa(confidence=conf, run_levels=True)
-                    progress_sig.emit()
-                status_sig.emit('Done')
-            except Exception as exc:
-                raise RuntimeError("Couldn't resolve levels.") from exc
-
-    def run_parallel_cpa(self, particle):
-        particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
-
+    # def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
+    #     """
+    #     Creates a worker to resolve levels.
+    #
+    #     Depending on the ``current_selected_all`` parameter the worker will be
+    #     given the necessary parameter to fit the current, selected or all particles.
+    #
+    #     Parameters
+    #     ----------
+    #     thread_finished
+    #     mode : {'current', 'selected', 'all'}
+    #         Possible values are 'current' (default), 'selected', and 'all'.
+    #     """
+    #
+    #     if thread_finished is None:
+    #         if self.data_loaded:
+    #             thread_finished = self.resolve_thread_complete
+    #         else:
+    #             thread_finished = self.open_file_thread_complete
+    #
+    #     selected = None
+    #     if mode == 'selected':
+    #         selected = self.get_checked_particles()
+    #
+    #     resolve_thread = WorkerResolveLevels(resolve_levels,
+    #                                          conf=self.confidence_index[
+    #                                              self.cmbConfIndex.currentIndex()],
+    #                                          data=self.tree2dataset(),
+    #                                          currentparticle=self.currentparticle,
+    #                                          mode=mode,
+    #                                          resolve_selected=selected)
+    #     resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
+    #     resolve_thread.signals.start_progress.connect(self.start_progress)
+    #     resolve_thread.signals.progress.connect(self.update_progress)
+    #     resolve_thread.signals.status_message.connect(self.status_message)
+    #     resolve_thread.signals.reset_gconnect(self.reset_gui)
+    #
+    #     self.threadpool.start(resolve_thread)
+    #
+    # # TODO: remove this method as it has been replaced by function
+    # def resolve_levels(self, start_progress_sig: pyqtSignal,
+    #                    progress_sig: pyqtSignal, status_sig: pyqtSignal,
+    #                    mode: str,
+    #                    resolve_selected=None) -> None:  # parallel: bool = False
+    #     """
+    #     Resolves the levels in particles by finding the change points in the
+    #     abstimes data of a Particle instance.
+    #
+    #     Parameters
+    #     ----------
+    #     start_progress_sig : pyqtSignal
+    #         Used to call method to set up progress bar on G
+    #     progress_sig : pyqtSignal
+    #         Used to call method to increment progress bar on G
+    #     status_sig : pyqtSignal
+    #         Used to call method to show status bar message on G
+    #     mode : {'current', 'selected', 'all'}
+    #         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+    #     resolve_selected : list[smsh5.Partilce]
+    #         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+    #     """
+    #
+    #     assert mode in ['current', 'selected', 'all'], \
+    #         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+    #
+    #     if mode == 'current':  # Then resolve current
+    #         _, conf = self.get_gui_confidence()
+    #         self.currentparticle.cpts.run_cpa(confidence=conf, run_levels=True)
+    #
+    #     elif mode == 'all':  # Then resolve all
+    #         data = self.tree2dataset()
+    #         _, conf = self.get_gui_confidence()
+    #         try:
+    #             status_sig.emit('Resolving All Particle Levels...')
+    #             start_progress_sig.emit(data.num_parts)
+    #             # if parallel:
+    #             #     self.conf_parallel = conf
+    #             #     Parallel(n_jobs=-2, backend='threading')(
+    #             #         delayed(self.run_parallel_cpa)
+    #             #         (self.tree2particle(num)) for num in range(data.numpart)
+    #             #     )
+    #             #     del self.conf_parallel
+    #             # else:
+    #             for num in range(data.num_parts):
+    #                 data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
+    #                 progress_sig.emit()
+    #             status_sig.emit('Done')
+    #         except Exception as exc:
+    #             raise RuntimeError("Couldn't resolve levels.") from exc
+    #
+    #     elif mode == 'selected':  # Then resolve selected
+    #         assert resolve_selected is not None, \
+    #             'No selected particles provided.'
+    #         try:
+    #             _, conf = self.get_gui_confidence()
+    #             status_sig.emit('Resolving Selected Particle Levels...')
+    #             start_progress_sig.emit(len(resolve_selected))
+    #             for particle in resolve_selected:
+    #                 particle.cpts.run_cpa(confidence=conf, run_levels=True)
+    #                 progress_sig.emit()
+    #             status_sig.emit('Done')
+    #         except Exception as exc:
+    #             raise RuntimeError("Couldn't resolve levels.") from exc
+    #
+    # def run_parallel_cpa(self, particle):
+    #     particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
+    #
     # TODO: remove this function
-    def resolve_thread_complete(self, mode: str):
-        """
-        Is performed after thread has been terminated.
-
-        Parameters
-        ----------
-        mode : {'current', 'selected', 'all'}
-            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-        """
-        if self.tree2dataset().cpa_has_run:
-            self.tabGrouping.setEnabled(True)
-        if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
-            self.display_data()
-        logger.info('Resolving levels complete')
-        self.check_remove_bursts(mode=mode)
-        self.set_startpoint()
-        self.chbEx_Levels.setEnabled(True)
+    # def resolve_thread_complete(self, mode: str):
+    #     """
+    #     Is performed after thread has been terminated.
+    #
+    #     Parameters
+    #     ----------
+    #     mode : {'current', 'selected', 'all'}
+    #         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+    #     """
+    #     if self.tree2dataset().cpa_has_run:
+    #         self.tabGrouping.setEnabled(True)
+    #     if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+    #         self.display_data()
+    #     logger.info('Resolving levels complete')
+    #     self.check_remove_bursts(mode=mode)
+    #     self.set_startpoint()
+    #     self.chbEx_Levels.setEnabled(True)
 
     def check_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
@@ -817,7 +816,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 for num, particle in enumerate(particles):
                     if has_burst[num]:
                         particle.cpts.remove_bursts()
-            self.tree2dataset().makehistograms()
+            self.currentparticle.dataset.makehistograms()
 
             self.display_data()
 
@@ -981,7 +980,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'])
-                        for i, l in enumerate(p.levels):
+                        for i, l in enumerate(p.cpts.levels):
                             rows.append(
                                 [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons)])
@@ -991,7 +990,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             writer.writerows(rows)
 
                 if ex_grouped_levels:
-                    if p.has_levels:
+                    if p.has_groups:
                         grp_lvl_tr_path = os.path.join(f_dir, p.name + ' levels-grouped-plot.csv')
                         ints, times = p.levels2data(use_grouped=True)
                         rows = list()
@@ -1008,7 +1007,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         rows.append(['Grouped Level #', 'Start Time (s)', 'End Time (s)',
                                      'Dwell Time (/s)', 'Int (counts/s)', 'Num of Photons',
                                      'Group Index'])
-                        for i, l in enumerate(p.levels):
+                        for i, l in enumerate(p.ahca.selected_step.group_levels):
                             rows.append(
                                 [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons), str(l.group_ind)])

@@ -360,7 +360,7 @@ class Particle:
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
         levels = self.levels
         if use_grouped is not None:
-            if use_grouped == False:
+            if not use_grouped:
                 levels = self.cpts.levels
             else:
                 levels = self.ahca.selected_step.group_levels
@@ -422,6 +422,12 @@ class Particle:
         if self.has_levels:
             for level in self.levels:
                 level.histogram = Histogram(self, level, self.startpoint, channel=channel)
+
+    def makegrouphists(self, channel=True):
+
+        if self.has_groups:
+            for group in self.groups:
+                group.histogram = Histogram()
 
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""

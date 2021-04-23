@@ -815,7 +815,10 @@ class LifetimeController(QObject):
             #     return
             # print(decay.max())
             plot_item.clear()
-            plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+            try:
+                plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+            except Exception as e:
+                logger.error(e)
             unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
             plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
@@ -1187,6 +1190,11 @@ class GroupingController(QObject):
                                             ahc_hist.particle = new_part
 
                 new_part.ahca = result_ahca
+                if new_part.has_groups:
+                    new_part.using_group_levels = True
+                    new_part.makelevelhists()
+                    new_part.using_group_levels = False
+
 
             # self.results_gathered = True
         except ValueError as e:
@@ -1276,130 +1284,133 @@ class SpectraController(QObject):
         print('here')
         # self.spectra_widget.getImageItem().setLookupTable(self._look_up_table)
 
-def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal,
-                   level_resolved_sig: pyqtSignal,
-                   conf: Union[int, float], data: H5dataset, currentparticle: Particle, mode: str,
-                   resolve_selected=None,
-                   end_time_s=None) -> None:
-    """
-    TODO: edit the docstring
-    Resolves the levels in particles by finding the change points in the
-    abstimes data of a Particle instance.
+# def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
+#                    status_sig: pyqtSignal,
+#                    reset_gui_sig: pyqtSignal,
+#                    level_resolved_sig: pyqtSignal,
+#                    conf: Union[int, float], data: H5dataset,
+#                    currentparticle: Particle,
+#                    mode: str,
+#                    resolve_selected=None,
+#                    end_time_s=None) -> None:
+#     """
+#     TODO: edit the docstring
+#     Resolves the levels in particles by finding the change points in the
+#     abstimes data of a Particle instance.
+#
+#     Parameters
+#     ----------
+#     end_time_s
+#     currentparticle : Particle
+#     conf
+#     level_resolved_sig
+#     reset_gui_sig
+#     data : H5dataset
+#     start_progress_sig : pyqtSignal
+#         Used to call method to set up progress bar on G
+#     progress_sig : pyqtSignal
+#         Used to call method to increment progress bar on G
+#     status_sig : pyqtSignal
+#         Used to call method to show status bar message on G
+#     mode : {'current', 'selected', 'all'}
+#         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+#     resolve_selected : list[smsh5.Partilce]
+#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+#     """
+#
+#     # print(mode)
+#     assert mode in ['current', 'selected', 'all'], \
+#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+#
+#     if mode == 'current':  # Then resolve current
+#         currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True, end_time_s=end_time_s)
+#
+#     else:
+#         if mode == 'all':  # Then resolve all
+#             status_text = 'Resolving All Particle Levels...'
+#             parts = data.particles
+#
+#         elif mode == 'selected':  # Then resolve selected
+#             assert resolve_selected is not None, \
+#                 'No selected particles provided.'
+#             status_text = 'Resolving Selected Particle Levels...'
+#             parts = resolve_selected
+#
+#         try:
+#             status_sig.emit(status_text)
+#             start_progress_sig.emit(len(parts))
+#             for num, part in enumerate(parts):
+#                 logger.info(f'Busy Resolving Particle {num + 1}')
+#                 part.cpts.run_cpa(confidence=conf, run_levels=True, end_time_s=end_time_s)
+#                 progress_sig.emit()
+#             status_sig.emit('Done')
+#         except Exception as exc:
+#             raise RuntimeError("Couldn't resolve levels.") from exc
+#
+#     level_resolved_sig.emit()
+#     data.makehistograms(progress=False)
+#     reset_gui_sig.emit()
 
-    Parameters
-    ----------
-    end_time_s
-    currentparticle : Particle
-    conf
-    level_resolved_sig
-    reset_gui_sig
-    data : H5dataset
-    start_progress_sig : pyqtSignal
-        Used to call method to set up progress bar on G
-    progress_sig : pyqtSignal
-        Used to call method to increment progress bar on G
-    status_sig : pyqtSignal
-        Used to call method to show status bar message on G
-    mode : {'current', 'selected', 'all'}
-        Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-    resolve_selected : list[smsh5.Partilce]
-        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-    """
 
-    # print(mode)
-    assert mode in ['current', 'selected', 'all'], \
-        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-
-    if mode == 'current':  # Then resolve current
-        currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True, end_time_s=end_time_s)
-
-    else:
-        if mode == 'all':  # Then resolve all
-            status_text = 'Resolving All Particle Levels...'
-            parts = data.particles
-
-        elif mode == 'selected':  # Then resolve selected
-            assert resolve_selected is not None, \
-                'No selected particles provided.'
-            status_text = 'Resolving Selected Particle Levels...'
-            parts = resolve_selected
-
-        try:
-            status_sig.emit(status_text)
-            start_progress_sig.emit(len(parts))
-            for num, part in enumerate(parts):
-                logger.info(f'Busy Resolving Particle {num + 1}')
-                part.cpts.run_cpa(confidence=conf, run_levels=True, end_time_s=end_time_s)
-                progress_sig.emit()
-            status_sig.emit('Done')
-        except Exception as exc:
-            raise RuntimeError("Couldn't resolve levels.") from exc
-
-    level_resolved_sig.emit()
-    data.makehistograms(progress=False)
-    reset_gui_sig.emit()
-
-
-def group_levels(start_progress_sig: pyqtSignal,
-                 progress_sig: pyqtSignal,
-                 status_sig: pyqtSignal,
-                 reset_gui_sig: pyqtSignal,
-                 data: H5dataset,
-                 mode: str,
-                 currentparticle: Particle = None,
-                 group_selected=None) -> None:
-    """
-    TODO: edit the docstring
-    Resolves the levels in particles by finding the change points in the
-    abstimes data of a Particle instance.
-
-    Parameters
-    ----------
-    currentparticle : Particle
-    conf
-    level_resolved_sig
-    reset_gui_sig
-    data : H5dataset
-    start_progress_sig : pyqtSignal
-        Used to call method to set up progress bar on G
-    progress_sig : pyqtSignal
-        Used to call method to increment progress bar on G
-    status_sig : pyqtSignal
-        Used to call method to show status bar message on G
-    mode : {'current', 'selected', 'all'}
-        Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-    resolve_selected : list[smsh5.Partilce]
-        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-    """
-
-    # print(mode)
-    assert mode in ['current', 'selected', 'all'], \
-        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-
-    if mode == 'current':
-        status_text = 'Grouping Current Particle Levels...'
-        parts = [currentparticle]
-    elif mode == 'all':  # Then resolve all
-        status_text = 'Grouping All Particle Levels...'
-        parts = data.particles
-
-    elif mode == 'selected':  # Then resolve selected
-        assert group_selected is not None, \
-            'No selected particles provided.'
-        status_text = 'Grouping Selected Particle Levels...'
-        parts = group_selected
-
-    try:
-        status_sig.emit(status_text)
-        start_progress_sig.emit(len(parts))
-        for num, part in enumerate(parts):
-            logger.info(f'Busy Grouping Particle {num + 1}')
-            part.ahca.run_grouping()
-            progress_sig.emit()
-        status_sig.emit('Done')
-    except Exception as exc:
-        raise RuntimeError("Couldn't group levels.") from exc
+# def group_levels(start_progress_sig: pyqtSignal,
+#                  progress_sig: pyqtSignal,
+#                  status_sig: pyqtSignal,
+#                  reset_gui_sig: pyqtSignal,
+#                  data: H5dataset,
+#                  mode: str,
+#                  currentparticle: Particle = None,
+#                  group_selected=None) -> None:
+#     """
+#     TODO: edit the docstring
+#     Resolves the levels in particles by finding the change points in the
+#     abstimes data of a Particle instance.
+#
+#     Parameters
+#     ----------
+#     currentparticle : Particle
+#     conf
+#     level_resolved_sig
+#     reset_gui_sig
+#     data : H5dataset
+#     start_progress_sig : pyqtSignal
+#         Used to call method to set up progress bar on G
+#     progress_sig : pyqtSignal
+#         Used to call method to increment progress bar on G
+#     status_sig : pyqtSignal
+#         Used to call method to show status bar message on G
+#     mode : {'current', 'selected', 'all'}
+#         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+#     resolve_selected : list[smsh5.Partilce]
+#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+#     """
+#
+#     # print(mode)
+#     assert mode in ['current', 'selected', 'all'], \
+#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+#
+#     if mode == 'current':
+#         status_text = 'Grouping Current Particle Levels...'
+#         parts = [currentparticle]
+#     elif mode == 'all':  # Then resolve all
+#         status_text = 'Grouping All Particle Levels...'
+#         parts = data.particles
+#
+#     elif mode == 'selected':  # Then resolve selected
+#         assert group_selected is not None, \
+#             'No selected particles provided.'
+#         status_text = 'Grouping Selected Particle Levels...'
+#         parts = group_selected
+#
+#     try:
+#         status_sig.emit(status_text)
+#         start_progress_sig.emit(len(parts))
+#         for num, part in enumerate(parts):
+#             logger.info(f'Busy Grouping Particle {num + 1}')
+#             part.ahca.run_grouping()
+#             progress_sig.emit()
+#         status_sig.emit('Done')
+#     except Exception as exc:
+#         raise RuntimeError("Couldn't group levels.") from exc
 
     # grou.emit()
     # data.makehistograms(progress=False)
