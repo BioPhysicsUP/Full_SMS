@@ -7,10 +7,13 @@ from typing import List, Union, TYPE_CHECKING
 from uuid import UUID, uuid1
 import time
 from numpy import ndarray
+import os
+from tempfile import TemporaryDirectory
 
 from my_logger import setup_logger
 from signals import WorkerSigPassType, ProcessThreadSignals
 from tree_model import DatasetTreeNode
+import pickle
 
 from inspect import signature
 from functools import wraps
@@ -310,20 +313,23 @@ class ProcessSigPassTask:
 
 
 class ProcessTaskResult:
-    def __init__(self, task_uuid: UUID,
-                 task_return,
-                 new_task_obj: ProcessTask,
-                 task_complete: bool = True):
+    def __init__(self, task_uuid: UUID = None,
+                 task_return = None,
+                 new_task_obj: ProcessTask = None,
+                 task_complete: bool = True,
+                 dont_send: bool = False):
         self.task_uuid = task_uuid
         self.task_return = task_return
         self.new_task_obj = new_task_obj
         self.task_complete = task_complete
+        self.dont_send = dont_send
 
 
 class SingleProcess(mp.Process):
     def __init__(self, task_queue: mp.JoinableQueue,
                  result_queue: mp.JoinableQueue,
-                 feedback_queue: mp.JoinableQueue = None):
+                 feedback_queue: mp.JoinableQueue = None,
+                 temp_dir: TemporaryDirectory = None):
         mp.Process.__init__(self)
         # assert type(task_queue) in [mp.queues.JoinableQueue, mp.managers.AutoProxy[Queue]], \
         #     'task_queue is not of type JoinableQueue'
@@ -336,6 +342,7 @@ class SingleProcess(mp.Process):
         self.task_queue = task_queue
         self.result_queue = result_queue
         self.feedback_queue = feedback_queue
+        self._temp_dir = temp_dir
 
     def run(self):
         try:
@@ -345,6 +352,7 @@ class SingleProcess(mp.Process):
                 #     time.sleep(0.1)
                 #     continue
                 task = self.task_queue.get()
+                task_name = None
                 if task is None:
                     done = True
                     self.task_queue.task_done()
@@ -364,10 +372,13 @@ class SingleProcess(mp.Process):
                             task_return = task_run(*task_args)
                         else:
                             task_return = task_run()
+                    dont_send = False
                     if task.method_name == 'run_cpa':
                         task.obj._particle = None
                         task.obj._cpa._particle = None
                     elif task.method_name == "run_grouping":
+                        dont_send = True
+                        task_name = task.obj.particle.name
                         task.obj.particle = None
                         task.obj.best_step._particle = None
                         for step in task.obj.steps:
@@ -381,6 +392,14 @@ class SingleProcess(mp.Process):
                                                 ahc_hist = ahc_lvl.histogram
                                                 if hasattr(ahc_hist, 'particle'):
                                                     ahc_hist.particle = None
+                        assert self._temp_dir is not None, "temp_folder has not been set"
+                        assert task_name is not None, "task_name has not been set"
+                        file_path = os.path.join(self._temp_dir.name, task_name)
+                        pickle_result = ProcessTaskResult(task_uuid=task.uuid,
+                                                          task_return=task_return,
+                                                          new_task_obj=task.obj)
+                        with open(file_path, 'wb') as f:
+                            pickle.dump(obj=pickle_result, file=f)
                     elif task.method_name == 'fit_part_and_levels':
                         task.obj.part_hist.particle = None
                         task.obj.microtimes = None
@@ -391,9 +410,14 @@ class SingleProcess(mp.Process):
                             hist.particle = None
                             hist.microtimes = None
                             hist.level = None
-                    process_result = ProcessTaskResult(task_uuid=task.uuid,
-                                                       task_return=task_return,
-                                                       new_task_obj=task.obj)
+
+                    if not dont_send:
+                        process_result = ProcessTaskResult(task_uuid=task.uuid,
+                                                           task_return=task_return,
+                                                           new_task_obj=task.obj)
+                    else:
+                        process_result = ProcessTaskResult(dont_send=True)
+
                     self.result_queue.put(process_result)
                     del task
                     if process_result.task_complete:

@@ -1,7 +1,9 @@
 
 from __future__ import annotations
+import os
 from typing import Union, List, TYPE_CHECKING
 from copy import copy
+import tempfile
 
 import numpy as np
 import pyqtgraph as pg
@@ -10,7 +12,7 @@ from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog
 import time
-from multiprocessing import Queue
+import pickle
 
 if TYPE_CHECKING:
     from main import MainWindow
@@ -21,6 +23,7 @@ from tcspcfit import FittingParameters, FittingDialog
 from threads import WorkerFitLifetimes, WorkerGrouping, WorkerResolveLevels, \
     ProcessThread, ProcessTask, ProcessTaskResult
 from thread_tasks import OpenFile
+from multiprocessing import Queue
 
 logger = setup_logger(__name__)
 
@@ -931,7 +934,7 @@ class LifetimeController(QObject):
             particles = mw.get_checked_particles()
         elif mode == 'all':
             status_message = "Fitting Levels for All Particles..."
-            particles = mw.tree2dataset().particles
+            particles = mw.currentparticle.dataset.particles
 
         f_p = self.fitparam
         channelwidth = particles[0].channelwidth
@@ -1077,6 +1080,8 @@ class GroupingController(QObject):
         self.all_bic_plots = None
         self.all_last_solutions = None
 
+        self.temp_dir = None
+
     def clear_bic(self):
         self.bic_scatter_plot.clear()
 
@@ -1199,7 +1204,9 @@ class GroupingController(QObject):
             status_message = "Grouping levels for all particle..."
 
         # g_process_thread = ProcessThread(num_processes=1, task_buffer_size=1)
-        g_process_thread = ProcessThread()
+
+        self.temp_dir = tempfile.TemporaryDirectory(prefix="Full_SMS_Grouping")
+        g_process_thread = ProcessThread(temp_dir=self.temp_dir)
         g_process_thread.add_tasks_from_methods(objects=grouping_objs, method_name='run_grouping')
 
         g_process_thread.signals.status_update.connect(mw.status_message)
@@ -1253,6 +1260,13 @@ class GroupingController(QObject):
             logger.error(e)
 
     def grouping_thread_complete(self, mode):
+        results = list()
+        for result_file in os.listdir(self.temp_dir.name):
+            with open(os.path.join(self.temp_dir.name, result_file), 'rb') as f:
+                results.append(pickle.load(f))
+        self.temp_dir.cleanup()
+        self.temp_dir = None
+        self.gather_replace_results(results=results)
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
