@@ -195,7 +195,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.irf_loaded = False
         self.has_spectra = False
 
-        self._current_level = None
+        # self._current_level = None
 
         self.tabWidget.currentChanged.connect(self.tab_change)
 
@@ -430,7 +430,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if current is not None:
             if hasattr(self, 'currentparticle'):
                 self.currentparticle = self.treemodel.get_particle(current)
-            self.current_level = None  # Reset current level when particle changes.
+            # self.current_level = None  # Reset current level when particle changes.
         if hasattr(self, 'currentparticle') and type(self.currentparticle) is smsh5.Particle:
             cur_tab_name = self.tabWidget.currentWidget().objectName()
 
@@ -1031,7 +1031,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             rows.append(['Group #', 'Int (counts/s)', 'Total Dwell Time (s)',
                                          '# of Levels', '# of Photons'])
                             for num, group in enumerate(p.ahca.selected_step.groups):
-                                rows.append([str(num), str(group.int), str(group.dwell_time),
+                                rows.append([str(num), str(group.int_p_s), str(group.dwell_time_s),
                                              str(len(group.lvls)), str(group.num_photons)])
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
@@ -1063,11 +1063,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
                         ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
                     if p.has_levels:
-                        lvl_path = os.path.join(f_dir, p.name + ' levels lifetimes.csv')
+                        lvl_path = os.path.join(f_dir, p.name + ' levels_lifetimes.csv')
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
-                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG', 'Chi Squared'])
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
+                                     'Chi Squared'])
                         for i, l in enumerate(p.levels):
                             if l.histogram.tau is None or l.histogram.amp is None:  # Problem with fitting the level
                                 tauexp = ['0' for i in range(p.numexp)]
@@ -1088,6 +1089,36 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                  str(l.int_p_s), str(l.num_photons)] + tauexp + ampexp + other_exp)
 
                         with open_file(lvl_path) as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                    if p.has_groups:
+                        group_path = os.path.join(f_dir, p.name + ' groups_lifetimes.csv')
+                        rows = list()
+                        rows.append(['Group #', 'Dwell Time (/s)',
+                                     'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
+                                     'Chi Squared'])
+                        for i, g in enumerate(p.groups):
+                            if g.histogram.tau is None or g.histogram.amp is None:  # Problem with fitting the level
+                                tauexp = ['0' for i in range(p.numexp)]
+                                ampexp = ['0' for i in range(p.numexp)]
+                                other_exp = ['0', '0', '0', '0']
+                            else:
+                                if p.numexp == 1:
+                                    tauexp = [str(g.histogram.tau)]
+                                    ampexp = [str(g.histogram.amp)]
+                                else:
+                                    tauexp = [str(tau) for tau in g.histogram.tau]
+                                    ampexp = [str(amp) for amp in g.histogram.amp]
+                                other_exp = [str(g.histogram.avtau), str(g.histogram.shift), str(g.histogram.bg),
+                                             str(g.histogram.irfbg), str(g.histogram.chisq)]
+
+                            rows.append(
+                                [str(i), str(g.dwell_time_s), str(g.int_p_s), str(g.num_photons)]
+                                + tauexp + ampexp + other_exp)
+
+                        with open_file(group_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
@@ -1119,6 +1150,22 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                 continue
                             decay = l.histogram.fit_decay
                             convd = l.histogram.convd
+                            rows = list()
+                            rows.append(['Time (ns)', 'Decay', 'Fitted'])
+                            for j, time in enumerate(times):
+                                rows.append([str(time), str(decay[j]), str(convd[j])])
+
+                            with open_file(hist_path) as f:
+                                writer = csv.writer(f, dialect=csv.excel)
+                                writer.writerows(rows)
+
+                        for i, g in enumerate(p.groups):
+                            hist_path = os.path.join(dir_path, 'group ' + str(i) + ' histogram.csv')
+                            times = g.histogram.convd_t
+                            if times is None:
+                                continue
+                            decay = g.histogram.fit_decay
+                            convd = g.histogram.convd
                             rows = list()
                             rows.append(['Time (ns)', 'Decay', 'Fitted'])
                             for j, time in enumerate(times):
@@ -1201,21 +1248,21 @@ class MainWindow(QMainWindow, UI_Main_Window):
         else:
             self.tabSpectra.setEnabled(False)
 
-    @property
-    def current_level(self):
-        return self._current_level
+    # @property
+    # def current_level(self):
+    #     return self._current_level
+    #
+    # @current_level.setter
+    # def current_level(self, value):
+    #     if value is None:
+    #         self._current_level = None
+    #     else:
+    #         try:
+    #             # print(self.currentparticle.current2data(value))
+    #             self._current_level = value
+    #         except:
+    #             pass
 
-    @current_level.setter
-    def current_level(self, value):
-        if value is None:
-            self._current_level = None
-        else:
-            try:
-                # print(self.currentparticle.current2data(value))
-                self._current_level = value
-            except:
-                pass
-            
     def error_handler(self, e: Exception):
         # logger(e)
         raise e

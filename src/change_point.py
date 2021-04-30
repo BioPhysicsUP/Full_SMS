@@ -31,7 +31,7 @@ logger = setup_logger(__name__)
 class DatasetSubset:
     """ A container for a custom list that accesses a subset of a H5 dataset"""
 
-    def __init__(self, dataset, start_ind:int, end_ind:int):
+    def __init__(self, dataset, start_ind: int, end_ind: int):
         assert dataset is not None, "No dataset provided"
 
         if not 0 <= start_ind < len(dataset) - 1:

@@ -295,24 +295,32 @@ class IntController(QObject):
         else:
             return
 
-        plot_pen.brush()
+        # plot_pen.brush()
         plot_pen.setJoinStyle(Qt.RoundJoin)
         plot_pen.setCosmetic(True)
 
         plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
 
-        if self.mainwindow.current_level is not None:
-            current_ints, current_times = particle.current2data(
-                self.mainwindow.current_level)
-            current_ints = current_ints * self.get_bin() / 1E3
-            # print(current_ints, current_times)
+        if cur_tab_name == 'tabLifetime':
+            current_level = particle.hist_level_selected
+            if current_level is not None:
+                if current_level <= particle.num_levels - 1:
+                    current_ints, current_times = particle.current2data(current_level)
+                else:
+                    current_group = current_level - particle.num_levels
+                    current_ints, current_times = particle.current_group2data(current_group)
+                current_ints = current_ints * self.get_bin() / 1E3
+                print(current_ints, current_times)
 
-            if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
-                plot_pen.setColor(QColor('red'))
-                plot_pen.setWidthF(3)
-                plot_item.plot(x=current_times, y=current_ints, pen=plot_pen, symbol=None)
-            else:
-                logger.info('Infinity in level')
+                if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
+                    level_plot_pen = QPen()
+                    level_plot_pen.setCosmetic(True)
+                    level_plot_pen.setJoinStyle(Qt.RoundJoin)
+                    level_plot_pen.setColor(QColor('red'))
+                    level_plot_pen.setWidthF(3)
+                    plot_item.plot(x=current_times, y=current_ints, pen=level_plot_pen, symbol=None)
+                else:
+                    logger.info('Infinity in level')
 
     def plot_hist(self, particle: Particle = None, for_export: bool = False):
         if particle is None:
@@ -415,7 +423,7 @@ class IntController(QObject):
             line_pen.setCosmetic(True)
             line_times = [0, particle.dwell_time]
             for group in groups:
-                g_ints = [group.int * int_conv, group.int * int_conv]
+                g_ints = [group.int_p_s * int_conv, group.int_p_s * int_conv]
                 int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
 
     def plot_all(self):
@@ -603,27 +611,32 @@ class LifetimeController(QObject):
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """
 
-        if self.mainwindow.current_level is None:
-            pass
-        elif self.mainwindow.current_level == 0:
-            self.mainwindow.current_level = None
-        else:
-            self.mainwindow.current_level -= 1
+        cp = self.mainwindow.currentparticle
+        if cp.hist_level_selected is not None:
+            if cp.hist_level_selected == 0:
+                cp.hist_level_selected = None
+            else:
+                cp.hist_level_selected -= 1
         self.mainwindow.display_data()
 
     def gui_next_lev(self):
         """ Moves to the next resolves level and displays its decay curve. """
 
-        if self.mainwindow.current_level is None:
-            self.mainwindow.current_level = 0
-        else:
-            self.mainwindow.current_level += 1
+        cp = self.mainwindow.currentparticle
+        if cp.hist_level_selected is None:
+            cp.hist_level_selected = 0
+        elif cp.has_groups:
+            if cp.hist_level_selected != cp.num_levels - 1 + cp.num_groups:
+                cp.hist_level_selected += 1
+        elif cp.hist_level_selected != cp.num_levels - 1:
+            cp.hist_level_selected += 1
         self.mainwindow.display_data()
 
     def gui_whole_trace(self):
         "Unselects selected level and shows whole trace's decay curve"
 
-        self.mainwindow.current_level = None
+        # self.mainwindow.current_level = None
+        self.mainwindow.currentparticle.hist_level_selected = None
         self.mainwindow.display_data()
 
     def gui_load_irf(self):
@@ -692,10 +705,11 @@ class LifetimeController(QObject):
     def gui_fit_current(self):
         """ Fits the currently selected level's decay curve using the provided settings. """
 
-        if self.mainwindow.current_level is None:
+        level = self.mainwindow.currentparticle.hist_level_selected
+        if level is None:
             histogram = self.mainwindow.currentparticle.histogram
         else:
-            level = self.mainwindow.current_level
+            # level = self.mainwindow.current_level
             histogram = self.mainwindow.currentparticle.levels[level].histogram
         try:
             channelwidth = self.mainwindow.currentparticle.channelwidth
@@ -737,11 +751,14 @@ class LifetimeController(QObject):
     def update_results(self):
 
         currentparticle = self.mainwindow.currentparticle
-        if self.mainwindow.current_level is None:
+        level = currentparticle.hist_level_selected
+        if level is None:
             histogram = currentparticle.histogram
-        else:
-            level = self.mainwindow.current_level
+        elif level <= currentparticle.num_levels - 1:
             histogram = currentparticle.levels[level].histogram
+        else:
+            group = level - currentparticle.num_levels
+            histogram = currentparticle.groups[group].histogram
         if not histogram.fitted:
             return
         tau = histogram.tau
@@ -765,29 +782,40 @@ class LifetimeController(QObject):
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        currentlevel = self.mainwindow.current_level
+        current_level = self.mainwindow.currentparticle.hist_level_selected
         # print(currentlevel)
-        currentparticle = self.mainwindow.currentparticle
-        if currentlevel is None:
-            if currentparticle.histogram.fitted:
-                decay = currentparticle.histogram.fit_decay
-                t = currentparticle.histogram.convd_t
+        current_particle = self.mainwindow.currentparticle
+        if current_level is None:
+            if current_particle.histogram.fitted:
+                decay = current_particle.histogram.fit_decay
+                t = current_particle.histogram.convd_t
             else:
                 try:
-                    decay = currentparticle.histogram.decay
-                    t = currentparticle.histogram.t
+                    decay = current_particle.histogram.decay
+                    t = current_particle.histogram.t
 
                 except AttributeError:
                     logger.error('No Decay!')
                     return
-        else:
-            if currentparticle.levels[currentlevel].histogram.fitted:
-                decay = currentparticle.levels[currentlevel].histogram.fit_decay
-                t = currentparticle.levels[currentlevel].histogram.convd_t
+        elif current_level <= current_particle.num_levels - 1:
+            if current_particle.levels[current_level].histogram.fitted:
+                decay = current_particle.levels[current_level].histogram.fit_decay
+                t = current_particle.levels[current_level].histogram.convd_t
             else:
                 try:
-                    decay = currentparticle.levels[currentlevel].histogram.decay
-                    t = currentparticle.levels[currentlevel].histogram.t
+                    decay = current_particle.levels[current_level].histogram.decay
+                    t = current_particle.levels[current_level].histogram.t
+                except ValueError:
+                    return
+        else:
+            current_group = current_level - current_particle.num_levels
+            if current_particle.groups[current_group].histogram.fitted:
+                decay = current_particle.levels[current_group].histogram.fit_decay
+                t = current_particle.levels[current_group].histogram.convd_t
+            else:
+                try:
+                    decay = current_particle.groups[current_group].histogram.decay
+                    t = current_particle.groups[current_group].histogram.t
                 except ValueError:
                     return
 
@@ -797,7 +825,7 @@ class LifetimeController(QObject):
         if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
             plot_item = self.life_hist_plot
             plot_pen = QPen()
-            plot_pen.setWidthF(1.5)
+            plot_pen.setWidthF(2)
             plot_pen.setJoinStyle(Qt.RoundJoin)
             plot_pen.setColor(QColor('blue'))
             plot_pen.setCosmetic(True)
@@ -819,28 +847,37 @@ class LifetimeController(QObject):
                 plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
             except Exception as e:
                 logger.error(e)
-            unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+            unit = 'ns with ' + str(current_particle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
-            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            max_t = self.mainwindow.currentparticle.histogram.t[-1]
+            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
+            plot_item.getViewBox().setRange(xRange=[0, max_t])
             self.fitparamdialog.updateplot()
 
     def plot_convd(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        currentlevel = self.mainwindow.current_level
-        currentparticle = self.mainwindow.currentparticle
-        if currentlevel is None:
+        current_level = self.mainwindow.currentparticle.hist_level_selected
+        current_particle = self.mainwindow.currentparticle
+        if current_level is None:
             try:
-                convd = currentparticle.histogram.convd
-                t = currentparticle.histogram.convd_t
+                convd = current_particle.histogram.convd
+                t = current_particle.histogram.convd_t
 
             except AttributeError:
                 logger.error('No Decay!')
                 return
+        elif current_level <= current_particle.num_levels - 1:
+            try:
+                convd = current_particle.levels[current_level].histogram.convd
+                t = current_particle.levels[current_level].histogram.convd_t
+            except ValueError:
+                return
         else:
             try:
-                convd = currentparticle.levels[currentlevel].histogram.convd
-                t = currentparticle.levels[currentlevel].histogram.convd_t
+                current_group = current_level - current_particle.num_levels
+                convd = current_particle.groups[current_group].histogram.convd
+                t = current_particle.groups[current_group].histogram.convd_t
             except ValueError:
                 return
 
@@ -852,9 +889,9 @@ class LifetimeController(QObject):
         if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
             # plot_item = self.pgLifetime.getPlotItem()
             plot_pen = QPen()
-            plot_pen.setWidthF(4)
+            plot_pen.setWidthF(1)
             plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setColor(QColor('dark blue'))
+            plot_pen.setColor(QColor('red'))
             plot_pen.setCosmetic(True)
 
             # if remove_empty:
@@ -865,7 +902,7 @@ class LifetimeController(QObject):
 
             # plot_item.clear()
             self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
-            unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+            unit = 'ns with ' + str(current_particle.channelwidth) + 'ns bins'
             self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
             self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
 
@@ -951,8 +988,8 @@ class LifetimeController(QObject):
 
                 target_particle.histogram = result.new_task_obj.part_hist
 
-                for num, res_hist in enumerate(result.new_task_obj.level_hists):
-                    target_level = target_particle.levels[num]
+                for i, res_hist in enumerate(result.new_task_obj.level_hists):
+                    target_level = target_particle.levels[i]
                     target_level_microtimes = target_level.microtimes
 
                     res_hist.particle = target_particle
@@ -960,6 +997,20 @@ class LifetimeController(QObject):
                     res_hist.level = target_level
 
                     target_level.histogram = res_hist
+
+                for i, res_group_hist in enumerate(result.new_task_obj.group_hists):
+                    target_group_lvls_inds = target_particle.groups[i].lvls_inds
+                    target_g_lvls_microtimes = np.array([])
+                    for lvls_ind in target_group_lvls_inds:
+                        m_times = target_particle.cpts.levels[lvls_ind].microtimes
+                        target_g_lvls_microtimes = np.append(target_g_lvls_microtimes, m_times)
+
+                    res_group_hist.particle = target_particle
+                    res_group_hist.microtimes = target_g_lvls_microtimes
+                    res_group_hist.level = target_group_lvls_inds
+
+                    target_particle.groups[i].histogram = res_group_hist
+
         except ValueError as e:
             logger.error(e)
 
@@ -1194,6 +1245,7 @@ class GroupingController(QObject):
                     new_part.using_group_levels = True
                     new_part.makelevelhists()
                     new_part.using_group_levels = False
+                    new_part.makegrouphists()
 
 
             # self.results_gathered = True

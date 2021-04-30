@@ -9,12 +9,12 @@ University of Pretoria
 """
 
 from __future__ import annotations
-from math import lgamma
+# from math import lgamma
 
 from typing import List, Tuple, TYPE_CHECKING
 import numpy as np
 from scipy.stats import poisson
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 from change_point import Level
 from my_logger import setup_logger
 
@@ -41,24 +41,39 @@ def max_jm(array: np.ndarray):
 
 class Group:
 
-    def __init__(self, lvls_inds: List[int] = None, particle: Particle = None):
+    def __init__(self, lvls_inds: List[int_p_s] = None, particle: Particle = None):
         self.lvls_inds = lvls_inds
         self.lvls = None
+        self.histogram = None
 
         if self.lvls_inds is not None and particle is not None:
             self.lvls = [particle.levels[i] for i in self.lvls_inds]
 
     @property
-    def num_photons(self) -> int:
+    def num_photons(self) -> int_p_s:
         return int(np.sum([level.num_photons for level in self.lvls]))
 
     @property
-    def dwell_time(self) -> float:
+    def dwell_time_s(self) -> float:
         return float(np.sum([level.dwell_time_s for level in self.lvls]))
 
     @property
-    def int(self) -> float:
-        return self.num_photons / self.dwell_time
+    def int_p_s(self) -> float:
+        return self.num_photons / self.dwell_time_s
+
+    @property
+    def group_times_ns(self):
+        times_ns = np.array([])
+        for level in self.lvls:
+            times_ns = np.append(level.times_ns)
+        return times_ns
+
+    @property
+    def group_microtimes(self):
+        microtimes = np.array([])
+        for level in self.lvls:
+            times_ns = np.append(level.microtimes)
+        return microtimes
 
 
 # class Solution:
@@ -127,7 +142,7 @@ class ClusteringStep:
     @property
     def group_ints(self) -> List[float]:
         if self.groups is not None:
-            return [group.int for group in self.groups]
+            return [group.int_p_s for group in self.groups]
 
     def calc_int_bounds(self, order: str = 'descending') -> List[Tuple[float, float]]:
         """ Calculates the bounds between the groups.
@@ -178,8 +193,8 @@ class ClusteringStep:
                 if j < m:
                     n_m = group_m.num_photons
                     n_j = group_j.num_photons
-                    t_m = group_m.dwell_time
-                    t_j = group_j.dwell_time
+                    t_m = group_m.dwell_time_s
+                    t_j = group_j.dwell_time_s
 
                     merge[j, m] = (n_m + n_j) * np.log((n_m + n_j) / (t_m + t_j)) - n_m * np.log(n_m / t_m) - n_j * np.log(
                         n_j / t_j)

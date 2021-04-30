@@ -384,7 +384,10 @@ class SingleProcess(mp.Process):
                     elif task.method_name == 'fit_part_and_levels':
                         task.obj.part_hist.particle = None
                         task.obj.microtimes = None
-                        for hist in task.obj.level_hists:
+                        levels_groups_hists = list()
+                        levels_groups_hists.extend(task.obj.level_hists)
+                        levels_groups_hists.extend(task.obj.group_hists)
+                        for hist in levels_groups_hists:
                             hist.particle = None
                             hist.microtimes = None
                             hist.level = None

@@ -751,11 +751,15 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         convd = convd / convd.max()
 
         try:
-            if self.mainwindow.current_level is None:
+            if self.mainwindow.currentparticle.hist_level_selected is None:
                 histogram = self.mainwindow.currentparticle.histogram
             else:
-                level = self.mainwindow.current_level
-                histogram = self.mainwindow.currentparticle.levels[level].histogram
+                level = self.mainwindow.currentparticle.hist_level_selected
+                if level <= self.mainwindow.currentparticle.num_levels - 1:
+                    histogram = self.mainwindow.currentparticle.levels[level].histogram
+                else:
+                    group = level - self.mainwindow.currentparticle.num_levels
+                    histogram = self.mainwindow.currentparticle.groups[group].histogram
             decay = histogram.decay
             decay = decay / decay.max()
             t = histogram.t
@@ -773,7 +777,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
             plot_item.setLogMode(y=True)
             plot_pen = QPen()
-            plot_pen.setWidthF(3)
+            plot_pen.setWidthF(1.5)
             plot_pen.setJoinStyle(Qt.RoundJoin)
             plot_pen.setColor(QColor('blue'))
             plot_pen.setCosmetic(True)
@@ -781,7 +785,11 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             plot_item.clear()
             plot_item.plot(x=t, y=np.clip(decay, a_min=0.001, a_max=None), pen=plot_pen,
                            symbol=None)
-            plot_pen.setWidthF(4)
+
+            plot_pen = QPen()
+            plot_pen.setWidthF(2)
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setCosmetic(True)
             plot_pen.setColor(QColor('dark blue'))
             plot_item.plot(x=irft, y=np.clip(convd, a_min=0.001, a_max=None), pen=plot_pen,
                            symbol=None)
@@ -795,8 +803,11 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             # self.MW_fitparam.axes.set_ylim(bottom=1e-2)
 
         try:
+            plot_pen = QPen()
+            plot_pen.setWidthF(2.5)
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setCosmetic(True)
             plot_pen.setColor(QColor('gray'))
-            plot_pen.setWidth(3)
             startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
             endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
             plot_item.addItem(startline)
