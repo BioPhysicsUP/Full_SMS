@@ -47,10 +47,10 @@ class ProcessThread(QRunnable):
                 raise TypeError("Provided num_processes must be of type int")
             self.num_processes = num_processes
         else:
-            self.num_processes = get_max_num_processes()
+            self.num_processes = get_max_num_processes() - 1
 
         if not task_buffer_size:
-            task_buffer_size = self.num_processes
+            task_buffer_size = self.num_processes // 2
         self.task_buffer_size = task_buffer_size
 
         if not signals:
