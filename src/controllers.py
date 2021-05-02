@@ -850,6 +850,11 @@ class LifetimeController(QObject):
                 plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
             except Exception as e:
                 logger.error(e)
+                shortest = min([len(t), len(decay)])
+                t = t[:shortest]
+                decay = decay[:shortest]
+                plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+
             unit = 'ns with ' + str(current_particle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
             max_t = self.mainwindow.currentparticle.histogram.t[-1]
