@@ -1,5 +1,6 @@
 @echo off
 
+cd ..
 CALL "ssh-agent"
 CALL "git" "reset" "--hard" "HEAD"
 CALL "git" "fetch" "origin"
