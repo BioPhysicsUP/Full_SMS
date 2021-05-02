@@ -544,7 +544,7 @@ class Histogram:
             sorted_micro = np.sort(self.microtimes)
             if not no_sort:
                 tmin = sorted_micro[np.searchsorted(sorted_micro, tmin)]  # Make sure bins align with TCSPC bins
-            tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # Fix if max is end
+            tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # - 1  # Fix if max is end
 
             window = tmax-tmin
             numpoints = int(window//self.particle.channelwidth)
@@ -553,8 +553,12 @@ class Histogram:
 
             self.decay, self.t = np.histogram(self.microtimes, bins=t)
             self.t = self.t[:-1]  # Remove last value so the arrays are the same size
-            self.decay = self.decay[self.t > 0]
-            # self.t = self.t[self.t > 0]
+            where_neg = np.where(self.t <= 0)
+            self.t = np.delete(self.t, where_neg)
+            self.decay = np.delete(self.decay, where_neg)
+
+            assert len(self.t) == len(self.decay), "Time series must be same length as decay " \
+                                                   "histogram"
             if startpoint is None:
                 try:
                     self.decaystart = np.nonzero(self.decay)[0][0]
