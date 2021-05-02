@@ -1,7 +1,7 @@
 @echo off
 
-REM CALL "python" "-m" "pip" "install" "--upgrade" "pip"
-REM CALL "pip" "install" "poetry"
-REM CALL "poetry" "install"
+CALL "python" "-m" "pip" "install" "--upgrade" "pip"
+CALL "pip" "install" "poetry"
+CALL "poetry" "install"
 
 pause
