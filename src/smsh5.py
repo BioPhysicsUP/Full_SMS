@@ -236,7 +236,7 @@ class Particle:
         self.bin_size = None
 
         self.startpoint = None
-        # self.bic_plot_data = BICPlotData()
+        self.hist_level_selected = None
         self.using_group_levels = False
 
     @property
@@ -360,7 +360,7 @@ class Particle:
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
         levels = self.levels
         if use_grouped is not None:
-            if use_grouped == False:
+            if not use_grouped:
                 levels = self.cpts.levels
             else:
                 levels = self.ahca.selected_step.group_levels
@@ -410,6 +410,14 @@ class Particle:
 
         return levels_data, times
 
+    def current_group2data(self, num: int) -> [np.ndarray, np.ndarray]:
+        assert self.has_groups, 'ChangePointAnalysis:\tNo groups to convert to data.'
+
+        group = self.groups[num]
+        times = np.array([self.abstimes[0], self.abstimes[-1]]) /1E9
+        group_int = np.array([group.int_p_s, group.int_p_s])
+        return group_int, times
+
     def makehistogram(self, channel=True):
         """Put the arrival times into a histogram"""
 
@@ -423,33 +431,46 @@ class Particle:
             for level in self.levels:
                 level.histogram = Histogram(self, level, self.startpoint, channel=channel)
 
+    def makegrouphists(self, channel=True):
+
+        if self.has_groups:
+            for group in self.groups:
+                group.histogram = Histogram(self, group.lvls_inds, self.startpoint, channel=channel)
+
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""
 
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
 
-    def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
-        if not self.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-                                  fit_param.shift / channelwidth, fit_param.decaybg, fit_param.irfbg,
-                                  start, end, fit_param.addopt, fit_param.irf, fit_param.shiftfix):
-            pass  # fit unsuccessful
-        self.numexp = fit_param.numexp
-        # progress_sig.emit()
-        if not self.has_levels:
-            return
-        for level in self.levels:
-            if not hasattr(level, 'histogram'):
-                level.histogram = Histogram()
-            try:
-                if not level.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-                                           fit_param.shift / channelwidth, fit_param.decaybg,
-                                           fit_param.irfbg,
-                                           start, end, fit_param.addopt,
-                                           fit_param.irf, fit_param.shiftfix):
-                    pass  # fit unsuccessful
-            except AttributeError:
-                print("No decay")
+    # def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
+    #     if not self.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+    #                               fit_param.shift / channelwidth, fit_param.decaybg, fit_param.irfbg,
+    #                               start, end, fit_param.addopt, fit_param.irf, fit_param.shiftfix):
+    #         pass  # fit unsuccessful
+    #     self.numexp = fit_param.numexp
+    #     # progress_sig.emit()
+    #     if not self.has_levels:
+    #         return
+    #     levels = self.cpts.levels
+    #     if self.has_groups:
+    #         levels.extend(self.ahca.selected_step.group_levels)
+    #         for group in self.ahca.selected_step.groups:
+    #             if group.hist is None:
+    #                 group.hist = Histogram(particle=self, level=group.lvls_inds,
+    #                                        startpoint=self.startpoint)
+    #     for level in levels:
+    #         if not hasattr(level, 'histogram'):
+    #             level.histogram = Histogram()
+    #         try:
+    #             if not level.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+    #                                        fit_param.shift / channelwidth, fit_param.decaybg,
+    #                                        fit_param.irfbg,
+    #                                        start, end, fit_param.addopt,
+    #                                        fit_param.irf, fit_param.shiftfix):
+    #                 pass  # fit unsuccessful
+    #         except AttributeError:
+    #             print("No decay")
 
 
 class Trace:
@@ -491,6 +512,14 @@ class Histogram:
         self.level = level
         if level is None:
             self.microtimes = self.particle.microtimes[:]
+        elif type(level) is list:
+            if not self.particle.has_groups:
+                logger.error("Multiple levels provided, but has no groups")
+                raise RuntimeError("Multiple levels provided, but has no groups")
+            self.microtimes = np.array([])
+            for ind in level:
+                self.microtimes = np.append(self.microtimes, self.particle.cpts.levels[
+                    ind].microtimes)
         else:
             self.microtimes = self.level.microtimes[:]
 
@@ -623,27 +652,34 @@ class Histogram:
 
 
 class ParticleAllHists:
-    def __init__(self, particle:Particle):
+    def __init__(self, particle: Particle):
         self.part_uuid = particle.uuid
         self.numexp = None
         self.part_hist = particle.histogram
+
+        self.has_level_hists = particle.has_levels
         self.level_hists = list()
-        self.has_levels = particle.has_levels
-        if self.has_levels:
+        if particle.has_levels:
             for level in particle.levels:
-                if hasattr(level, 'histogram'):
+                if hasattr(level, 'histogram') and level.histogram is not None:
                     self.level_hists.append(level.histogram)
 
+        self.has_group_hists = particle.has_groups
+        self.group_hists = list()
+        if particle.has_groups:
+            for group in particle.groups:
+                if group.histogram is None:
+                    group.histogram = Histogram(particle=particle, level=group.lvls_inds,
+                                                startpoint=particle.startpoint)
+                self.group_hists.append(group.histogram)
+
     def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
-        if not self.part_hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-                                  fit_param.shift / channelwidth, fit_param.decaybg,
-                                  fit_param.irfbg, start, end, fit_param.addopt,
-                                  fit_param.irf, fit_param.shiftfix):
-            pass  # fit unsuccessful
         self.numexp = fit_param.numexp
-        if not self.has_levels:
-            return
-        for hist in self.level_hists:
+        all_hists = [self.part_hist]
+        all_hists.extend(self.level_hists)
+        all_hists.extend(self.group_hists)
+
+        for hist in all_hists:
             try:
                 if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
                                 fit_param.shift / channelwidth, fit_param.decaybg,

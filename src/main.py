@@ -22,8 +22,7 @@ from PyQt5 import uic
 from typing import Union
 import time
 
-from controllers import IntController, LifetimeController, GroupingController, SpectraController, \
-    resolve_levels
+from controllers import IntController, LifetimeController, GroupingController, SpectraController
 from thread_tasks import bin_all, OpenFile
 from threads import ProcessThread, WorkerResolveLevels, WorkerBinAll
 from tree_model import DatasetTreeNode, DatasetTreeModel
@@ -196,7 +195,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.irf_loaded = False
         self.has_spectra = False
 
-        self._current_level = None
+        # self._current_level = None
 
         self.tabWidget.currentChanged.connect(self.tab_change)
 
@@ -431,7 +430,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if current is not None:
             if hasattr(self, 'currentparticle'):
                 self.currentparticle = self.treemodel.get_particle(current)
-            self.current_level = None  # Reset current level when particle changes.
+            # self.current_level = None  # Reset current level when particle changes.
         if hasattr(self, 'currentparticle') and type(self.currentparticle) is smsh5.Particle:
             cur_tab_name = self.tabWidget.currentWidget().objectName()
 
@@ -606,27 +605,27 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.has_spectra = True
             self.display_data()
 
-            msgbx = TimedMessageBox(30, parent=self)
-            msgbx.setIcon(QMessageBox.Question)
-            msgbx.setText("Would you like to resolve levels now?")
-            msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
-                                   message_posttime=" seconds)")
-            msgbx.setWindowTitle("Resolve Levels?")
-            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-            msgbx.setDefaultButton(QMessageBox.Yes)
-            msgbx_result, timed_out = msgbx.exec()
-            if msgbx_result == QMessageBox.Yes:
-                confidences = ("0.99", "0.95", "0.90", "0.69")
-                if timed_out:
-                    index = 0
-                else:
-                    item, ok = QInputDialog.getItem(self, "Choose Confidence",
-                                                    "Select confidence interval to use.",
-                                                    confidences, 0, False)
-                    if ok:
-                        index = list(self.confidence_index.values()).index(int(float(item) * 100))
-                self.cmbConfIndex.setCurrentIndex(index)
-                self.int_controller.start_resolve_thread('all')
+            # msgbx = TimedMessageBox(30, parent=self)
+            # msgbx.setIcon(QMessageBox.Question)
+            # msgbx.setText("Would you like to resolve levels now?")
+            # msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
+            #                        message_posttime=" seconds)")
+            # msgbx.setWindowTitle("Resolve Levels?")
+            # msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+            # msgbx.setDefaultButton(QMessageBox.Yes)
+            # msgbx_result, timed_out = msgbx.exec()
+            # if msgbx_result == QMessageBox.Yes:
+            #     confidences = ("0.99", "0.95", "0.90", "0.69")
+            #     if timed_out:
+            #         index = 0
+            #     else:
+            #         item, ok = QInputDialog.getItem(self, "Choose Confidence",
+            #                                         "Select confidence interval to use.",
+            #                                         confidences, 0, False)
+            #         if ok:
+            #             index = list(self.confidence_index.values()).index(int(float(item) * 100))
+            #     self.cmbConfIndex.setCurrentIndex(index)
+            #     self.int_controller.start_resolve_thread('all')
         self.reset_gui()
         self.gbxExport_Int.setEnabled(True)
         self.chbEx_Trace.setEnabled(True)
@@ -663,131 +662,131 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.plot_trace()
         logger.info('Binnig all levels complete')
 
-    def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
-        """
-        Creates a worker to resolve levels.
-
-        Depending on the ``current_selected_all`` parameter the worker will be
-        given the necessary parameter to fit the current, selected or all particles.
-
-        Parameters
-        ----------
-        thread_finished
-        mode : {'current', 'selected', 'all'}
-            Possible values are 'current' (default), 'selected', and 'all'.
-        """
-
-        if thread_finished is None:
-            if self.data_loaded:
-                thread_finished = self.resolve_thread_complete
-            else:
-                thread_finished = self.open_file_thread_complete
-
-        selected = None
-        if mode == 'selected':
-            selected = self.get_checked_particles()
-
-        resolve_thread = WorkerResolveLevels(resolve_levels,
-                                             conf=self.confidence_index[
-                                                 self.cmbConfIndex.currentIndex()],
-                                             data=self.tree2dataset(),
-                                             currentparticle=self.currentparticle,
-                                             mode=mode,
-                                             resolve_selected=selected)
-        resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
-        resolve_thread.signals.start_progress.connect(self.start_progress)
-        resolve_thread.signals.progress.connect(self.update_progress)
-        resolve_thread.signals.status_message.connect(self.status_message)
-        resolve_thread.signals.reset_gconnect(self.reset_gui)
-
-        self.threadpool.start(resolve_thread)
-
-    # TODO: remove this method as it has been replaced by function
-    def resolve_levels(self, start_progress_sig: pyqtSignal,
-                       progress_sig: pyqtSignal, status_sig: pyqtSignal,
-                       mode: str,
-                       resolve_selected=None) -> None:  # parallel: bool = False
-        """
-        Resolves the levels in particles by finding the change points in the
-        abstimes data of a Particle instance.
-
-        Parameters
-        ----------
-        start_progress_sig : pyqtSignal
-            Used to call method to set up progress bar on G
-        progress_sig : pyqtSignal
-            Used to call method to increment progress bar on G
-        status_sig : pyqtSignal
-            Used to call method to show status bar message on G
-        mode : {'current', 'selected', 'all'}
-            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-        resolve_selected : list[smsh5.Partilce]
-            A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-        """
-
-        assert mode in ['current', 'selected', 'all'], \
-            "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-
-        if mode == 'current':  # Then resolve current
-            _, conf = self.get_gui_confidence()
-            self.currentparticle.cpts.run_cpa(confidence=conf, run_levels=True)
-
-        elif mode == 'all':  # Then resolve all
-            data = self.tree2dataset()
-            _, conf = self.get_gui_confidence()
-            try:
-                status_sig.emit('Resolving All Particle Levels...')
-                start_progress_sig.emit(data.num_parts)
-                # if parallel:
-                #     self.conf_parallel = conf
-                #     Parallel(n_jobs=-2, backend='threading')(
-                #         delayed(self.run_parallel_cpa)
-                #         (self.tree2particle(num)) for num in range(data.numpart)
-                #     )
-                #     del self.conf_parallel
-                # else:
-                for num in range(data.num_parts):
-                    data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
-                    progress_sig.emit()
-                status_sig.emit('Done')
-            except Exception as exc:
-                raise RuntimeError("Couldn't resolve levels.") from exc
-
-        elif mode == 'selected':  # Then resolve selected
-            assert resolve_selected is not None, \
-                'No selected particles provided.'
-            try:
-                _, conf = self.get_gui_confidence()
-                status_sig.emit('Resolving Selected Particle Levels...')
-                start_progress_sig.emit(len(resolve_selected))
-                for particle in resolve_selected:
-                    particle.cpts.run_cpa(confidence=conf, run_levels=True)
-                    progress_sig.emit()
-                status_sig.emit('Done')
-            except Exception as exc:
-                raise RuntimeError("Couldn't resolve levels.") from exc
-
-    def run_parallel_cpa(self, particle):
-        particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
-
+    # def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
+    #     """
+    #     Creates a worker to resolve levels.
+    #
+    #     Depending on the ``current_selected_all`` parameter the worker will be
+    #     given the necessary parameter to fit the current, selected or all particles.
+    #
+    #     Parameters
+    #     ----------
+    #     thread_finished
+    #     mode : {'current', 'selected', 'all'}
+    #         Possible values are 'current' (default), 'selected', and 'all'.
+    #     """
+    #
+    #     if thread_finished is None:
+    #         if self.data_loaded:
+    #             thread_finished = self.resolve_thread_complete
+    #         else:
+    #             thread_finished = self.open_file_thread_complete
+    #
+    #     selected = None
+    #     if mode == 'selected':
+    #         selected = self.get_checked_particles()
+    #
+    #     resolve_thread = WorkerResolveLevels(resolve_levels,
+    #                                          conf=self.confidence_index[
+    #                                              self.cmbConfIndex.currentIndex()],
+    #                                          data=self.tree2dataset(),
+    #                                          currentparticle=self.currentparticle,
+    #                                          mode=mode,
+    #                                          resolve_selected=selected)
+    #     resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
+    #     resolve_thread.signals.start_progress.connect(self.start_progress)
+    #     resolve_thread.signals.progress.connect(self.update_progress)
+    #     resolve_thread.signals.status_message.connect(self.status_message)
+    #     resolve_thread.signals.reset_gconnect(self.reset_gui)
+    #
+    #     self.threadpool.start(resolve_thread)
+    #
+    # # TODO: remove this method as it has been replaced by function
+    # def resolve_levels(self, start_progress_sig: pyqtSignal,
+    #                    progress_sig: pyqtSignal, status_sig: pyqtSignal,
+    #                    mode: str,
+    #                    resolve_selected=None) -> None:  # parallel: bool = False
+    #     """
+    #     Resolves the levels in particles by finding the change points in the
+    #     abstimes data of a Particle instance.
+    #
+    #     Parameters
+    #     ----------
+    #     start_progress_sig : pyqtSignal
+    #         Used to call method to set up progress bar on G
+    #     progress_sig : pyqtSignal
+    #         Used to call method to increment progress bar on G
+    #     status_sig : pyqtSignal
+    #         Used to call method to show status bar message on G
+    #     mode : {'current', 'selected', 'all'}
+    #         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+    #     resolve_selected : list[smsh5.Partilce]
+    #         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+    #     """
+    #
+    #     assert mode in ['current', 'selected', 'all'], \
+    #         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+    #
+    #     if mode == 'current':  # Then resolve current
+    #         _, conf = self.get_gui_confidence()
+    #         self.currentparticle.cpts.run_cpa(confidence=conf, run_levels=True)
+    #
+    #     elif mode == 'all':  # Then resolve all
+    #         data = self.tree2dataset()
+    #         _, conf = self.get_gui_confidence()
+    #         try:
+    #             status_sig.emit('Resolving All Particle Levels...')
+    #             start_progress_sig.emit(data.num_parts)
+    #             # if parallel:
+    #             #     self.conf_parallel = conf
+    #             #     Parallel(n_jobs=-2, backend='threading')(
+    #             #         delayed(self.run_parallel_cpa)
+    #             #         (self.tree2particle(num)) for num in range(data.numpart)
+    #             #     )
+    #             #     del self.conf_parallel
+    #             # else:
+    #             for num in range(data.num_parts):
+    #                 data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
+    #                 progress_sig.emit()
+    #             status_sig.emit('Done')
+    #         except Exception as exc:
+    #             raise RuntimeError("Couldn't resolve levels.") from exc
+    #
+    #     elif mode == 'selected':  # Then resolve selected
+    #         assert resolve_selected is not None, \
+    #             'No selected particles provided.'
+    #         try:
+    #             _, conf = self.get_gui_confidence()
+    #             status_sig.emit('Resolving Selected Particle Levels...')
+    #             start_progress_sig.emit(len(resolve_selected))
+    #             for particle in resolve_selected:
+    #                 particle.cpts.run_cpa(confidence=conf, run_levels=True)
+    #                 progress_sig.emit()
+    #             status_sig.emit('Done')
+    #         except Exception as exc:
+    #             raise RuntimeError("Couldn't resolve levels.") from exc
+    #
+    # def run_parallel_cpa(self, particle):
+    #     particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
+    #
     # TODO: remove this function
-    def resolve_thread_complete(self, mode: str):
-        """
-        Is performed after thread has been terminated.
-
-        Parameters
-        ----------
-        mode : {'current', 'selected', 'all'}
-            Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-        """
-        if self.tree2dataset().cpa_has_run:
-            self.tabGrouping.setEnabled(True)
-        if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
-            self.display_data()
-        logger.info('Resolving levels complete')
-        self.check_remove_bursts(mode=mode)
-        self.set_startpoint()
-        self.chbEx_Levels.setEnabled(True)
+    # def resolve_thread_complete(self, mode: str):
+    #     """
+    #     Is performed after thread has been terminated.
+    #
+    #     Parameters
+    #     ----------
+    #     mode : {'current', 'selected', 'all'}
+    #         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+    #     """
+    #     if self.tree2dataset().cpa_has_run:
+    #         self.tabGrouping.setEnabled(True)
+    #     if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+    #         self.display_data()
+    #     logger.info('Resolving levels complete')
+    #     self.check_remove_bursts(mode=mode)
+    #     self.set_startpoint()
+    #     self.chbEx_Levels.setEnabled(True)
 
     def check_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
@@ -817,7 +816,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 for num, particle in enumerate(particles):
                     if has_burst[num]:
                         particle.cpts.remove_bursts()
-            self.tree2dataset().makehistograms()
+            self.currentparticle.dataset.makehistograms()
 
             self.display_data()
 
@@ -981,7 +980,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'])
-                        for i, l in enumerate(p.levels):
+                        for i, l in enumerate(p.cpts.levels):
                             rows.append(
                                 [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons)])
@@ -991,7 +990,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             writer.writerows(rows)
 
                 if ex_grouped_levels:
-                    if p.has_levels:
+                    if p.has_groups:
                         grp_lvl_tr_path = os.path.join(f_dir, p.name + ' levels-grouped-plot.csv')
                         ints, times = p.levels2data(use_grouped=True)
                         rows = list()
@@ -1008,7 +1007,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         rows.append(['Grouped Level #', 'Start Time (s)', 'End Time (s)',
                                      'Dwell Time (/s)', 'Int (counts/s)', 'Num of Photons',
                                      'Group Index'])
-                        for i, l in enumerate(p.levels):
+                        for i, l in enumerate(p.ahca.selected_step.group_levels):
                             rows.append(
                                 [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons), str(l.group_ind)])
@@ -1032,7 +1031,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             rows.append(['Group #', 'Int (counts/s)', 'Total Dwell Time (s)',
                                          '# of Levels', '# of Photons'])
                             for num, group in enumerate(p.ahca.selected_step.groups):
-                                rows.append([str(num), str(group.int), str(group.dwell_time),
+                                rows.append([str(num), str(group.int_p_s), str(group.dwell_time_s),
                                              str(len(group.lvls)), str(group.num_photons)])
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
@@ -1064,11 +1063,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
                         taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
                         ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
                     if p.has_levels:
-                        lvl_path = os.path.join(f_dir, p.name + ' levels lifetimes.csv')
+                        lvl_path = os.path.join(f_dir, p.name + ' levels_lifetimes.csv')
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
-                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG', 'Chi Squared'])
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
+                                     'Chi Squared'])
                         for i, l in enumerate(p.levels):
                             if l.histogram.tau is None or l.histogram.amp is None:  # Problem with fitting the level
                                 tauexp = ['0' for i in range(p.numexp)]
@@ -1089,6 +1089,36 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                  str(l.int_p_s), str(l.num_photons)] + tauexp + ampexp + other_exp)
 
                         with open_file(lvl_path) as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                    if p.has_groups:
+                        group_path = os.path.join(f_dir, p.name + ' groups_lifetimes.csv')
+                        rows = list()
+                        rows.append(['Group #', 'Dwell Time (/s)',
+                                     'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
+                                     'Chi Squared'])
+                        for i, g in enumerate(p.groups):
+                            if g.histogram.tau is None or g.histogram.amp is None:  # Problem with fitting the level
+                                tauexp = ['0' for i in range(p.numexp)]
+                                ampexp = ['0' for i in range(p.numexp)]
+                                other_exp = ['0', '0', '0', '0']
+                            else:
+                                if p.numexp == 1:
+                                    tauexp = [str(g.histogram.tau)]
+                                    ampexp = [str(g.histogram.amp)]
+                                else:
+                                    tauexp = [str(tau) for tau in g.histogram.tau]
+                                    ampexp = [str(amp) for amp in g.histogram.amp]
+                                other_exp = [str(g.histogram.avtau), str(g.histogram.shift), str(g.histogram.bg),
+                                             str(g.histogram.irfbg), str(g.histogram.chisq)]
+
+                            rows.append(
+                                [str(i), str(g.dwell_time_s), str(g.int_p_s), str(g.num_photons)]
+                                + tauexp + ampexp + other_exp)
+
+                        with open_file(group_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
@@ -1120,6 +1150,22 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                 continue
                             decay = l.histogram.fit_decay
                             convd = l.histogram.convd
+                            rows = list()
+                            rows.append(['Time (ns)', 'Decay', 'Fitted'])
+                            for j, time in enumerate(times):
+                                rows.append([str(time), str(decay[j]), str(convd[j])])
+
+                            with open_file(hist_path) as f:
+                                writer = csv.writer(f, dialect=csv.excel)
+                                writer.writerows(rows)
+
+                        for i, g in enumerate(p.groups):
+                            hist_path = os.path.join(dir_path, 'group ' + str(i) + ' histogram.csv')
+                            times = g.histogram.convd_t
+                            if times is None:
+                                continue
+                            decay = g.histogram.fit_decay
+                            convd = g.histogram.convd
                             rows = list()
                             rows.append(['Time (ns)', 'Decay', 'Fitted'])
                             for j, time in enumerate(times):
@@ -1202,21 +1248,21 @@ class MainWindow(QMainWindow, UI_Main_Window):
         else:
             self.tabSpectra.setEnabled(False)
 
-    @property
-    def current_level(self):
-        return self._current_level
+    # @property
+    # def current_level(self):
+    #     return self._current_level
+    #
+    # @current_level.setter
+    # def current_level(self, value):
+    #     if value is None:
+    #         self._current_level = None
+    #     else:
+    #         try:
+    #             # print(self.currentparticle.current2data(value))
+    #             self._current_level = value
+    #         except:
+    #             pass
 
-    @current_level.setter
-    def current_level(self, value):
-        if value is None:
-            self._current_level = None
-        else:
-            try:
-                # print(self.currentparticle.current2data(value))
-                self._current_level = value
-            except:
-                pass
-            
     def error_handler(self, e: Exception):
         # logger(e)
         raise e

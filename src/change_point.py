@@ -31,7 +31,7 @@ logger = setup_logger(__name__)
 class DatasetSubset:
     """ A container for a custom list that accesses a subset of a H5 dataset"""
 
-    def __init__(self, dataset, start_ind:int, end_ind:int):
+    def __init__(self, dataset, start_ind: int, end_ind: int):
         assert dataset is not None, "No dataset provided"
 
         if not 0 <= start_ind < len(dataset) - 1:
@@ -261,32 +261,39 @@ class ChangePoints:
 
     def remove_bursts(self):
         assert self.has_burst, "Particle\tNo bursts to remove."
-        for burst_ind in np.flip(self.burst_levels):
-            # print(burst_ind)
-            merge_left = bool()
-            if burst_ind == self.num_levels - 1:
-                merge_left = True
-            elif burst_ind == 0:
-                merge_left = False
-            elif self.level_ints[burst_ind + 1] > self.level_ints[burst_ind - 1]:
-                merge_left = False
-            else:
-                merge_left = True
+        try:
+            cpt_inds = self.cpt_inds
+            conf_regions = self.conf_regions
+            num_ctps_max = self.num_cpts
+            for burst_ind in np.flip(self.burst_levels):
+                # print(burst_ind)
+                merge_left = bool()
+                if burst_ind == num_ctps_max:
+                    merge_left = True
+                elif burst_ind == 0:
+                    merge_left = False
+                elif self.level_ints[burst_ind + 1] > self.level_ints[burst_ind - 1]:
+                    merge_left = False
+                else:
+                    merge_left = True
 
-            merge_ind = 0
-            if merge_left:
-                del_ind = burst_ind - 1
-            else:
-                del_ind = burst_ind
+                merge_ind = 0
+                if merge_left:
+                    del_ind = burst_ind - 1
+                    num_ctps_max -= 1
+                else:
+                    del_ind = burst_ind
 
-            self.cpt_inds = np.delete(self.cpt_inds, del_ind)
-            del(self.conf_regions[del_ind])
-
-        self.num_cpts = len(self.cpt_inds)
-        self._cpa.define_levels(remove_prev=True)
-        # self.cpts.num_cpts
-        # self.cpts.inds
-        # self.cpts.
+                cpt_inds = np.delete(cpt_inds, del_ind)
+                del(conf_regions[del_ind])
+        except IndexError as e:
+            logger.error(f"Index error while removing photon burst for {self._particle}")
+            logger.error(e)
+        else:
+            self.cpt_inds = cpt_inds
+            self._cpa.conf_regions = conf_regions
+            self.num_cpts = len(self.cpt_inds)
+            self._cpa.define_levels(remove_prev=True)
 
 
 class Err:
@@ -300,7 +307,7 @@ class Level:
     """ Defines the start, end and intensity of a single level. """
 
     def __init__(self, abs_times: Dataset, microtimes: Dataset,
-                 level_inds: Tuple[int, int], int_p_s:float = None, group_ind: int = None):
+                 level_inds: Tuple[int, int], int_p_s: float = None, group_ind: int = None):
         """
         Initiate Level
 
@@ -316,7 +323,8 @@ class Level:
 
         assert abs_times is not None, "Levels:\tParameter 'abstimes' not given."
         assert level_inds is not None, "Levels:\tParameter 'level_inds' not given."
-        assert type(level_inds) is tuple, "Level:\tLevel indexes argument is not a tuple (start, end)."
+        assert type(level_inds) is tuple, "Level:\tLevel indexes argument is not a " \
+                                          "tuple (start, end)."
         self.level_inds = level_inds  # (first_ind, last_ind)
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
         self.times_ns = (abs_times[self.level_inds[0]], abs_times[self.level_inds[1]])
@@ -345,7 +353,7 @@ class Level:
 
     @property
     def times_s(self):
-        return (self.times_ns[0]/1E9, self.times_ns[1]/1E9)
+        return self.times_ns[0]/1E9, self.times_ns[1]/1E9
 
     @property
     def dwell_time_s(self):

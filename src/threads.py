@@ -13,6 +13,7 @@ from processes import ProcessProgressCmd as PPCmd, ProcessSigPassTask as PSCmd,\
     ProcessProgressTask as PPTask, ProcessSigPassTask as PSTask, ProcessTask, create_queue,\
     get_max_num_processes, get_empty_queue_exception, SingleProcess, ProcessTaskResult, \
     prog_sig_pass, ProcessProgress, ProcessProgFeedback, apply_autoproxy_fix, create_manager
+from tempfile import TemporaryDirectory
 
 logger = setup_logger(__name__)
 
@@ -27,7 +28,8 @@ class ProcessThread(QRunnable):
                  signals: ProcessThreadSignals = None,
                  worker_signals: WorkerSignals = None,
                  task_buffer_size: int = None,
-                 status_message: str = None):
+                 status_message: str = None,
+                 temp_dir: TemporaryDirectory = None):
         super().__init__()
         self._processes = []
         self._manager = create_manager()
@@ -35,9 +37,11 @@ class ProcessThread(QRunnable):
         self.result_queue = create_queue()
         self.feedback_queue = self._manager.Queue()
         # self.feedback_queue = create_queue()
+
         self.force_stop = False
         self.is_running = False
         self._status_message = status_message
+        self._temp_dir = temp_dir
 
         if num_processes:
             # assert type(num_processes) is int, 'Provided num_processes is ' \
@@ -46,10 +50,10 @@ class ProcessThread(QRunnable):
                 raise TypeError("Provided num_processes must be of type int")
             self.num_processes = num_processes
         else:
-            self.num_processes = get_max_num_processes()
+            self.num_processes = get_max_num_processes() - 1
 
         if not task_buffer_size:
-            task_buffer_size = self.num_processes
+            task_buffer_size = self.num_processes // 2
         self.task_buffer_size = task_buffer_size
 
         if not signals:
@@ -147,7 +151,8 @@ class ProcessThread(QRunnable):
             for _ in range(num_used_processes):
                 process = SingleProcess(task_queue=self.task_queue,
                                         result_queue=self.result_queue,
-                                        feedback_queue=self.feedback_queue)
+                                        feedback_queue=self.feedback_queue,
+                                        temp_dir=self._temp_dir)
                 self._processes.append(process)
                 process.start()
                 num_active_processes += 1
@@ -197,7 +202,8 @@ class ProcessThread(QRunnable):
                         else:
                             raise TypeError("Task result is not of type ProcessTaskResult")
 
-                    self.signals.results.emit(result)
+                    if not result.dont_send:
+                        self.signals.results.emit(result)
                     del result
 
                     # ind = task_uuids.index(result.task_uuid)
@@ -209,6 +215,7 @@ class ProcessThread(QRunnable):
                     num_task_left -= 1
 
         except Exception as exception:
+            print(exception)
             self.signals.error.emit(exception)
         # else:
         #     self.signals.result.emit(self.tasks)

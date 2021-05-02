@@ -1,7 +1,9 @@
 
 from __future__ import annotations
+import os
 from typing import Union, List, TYPE_CHECKING
 from copy import copy
+import tempfile
 
 import numpy as np
 import pyqtgraph as pg
@@ -10,7 +12,7 @@ from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QPen, QColor
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog
 import time
-from multiprocessing import Queue
+import pickle
 
 if TYPE_CHECKING:
     from main import MainWindow
@@ -21,6 +23,7 @@ from tcspcfit import FittingParameters, FittingDialog
 from threads import WorkerFitLifetimes, WorkerGrouping, WorkerResolveLevels, \
     ProcessThread, ProcessTask, ProcessTaskResult
 from thread_tasks import OpenFile
+from multiprocessing import Queue
 
 logger = setup_logger(__name__)
 
@@ -295,24 +298,32 @@ class IntController(QObject):
         else:
             return
 
-        plot_pen.brush()
+        # plot_pen.brush()
         plot_pen.setJoinStyle(Qt.RoundJoin)
         plot_pen.setCosmetic(True)
 
         plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
 
-        if self.mainwindow.current_level is not None:
-            current_ints, current_times = particle.current2data(
-                self.mainwindow.current_level)
-            current_ints = current_ints * self.get_bin() / 1E3
-            # print(current_ints, current_times)
+        if cur_tab_name == 'tabLifetime':
+            current_level = particle.hist_level_selected
+            if current_level is not None:
+                if current_level <= particle.num_levels - 1:
+                    current_ints, current_times = particle.current2data(current_level)
+                else:
+                    current_group = current_level - particle.num_levels
+                    current_ints, current_times = particle.current_group2data(current_group)
+                current_ints = current_ints * self.get_bin() / 1E3
+                print(current_ints, current_times)
 
-            if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
-                plot_pen.setColor(QColor('red'))
-                plot_pen.setWidthF(3)
-                plot_item.plot(x=current_times, y=current_ints, pen=plot_pen, symbol=None)
-            else:
-                logger.info('Infinity in level')
+                if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
+                    level_plot_pen = QPen()
+                    level_plot_pen.setCosmetic(True)
+                    level_plot_pen.setJoinStyle(Qt.RoundJoin)
+                    level_plot_pen.setColor(QColor('red'))
+                    level_plot_pen.setWidthF(3)
+                    plot_item.plot(x=current_times, y=current_ints, pen=level_plot_pen, symbol=None)
+                else:
+                    logger.info('Infinity in level')
 
     def plot_hist(self, particle: Particle = None, for_export: bool = False):
         if particle is None:
@@ -415,7 +426,7 @@ class IntController(QObject):
             line_pen.setCosmetic(True)
             line_times = [0, particle.dwell_time]
             for group in groups:
-                g_ints = [group.int * int_conv, group.int * int_conv]
+                g_ints = [group.int_p_s * int_conv, group.int_p_s * int_conv]
                 int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
 
     def plot_all(self):
@@ -603,27 +614,32 @@ class LifetimeController(QObject):
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """
 
-        if self.mainwindow.current_level is None:
-            pass
-        elif self.mainwindow.current_level == 0:
-            self.mainwindow.current_level = None
-        else:
-            self.mainwindow.current_level -= 1
+        cp = self.mainwindow.currentparticle
+        if cp.hist_level_selected is not None:
+            if cp.hist_level_selected == 0:
+                cp.hist_level_selected = None
+            else:
+                cp.hist_level_selected -= 1
         self.mainwindow.display_data()
 
     def gui_next_lev(self):
         """ Moves to the next resolves level and displays its decay curve. """
 
-        if self.mainwindow.current_level is None:
-            self.mainwindow.current_level = 0
-        else:
-            self.mainwindow.current_level += 1
+        cp = self.mainwindow.currentparticle
+        if cp.hist_level_selected is None:
+            cp.hist_level_selected = 0
+        elif cp.has_groups:
+            if cp.hist_level_selected != cp.num_levels - 1 + cp.num_groups:
+                cp.hist_level_selected += 1
+        elif cp.hist_level_selected != cp.num_levels - 1:
+            cp.hist_level_selected += 1
         self.mainwindow.display_data()
 
     def gui_whole_trace(self):
         "Unselects selected level and shows whole trace's decay curve"
 
-        self.mainwindow.current_level = None
+        # self.mainwindow.current_level = None
+        self.mainwindow.currentparticle.hist_level_selected = None
         self.mainwindow.display_data()
 
     def gui_load_irf(self):
@@ -692,10 +708,11 @@ class LifetimeController(QObject):
     def gui_fit_current(self):
         """ Fits the currently selected level's decay curve using the provided settings. """
 
-        if self.mainwindow.current_level is None:
+        level = self.mainwindow.currentparticle.hist_level_selected
+        if level is None:
             histogram = self.mainwindow.currentparticle.histogram
         else:
-            level = self.mainwindow.current_level
+            # level = self.mainwindow.current_level
             histogram = self.mainwindow.currentparticle.levels[level].histogram
         try:
             channelwidth = self.mainwindow.currentparticle.channelwidth
@@ -737,11 +754,14 @@ class LifetimeController(QObject):
     def update_results(self):
 
         currentparticle = self.mainwindow.currentparticle
-        if self.mainwindow.current_level is None:
+        level = currentparticle.hist_level_selected
+        if level is None:
             histogram = currentparticle.histogram
-        else:
-            level = self.mainwindow.current_level
+        elif level <= currentparticle.num_levels - 1:
             histogram = currentparticle.levels[level].histogram
+        else:
+            group = level - currentparticle.num_levels
+            histogram = currentparticle.groups[group].histogram
         if not histogram.fitted:
             return
         tau = histogram.tau
@@ -765,29 +785,40 @@ class LifetimeController(QObject):
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        currentlevel = self.mainwindow.current_level
+        current_level = self.mainwindow.currentparticle.hist_level_selected
         # print(currentlevel)
-        currentparticle = self.mainwindow.currentparticle
-        if currentlevel is None:
-            if currentparticle.histogram.fitted:
-                decay = currentparticle.histogram.fit_decay
-                t = currentparticle.histogram.convd_t
+        current_particle = self.mainwindow.currentparticle
+        if current_level is None:
+            if current_particle.histogram.fitted:
+                decay = current_particle.histogram.fit_decay
+                t = current_particle.histogram.convd_t
             else:
                 try:
-                    decay = currentparticle.histogram.decay
-                    t = currentparticle.histogram.t
+                    decay = current_particle.histogram.decay
+                    t = current_particle.histogram.t
 
                 except AttributeError:
                     logger.error('No Decay!')
                     return
-        else:
-            if currentparticle.levels[currentlevel].histogram.fitted:
-                decay = currentparticle.levels[currentlevel].histogram.fit_decay
-                t = currentparticle.levels[currentlevel].histogram.convd_t
+        elif current_level <= current_particle.num_levels - 1:
+            if current_particle.levels[current_level].histogram.fitted:
+                decay = current_particle.levels[current_level].histogram.fit_decay
+                t = current_particle.levels[current_level].histogram.convd_t
             else:
                 try:
-                    decay = currentparticle.levels[currentlevel].histogram.decay
-                    t = currentparticle.levels[currentlevel].histogram.t
+                    decay = current_particle.levels[current_level].histogram.decay
+                    t = current_particle.levels[current_level].histogram.t
+                except ValueError:
+                    return
+        else:
+            current_group = current_level - current_particle.num_levels
+            if current_particle.groups[current_group].histogram.fitted:
+                decay = current_particle.levels[current_group].histogram.fit_decay
+                t = current_particle.levels[current_group].histogram.convd_t
+            else:
+                try:
+                    decay = current_particle.groups[current_group].histogram.decay
+                    t = current_particle.groups[current_group].histogram.t
                 except ValueError:
                     return
 
@@ -797,7 +828,7 @@ class LifetimeController(QObject):
         if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
             plot_item = self.life_hist_plot
             plot_pen = QPen()
-            plot_pen.setWidthF(1.5)
+            plot_pen.setWidthF(2)
             plot_pen.setJoinStyle(Qt.RoundJoin)
             plot_pen.setColor(QColor('blue'))
             plot_pen.setCosmetic(True)
@@ -815,29 +846,41 @@ class LifetimeController(QObject):
             #     return
             # print(decay.max())
             plot_item.clear()
-            plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
-            unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+            try:
+                plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+            except Exception as e:
+                logger.error(e)
+            unit = 'ns with ' + str(current_particle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time', unit)
-            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            max_t = self.mainwindow.currentparticle.histogram.t[-1]
+            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
+            plot_item.getViewBox().setRange(xRange=[0, max_t])
             self.fitparamdialog.updateplot()
 
     def plot_convd(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        currentlevel = self.mainwindow.current_level
-        currentparticle = self.mainwindow.currentparticle
-        if currentlevel is None:
+        current_level = self.mainwindow.currentparticle.hist_level_selected
+        current_particle = self.mainwindow.currentparticle
+        if current_level is None:
             try:
-                convd = currentparticle.histogram.convd
-                t = currentparticle.histogram.convd_t
+                convd = current_particle.histogram.convd
+                t = current_particle.histogram.convd_t
 
             except AttributeError:
                 logger.error('No Decay!')
                 return
+        elif current_level <= current_particle.num_levels - 1:
+            try:
+                convd = current_particle.levels[current_level].histogram.convd
+                t = current_particle.levels[current_level].histogram.convd_t
+            except ValueError:
+                return
         else:
             try:
-                convd = currentparticle.levels[currentlevel].histogram.convd
-                t = currentparticle.levels[currentlevel].histogram.convd_t
+                current_group = current_level - current_particle.num_levels
+                convd = current_particle.groups[current_group].histogram.convd
+                t = current_particle.groups[current_group].histogram.convd_t
             except ValueError:
                 return
 
@@ -849,9 +892,9 @@ class LifetimeController(QObject):
         if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
             # plot_item = self.pgLifetime.getPlotItem()
             plot_pen = QPen()
-            plot_pen.setWidthF(4)
+            plot_pen.setWidthF(1)
             plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setColor(QColor('dark blue'))
+            plot_pen.setColor(QColor('red'))
             plot_pen.setCosmetic(True)
 
             # if remove_empty:
@@ -862,7 +905,7 @@ class LifetimeController(QObject):
 
             # plot_item.clear()
             self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
-            unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+            unit = 'ns with ' + str(current_particle.channelwidth) + 'ns bins'
             self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
             self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
 
@@ -891,7 +934,7 @@ class LifetimeController(QObject):
             particles = mw.get_checked_particles()
         elif mode == 'all':
             status_message = "Fitting Levels for All Particles..."
-            particles = mw.tree2dataset().particles
+            particles = mw.currentparticle.dataset.particles
 
         f_p = self.fitparam
         channelwidth = particles[0].channelwidth
@@ -948,8 +991,8 @@ class LifetimeController(QObject):
 
                 target_particle.histogram = result.new_task_obj.part_hist
 
-                for num, res_hist in enumerate(result.new_task_obj.level_hists):
-                    target_level = target_particle.levels[num]
+                for i, res_hist in enumerate(result.new_task_obj.level_hists):
+                    target_level = target_particle.levels[i]
                     target_level_microtimes = target_level.microtimes
 
                     res_hist.particle = target_particle
@@ -957,6 +1000,20 @@ class LifetimeController(QObject):
                     res_hist.level = target_level
 
                     target_level.histogram = res_hist
+
+                for i, res_group_hist in enumerate(result.new_task_obj.group_hists):
+                    target_group_lvls_inds = target_particle.groups[i].lvls_inds
+                    target_g_lvls_microtimes = np.array([])
+                    for lvls_ind in target_group_lvls_inds:
+                        m_times = target_particle.cpts.levels[lvls_ind].microtimes
+                        target_g_lvls_microtimes = np.append(target_g_lvls_microtimes, m_times)
+
+                    res_group_hist.particle = target_particle
+                    res_group_hist.microtimes = target_g_lvls_microtimes
+                    res_group_hist.level = target_group_lvls_inds
+
+                    target_particle.groups[i].histogram = res_group_hist
+
         except ValueError as e:
             logger.error(e)
 
@@ -1022,6 +1079,8 @@ class GroupingController(QObject):
 
         self.all_bic_plots = None
         self.all_last_solutions = None
+
+        self.temp_dir = None
 
     def clear_bic(self):
         self.bic_scatter_plot.clear()
@@ -1144,7 +1203,10 @@ class GroupingController(QObject):
             grouping_objs = [particle.ahca for particle in all_particles]
             status_message = "Grouping levels for all particle..."
 
-        g_process_thread = ProcessThread()
+        # g_process_thread = ProcessThread(num_processes=1, task_buffer_size=1)
+
+        self.temp_dir = tempfile.TemporaryDirectory(prefix="Full_SMS_Grouping")
+        g_process_thread = ProcessThread(temp_dir=self.temp_dir)
         g_process_thread.add_tasks_from_methods(objects=grouping_objs, method_name='run_grouping')
 
         g_process_thread.signals.status_update.connect(mw.status_message)
@@ -1169,18 +1231,42 @@ class GroupingController(QObject):
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
                 new_part = self.mainwindow.tree2particle(result_part_ind)
+
                 result_ahca = result.new_task_obj
                 result_ahca.particle = new_part
                 result_ahca.best_step._particle = new_part
                 for step in result_ahca.steps:
-                    step._paricle = new_part
+                    step._particle = new_part
+                    for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                        if hasattr(step, group_attr_name):
+                            group_attr = getattr(step, group_attr_name)
+                            if group_attr is not None:
+                                for group in group_attr:
+                                    for ahc_lvl in group.lvls:
+                                        ahc_hist = ahc_lvl.histogram
+                                        if hasattr(ahc_hist, 'particle'):
+                                            ahc_hist.particle = new_part
+
                 new_part.ahca = result_ahca
+                if new_part.has_groups:
+                    new_part.using_group_levels = True
+                    new_part.makelevelhists()
+                    new_part.using_group_levels = False
+                    new_part.makegrouphists()
+
 
             # self.results_gathered = True
         except ValueError as e:
             logger.error(e)
 
     def grouping_thread_complete(self, mode):
+        results = list()
+        for result_file in os.listdir(self.temp_dir.name):
+            with open(os.path.join(self.temp_dir.name, result_file), 'rb') as f:
+                results.append(pickle.load(f))
+        self.temp_dir.cleanup()
+        self.temp_dir = None
+        self.gather_replace_results(results=results)
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
@@ -1208,6 +1294,7 @@ class GroupingController(QObject):
 
     def error(self, e: Exception):
         logger.error(e)
+        print(e)
 
 
 class SpectraController(QObject):
@@ -1263,130 +1350,133 @@ class SpectraController(QObject):
         print('here')
         # self.spectra_widget.getImageItem().setLookupTable(self._look_up_table)
 
-def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal,
-                   level_resolved_sig: pyqtSignal,
-                   conf: Union[int, float], data: H5dataset, currentparticle: Particle, mode: str,
-                   resolve_selected=None,
-                   end_time_s=None) -> None:
-    """
-    TODO: edit the docstring
-    Resolves the levels in particles by finding the change points in the
-    abstimes data of a Particle instance.
+# def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
+#                    status_sig: pyqtSignal,
+#                    reset_gui_sig: pyqtSignal,
+#                    level_resolved_sig: pyqtSignal,
+#                    conf: Union[int, float], data: H5dataset,
+#                    currentparticle: Particle,
+#                    mode: str,
+#                    resolve_selected=None,
+#                    end_time_s=None) -> None:
+#     """
+#     TODO: edit the docstring
+#     Resolves the levels in particles by finding the change points in the
+#     abstimes data of a Particle instance.
+#
+#     Parameters
+#     ----------
+#     end_time_s
+#     currentparticle : Particle
+#     conf
+#     level_resolved_sig
+#     reset_gui_sig
+#     data : H5dataset
+#     start_progress_sig : pyqtSignal
+#         Used to call method to set up progress bar on G
+#     progress_sig : pyqtSignal
+#         Used to call method to increment progress bar on G
+#     status_sig : pyqtSignal
+#         Used to call method to show status bar message on G
+#     mode : {'current', 'selected', 'all'}
+#         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+#     resolve_selected : list[smsh5.Partilce]
+#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+#     """
+#
+#     # print(mode)
+#     assert mode in ['current', 'selected', 'all'], \
+#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+#
+#     if mode == 'current':  # Then resolve current
+#         currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True, end_time_s=end_time_s)
+#
+#     else:
+#         if mode == 'all':  # Then resolve all
+#             status_text = 'Resolving All Particle Levels...'
+#             parts = data.particles
+#
+#         elif mode == 'selected':  # Then resolve selected
+#             assert resolve_selected is not None, \
+#                 'No selected particles provided.'
+#             status_text = 'Resolving Selected Particle Levels...'
+#             parts = resolve_selected
+#
+#         try:
+#             status_sig.emit(status_text)
+#             start_progress_sig.emit(len(parts))
+#             for num, part in enumerate(parts):
+#                 logger.info(f'Busy Resolving Particle {num + 1}')
+#                 part.cpts.run_cpa(confidence=conf, run_levels=True, end_time_s=end_time_s)
+#                 progress_sig.emit()
+#             status_sig.emit('Done')
+#         except Exception as exc:
+#             raise RuntimeError("Couldn't resolve levels.") from exc
+#
+#     level_resolved_sig.emit()
+#     data.makehistograms(progress=False)
+#     reset_gui_sig.emit()
 
-    Parameters
-    ----------
-    end_time_s
-    currentparticle : Particle
-    conf
-    level_resolved_sig
-    reset_gui_sig
-    data : H5dataset
-    start_progress_sig : pyqtSignal
-        Used to call method to set up progress bar on G
-    progress_sig : pyqtSignal
-        Used to call method to increment progress bar on G
-    status_sig : pyqtSignal
-        Used to call method to show status bar message on G
-    mode : {'current', 'selected', 'all'}
-        Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-    resolve_selected : list[smsh5.Partilce]
-        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-    """
 
-    # print(mode)
-    assert mode in ['current', 'selected', 'all'], \
-        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-
-    if mode == 'current':  # Then resolve current
-        currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True, end_time_s=end_time_s)
-
-    else:
-        if mode == 'all':  # Then resolve all
-            status_text = 'Resolving All Particle Levels...'
-            parts = data.particles
-
-        elif mode == 'selected':  # Then resolve selected
-            assert resolve_selected is not None, \
-                'No selected particles provided.'
-            status_text = 'Resolving Selected Particle Levels...'
-            parts = resolve_selected
-
-        try:
-            status_sig.emit(status_text)
-            start_progress_sig.emit(len(parts))
-            for num, part in enumerate(parts):
-                logger.info(f'Busy Resolving Particle {num + 1}')
-                part.cpts.run_cpa(confidence=conf, run_levels=True, end_time_s=end_time_s)
-                progress_sig.emit()
-            status_sig.emit('Done')
-        except Exception as exc:
-            raise RuntimeError("Couldn't resolve levels.") from exc
-
-    level_resolved_sig.emit()
-    data.makehistograms(progress=False)
-    reset_gui_sig.emit()
-
-
-def group_levels(start_progress_sig: pyqtSignal,
-                 progress_sig: pyqtSignal,
-                 status_sig: pyqtSignal,
-                 reset_gui_sig: pyqtSignal,
-                 data: H5dataset,
-                 mode: str,
-                 currentparticle: Particle = None,
-                 group_selected=None) -> None:
-    """
-    TODO: edit the docstring
-    Resolves the levels in particles by finding the change points in the
-    abstimes data of a Particle instance.
-
-    Parameters
-    ----------
-    currentparticle : Particle
-    conf
-    level_resolved_sig
-    reset_gui_sig
-    data : H5dataset
-    start_progress_sig : pyqtSignal
-        Used to call method to set up progress bar on G
-    progress_sig : pyqtSignal
-        Used to call method to increment progress bar on G
-    status_sig : pyqtSignal
-        Used to call method to show status bar message on G
-    mode : {'current', 'selected', 'all'}
-        Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-    resolve_selected : list[smsh5.Partilce]
-        A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-    """
-
-    # print(mode)
-    assert mode in ['current', 'selected', 'all'], \
-        "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-
-    if mode == 'current':
-        status_text = 'Grouping Current Particle Levels...'
-        parts = [currentparticle]
-    elif mode == 'all':  # Then resolve all
-        status_text = 'Grouping All Particle Levels...'
-        parts = data.particles
-
-    elif mode == 'selected':  # Then resolve selected
-        assert group_selected is not None, \
-            'No selected particles provided.'
-        status_text = 'Grouping Selected Particle Levels...'
-        parts = group_selected
-
-    try:
-        status_sig.emit(status_text)
-        start_progress_sig.emit(len(parts))
-        for num, part in enumerate(parts):
-            logger.info(f'Busy Grouping Particle {num + 1}')
-            part.ahca.run_grouping()
-            progress_sig.emit()
-        status_sig.emit('Done')
-    except Exception as exc:
-        raise RuntimeError("Couldn't group levels.") from exc
+# def group_levels(start_progress_sig: pyqtSignal,
+#                  progress_sig: pyqtSignal,
+#                  status_sig: pyqtSignal,
+#                  reset_gui_sig: pyqtSignal,
+#                  data: H5dataset,
+#                  mode: str,
+#                  currentparticle: Particle = None,
+#                  group_selected=None) -> None:
+#     """
+#     TODO: edit the docstring
+#     Resolves the levels in particles by finding the change points in the
+#     abstimes data of a Particle instance.
+#
+#     Parameters
+#     ----------
+#     currentparticle : Particle
+#     conf
+#     level_resolved_sig
+#     reset_gui_sig
+#     data : H5dataset
+#     start_progress_sig : pyqtSignal
+#         Used to call method to set up progress bar on G
+#     progress_sig : pyqtSignal
+#         Used to call method to increment progress bar on G
+#     status_sig : pyqtSignal
+#         Used to call method to show status bar message on G
+#     mode : {'current', 'selected', 'all'}
+#         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
+#     resolve_selected : list[smsh5.Partilce]
+#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
+#     """
+#
+#     # print(mode)
+#     assert mode in ['current', 'selected', 'all'], \
+#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
+#
+#     if mode == 'current':
+#         status_text = 'Grouping Current Particle Levels...'
+#         parts = [currentparticle]
+#     elif mode == 'all':  # Then resolve all
+#         status_text = 'Grouping All Particle Levels...'
+#         parts = data.particles
+#
+#     elif mode == 'selected':  # Then resolve selected
+#         assert group_selected is not None, \
+#             'No selected particles provided.'
+#         status_text = 'Grouping Selected Particle Levels...'
+#         parts = group_selected
+#
+#     try:
+#         status_sig.emit(status_text)
+#         start_progress_sig.emit(len(parts))
+#         for num, part in enumerate(parts):
+#             logger.info(f'Busy Grouping Particle {num + 1}')
+#             part.ahca.run_grouping()
+#             progress_sig.emit()
+#         status_sig.emit('Done')
+#     except Exception as exc:
+#         raise RuntimeError("Couldn't group levels.") from exc
 
     # grou.emit()
     # data.makehistograms(progress=False)
