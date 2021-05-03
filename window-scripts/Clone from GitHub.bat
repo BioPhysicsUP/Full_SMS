@@ -1,10 +1,32 @@
 ECHO off
+
+echo.
+echo ###############################################
+echo    THIS SCRIPT MUST BE RUN AS ADMINISTRATOR!
+echo ###############################################
+echo.
+echo.
+
+echo Before running this script, please ensure that both Git and Python are installed.
+echo.
+echo Testing for git:
+CALL "git" "--version"
+echo.
+echo Testing for Python:
+CALL "python" "--version"
+echo.
+echo Git can be downloaded here: https://git-scm.com/downloads
+echo Python can be downloaded here: https://www.python.org/downloads/
+echo.
+
+pause
+
 powershell -Command "Get-Service -Name ssh-agent | Set-Service -StartupType Manual"
 CALL "ssh-agent"
 
 SET file_key_name=full_sms_deploy_key
 
-xcopy %~dp0%file_key_name% %homedrive%%homepath%\.ssh\
+CALL "xcopy" "%~dp0%file_key_name%" "%homedrive%%homepath%\.ssh\"
 
 (
 echo.
