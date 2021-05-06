@@ -14,7 +14,7 @@ from platform import system
 import ctypes
 
 import pyqtgraph as pg
-from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot, QTimer, QEvent
+from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot
 from PyQt5.QtGui import QIcon, QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QStyleFactory
@@ -23,10 +23,9 @@ from typing import Union
 import time
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController
-from thread_tasks import bin_all, OpenFile
-from threads import ProcessThread, WorkerResolveLevels, WorkerBinAll
+from thread_tasks import OpenFile
+from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
-from signals import worker_sig_pass
 
 try:
     import pkg_resources.py2_warn
@@ -38,7 +37,6 @@ from generate_sums import CPSums
 from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
-import processes as prcs
 from convert_pt3 import ConvertPt3Dialog
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
@@ -638,29 +636,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # logger.error(err)
         pass
 
-    def start_binall_thread(self, bin_size) -> None:
-        """
-
-        Parameters
-        ----------
-        bin_size
-        """
-
-        dataset = self.tree2dataset()
-
-        binall_thread = WorkerBinAll(dataset, bin_all, bin_size)
-        binall_thread.signals.resolve_finished.connect(self.binall_thread_complete)
-        binall_thread.signals.start_progress.connect(self.start_progress)
-        binall_thread.signals.progress.connect(self.update_progress)
-        binall_thread.signals.status_message.connect(self.status_message)
-
-        self.threadpool.start(binall_thread)
-
-    def binall_thread_complete(self):
-
-        self.status_message('Done')
-        self.plot_trace()
-        logger.info('Binnig all levels complete')
 
     # def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
     #     """

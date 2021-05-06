@@ -20,10 +20,8 @@ if TYPE_CHECKING:
 from my_logger import setup_logger
 from smsh5 import H5dataset, Particle, ParticleAllHists
 from tcspcfit import FittingParameters, FittingDialog
-from threads import WorkerFitLifetimes, WorkerGrouping, WorkerResolveLevels, \
-    ProcessThread, ProcessTask, ProcessTaskResult
-from thread_tasks import OpenFile
-from multiprocessing import Queue
+from threads import ProcessThread, ProcessTaskResult, WorkerBinAll
+from thread_tasks import OpenFile, BinAll, bin_all
 
 logger = setup_logger(__name__)
 
@@ -169,14 +167,46 @@ class IntController(QObject):
     def gui_apply_bin_all(self):
         """ Changes the bin size of the data of all the particles and then displays the new trace of the current particle. """
 
-        try:
-            self.mainwindow.start_binall_thread(self.get_bin())
-        except Exception as err:
-            logger.info('Error Occured: ' + str(err))
-        else:
-            self.plot_trace()
-            self.mainwindow.repaint()
-            logger.info('All traces binned')
+        self.start_binall_thread(self.get_bin())
+
+    def start_binall_thread(self, bin_size) -> None:
+        """
+
+        Parameters
+        ----------
+        bin_size
+        """
+
+        mw = self.mainwindow
+        dataset = mw.currentparticle.dataset
+
+        ba_process_thread = ProcessThread(num_processes=1)
+        ba_process_thread.signals.start_progress.connect(mw.start_progress)
+        ba_process_thread.signals.set_progress.connect(mw.set_progress)
+        ba_process_thread.signals.step_progress.connect(mw.update_progress)
+        ba_process_thread.signals.add_progress.connect(mw.update_progress)
+        ba_process_thread.signals.end_progress.connect(mw.end_progress)
+        ba_process_thread.signals.error.connect(self.error)
+        ba_process_thread.signals.finished.connect(self.binall_thread_complete)
+
+        ba_obj = BinAll(dataset=dataset, bin_size=bin_size)
+        ba_process_thread.add_tasks_from_methods(ba_obj, 'run_bin_all')
+
+
+        # binall_thread = WorkerBinAll(dataset, bin_all, bin_size)
+        # binall_thread.signals.resolve_finished.connect(self.binall_thread_complete)
+        # binall_thread.signals.start_progress.connect(mw.start_progress)
+        # binall_thread.signals.progress.connect(mw.update_progress)
+        # binall_thread.signals.status_message.connect(mw.status_message)
+
+        mw.threadpool.start(ba_process_thread)
+        mw.active_threads.append(ba_process_thread)
+
+    def binall_thread_complete(self):
+
+        self.mainwindow.status_message('Done')
+        self.plot_trace()
+        logger.info('Binnig all levels complete')
 
     def ask_end_time(self):
         """ Prompts the user to supply an end time."""
@@ -1236,6 +1266,7 @@ class GroupingController(QObject):
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
                 new_part = self.mainwindow.tree2particle(result_part_ind)
+                new_part.hist_level_selected = None
 
                 result_ahca = result.new_task_obj
                 result_ahca.particle = new_part
@@ -1294,6 +1325,7 @@ class GroupingController(QObject):
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:
             particle.using_group_levels = bool_use
+            particle.hist_level_selected = None
 
         self.mainwindow.int_controller.plot_all()
 

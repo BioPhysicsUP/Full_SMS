@@ -1,0 +1,8 @@
+# of Steps:,3
+Step with highest BIC value:,-288.5028243256909
+Step selected:,1
+
+Step #,# of Groups,BIC value
+0,3,-295.38359031666016
+1,2,-288.5028243256909
+2,1,-315.2627842836836

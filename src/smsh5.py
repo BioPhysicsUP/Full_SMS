@@ -611,17 +611,18 @@ class Histogram:
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
             if numexp == 1:
-                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift,
-                                      decaybg, irfbg, start, end, addopt)
+                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth,
+                                      tauparam, None, shift, decaybg, irfbg, start, end, addopt)
             elif numexp == 2:
-                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
-                                      decaybg, irfbg, start, end, addopt)
+                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam,
+                                      ampparam, shift, decaybg, irfbg, start, end, addopt)
             elif numexp == 3:
-                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
-                                        decaybg, irfbg, start, end, addopt)
-        except:
-            dbg.p('Error while fitting lifetime:', debug_from='smsh5')
-            print(traceback.format_exc().split('\n')[-2])
+                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth,
+                                        tauparam, ampparam, shift, decaybg,
+                                        irfbg, start, end, addopt)
+        except Exception as e:
+            logger.error(e)
+            # print(traceback.format_exc().split('\n')[-2])
             return False
 
         else:

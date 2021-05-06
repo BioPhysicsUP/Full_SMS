@@ -328,6 +328,7 @@ class ClusteringStep:
                                           int_p_s=group_int,
                                           group_ind=self.level_group_ind[i]))
 
+        group_levels.sort(key=lambda lvl: lvl.int_p_s)
         self.group_levels = group_levels
 
     @property

@@ -27,6 +27,47 @@
      </property>
     </spacer>
    </item>
+   <item row="0" column="0">
+    <widget class="QFrame" name="frame_3">
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <property name="lineWidth">
+      <number>0</number>
+     </property>
+     <layout class="QFormLayout" name="formLayout_2">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Number of Exponents</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QComboBox" name="combNumExp">
+        <item>
+         <property name="text">
+          <string>1</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>2</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>3</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
    <item row="3" column="2">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
@@ -117,7 +158,11 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLineEdit" name="line1Init"/>
+           <widget class="QLineEdit" name="line1Init">
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
           </item>
           <item row="2" column="2">
            <widget class="QLineEdit" name="line1Max">
@@ -194,7 +239,11 @@
            </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QLineEdit" name="line2Init2"/>
+           <widget class="QLineEdit" name="line2Init2">
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="4">
            <widget class="QLabel" name="label_8">
@@ -211,7 +260,11 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLineEdit" name="line2Init1"/>
+           <widget class="QLineEdit" name="line2Init1">
+            <property name="text">
+             <string>0.1</string>
+            </property>
+           </widget>
           </item>
           <item row="2" column="4">
            <widget class="QLineEdit" name="line2Max1">
@@ -245,7 +298,11 @@
         <widget class="QWidget" name="page_3">
          <layout class="QGridLayout" name="gridLayout_4">
           <item row="3" column="1">
-           <widget class="QLineEdit" name="line3Min2"/>
+           <widget class="QLineEdit" name="line3Min2">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="3" column="3">
            <widget class="QCheckBox" name="check3Fix2">
@@ -269,10 +326,18 @@
            </widget>
           </item>
           <item row="4" column="0">
-           <widget class="QLineEdit" name="line3Init3"/>
+           <widget class="QLineEdit" name="line3Init3">
+            <property name="text">
+             <string>10</string>
+            </property>
+           </widget>
           </item>
           <item row="4" column="1">
-           <widget class="QLineEdit" name="line3Min3"/>
+           <widget class="QLineEdit" name="line3Min3">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="2">
            <widget class="QLabel" name="label_13">
@@ -289,7 +354,14 @@
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="line3Min1"/>
+           <widget class="QLineEdit" name="line3Min1">
+            <property name="inputMask">
+             <string/>
+            </property>
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="2" column="3">
            <widget class="QCheckBox" name="check3Fix1">
@@ -306,10 +378,18 @@
            </widget>
           </item>
           <item row="2" column="2">
-           <widget class="QLineEdit" name="line3Max1"/>
+           <widget class="QLineEdit" name="line3Max1">
+            <property name="text">
+             <string>10</string>
+            </property>
+           </widget>
           </item>
           <item row="4" column="2">
-           <widget class="QLineEdit" name="line3Max3"/>
+           <widget class="QLineEdit" name="line3Max3">
+            <property name="text">
+             <string>100</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_14">
@@ -319,13 +399,25 @@
            </widget>
           </item>
           <item row="3" column="2">
-           <widget class="QLineEdit" name="line3Max2"/>
+           <widget class="QLineEdit" name="line3Max2">
+            <property name="text">
+             <string>10</string>
+            </property>
+           </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLineEdit" name="line3Init1"/>
+           <widget class="QLineEdit" name="line3Init1">
+            <property name="text">
+             <string>0.1</string>
+            </property>
+           </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QLineEdit" name="line3Init2"/>
+           <widget class="QLineEdit" name="line3Init2">
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
           </item>
           <item row="5" column="2">
            <spacer name="verticalSpacer_6">
@@ -355,10 +447,20 @@
         <widget class="QWidget" name="page_4">
          <layout class="QGridLayout" name="gridLayout_2">
           <item row="2" column="1">
-           <widget class="QLineEdit" name="line1AmpMin"/>
+           <widget class="QLineEdit" name="line1AmpMin">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="2" column="3">
            <widget class="QCheckBox" name="check1AmpFix">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string/>
             </property>
@@ -379,7 +481,14 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLineEdit" name="line1AmpInit"/>
+           <widget class="QLineEdit" name="line1AmpInit">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="2">
            <widget class="QLabel" name="label_21">
@@ -396,7 +505,14 @@
            </widget>
           </item>
           <item row="2" column="2">
-           <widget class="QLineEdit" name="line1AmpMax"/>
+           <widget class="QLineEdit" name="line1AmpMax">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="1">
            <widget class="QLabel" name="label_19">
@@ -430,7 +546,14 @@
            </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QLineEdit" name="line2AmpInit2"/>
+           <widget class="QLineEdit" name="line2AmpInit2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>0.5</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="4">
            <widget class="QLabel" name="label_24">
@@ -448,6 +571,9 @@
           </item>
           <item row="3" column="5">
            <widget class="QCheckBox" name="check2AmpFix2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string/>
             </property>
@@ -456,22 +582,32 @@
           <item row="2" column="4">
            <widget class="QLineEdit" name="line2AmpMax1">
             <property name="text">
-             <string>100000</string>
+             <string>1</string>
             </property>
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLineEdit" name="line2AmpInit1"/>
+           <widget class="QLineEdit" name="line2AmpInit1">
+            <property name="text">
+             <string>0.5</string>
+            </property>
+           </widget>
           </item>
           <item row="3" column="4">
            <widget class="QLineEdit" name="line2AmpMax2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
-             <string>100000</string>
+             <string>1</string>
             </property>
            </widget>
           </item>
           <item row="3" column="1">
            <widget class="QLineEdit" name="line2AmpMin2">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>0</string>
             </property>
@@ -523,7 +659,11 @@
         <widget class="QWidget" name="page_6">
          <layout class="QGridLayout" name="gridLayout_6">
           <item row="3" column="0">
-           <widget class="QLineEdit" name="line3AmpInit2"/>
+           <widget class="QLineEdit" name="line3AmpInit2">
+            <property name="text">
+             <string>0.3</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_28">
@@ -540,13 +680,28 @@
            </widget>
           </item>
           <item row="3" column="2">
-           <widget class="QLineEdit" name="line3AmpMax2"/>
+           <widget class="QLineEdit" name="line3AmpMax2">
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
           </item>
           <item row="4" column="0">
-           <widget class="QLineEdit" name="line3AmpInit3"/>
+           <widget class="QLineEdit" name="line3AmpInit3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>0.1</string>
+            </property>
+           </widget>
           </item>
           <item row="2" column="2">
-           <widget class="QLineEdit" name="line3AmpMax1"/>
+           <widget class="QLineEdit" name="line3AmpMax1">
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
           </item>
           <item row="1" column="3">
            <widget class="QLabel" name="label_31">
@@ -556,13 +711,31 @@
            </widget>
           </item>
           <item row="4" column="2">
-           <widget class="QLineEdit" name="line3AmpMax3"/>
+           <widget class="QLineEdit" name="line3AmpMax3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>1</string>
+            </property>
+           </widget>
           </item>
           <item row="3" column="1">
-           <widget class="QLineEdit" name="line3AmpMin2"/>
+           <widget class="QLineEdit" name="line3AmpMin2">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="4" column="1">
-           <widget class="QLineEdit" name="line3AmpMin3"/>
+           <widget class="QLineEdit" name="line3AmpMin3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="2" column="3">
            <widget class="QCheckBox" name="check3AmpFix1">
@@ -579,10 +752,17 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLineEdit" name="line3AmpInit1"/>
+           <widget class="QLineEdit" name="line3AmpInit1">
+            <property name="text">
+             <string>0.6</string>
+            </property>
+           </widget>
           </item>
           <item row="4" column="3">
            <widget class="QCheckBox" name="check3AmpFix3">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string/>
             </property>
@@ -603,7 +783,11 @@
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="line3AmpMin1"/>
+           <widget class="QLineEdit" name="line3AmpMin1">
+            <property name="text">
+             <string>0</string>
+            </property>
+           </widget>
           </item>
           <item row="5" column="1">
            <spacer name="verticalSpacer_7">
@@ -745,57 +929,9 @@
           </widget>
          </item>
          <item row="2" column="0" colspan="2">
-          <widget class="PlotWidget" name="pgFitParam" native="true">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-          </widget>
+          <widget class="PlotWidget" name="pgFitParam"/>
          </item>
         </layout>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="0" column="0">
-    <widget class="QFrame" name="frame_3">
-     <property name="frameShape">
-      <enum>QFrame::NoFrame</enum>
-     </property>
-     <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
-     </property>
-     <property name="lineWidth">
-      <number>0</number>
-     </property>
-     <layout class="QFormLayout" name="formLayout_2">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Number of Exponents</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QComboBox" name="combNumExp">
-        <item>
-         <property name="text">
-          <string>1</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>2</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>3</string>
-         </property>
-        </item>
        </widget>
       </item>
      </layout>
@@ -806,9 +942,8 @@
  <customwidgets>
   <customwidget>
    <class>PlotWidget</class>
-   <extends>QWidget</extends>
+   <extends>QGraphicsView</extends>
    <header>pyqtgraph.h</header>
-   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
