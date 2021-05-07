@@ -928,7 +928,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             tau1 = fp.tau[0][0]
             tau2 = fp.tau[1][0]
             amp1 = fp.amp[0][0]
-            amp2 = fp.amp[0][0]
+            amp2 = fp.amp[1][0]
             # print(amp1, amp2, tau1, tau2)
             model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2)
         elif fp.numexp == 3:

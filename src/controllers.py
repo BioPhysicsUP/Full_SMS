@@ -553,6 +553,7 @@ class IntController(QObject):
                 result.new_task_obj._particle = target_particle
                 result.new_task_obj._cpa._particle = target_particle
                 target_particle.cpts = result.new_task_obj
+                target_particle
             self.results_gathered = True
         except ValueError as e:
             logger.error(e)
@@ -645,25 +646,36 @@ class LifetimeController(QObject):
         """ Moves to the previous resolves level and displays its decay curve. """
 
         cp = self.mainwindow.currentparticle
+        changed = False
         if cp.hist_level_selected is not None:
             if cp.hist_level_selected == 0:
                 cp.hist_level_selected = None
+                changed = True
             else:
                 cp.hist_level_selected -= 1
-        self.mainwindow.display_data()
+                changed = True
+
+        if changed:
+            self.mainwindow.display_data()
 
     def gui_next_lev(self):
         """ Moves to the next resolves level and displays its decay curve. """
 
         cp = self.mainwindow.currentparticle
+        changed = False
         if cp.hist_level_selected is None:
             cp.hist_level_selected = 0
+            changed = True
         elif cp.has_groups:
-            if cp.hist_level_selected != cp.num_levels - 1 + cp.num_groups:
+            if cp.hist_level_selected < cp.num_levels + cp.num_groups - 1:
                 cp.hist_level_selected += 1
-        elif cp.hist_level_selected != cp.num_levels - 1:
+                changed = True
+        elif cp.hist_level_selected < cp.num_levels - 1:
             cp.hist_level_selected += 1
-        self.mainwindow.display_data()
+            changed = True
+
+        if changed:
+            self.mainwindow.display_data()
 
     def gui_whole_trace(self):
         "Unselects selected level and shows whole trace's decay curve"
@@ -738,12 +750,17 @@ class LifetimeController(QObject):
     def gui_fit_current(self):
         """ Fits the currently selected level's decay curve using the provided settings. """
 
-        level = self.mainwindow.currentparticle.hist_level_selected
-        if level is None:
-            histogram = self.mainwindow.currentparticle.histogram
+        cp = self.mainwindow.currentparticle
+        selected_level = cp.hist_level_selected
+        if selected_level is None:
+            histogram = cp.histogram
         else:
             # level = self.mainwindow.current_level
-            histogram = self.mainwindow.currentparticle.levels[level].histogram
+            if selected_level <= cp.num_levels - 1:
+                histogram = cp.levels[selected_level].histogram
+            else:
+                selected_group = selected_level - cp.num_levels
+                histogram = cp.groups[selected_group].histogram
         try:
             channelwidth = self.mainwindow.currentparticle.channelwidth
             shift = self.fitparam.shift / channelwidth
@@ -783,34 +800,55 @@ class LifetimeController(QObject):
 
     def update_results(self):
 
-        currentparticle = self.mainwindow.currentparticle
-        level = currentparticle.hist_level_selected
-        if level is None:
-            histogram = currentparticle.histogram
-        elif level <= currentparticle.num_levels - 1:
-            histogram = currentparticle.levels[level].histogram
+        cp = self.mainwindow.currentparticle
+        level_ind = cp.hist_level_selected
+        is_group = False
+        is_level = False
+
+        fit_name = f"{cp.name}"
+        if level_ind is None:
+            histogram = cp.histogram
+            fit_name = fit_name + ", Whole Trace"
+        elif level_ind <= cp.num_levels - 1:
+            histogram = cp.levels[level_ind].histogram
+            fit_name = fit_name + f", Level #{level_ind + 1}"
+            is_level = True
         else:
-            group = level - currentparticle.num_levels
-            histogram = currentparticle.groups[group].histogram
+            group_ind = level_ind - cp.num_levels
+            histogram = cp.groups[group_ind].histogram
+            is_group = True
+            fit_name = fit_name + f", Group #{group_ind + 1}"
         if not histogram.fitted:
             return
+        info = fit_name + f"\n{len(fit_name) * '*'}\n"
+
         tau = histogram.tau
         amp = histogram.amp
-        shift = histogram.shift
-        bg = histogram.bg
-        irfbg = histogram.irfbg
         try:
-            taustring = 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
-            ampstring = 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
+            info = 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
+            info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
         except TypeError:  # only one component
-            taustring = 'Tau = {:#.3g} ns'.format(tau)
-            ampstring = 'Amp = {:#.3g}'.format(amp)
-        shiftstring = 'Shift = {:#.3g} ns'.format(shift)
-        bgstring = 'Decay BG = {:#.3g}'.format(bg)
-        irfbgstring = 'IRF BG = {:#.3g}'.format(irfbg)
-        self.mainwindow.textBrowser.setText(
-            taustring + '\n' + ampstring + '\n' + shiftstring + '\n' + bgstring + '\n' +
-            irfbgstring)
+            info = 'Tau = {:#.3g} ns'.format(tau)
+            info = info + '\nAmp = {:#.3g}'.format(amp)
+
+        info = info + f'\nShift = {histogram.shift: .3g} ns'
+        info = info + f'\nDecay BG = {histogram.bg: .3g}'
+        info = info + f'\nIRF BG = {histogram.irfbg: .3g}'
+        info = info + f'\nChi-Squared = {histogram.chisq: .3g}'
+
+        if is_group:
+            group = cp.groups[group_ind]
+            info = info + f'\n# of photons = {group.num_photons}'
+            info = info + f'\nTotal Dwell Time (s) = {group.dwell_time_s: .3g}'
+        elif is_level:
+            level = cp.levels[level_ind]
+            info = info + f'\n# of photons = {level.num_photons}'
+            info = info + f'\nDwell Time (s) {level.dwell_time_s: .3g}'
+        else:
+            info = info + f'\n# of photons = {cp.num_photons}'
+            info = info + f'\nDwell Times (s) = {cp.dwell_time: .3g}'
+
+        self.mainwindow.textBrowser.setText(info)
 
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
@@ -826,11 +864,10 @@ class LifetimeController(QObject):
                 try:
                     decay = current_particle.histogram.decay
                     t = current_particle.histogram.t
-
                 except AttributeError:
                     logger.error('No Decay!')
                     return
-        elif current_level <= current_particle.num_levels - 1:
+        elif current_level < current_particle.num_levels:
             if current_particle.levels[current_level].histogram.fitted:
                 decay = current_particle.levels[current_level].histogram.fit_decay
                 t = current_particle.levels[current_level].histogram.convd_t
@@ -843,8 +880,8 @@ class LifetimeController(QObject):
         else:
             current_group = current_level - current_particle.num_levels
             if current_particle.groups[current_group].histogram.fitted:
-                decay = current_particle.levels[current_group].histogram.fit_decay
-                t = current_particle.levels[current_group].histogram.convd_t
+                decay = current_particle.groups[current_group].histogram.fit_decay
+                t = current_particle.groups[current_group].histogram.convd_t
             else:
                 try:
                     decay = current_particle.groups[current_group].histogram.decay
@@ -852,6 +889,10 @@ class LifetimeController(QObject):
                 except ValueError:
                     return
 
+        try:
+            decay.size
+        except AttributeError as e:
+            print(e)
         if decay.size == 0:
             return  # some levels have no photons
 
@@ -1127,6 +1168,8 @@ class GroupingController(QObject):
             point_num_groups = int(points[0].pos()[0])
             new_ind = curr_part.ahca.steps_num_groups.index(point_num_groups)
             curr_part.ahca.set_selected_step(new_ind)
+            curr_part.using_group_levels = False
+            curr_part.hist_level_selected = None
             if last_solution:
                 last_solution.setPen(pg.mkPen(width=1, color='k'))
             for p in points:

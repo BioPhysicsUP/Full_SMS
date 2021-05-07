@@ -336,6 +336,7 @@ class Level:
         self.microtimes = DatasetSubset(microtimes, self.level_inds[0], self.level_inds[1])
         # self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
         self.group_ind = group_ind
+        self.histogram = None  # TODO: hopefully this doesn't break anything.
 
         # TODO: Incorporate error margins
         # conf_ind_lower = conf_regions[0]

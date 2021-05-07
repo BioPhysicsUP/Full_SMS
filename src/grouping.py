@@ -47,7 +47,7 @@ class Group:
         self.histogram = None
 
         if self.lvls_inds is not None and particle is not None:
-            self.lvls = [particle.levels[i] for i in self.lvls_inds]
+            self.lvls = [particle.cpts.levels[i] for i in self.lvls_inds]
 
     @property
     def num_photons(self) -> int_p_s:
@@ -103,7 +103,7 @@ class ClusteringStep:
                  single_level: bool = False):
 
         self._particle = particle
-        self._num_levels = particle.num_levels
+        self._num_levels = particle.cpts.num_levels
         self.first = first
         self.single_level = single_level
         self.last = False or single_level
@@ -126,7 +126,7 @@ class ClusteringStep:
             self._seed_p_mj = np.identity(n=self._num_levels)
             if self.single_level:
                 self.groups = self._seed_groups
-                self.group_levels = self._particle.levels
+                self.group_levels = self._particle.cpts.levels
                 self.num_groups = self._num_levels
                 self.level_group_ind = list(range(self._num_levels))
         else:
@@ -226,7 +226,7 @@ class ClusteringStep:
 
         p_mj = self._ahc_p_mj.copy()
         prev_p_mj = p_mj.copy()
-        levels = self._particle.levels
+        levels = self._particle.cpts.levels
 
         i = 0
         diff_p_mj = 1
@@ -285,6 +285,7 @@ class ClusteringStep:
             g_m_levels = list(np.nonzero(self._em_p_mj[m, :])[0])
             if len(g_m_levels):
                 new_groups.append(Group(lvls_inds=g_m_levels, particle=self._particle))
+        new_groups.sort(key=lambda group: group.int_p_s)
         self.groups = new_groups
         self.num_groups = len(new_groups)
         if self.num_groups == 1:
@@ -303,7 +304,7 @@ class ClusteringStep:
         self.bic = 2 * self._em_log_l - (2 * num_g - 1) * np.log(num_cp) - num_cp * np.log(self._particle.num_photons)
 
     def group_2_levels(self):
-        part_levels = self._particle.levels
+        part_levels = self._particle.cpts.levels
         abs_times = self._particle.abstimes
         micro_times = self._particle.microtimes
 
@@ -328,7 +329,6 @@ class ClusteringStep:
                                           int_p_s=group_int,
                                           group_ind=self.level_group_ind[i]))
 
-        group_levels.sort(key=lambda lvl: lvl.int_p_s)
         self.group_levels = group_levels
 
     @property
@@ -406,8 +406,6 @@ class AHCA:
         try:
             if self.particle.has_levels:
 
-                # self.particle.bic_plot_data.clear_scatter_plot_item()
-
                 steps = []
                 if self.particle.num_levels == 1:
                     self.steps = [ClusteringStep(self.particle, single_level=True)]
@@ -423,6 +421,7 @@ class AHCA:
                         c_step.emc()
                         c_step.calc_bic()
                         c_step.group_2_levels()
+                        print([lvl.int_p_s for lvl in c_step.group_levels])
                         steps.append(c_step)
                         current_num_groups = c_step.num_groups
                         if current_num_groups != 1:
@@ -445,6 +444,11 @@ class AHCA:
     def set_selected_step(self, step_ind: int):
         assert 0 <= step_ind < self.num_steps, "AHCA: Provided step index out of range."
         self.selected_step_ind = step_ind
+        if not all([lvl.histogram is not None for lvl in self.steps[step_ind].group_levels]):
+            self.particle.makelevelhists(force_group_levels=True)
+        if not all([group.histogram is not None for group in self.steps[step_ind].groups]):
+            self.particle.makegrouphists()
+
 
     def reset_selected_step(self):
         self.selected_step_ind = self.best_step_ind

@@ -155,3 +155,5 @@ src/ui/mainwindow.ui.autosave
 *.pickle
 
 Syncfolders_Database_db
+
+test_data/export/
