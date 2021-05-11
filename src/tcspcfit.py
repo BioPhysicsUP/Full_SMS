@@ -7,11 +7,12 @@ Bertus van Heerden
 University of Pretoria
 """
 
+from __future__ import annotations
 import numpy as np
 import pyqtgraph as pg
 import scipy
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPen, QColor
+from PyQt5.QtGui import QPen, QColor, QDoubleValidator
 from PyQt5.QtWidgets import QLineEdit, QCheckBox, QDialog, QComboBox, QMessageBox
 from matplotlib import pyplot as plt
 from scipy.fftpack import fft, ifft
@@ -19,6 +20,10 @@ from scipy.optimize import curve_fit, nnls
 from scipy.signal import convolve
 import file_manager as fm
 from PyQt5 import uic
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from controllers import LifetimeController
 
 from my_logger import setup_logger
 
@@ -403,6 +408,15 @@ class FluoFit:
             self.shiftmin = -2000
             self.shiftmax = 2000
 
+    @staticmethod
+    def df_len(test_obj) -> int:
+        df_num = 0
+        if type(test_obj) in [list, np.ndarray]:
+            df_num = len(test_obj)
+        elif test_obj is not None:
+            df_num = 1
+        return df_num
+
     def results(self, tau, dtau, shift, amp=1):
         """Handle results after fitting
 
@@ -427,13 +441,15 @@ class FluoFit:
         self.amp = amp
         self.shift = shift*self.channelwidth
 
+        param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
+
         # residuals = self.convd - self.measured
         # residuals = residuals / np.sqrt(np.abs(self.measured))
         residuals = (self.convd - self.measured) * self.meas_max
         residuals = residuals / np.sqrt(np.abs(self.measured * self.meas_max))
         residualsnotinf = residuals != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
-        chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - 4 - 1)
+        chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - param_df - 1)
         # chisquared = chisquared * self.meas_max  # This is necessary because of normalisation
         self.chisq = chisquared
         self.t = self.t[self.startpoint:self.endpoint]
@@ -592,7 +608,7 @@ class ThreeExp(FluoFit):
 
 
 class FittingParameters:
-    def __init__(self, parent):
+    def __init__(self, parent: LifetimeController):
         self.parent = parent
         self.fpd = self.parent.fitparamdialog
         self.irf = None
@@ -616,6 +632,7 @@ class FittingParameters:
             self.amp = [[self.get_from_gui(i) for i in
                          [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax,
                           self.fpd.check1AmpFix]]]
+            self.amp[0][0] = 1
 
         elif self.numexp == 2:
             self.tau = [[self.get_from_gui(i) for i in
@@ -630,6 +647,7 @@ class FittingParameters:
                         [self.get_from_gui(i) for i in
                          [self.fpd.line2AmpInit2, self.fpd.line2AmpMin2, self.fpd.line2AmpMax2,
                           self.fpd.check2AmpFix2]]]
+            self.amp[1][0] = 1 - self.amp[0][0]
 
         elif self.numexp == 3:
             self.tau = [[self.get_from_gui(i) for i in
@@ -650,6 +668,7 @@ class FittingParameters:
                         [self.get_from_gui(i) for i in
                          [self.fpd.line3AmpInit3, self.fpd.line3AmpMin3, self.fpd.line3AmpMax3,
                           self.fpd.check3AmpFix3]]]
+            self.amp[2][0] = 1 - self.amp[0][0] - self.amp[1][0]
 
         self.shift = self.get_from_gui(self.fpd.lineShift)
         self.shiftfix = self.get_from_gui(self.fpd.checkFixIRF)
@@ -671,20 +690,38 @@ class FittingParameters:
         else:
             self.addopt = None
 
-    @staticmethod
-    def get_from_gui(guiobj):
+    # @staticmethod
+    def get_from_gui(self, guiobj):
         if type(guiobj) == QLineEdit:
+            invalid = 0
+            if guiobj in [*self.fpd.tau_edits, *self.fpd.amp_edits]:
+                invalid = 0.0001
+            elif guiobj is self.fpd.time_edits[1]:
+                invalid = None
+            elif guiobj in self.fpd.bg_edits:
+                invalid = None
+
             if guiobj.text() == '':
-                return None
+                return invalid
             else:
                 text = guiobj.text()
-                num_chs = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',']
+                num_chs = ['-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',']
                 if all([ch in num_chs for ch in text]):
+                    if text.count('-') > 1 or text.count(',') > 1 or text.count('.') > 1:
+                        return invalid
                     if text[0] in ['.', ',']:
                         text = '0' + text
-                    return float(text)
+                    if text[0] == '-':
+                        if len(text) == 1:
+                            text = 0
+                        elif text[1] in ['.', ',']:
+                            text = text[0] + '0' + text[1:]
+                    float_text = float(text)
+                    if float_text == 0:
+                        float_text = invalid
+                    return float_text
                 else:
-                    return None
+                    return invalid
         elif type(guiobj) == QCheckBox:
             return float(guiobj.isChecked())
 
@@ -700,26 +737,81 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.mainwindow = mainwindow
         self.lifetime_controller = lifetime_controller
         self.pgFitParam.setBackground(background=None)
-        for widget in self.findChildren(QLineEdit):
-            widget.textChanged.connect(self.updateplot)
-        for widget in self.findChildren(QCheckBox):
-            widget.stateChanged.connect(self.updateplot)
-        for widget in self.findChildren(QComboBox):
-            widget.currentTextChanged.connect(self.updateplot)
-        self.updateplot()
+
+        self.tau_edits = [self.line1Init, self.line2Init1, self.line2Init2, self.line3Init1,
+                          self.line3Init2, self.line3Init3]
+        self.tau_min_edits = [self.line1Min, self.line2Min1, self.line2Min2, self.line3Min1,
+                              self.line3Min2, self.line3Min3]
+        self.tau_max_edits = [self.line1Max, self.line2Max1, self.line2Max2, self.line3Max1,
+                              self.line3Max2, self.line3Max3]
+
+        self.amp_edits = [self.line1AmpInit, self.line2AmpInit1, self.line2AmpInit2,
+                          self.line3AmpInit1, self.line3AmpInit2, self.line3AmpInit3]
+        self.amp_min_edits = [self.line1AmpMin, self.line2AmpMin1, self.line2AmpMin2,
+                              self.line3AmpMin1, self.line3AmpMin2, self.line3AmpMin3]
+        self.amp_max_edits = [self.line1AmpMax, self.line2AmpMax1, self.line2AmpMax2,
+                              self.line3AmpMax1, self.line3AmpMax2, self.line3AmpMax3]
+
+        self.bg_edits = [self.lineDecayBG, self.lineIRFBG]
+        self.time_edits = [self.lineStartTime, self.lineEndTime]
+
+        self.irf_shift_edit = self.lineShift
+
+        self._tau_validator = QDoubleValidator(0.00001, 1000, 5)
+        self._tau_validator.setNotation(QDoubleValidator.StandardNotation)
+        for tau_edit in self.tau_edits:
+            tau_edit.setValidator(self._tau_validator)
+            tau_edit.textChanged.connect(self.updateplot)
+
+        self._tau_min_max_validator = QDoubleValidator(0, 1000, 5)
+        self._tau_min_max_validator.setNotation(QDoubleValidator.StandardNotation)
+        for tau_min_max_edit in [*self.amp_min_edits, *self.tau_max_edits]:
+            tau_min_max_edit.setValidator(self._tau_min_max_validator)
+
+        self._amp_validator = QDoubleValidator(0.00001, 1, 5)
+        self._amp_validator.setNotation(QDoubleValidator.StandardNotation)
+        for amp_edit in self.amp_edits:
+            amp_edit.setValidator(self._amp_validator)
+            amp_edit.textChanged.connect(self.updateplot)
+
+        self._amp_min_max_validator = QDoubleValidator(0, 1, 5)
+        self._amp_min_max_validator.setNotation(QDoubleValidator.StandardNotation)
+        for amp_min_max_edit in [*self.amp_min_edits, *self.amp_max_edits]:
+            amp_min_max_edit.setValidator(self._amp_min_max_validator)
+
+        self._bg_time_validator = QDoubleValidator(0, 5000, 5)
+        self._bg_time_validator.setNotation(QDoubleValidator.StandardNotation)
+        for bg_edit in self.bg_edits:
+            bg_edit.setValidator(self._bg_time_validator)
+        for time_edit in self.time_edits:
+            time_edit.setValidator(self._bg_time_validator)
+            time_edit.textChanged.connect(self.updateplot)
+
+        self._irf_validator = QDoubleValidator(-1000, 1000, 5)
+        self._irf_validator.setNotation(QDoubleValidator.StandardNotation)
+        self.irf_shift_edit.setValidator(self._irf_validator)
+        self.irf_shift_edit.textChanged.connect(self.updateplot)
+        self.combNumExp.currentIndexChanged.connect(self.updateplot)
+
+        # for widget in self.findChildren(QLineEdit):
+        #     widget.textChanged.connect(self.text_changed)
+        # for widget in self.findChildren(QCheckBox):
+        #     widget.stateChanged.connect(self.text_changed)
+        # for widget in self.findChildren(QComboBox):
+        #     widget.currentTextChanged.connect(self.text_changed)
+        # self.updateplot()
 
         # self.lineStartTime.setValidator(QIntValidator())
         # self.lineEndTime.setValidator(QIntValidator())
 
     def updateplot(self, *args):
-
         if not hasattr(self.lifetime_controller, 'fitparam'):
             return
         else:
             self.lifetime_controller.fitparam.getfromdialog()
             crit_params = list()
             crit_params.extend(self.lifetime_controller.fitparam.tau)
-            crit_params.extend(self.lifetime_controller.fitparam.amp)
+            crit_params.extend(self.lifetime_controller.fitparam.amp[:-1])
             for param in crit_params:
                 if None in param:
                     return
@@ -751,10 +843,10 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         convd = convd / convd.max()
 
         try:
-            if self.mainwindow.currentparticle.hist_level_selected is None:
+            if self.mainwindow.currentparticle.level_selected is None:
                 histogram = self.mainwindow.currentparticle.histogram
             else:
-                level = self.mainwindow.currentparticle.hist_level_selected
+                level = self.mainwindow.currentparticle.level_selected
                 if level <= self.mainwindow.currentparticle.num_levels - 1:
                     histogram = self.mainwindow.currentparticle.levels[level].histogram
                 else:

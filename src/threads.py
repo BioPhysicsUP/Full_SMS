@@ -446,9 +446,7 @@ class WorkerBinAll(QRunnable):
         """ The code that will be run when the thread is started. """
 
         try:
-            self.binall_func(self.dataset, self.bin_size, self.signals.start_progress,
-                             self.signals.progress, self.signals.status_message,
-                             self.signals.bin_size)
+            self.binall_func(self.dataset, self.bin_size)
         except Exception as err:
             self.signals.error.emit(err)
         finally:

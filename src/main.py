@@ -14,7 +14,7 @@ from platform import system
 import ctypes
 
 import pyqtgraph as pg
-from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot, QTimer, QEvent
+from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot
 from PyQt5.QtGui import QIcon, QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QStyleFactory
@@ -23,10 +23,9 @@ from typing import Union
 import time
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController
-from thread_tasks import bin_all, OpenFile
-from threads import ProcessThread, WorkerResolveLevels, WorkerBinAll
+from thread_tasks import OpenFile
+from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
-from signals import worker_sig_pass
 
 try:
     import pkg_resources.py2_warn
@@ -38,7 +37,6 @@ from generate_sums import CPSums
 from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
-import processes as prcs
 from convert_pt3 import ConvertPt3Dialog
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
@@ -110,7 +108,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                             int_hist_widget=self.pgInt_Hist_PlotWidget,
                                             lifetime_widget=self.pgLifetime_Int_PlotWidget,
                                             groups_int_widget=self.pgGroups_Int_PlotWidget,
-                                            groups_hist_widget=self.pgGroups_Hist_PlotWidget)
+                                            groups_hist_widget=self.pgGroups_Hist_PlotWidget,
+                                            level_info_container=self.wdgInt_Level_Info_Container,
+                                            level_info_text=self.txtLevelInfoInt,
+                                            int_level_line=self.lineInt_Level)
         self.lifetime_controller = \
             LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
                                residual_widget=self.pgLieftime_Residuals_PlotWidget)
@@ -125,7 +126,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnResolve.clicked.connect(i_c.gui_resolve)
         self.btnResolve_Selected.clicked.connect(i_c.gui_resolve_selected)
         self.btnResolveAll.clicked.connect(i_c.gui_resolve_all)
-        self.chbInt_Show_Hist.stateChanged.connect(i_c.hide_unhide_hist)
+        self.chbInt_Show_Hist.stateChanged.connect(i_c.hist_chb_changed)
+        self.chbInt_Show_Level_Info.stateChanged.connect(i_c.level_info_chb_changed)
         self.chbInt_Show_Groups.stateChanged.connect(i_c.plot_all)
         self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
         self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
@@ -439,6 +441,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.update_int_gui()
                 self.int_controller.set_bin(self.currentparticle.bin_size)
                 self.int_controller.plot_trace()
+                self.int_controller.update_level_info()
                 if cur_tab_name != 'tabLifetime':
                     self.int_controller.plot_hist()
                 else:
@@ -638,29 +641,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # logger.error(err)
         pass
 
-    def start_binall_thread(self, bin_size) -> None:
-        """
-
-        Parameters
-        ----------
-        bin_size
-        """
-
-        dataset = self.tree2dataset()
-
-        binall_thread = WorkerBinAll(dataset, bin_all, bin_size)
-        binall_thread.signals.resolve_finished.connect(self.binall_thread_complete)
-        binall_thread.signals.start_progress.connect(self.start_progress)
-        binall_thread.signals.progress.connect(self.update_progress)
-        binall_thread.signals.status_message.connect(self.status_message)
-
-        self.threadpool.start(binall_thread)
-
-    def binall_thread_complete(self):
-
-        self.status_message('Done')
-        self.plot_trace()
-        logger.info('Binnig all levels complete')
 
     # def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
     #     """

@@ -198,6 +198,24 @@ class OpenFile:
         return dataset
 
 
+class BinAll:
+    def __init__(self, dataset: smsh5.H5dataset,
+                 bin_size: float,
+                 progress_tracker: ProgressTracker = None):
+        self.dataset = dataset
+        self.bin_size = bin_size
+        self.bin_all_func = bin_all
+        self.progress_tracker = progress_tracker
+
+    def run_bin_all(self, feedback_queue: mp.JoinableQueue):
+        sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
+        prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
+        self.bin_all_func(dataset= self.dataset,
+                          bin_size=self.bin_size,
+                          sig_fb=sig_fb,
+                          prog_fb=prog_fb)
+
+
 def bin_all(dataset: smsh5.H5dataset,
             bin_size: float,
             for_irf: bool = False,

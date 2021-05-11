@@ -4,11 +4,12 @@ Bertus van Heerden and Joshua Botha
 University of Pretoria
 2018
 """
+from __future__ import annotations
 import ast
 import os
 import re
 import traceback
-from typing import List, Union, Tuple
+from typing import List, Union, TYPE_CHECKING
 from uuid import uuid1
 
 import h5pickle
@@ -24,6 +25,9 @@ from grouping import AHCA
 from my_logger import setup_logger
 from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
 from tcspcfit import FittingParameters
+
+if TYPE_CHECKING:
+    from change_point import Level
 
 logger = setup_logger(__name__)
 
@@ -236,7 +240,7 @@ class Particle:
         self.bin_size = None
 
         self.startpoint = None
-        self.hist_level_selected = None
+        self.level_selected = None
         self.using_group_levels = False
 
     @property
@@ -421,14 +425,25 @@ class Particle:
     def makehistogram(self, channel=True):
         """Put the arrival times into a histogram"""
 
-        self.histogram = Histogram(self, startpoint=self.startpoint, channel=channel)
+        self.histogram = Histogram(self, start_point=self.startpoint, channel=channel)
         # print(np.max(self.histogram.decay))
 
-    def makelevelhists(self, channel=True):
+    def makelevelhists(self, channel: bool = True,
+                       force_cpts_levels: bool = False,
+                       force_group_levels: bool = False):
         """Make level histograms"""
 
         if self.has_levels:
-            for level in self.levels:
+            if force_cpts_levels or force_group_levels:
+                levels = list()
+                if force_cpts_levels:
+                    levels.extend(self.cpts.levels)
+                if force_group_levels:
+                    levels.extend(self.ahca.selected_step.group_levels)
+            else:
+                levels = self.levels
+
+            for level in levels:
                 level.histogram = Histogram(self, level, self.startpoint, channel=channel)
 
     def makegrouphists(self, channel=True):
@@ -506,7 +521,11 @@ class Trace:
 
 class Histogram:
 
-    def __init__(self, particle, level=None, startpoint=None, channel=True):
+    def __init__(self, particle: Particle,
+                 level: Union[Level, List[int]] = None,
+                 start_point: float = None,
+                 channel: bool = True,
+                 trim_start: bool = False):
         no_sort = False
         self.particle = particle
         self.level = level
@@ -529,20 +548,20 @@ class Histogram:
         else:
             tmin = min(self.particle.tmin, self.microtimes.min())
             tmax = max(self.particle.tmax, self.microtimes.max())
-            if startpoint is None:
+            if start_point is None:
                 pass
             else:
                 if channel:
-                    startpoint = int(startpoint)
+                    start_point = int(start_point)
                     t = np.arange(tmin, tmax, self.particle.channelwidth)
-                    tmin = t[startpoint]
+                    tmin = t[start_point]
                     no_sort = True
                 else:
-                    tmin = startpoint
+                    tmin = start_point
                     tmax = max(self.particle.tmax, self.microtimes.max())
 
             sorted_micro = np.sort(self.microtimes)
-            if not no_sort:
+            if not no_sort and trim_start:
                 tmin = sorted_micro[np.searchsorted(sorted_micro, tmin)]  # Make sure bins align with TCSPC bins
             tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # - 1  # Fix if max is end
 
@@ -559,7 +578,7 @@ class Histogram:
 
             assert len(self.t) == len(self.decay), "Time series must be same length as decay " \
                                                    "histogram"
-            if startpoint is None:
+            if start_point is None and trim_start:
                 try:
                     self.decaystart = np.nonzero(self.decay)[0][0]
                 except IndexError:  # Happens when there is a level with no photons
@@ -567,12 +586,15 @@ class Histogram:
                 else:
                     if level is not None:
                         self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=self.decaystart)
+            else:
+                self.decaystart = 0
 
             try:
                 self.t -= self.t.min()
             except ValueError:
                 dbg.p(f"Histogram object of {self.particle.name} does not have a valid self.t attribute", "Histogram")
 
+        # print(f"{particle.name}: tmin={tmin}, tmax={tmax}")
         self.convd = None
         self.convd_t = None
         self.fitted = False
@@ -611,17 +633,18 @@ class Histogram:
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
             if numexp == 1:
-                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, None, shift,
-                                      decaybg, irfbg, start, end, addopt)
+                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth,
+                                      tauparam, None, shift, decaybg, irfbg, start, end, addopt)
             elif numexp == 2:
-                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
-                                      decaybg, irfbg, start, end, addopt)
+                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam,
+                                      ampparam, shift, decaybg, irfbg, start, end, addopt)
             elif numexp == 3:
-                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam, ampparam, shift,
-                                        decaybg, irfbg, start, end, addopt)
-        except:
-            dbg.p('Error while fitting lifetime:', debug_from='smsh5')
-            print(traceback.format_exc().split('\n')[-2])
+                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth,
+                                        tauparam, ampparam, shift, decaybg,
+                                        irfbg, start, end, addopt)
+        except Exception as e:
+            logger.error(e)
+            # print(traceback.format_exc().split('\n')[-2])
             return False
 
         else:
@@ -674,7 +697,7 @@ class ParticleAllHists:
             for group in particle.groups:
                 if group.histogram is None:
                     group.histogram = Histogram(particle=particle, level=group.lvls_inds,
-                                                startpoint=particle.startpoint)
+                                                start_point=particle.startpoint)
                 self.group_hists.append(group.histogram)
 
     def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
