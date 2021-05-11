@@ -240,7 +240,7 @@ class Particle:
         self.bin_size = None
 
         self.startpoint = None
-        self.hist_level_selected = None
+        self.level_selected = None
         self.using_group_levels = False
 
     @property

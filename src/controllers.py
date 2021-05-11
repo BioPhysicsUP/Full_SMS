@@ -8,9 +8,10 @@ import tempfile
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.exporters
+from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from PyQt5.QtCore import QObject, Qt, pyqtSignal
-from PyQt5.QtGui import QPen, QColor
-from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog
+from PyQt5.QtGui import QPen, QColor, QPalette
+from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
 import pickle
 
@@ -35,7 +36,10 @@ class IntController(QObject):
                  int_hist_widget: pg.PlotWidget,
                  lifetime_widget: pg.PlotWidget,
                  groups_int_widget: pg.PlotWidget,
-                 groups_hist_widget: pg.PlotWidget):
+                 groups_hist_widget: pg.PlotWidget,
+                 level_info_container: QWidget,
+                 level_info_text: QTextBrowser,
+                 int_level_line: QFrame):
         super().__init__()
         self.mainwindow = mainwindow
         self.resolve_mode = None
@@ -68,6 +72,21 @@ class IntController(QObject):
         self.groups_hist_plot = groups_hist_widget.getPlotItem()
         self.setup_widget(self.groups_hist_widget)
         self.setup_plot(self.groups_hist_plot, is_group_hist=True)
+
+        self.int_level_info_container = level_info_container
+        self.level_info_text = level_info_text
+        self.int_level_line = int_level_line
+        self.show_level_info = self.mainwindow.chbInt_Show_Level_Info.isChecked()
+        self.hide_show_chb(chb_obj=self.mainwindow.chbInt_Show_Level_Info, show=False)
+        mw_bg_colour = self.mainwindow.palette().color(QPalette.Background)
+        level_info_palette = self.level_info_text.viewport().palette()
+        level_info_palette.setColor(QPalette.Base, mw_bg_colour)
+        self.level_info_text.viewport().setPalette(level_info_palette)
+
+        # self.int_plot.plot().sigClicked.connect(self.int_plot_double_click)
+        self.int_plot.vb.scene().sigMouseClicked.connect(self.int_plot_double_click)
+        # self.int_plot.scene().sigMouseClicked.connect(self.int_plot_double_click)
+        # self.int_widget.scene().sigMouseClicked.connect(self.int_plot_double_click)
 
         # Setup axes and limits
         # self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
@@ -120,17 +139,55 @@ class IntController(QObject):
         plot_widget.setBackground(background=None)
         plot_widget.setAntialiasing(True)
 
-    def hide_unhide_hist(self):
+    def hide_show_chb(self, chb_obj: QCheckBox, show: bool):
+        chb_obj.blockSignals(True)
+        chb_obj.setChecked(show)
+        chb_obj.blockSignals(False)
+        if chb_obj is self.mainwindow.chbInt_Show_Level_Info:
+            if show:
+                self.int_level_info_container.show()
+                self.int_level_line.show()
+            else:
+                self.int_level_info_container.hide()
+                self.int_level_line.hide()
+        elif chb_obj is self.mainwindow.chbInt_Show_Hist:
+            if show:
+                self.int_hist_container.show()
+                self.int_hist_line.show()
+            else:
+                self.int_hist_container.hide()
+                self.int_hist_line.hide()
+
+    def hist_chb_changed(self):
 
         self.show_int_hist = self.mainwindow.chbInt_Show_Hist.isChecked()
 
         if self.show_int_hist:
+            if self.show_level_info:
+                self.hide_show_chb(chb_obj=self.mainwindow.chbInt_Show_Level_Info, show=False)
+                self.show_level_info = False
             self.int_hist_container.show()
             self.int_hist_line.show()
             self.plot_hist()
         else:
             self.int_hist_container.hide()
             self.int_hist_line.hide()
+
+    def level_info_chb_changed(self):
+
+        self.show_level_info = self.mainwindow.chbInt_Show_Level_Info.isChecked()
+
+
+        if self.show_level_info:
+            if self.show_int_hist:
+                self.hide_show_chb(chb_obj=self.mainwindow.chbInt_Show_Hist, show=False)
+                self.show_int_hist = False
+            self.int_level_info_container.show()
+            self.int_level_line.show()
+            self.update_level_info()
+        else:
+            self.int_level_info_container.hide()
+            self.int_level_line.hide()
 
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
@@ -334,8 +391,8 @@ class IntController(QObject):
 
         plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
 
-        if cur_tab_name == 'tabLifetime':
-            current_level = particle.hist_level_selected
+        if cur_tab_name == 'tabLifetime' or cur_tab_name == 'tabIntensity':
+            current_level = particle.level_selected
             if current_level is not None:
                 if current_level <= particle.num_levels - 1:
                     current_ints, current_times = particle.current2data(current_level)
@@ -409,6 +466,39 @@ class IntController(QObject):
 
     # def export_particle_plot(self, particle:Particle, width:int = 800):
     #     plt =
+
+    def update_level_info(self, particle: Particle = None):
+        if particle is None:
+            particle = self.mainwindow.currentparticle
+
+        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+        if cur_tab_name == 'tabIntensity' and self.show_level_info:
+            info = ''
+            if particle.level_selected is None:
+                info = info + "Whole Trace"
+                info = info + f"\n{'*' * len(info)}"
+                info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time: .3g}"
+                info = info + f"\n# of Photons = {particle.num_photons}"
+                if particle.has_levels:
+                    info = info + f"\n# of Levels = {particle.num_levels}"
+                if particle.has_groups:
+                    info = info + f"\n# of Groups = {particle.num_groups}"
+                if particle.has_levels:
+                    info = info + f"\nHas Photon Bursts = {particle.has_burst}"
+            elif particle.has_levels:
+                is_group_level = False
+                if particle.level_selected <= particle.num_levels - 1:
+                    level = particle.levels[particle.level_selected]
+                    info = info + f"Level {particle.level_selected + 1}"
+                else:
+                    level = particle.groups[particle.level_selected - particle.num_levels]
+                    is_group_level = True
+                    info = info + f"Group {particle.level_selected - particle.num_levels + 1}"
+                info = info + f"\n{'*' * len(info)}"
+                info = info + f"\nIntensity (counts/s) = {level.int_p_s: .3g}"
+                info = info + f"\nDwell Time (s) = {level.dwell_time_s: .3g}"
+                info = info + f"\n# of Photons = {level.num_photons}"
+            self.level_info_text.setText(info)
 
     def plot_group_bounds(self, particle: Particle = None, for_export: bool = False):
         if particle is None:
@@ -588,6 +678,37 @@ class IntController(QObject):
         return [self.mainwindow.cmbConfIndex.currentIndex(),
                 self.confidence_index[self.mainwindow.cmbConfIndex.currentIndex()]]
 
+    def int_plot_double_click(self, event: MouseClickEvent):
+        if event.double():
+            event.accept()
+            cp = self.mainwindow.currentparticle
+            if cp.has_levels:
+                if cp.has_groups and self.mainwindow.chbInt_Show_Groups.isChecked():
+                    clicked_int = self.int_plot.vb.mapSceneToView(event.pos()).y()
+                    clicked_int = clicked_int * (1000/self.mainwindow.spbBinSize.value())
+                    clicked_group = None
+                    group_bounds = cp.groups_bounds
+                    group_bounds.reverse()
+                    for i, (group_low, group_high) in enumerate(group_bounds):
+                        if group_low <= clicked_int <= group_high:
+                            clicked_group = i
+                            break
+                    if clicked_group is not None:
+                        cp.level_selected = clicked_group + cp.num_levels
+                        self.mainwindow.display_data()
+                else:
+                    clicked_time = self.int_plot.vb.mapSceneToView(event.scenePos()).x()
+                    # print(clicked_time)
+                    level_times = [lvl.times_s for lvl in cp.levels]
+                    clicked_level = None
+                    for i, (start, end) in enumerate(level_times):
+                        if start <= clicked_time <= end:
+                            clicked_level = i
+                            break
+                    if clicked_level is not None:
+                        cp.level_selected = clicked_level
+                        self.mainwindow.display_data()
+
 
     def error(self, e):
         logger.error(e)
@@ -647,12 +768,12 @@ class LifetimeController(QObject):
 
         cp = self.mainwindow.currentparticle
         changed = False
-        if cp.hist_level_selected is not None:
-            if cp.hist_level_selected == 0:
-                cp.hist_level_selected = None
+        if cp.level_selected is not None:
+            if cp.level_selected == 0:
+                cp.level_selected = None
                 changed = True
             else:
-                cp.hist_level_selected -= 1
+                cp.level_selected -= 1
                 changed = True
 
         if changed:
@@ -663,15 +784,15 @@ class LifetimeController(QObject):
 
         cp = self.mainwindow.currentparticle
         changed = False
-        if cp.hist_level_selected is None:
-            cp.hist_level_selected = 0
+        if cp.level_selected is None:
+            cp.level_selected = 0
             changed = True
         elif cp.has_groups:
-            if cp.hist_level_selected < cp.num_levels + cp.num_groups - 1:
-                cp.hist_level_selected += 1
+            if cp.level_selected < cp.num_levels + cp.num_groups - 1:
+                cp.level_selected += 1
                 changed = True
-        elif cp.hist_level_selected < cp.num_levels - 1:
-            cp.hist_level_selected += 1
+        elif cp.level_selected < cp.num_levels - 1:
+            cp.level_selected += 1
             changed = True
 
         if changed:
@@ -681,7 +802,7 @@ class LifetimeController(QObject):
         "Unselects selected level and shows whole trace's decay curve"
 
         # self.mainwindow.current_level = None
-        self.mainwindow.currentparticle.hist_level_selected = None
+        self.mainwindow.currentparticle.level_selected = None
         self.mainwindow.display_data()
 
     def gui_load_irf(self):
@@ -751,7 +872,7 @@ class LifetimeController(QObject):
         """ Fits the currently selected level's decay curve using the provided settings. """
 
         cp = self.mainwindow.currentparticle
-        selected_level = cp.hist_level_selected
+        selected_level = cp.level_selected
         if selected_level is None:
             histogram = cp.histogram
         else:
@@ -801,7 +922,7 @@ class LifetimeController(QObject):
     def update_results(self):
 
         cp = self.mainwindow.currentparticle
-        level_ind = cp.hist_level_selected
+        level_ind = cp.level_selected
         is_group = False
         is_level = False
 
@@ -819,41 +940,42 @@ class LifetimeController(QObject):
             is_group = True
             fit_name = fit_name + f", Group #{group_ind + 1}"
         if not histogram.fitted:
+            self.mainwindow.textBrowser.setText('')
             return
         info = fit_name + f"\n{len(fit_name) * '*'}\n"
 
         tau = histogram.tau
         amp = histogram.amp
         try:
-            info = 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
+            info = info + 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
             info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
         except TypeError:  # only one component
-            info = 'Tau = {:#.3g} ns'.format(tau)
+            info = info + 'Tau = {:#.3g} ns'.format(tau)
             info = info + '\nAmp = {:#.3g}'.format(amp)
 
-        info = info + f'\nShift = {histogram.shift: .3g} ns'
+        info = info + f'\n\nShift = {histogram.shift: .3g} ns'
         info = info + f'\nDecay BG = {histogram.bg: .3g}'
         info = info + f'\nIRF BG = {histogram.irfbg: .3g}'
-        info = info + f'\nChi-Squared = {histogram.chisq: .3g}'
+        info = info + f'\nChi-Sq = {histogram.chisq: .3g}\n(0.8 <- 1 -> 1.3)'
 
         if is_group:
             group = cp.groups[group_ind]
+            info = info + f'\n\nTotal Dwell Time (s) = {group.dwell_time_s: .3g}'
             info = info + f'\n# of photons = {group.num_photons}'
-            info = info + f'\nTotal Dwell Time (s) = {group.dwell_time_s: .3g}'
         elif is_level:
             level = cp.levels[level_ind]
+            info = info + f'\n\nDwell Time (s) {level.dwell_time_s: .3g}'
             info = info + f'\n# of photons = {level.num_photons}'
-            info = info + f'\nDwell Time (s) {level.dwell_time_s: .3g}'
         else:
+            info = info + f'\n\nDwell Times (s) = {cp.dwell_time: .3g}'
             info = info + f'\n# of photons = {cp.num_photons}'
-            info = info + f'\nDwell Times (s) = {cp.dwell_time: .3g}'
 
         self.mainwindow.textBrowser.setText(info)
 
     def plot_decay(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        current_level = self.mainwindow.currentparticle.hist_level_selected
+        current_level = self.mainwindow.currentparticle.level_selected
         # print(currentlevel)
         current_particle = self.mainwindow.currentparticle
         if current_level is None:
@@ -936,7 +1058,7 @@ class LifetimeController(QObject):
     def plot_convd(self, remove_empty: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        current_level = self.mainwindow.currentparticle.hist_level_selected
+        current_level = self.mainwindow.currentparticle.level_selected
         current_particle = self.mainwindow.currentparticle
         if current_level is None:
             try:
@@ -983,6 +1105,7 @@ class LifetimeController(QObject):
             self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
             unit = 'ns with ' + str(current_particle.channelwidth) + 'ns bins'
             self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
+            self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
             self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
 
     def start_fitting_thread(self, mode: str = 'current') -> None:
@@ -1169,7 +1292,7 @@ class GroupingController(QObject):
             new_ind = curr_part.ahca.steps_num_groups.index(point_num_groups)
             curr_part.ahca.set_selected_step(new_ind)
             curr_part.using_group_levels = False
-            curr_part.hist_level_selected = None
+            curr_part.level_selected = None
             if last_solution:
                 last_solution.setPen(pg.mkPen(width=1, color='k'))
             for p in points:
@@ -1309,7 +1432,7 @@ class GroupingController(QObject):
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
                 new_part = self.mainwindow.tree2particle(result_part_ind)
-                new_part.hist_level_selected = None
+                new_part.level_selected = None
 
                 result_ahca = result.new_task_obj
                 result_ahca.particle = new_part
@@ -1368,7 +1491,7 @@ class GroupingController(QObject):
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:
             particle.using_group_levels = bool_use
-            particle.hist_level_selected = None
+            particle.level_selected = None
 
         self.mainwindow.int_controller.plot_all()
 

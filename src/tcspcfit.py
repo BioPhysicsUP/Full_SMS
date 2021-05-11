@@ -408,6 +408,15 @@ class FluoFit:
             self.shiftmin = -2000
             self.shiftmax = 2000
 
+    @staticmethod
+    def df_len(test_obj) -> int:
+        df_num = 0
+        if type(test_obj) in [list, np.ndarray]:
+            df_num = len(test_obj)
+        elif test_obj is not None:
+            df_num = 1
+        return df_num
+
     def results(self, tau, dtau, shift, amp=1):
         """Handle results after fitting
 
@@ -432,13 +441,15 @@ class FluoFit:
         self.amp = amp
         self.shift = shift*self.channelwidth
 
+        param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
+
         # residuals = self.convd - self.measured
         # residuals = residuals / np.sqrt(np.abs(self.measured))
         residuals = (self.convd - self.measured) * self.meas_max
         residuals = residuals / np.sqrt(np.abs(self.measured * self.meas_max))
         residualsnotinf = residuals != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
-        chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - 4 - 1)
+        chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - param_df - 1)
         # chisquared = chisquared * self.meas_max  # This is necessary because of normalisation
         self.chisq = chisquared
         self.t = self.t[self.startpoint:self.endpoint]
@@ -687,6 +698,9 @@ class FittingParameters:
                 invalid = 0.0001
             elif guiobj is self.fpd.time_edits[1]:
                 invalid = None
+            elif guiobj in self.fpd.bg_edits:
+                invalid = None
+
             if guiobj.text() == '':
                 return invalid
             else:
@@ -777,6 +791,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self._irf_validator.setNotation(QDoubleValidator.StandardNotation)
         self.irf_shift_edit.setValidator(self._irf_validator)
         self.irf_shift_edit.textChanged.connect(self.updateplot)
+        self.combNumExp.currentIndexChanged.connect(self.updateplot)
 
         # for widget in self.findChildren(QLineEdit):
         #     widget.textChanged.connect(self.text_changed)
@@ -828,10 +843,10 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         convd = convd / convd.max()
 
         try:
-            if self.mainwindow.currentparticle.hist_level_selected is None:
+            if self.mainwindow.currentparticle.level_selected is None:
                 histogram = self.mainwindow.currentparticle.histogram
             else:
-                level = self.mainwindow.currentparticle.hist_level_selected
+                level = self.mainwindow.currentparticle.level_selected
                 if level <= self.mainwindow.currentparticle.num_levels - 1:
                     histogram = self.mainwindow.currentparticle.levels[level].histogram
                 else:

@@ -108,7 +108,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                             int_hist_widget=self.pgInt_Hist_PlotWidget,
                                             lifetime_widget=self.pgLifetime_Int_PlotWidget,
                                             groups_int_widget=self.pgGroups_Int_PlotWidget,
-                                            groups_hist_widget=self.pgGroups_Hist_PlotWidget)
+                                            groups_hist_widget=self.pgGroups_Hist_PlotWidget,
+                                            level_info_container=self.wdgInt_Level_Info_Container,
+                                            level_info_text=self.txtLevelInfoInt,
+                                            int_level_line=self.lineInt_Level)
         self.lifetime_controller = \
             LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
                                residual_widget=self.pgLieftime_Residuals_PlotWidget)
@@ -123,7 +126,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnResolve.clicked.connect(i_c.gui_resolve)
         self.btnResolve_Selected.clicked.connect(i_c.gui_resolve_selected)
         self.btnResolveAll.clicked.connect(i_c.gui_resolve_all)
-        self.chbInt_Show_Hist.stateChanged.connect(i_c.hide_unhide_hist)
+        self.chbInt_Show_Hist.stateChanged.connect(i_c.hist_chb_changed)
+        self.chbInt_Show_Level_Info.stateChanged.connect(i_c.level_info_chb_changed)
         self.chbInt_Show_Groups.stateChanged.connect(i_c.plot_all)
         self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
         self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
@@ -437,6 +441,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.update_int_gui()
                 self.int_controller.set_bin(self.currentparticle.bin_size)
                 self.int_controller.plot_trace()
+                self.int_controller.update_level_info()
                 if cur_tab_name != 'tabLifetime':
                     self.int_controller.plot_hist()
                 else:
