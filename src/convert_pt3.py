@@ -406,4 +406,4 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
 if __name__ == '__main__':
 
     pt3_file = Pt3Reader('C:\\Google Drive\\Current_Projects\\Full_SMS\\test_data\\trace0.pt3')
-    print('here')
+    # print('here')

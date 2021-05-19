@@ -83,10 +83,9 @@ class IntController(QObject):
         level_info_palette.setColor(QPalette.Base, mw_bg_colour)
         self.level_info_text.viewport().setPalette(level_info_palette)
 
-        # self.int_plot.plot().sigClicked.connect(self.int_plot_double_click)
-        self.int_plot.vb.scene().sigMouseClicked.connect(self.int_plot_double_click)
-        # self.int_plot.scene().sigMouseClicked.connect(self.int_plot_double_click)
-        # self.int_widget.scene().sigMouseClicked.connect(self.int_plot_double_click)
+        self.int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
+        self.groups_int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
+        self.lifetime_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
 
         # Setup axes and limits
         # self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
@@ -400,7 +399,6 @@ class IntController(QObject):
                     current_group = current_level - particle.num_levels
                     current_ints, current_times = particle.current_group2data(current_group)
                 current_ints = current_ints * self.get_bin() / 1E3
-                print(current_ints, current_times)
 
                 if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
                     level_plot_pen = QPen()
@@ -509,7 +507,9 @@ class IntController(QObject):
         else:
             cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
 
-        if cur_tab_name == 'tabIntensity' or cur_tab_name == 'tabGrouping':
+        if cur_tab_name == 'tabIntensity' \
+                or cur_tab_name == 'tabGrouping'\
+                or cur_tab_name == 'tabLifetime':
             if not particle.has_groups \
                     or particle.ahca.best_step.single_level\
                     or particle.ahca.selected_step.num_groups < 2:
@@ -527,6 +527,11 @@ class IntController(QObject):
                     return
             elif cur_tab_name == 'tabGrouping':
                 int_plot = self.groups_int_plot
+            elif cur_tab_name == 'tabLifetime':
+                if self.mainwindow.chbLifetime_Show_Groups.isChecked():
+                    int_plot = self.lifetime_plot
+                else:
+                    return
 
             int_conv = particle.bin_size / 1000
 
@@ -678,13 +683,21 @@ class IntController(QObject):
         return [self.mainwindow.cmbConfIndex.currentIndex(),
                 self.confidence_index[self.mainwindow.cmbConfIndex.currentIndex()]]
 
-    def int_plot_double_click(self, event: MouseClickEvent):
+    def any_int_plot_double_click(self, event: MouseClickEvent):
         if event.double():
             event.accept()
             cp = self.mainwindow.currentparticle
             if cp.has_levels:
-                if cp.has_groups and self.mainwindow.chbInt_Show_Groups.isChecked():
-                    clicked_int = self.int_plot.vb.mapSceneToView(event.pos()).y()
+                use_groups = False
+                if event.currentItem is self.int_plot.vb:
+                    use_groups = self.mainwindow.chbInt_Show_Groups.isChecked()
+                elif event.currentItem is self.groups_int_plot.vb:
+                    use_groups = True
+                elif event.currentItem is self.lifetime_plot.vb:
+                    use_groups = self.mainwindow.chbLifetime_Show_Groups.isChecked()
+
+                if cp.has_groups and use_groups:
+                    clicked_int = event.currentItem.mapSceneToView(event.scenePos()).y()
                     clicked_int = clicked_int * (1000/self.mainwindow.spbBinSize.value())
                     clicked_group = None
                     group_bounds = cp.groups_bounds
@@ -697,8 +710,7 @@ class IntController(QObject):
                         cp.level_selected = clicked_group + cp.num_levels
                         self.mainwindow.display_data()
                 else:
-                    clicked_time = self.int_plot.vb.mapSceneToView(event.scenePos()).x()
-                    # print(clicked_time)
+                    clicked_time = event.currentItem.mapSceneToView(event.scenePos()).x()
                     level_times = [lvl.times_s for lvl in cp.levels]
                     clicked_level = None
                     for i, (start, end) in enumerate(level_times):
@@ -708,7 +720,6 @@ class IntController(QObject):
                     if clicked_level is not None:
                         cp.level_selected = clicked_level
                         self.mainwindow.display_data()
-
 
     def error(self, e):
         logger.error(e)
@@ -804,6 +815,12 @@ class LifetimeController(QObject):
         # self.mainwindow.current_level = None
         self.mainwindow.currentparticle.level_selected = None
         self.mainwindow.display_data()
+
+    def gui_jump_to_groups(self):
+        cp = self.mainwindow.currentparticle
+        if cp.has_groups:
+            cp.level_selected = cp.num_levels
+            self.mainwindow.display_data()
 
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
@@ -918,6 +935,9 @@ class LifetimeController(QObject):
         """ Fits the all the levels decay curves for the current particle. """
 
         self.start_fitting_thread()
+
+    def plot_all(self):
+        self.mainwindow.display_data()
 
     def update_results(self):
 
@@ -1550,7 +1570,7 @@ class SpectraController(QObject):
         self.spectra_widget.getView().setAspectLocked(False, current_ratio)
 
         self.spectra_widget.setImage(spectra_data)
-        print('here')
+        # print('here')
         # self.spectra_widget.getImageItem().setLookupTable(self._look_up_table)
 
 # def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,

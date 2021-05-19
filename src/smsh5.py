@@ -643,7 +643,10 @@ class Histogram:
                                         tauparam, ampparam, shift, decaybg,
                                         irfbg, start, end, addopt)
         except Exception as e:
-            logger.error(e)
+            trace_string = ''
+            for trace_part in traceback.format_tb(e.__traceback__):
+                trace_string = trace_string + trace_part
+            logger.error(e.args[0] + '\n\n' + trace_string[:-1])
             # print(traceback.format_exc().split('\n')[-2])
             return False
 

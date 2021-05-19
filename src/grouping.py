@@ -261,7 +261,7 @@ class ClusteringStep:
                     try:
                         p_mj[m, j] = p_hat_g[m, j] / denom[j]
                     except:
-                        print('here')  # TODO: Fix div by zero
+                        # print('here')  # TODO: Fix div by zero
                         pass
 
             diff_p_mj = np.sum(np.abs(prev_p_mj - p_mj))
@@ -421,7 +421,7 @@ class AHCA:
                         c_step.emc()
                         c_step.calc_bic()
                         c_step.group_2_levels()
-                        print([lvl.int_p_s for lvl in c_step.group_levels])
+                        # print([lvl.int_p_s for lvl in c_step.group_levels])
                         steps.append(c_step)
                         current_num_groups = c_step.num_groups
                         if current_num_groups != 1:
