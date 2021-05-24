@@ -7,10 +7,10 @@ import tempfile
 
 import numpy as np
 import pyqtgraph as pg
-import pyqtgraph.exporters
+from pyqtgraph.exporters import ImageExporter
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from PyQt5.QtCore import QObject, Qt, pyqtSignal
-from PyQt5.QtGui import QPen, QColor, QPalette
+from PyQt5.QtGui import QPen, QColor, QPalette, QFont
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
 import pickle
@@ -25,6 +25,39 @@ from threads import ProcessThread, ProcessTaskResult, WorkerBinAll
 from thread_tasks import OpenFile, BinAll, bin_all
 
 logger = setup_logger(__name__)
+
+
+def export_plot_item(plot_item: pg.PlotItem, path: str):
+    left_autofill = plot_item.getAxis('left').autoFillBackground()
+    bottom_autofill = plot_item.getAxis('bottom').autoFillBackground()
+    vb_autofill = plot_item.vb.autoFillBackground()
+    # left_label_font = plot_item.getAxis('left').label.font()
+    # bottom_label_font = plot_item.getAxis('bottom').label.font()
+    # left_axis_font = plot_item.getAxis('left').font()
+    # bottom_axis_font = plot_item.getAxis('bottom').font()
+
+    plot_item.getAxis('left').setAutoFillBackground(True)
+    plot_item.getAxis('bottom').setAutoFillBackground(True)
+    plot_item.vb.setAutoFillBackground(True)
+
+    # new_label_point_size = plot_item.height() * 10.0/486.0
+    # plot_item.getAxis('left').label.font().setPointSizeF(new_label_point_size)
+    # plot_item.getAxis('bottom').label.font().setPointSizeF(new_label_point_size)
+    # new_axis_point_size = plot_item.height() * 8.25/486
+    # plot_item.getAxis('left').font().setPointSizeF(new_axis_point_size)
+    # plot_item.getAxis('bottom').font().setPointSizeF(new_axis_point_size)
+
+    ex = ImageExporter(plot_item.scene())
+    ex.parameters()['width'] = 1000
+    ex.export(path)
+
+    plot_item.getAxis('left').setAutoFillBackground(left_autofill)
+    plot_item.getAxis('bottom').setAutoFillBackground(bottom_autofill)
+    plot_item.vb.setAutoFillBackground(vb_autofill)
+    # plot_item.getAxis('left').label.setFont(left_label_font)
+    # plot_item.getAxis('bottom').label.setFont(bottom_label_font)
+    # plot_item.getAxis('left').setFont(left_axis_font)
+    # plot_item.getAxis('bottom').setFont(bottom_axis_font)
 
 
 class IntController(QObject):
@@ -307,7 +340,9 @@ class IntController(QObject):
 
         self.start_resolve_thread(mode='all', end_time_s=end_time_s)
 
-    def plot_trace(self, particle: Particle = None, for_export: bool = False) -> None:
+    def plot_trace(self, particle: Particle = None,
+                   for_export: bool = False,
+                   export_path: str = None) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
 
         try:
@@ -348,7 +383,15 @@ class IntController(QObject):
                 plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                 plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
 
-    def plot_levels(self, particle: Particle = None, for_export: bool = False):
+                if for_export and export_path is not None:
+                    if not (os.path.exists(export_path) and os.path.isdir(export_path)):
+                        raise AssertionError("Provided path not valid")
+                    full_path = os.path.join(export_path, particle.name + ' trace.png')
+                    export_plot_item(plot_item=plot_item, path=full_path)
+
+    def plot_levels(self, particle: Particle = None,
+                    for_export: bool = False,
+                    export_path: str = None):
         """ Used to plot the resolved intensity levels of the current particle. """
         if particle is None:
             particle = self.mainwindow.currentparticle
@@ -390,7 +433,13 @@ class IntController(QObject):
 
         plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
 
-        if cur_tab_name == 'tabLifetime' or cur_tab_name == 'tabIntensity':
+        if for_export and export_path is not None:
+            if not (os.path.exists(export_path) and os.path.isdir(export_path)):
+                raise AssertionError("Provided path not valid")
+            full_path = os.path.join(export_path, particle.name + ' trace (levels).png')
+            export_plot_item(plot_item=plot_item, path=full_path)
+
+        if not for_export and (cur_tab_name == 'tabLifetime' or cur_tab_name == 'tabIntensity'):
             current_level = particle.level_selected
             if current_level is not None:
                 if current_level <= particle.num_levels - 1:
@@ -461,7 +510,6 @@ class IntController(QObject):
                 level_hist.rotate(-90)
                 plot_item.addItem(level_hist)
 
-
     # def export_particle_plot(self, particle:Particle, width:int = 800):
     #     plt =
 
@@ -498,7 +546,9 @@ class IntController(QObject):
                 info = info + f"\n# of Photons = {level.num_photons}"
             self.level_info_text.setText(info)
 
-    def plot_group_bounds(self, particle: Particle = None, for_export: bool = False):
+    def plot_group_bounds(self, particle: Particle = None,
+                          for_export: bool = False,
+                          export_path: str = None):
         if particle is None:
             particle = self.mainwindow.currentparticle
 
@@ -554,23 +604,18 @@ class IntController(QObject):
                 g_ints = [group.int_p_s * int_conv, group.int_p_s * int_conv]
                 int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
 
+            if for_export and export_path is not None:
+                if not (os.path.exists(export_path) and os.path.isdir(export_path)):
+                    raise AssertionError("Provided path not valid")
+                full_path = os.path.join(export_path,
+                                         particle.name + ' trace (levels and groups).png')
+                export_plot_item(plot_item=int_plot, path=full_path)
+
     def plot_all(self):
         self.plot_trace()
         self.plot_levels()
         self.plot_hist()
         self.plot_group_bounds()
-
-    def export_image(self, particle: Particle,
-                     file_path: str,
-                     only_levels: bool = True,
-                     with_groups: bool = True):
-        int_height = self.int_widget.geometry().height()
-        hist_height = self.int_hist_widget.geometry().height()
-
-        self.plot_trace(particle=particle, for_export=True)
-        self.plot_levels(particle=particle, for_export=True)
-        exporter = pg.exporters.ImageExporter(self.int_plot)
-        # TODO: Here
 
     def start_resolve_thread(self, mode: str = 'current', thread_finished=None,
                              end_time_s=None) -> None:
@@ -669,6 +714,7 @@ class IntController(QObject):
             self.mainwindow.display_data()
         self.mainwindow.check_remove_bursts(mode=self.resolve_mode)
         self.mainwindow.chbEx_Levels.setEnabled(True)
+        self.mainwindow.rdbWith_Levels.setEnabled(True)
         self.mainwindow.set_startpoint()
         self.mainwindow.level_resolved = True
         self.mainwindow.reset_gui()
@@ -919,7 +965,8 @@ class LifetimeController(QObject):
         except AttributeError:
             logger.error("No decay")
         else:
-            self.mainwindow.display_data()
+            # self.mainwindow.display_data()
+            self.fitting_thread_complete('current')
 
     def gui_fit_selected(self):
         """ Fits the all the levels decay curves in the all the selected particles using the provided settings. """
@@ -939,7 +986,7 @@ class LifetimeController(QObject):
     def plot_all(self):
         self.mainwindow.display_data()
 
-    def update_results(self):
+    def update_results(self, for_export: bool = False, str_return: bool = False) -> str:
 
         cp = self.mainwindow.currentparticle
         level_ind = cp.level_selected
@@ -990,44 +1037,56 @@ class LifetimeController(QObject):
             info = info + f'\n\nDwell Times (s) = {cp.dwell_time: .3g}'
             info = info + f'\n# of photons = {cp.num_photons}'
 
-        self.mainwindow.textBrowser.setText(info)
+        if not for_export:
+            self.mainwindow.textBrowser.setText(info)
 
-    def plot_decay(self, remove_empty: bool = False) -> None:
+        if str_return:
+            return info
+
+    def plot_decay(self, select_ind: int = None,
+                   particle: Particle = None,
+                   remove_empty: bool = False,
+                   for_export: bool = False,
+                   export_path: str = None) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        current_level = self.mainwindow.currentparticle.level_selected
+        if select_ind is None:
+            select_ind = self.mainwindow.currentparticle.level_selected
         # print(currentlevel)
-        current_particle = self.mainwindow.currentparticle
-        if current_level is None:
-            if current_particle.histogram.fitted:
-                decay = current_particle.histogram.fit_decay
-                t = current_particle.histogram.convd_t
+        if particle is None:
+            particle = self.mainwindow.currentparticle
+
+        group_ind = None
+        if select_ind is None:
+            if particle.histogram.fitted:
+                decay = particle.histogram.fit_decay
+                t = particle.histogram.convd_t
             else:
                 try:
-                    decay = current_particle.histogram.decay
-                    t = current_particle.histogram.t
+                    decay = particle.histogram.decay
+                    t = particle.histogram.t
                 except AttributeError:
                     logger.error('No Decay!')
                     return
-        elif current_level < current_particle.num_levels:
-            if current_particle.levels[current_level].histogram.fitted:
-                decay = current_particle.levels[current_level].histogram.fit_decay
-                t = current_particle.levels[current_level].histogram.convd_t
+        elif select_ind < particle.num_levels:
+            if particle.levels[select_ind].histogram.fitted:
+                decay = particle.levels[select_ind].histogram.fit_decay
+                t = particle.levels[select_ind].histogram.convd_t
             else:
                 try:
-                    decay = current_particle.levels[current_level].histogram.decay
-                    t = current_particle.levels[current_level].histogram.t
+                    decay = particle.levels[select_ind].histogram.decay
+                    t = particle.levels[select_ind].histogram.t
                 except ValueError:
                     return
         else:
-            current_group = current_level - current_particle.num_levels
-            if current_particle.groups[current_group].histogram.fitted:
-                decay = current_particle.groups[current_group].histogram.fit_decay
-                t = current_particle.groups[current_group].histogram.convd_t
+            group_ind = select_ind - particle.num_levels
+            if particle.groups[group_ind].histogram.fitted:
+                decay = particle.groups[group_ind].histogram.fit_decay
+                t = particle.groups[group_ind].histogram.convd_t
             else:
                 try:
-                    decay = current_particle.groups[current_group].histogram.decay
-                    t = current_particle.groups[current_group].histogram.t
+                    decay = particle.groups[group_ind].histogram.decay
+                    t = particle.groups[group_ind].histogram.t
                 except ValueError:
                     return
 
@@ -1038,8 +1097,9 @@ class LifetimeController(QObject):
         if decay.size == 0:
             return  # some levels have no photons
 
-        if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
-            plot_item = self.life_hist_plot
+        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+        if cur_tab_name == 'tabLifetime' or for_export:
+            life_hist_plot = self.life_hist_plot
             plot_pen = QPen()
             plot_pen.setWidthF(2)
             plot_pen.setJoinStyle(Qt.RoundJoin)
@@ -1058,47 +1118,68 @@ class LifetimeController(QObject):
             # except ValueError:  # Empty decay
             #     return
             # print(decay.max())
-            plot_item.clear()
+            life_hist_plot.clear()
             try:
-                plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+                life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
             except Exception as e:
                 logger.error(e)
                 shortest = min([len(t), len(decay)])
                 t = t[:shortest]
                 decay = decay[:shortest]
-                plot_item.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+                life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
 
-            unit = 'ns with ' + str(current_particle.channelwidth) + 'ns bins'
-            plot_item.getAxis('bottom').setLabel('Decay time', unit)
+            unit = 'ns with ' + str(particle.channelwidth) + 'ns bins'
+            life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
             max_t = self.mainwindow.currentparticle.histogram.t[-1]
-            plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
-            plot_item.getViewBox().setRange(xRange=[0, max_t])
-            self.fitparamdialog.updateplot()
+            life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
+            life_hist_plot.getViewBox().setRange(xRange=[0, max_t])
+            if not for_export:
+                self.fitparamdialog.updateplot()
 
-    def plot_convd(self, remove_empty: bool = False) -> None:
+            if for_export and export_path is not None:
+                if not (os.path.exists(export_path) and os.path.isdir(export_path)):
+                    raise AssertionError("Provided path not valid")
+                if select_ind is None:
+                    type_str = ' hist (whole trace).png'
+                elif group_ind is None:
+                    type_str = f' hist (level {select_ind + 1}).png'
+                else:
+                    type_str = f' hist (group {group_ind + 1}).png'
+                full_path = os.path.join(export_path, particle.name + type_str)
+                export_plot_item(plot_item=life_hist_plot, path=full_path)
+
+    def plot_convd(self, select_ind: int = None,
+                   particle: Particle = None,
+                   remove_empty: bool = False,
+                   for_export: bool = False,
+                   export_path: str = None) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        current_level = self.mainwindow.currentparticle.level_selected
-        current_particle = self.mainwindow.currentparticle
-        if current_level is None:
+        if select_ind is None:
+            select_ind = self.mainwindow.currentparticle.level_selected
+        if particle is None:
+            particle = self.mainwindow.currentparticle
+
+        group_ind = None
+        if select_ind is None:
             try:
-                convd = current_particle.histogram.convd
-                t = current_particle.histogram.convd_t
+                convd = particle.histogram.convd
+                t = particle.histogram.convd_t
 
             except AttributeError:
                 logger.error('No Decay!')
                 return
-        elif current_level <= current_particle.num_levels - 1:
+        elif select_ind <= particle.num_levels - 1:
             try:
-                convd = current_particle.levels[current_level].histogram.convd
-                t = current_particle.levels[current_level].histogram.convd_t
+                convd = particle.levels[select_ind].histogram.convd
+                t = particle.levels[select_ind].histogram.convd_t
             except ValueError:
                 return
         else:
             try:
-                current_group = current_level - current_particle.num_levels
-                convd = current_particle.groups[current_group].histogram.convd
-                t = current_particle.groups[current_group].histogram.convd_t
+                group_ind = select_ind - particle.num_levels
+                convd = particle.groups[group_ind].histogram.convd
+                t = particle.groups[group_ind].histogram.convd_t
             except ValueError:
                 return
 
@@ -1107,7 +1188,8 @@ class LifetimeController(QObject):
 
         # convd = convd / convd.max()
 
-        if self.mainwindow.tabWidget.currentWidget().objectName() == 'tabLifetime':
+        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+        if cur_tab_name == 'tabLifetime' or for_export:
             # plot_item = self.pgLifetime.getPlotItem()
             plot_pen = QPen()
             plot_pen.setWidthF(1)
@@ -1123,10 +1205,44 @@ class LifetimeController(QObject):
 
             # plot_item.clear()
             self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
-            unit = 'ns with ' + str(current_particle.channelwidth) + 'ns bins'
+            unit = 'ns with ' + str(particle.channelwidth) + 'ns bins'
             self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
             self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
             self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+
+            if for_export and export_path is not None:
+                plot_item = self.life_hist_plot
+                text_str = self.update_results(for_export=True, str_return=True)
+                f_size = plot_item.height() * 7/182
+                font = QFont()
+                font.setPixelSize(f_size)
+                text_item = pg.TextItem(text=text_str, color='k', anchor=(1, 0))
+                text_item.setFont(font)
+                plot_item.addItem(text_item, ignoreBounds=True)
+                text_item.setPos(plot_item.vb.width(), 0)
+                text_item.setParentItem(plot_item.vb)
+                if select_ind is None:
+                    type_str = ' hist fitted (whole trace).png'
+                elif group_ind is None:
+                    type_str = f' hist fitted (level {select_ind + 1}).png'
+                else:
+                    type_str = f' hist fitted (group {group_ind + 1}).png'
+                full_path = os.path.join(export_path, particle.name + type_str)
+
+                left_autofill = plot_item.getAxis('left').autoFillBackground()
+                bottom_autofill = plot_item.getAxis('bottom').autoFillBackground()
+                vb_autofill = plot_item.vb.autoFillBackground()
+                plot_item.getAxis('left').setAutoFillBackground(True)
+                plot_item.getAxis('bottom').setAutoFillBackground(True)
+                plot_item.vb.setAutoFillBackground(True)
+
+                ex = ImageExporter(plot_item)
+                ex.parameters()['width'] = 1000
+                ex.export(full_path)
+
+                plot_item.getAxis('left').setAutoFillBackground(left_autofill)
+                plot_item.getAxis('bottom').setAutoFillBackground(bottom_autofill)
+                plot_item.vb.setAutoFillBackground(vb_autofill)
 
     def start_fitting_thread(self, mode: str = 'current') -> None:
         """
@@ -1236,14 +1352,16 @@ class LifetimeController(QObject):
         except ValueError as e:
             logger.error(e)
 
-    def fitting_thread_complete(self, mode):
+    def fitting_thread_complete(self, mode: str = None):
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.chbEx_Lifetimes.setEnabled(False)
         self.mainwindow.chbEx_Lifetimes.setEnabled(True)
         self.mainwindow.chbEx_Hist.setEnabled(True)
-        self.mainwindow.status_message("Done")
-        # print(self.mainwindow.chbEx_Lifetimes.isChecked())
+        self.mainwindow.rdbWith_Fit.setEnabled(True)
+        # self.mainwindow.chbEx_Plot_Residuals.setEnabled(True)  # TODO: Implement as soon as resid.
+        if not mode == 'current':
+            self.mainwindow.status_message("Done")
         logger.info('Fitting levels complete')
 
     def change_irf_start(self, start):
@@ -1316,24 +1434,28 @@ class GroupingController(QObject):
             if last_solution:
                 last_solution.setPen(pg.mkPen(width=1, color='k'))
             for p in points:
-                p.setPen('c', width=2)
+                p.setPen('r', width=2)
             last_solution = points[0]
             self.all_last_solutions[self.mainwindow.currentparticle.dataset_ind] = last_solution
 
             self.mainwindow.display_data()
 
-    def plot_group_bic(self):
-        cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
-        if cur_tab_name == 'tabGrouping':
-            cur_part = self.mainwindow.currentparticle
-            if cur_part.ahca.best_step.single_level:
+    def plot_group_bic(self, particle: Particle = None,
+                       for_export: bool = False,
+                       export_path: str = None):
+
+        cur_tab_name = 'tabGrouping'
+        if cur_tab_name == 'tabGrouping' or for_export:
+            if particle is None:
+                particle = self.mainwindow.currentparticle
+            if particle.ahca.best_step.single_level:
                 self.bic_plot_widget.getPlotItem().clear()
                 return
             try:
-                grouping_bics = cur_part.grouping_bics.copy()
-                grouping_selected_ind = cur_part.grouping_selected_ind
-                best_grouping_ind = cur_part.best_grouping_ind
-                grouping_num_groups = cur_part.grouping_num_groups.copy()
+                grouping_bics = particle.grouping_bics.copy()
+                grouping_selected_ind = particle.grouping_selected_ind
+                best_grouping_ind = particle.best_grouping_ind
+                grouping_num_groups = particle.grouping_num_groups.copy()
 
             except AttributeError:
                 logger.error('No groups!')
@@ -1343,12 +1465,12 @@ class GroupingController(QObject):
                 self.all_bic_plots = [None] * num_parts
                 self.all_last_solutions = [None] * num_parts
 
-            scat_plot_item = self.all_bic_plots[cur_part.dataset_ind]
+            scat_plot_item = self.all_bic_plots[particle.dataset_ind]
             if scat_plot_item is None:
                 spot_other_pen = pg.mkPen(width=1, color='k')
-                spot_selected_pen = pg.mkPen(width=2, color='c')
+                spot_selected_pen = pg.mkPen(width=2, color='r')
                 spot_other_brush = pg.mkBrush(color='k')
-                spot_best_brush = pg.mkBrush(color='r')
+                spot_best_brush = pg.mkBrush(color='g')
 
                 scat_plot_item = pg.ScatterPlotItem()
                 bic_spots = []
@@ -1370,13 +1492,20 @@ class GroupingController(QObject):
 
                 scat_plot_item.addPoints(bic_spots)
 
-                self.all_bic_plots[cur_part.dataset_ind] = scat_plot_item
+                self.all_bic_plots[particle.dataset_ind] = scat_plot_item
                 best_solution = scat_plot_item.points()[best_grouping_ind]
-                self.all_last_solutions[cur_part.dataset_ind] = best_solution
+                self.all_last_solutions[particle.dataset_ind] = best_solution
                 scat_plot_item.sigClicked.connect(self.solution_clicked)
 
-            self.bic_plot_widget.getPlotItem().clear()
+            self.bic_scatter_plot.clear()
+            # self.bic_plot_widget.getPlotItem().clear()
             self.bic_scatter_plot.addItem(scat_plot_item)
+
+            if for_export and export_path is not None:
+                if not (os.path.exists(export_path) and os.path.isdir(export_path)):
+                    raise AssertionError("Provided path not valid")
+                full_path = os.path.join(export_path, particle.name + ' BIC.png')
+                export_plot_item(plot_item=self.bic_scatter_plot, path=full_path)
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
@@ -1497,6 +1626,8 @@ class GroupingController(QObject):
         self.mainwindow.gbxExport_Groups.setEnabled(True)
         self.mainwindow.chbEx_Grouping_Info.setEnabled(True)
         self.mainwindow.chbEx_Grouping_Results.setEnabled(True)
+        self.mainwindow.rdbAnd_Groups.setEnabled(True)
+        self.mainwindow.chbEx_Plot_Group_BIC.setEnabled(True)
         self.mainwindow.reset_gui()
         logger.info('Grouping levels complete')
 

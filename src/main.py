@@ -38,6 +38,7 @@ from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
 from convert_pt3 import ConvertPt3Dialog
+from exporting import export_data
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -167,6 +168,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnEx_Current.clicked.connect(self.gui_export_current)
         self.btnEx_Selected.clicked.connect(self.gui_export_selected)
         self.btnEx_All.clicked.connect(self.gui_export_all)
+        self.chbEx_Plot_Intensity.clicked.connect(self.gui_plot_intensity_clicked)
+        self.chbEx_Plot_Lifetimes.clicked.connect(self.gui_plot_lifetime_clicked)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()
@@ -251,13 +254,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.status_message('Ready...')
 
     def gui_export_current(self):
-        self.export(mode='current')
+        self.gui_export(mode='current')
 
     def gui_export_selected(self):
-        self.export(mode='selected')
+        self.gui_export(mode='selected')
 
     def gui_export_all(self):
-        self.export(mode='all')
+        self.gui_export(mode='all')
 
     def set_bin_size(self, bin_size: int):
         self.spbBinSize.setValue(bin_size)
@@ -631,11 +634,20 @@ class MainWindow(QMainWindow, UI_Main_Window):
             #             index = list(self.confidence_index.values()).index(int(float(item) * 100))
             #     self.cmbConfIndex.setCurrentIndex(index)
             #     self.int_controller.start_resolve_thread('all')
-        self.reset_gui()
-        self.gbxExport_Int.setEnabled(True)
         self.chbEx_Trace.setEnabled(True)
+        # self.gbxExport_Int.setEnabled(True)
+        # self.gbxExport_Plots.setEnabled(True)
+        self.chbEx_Plot_Intensity.setEnabled(True)
+        self.rdbInt_Only.setEnabled(True)
+        self.chbEx_Plot_Lifetimes.setEnabled(True)
+        self.rdbHist_Only.setEnabled(True)
+        # self.frmPlot_Lifetime_Selection.setEnabled(True)
+        # self.rdbWith_Levels.setEnabled(False)
+        # self.rdbWith_Groups.setEnabled(False)
         if self.has_spectra:
             self.chbEx_Spectra_2D.setEnabled(True)
+            self.chbEx_Plot_Spectra.setEnabled(True)
+        self.reset_gui()
         logger.info('File opened')
 
     @pyqtSlot(Exception)
@@ -857,329 +869,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.level_resolved = True
         # print(self.level_resolved)
 
-    def export(self, mode: str = None):
-        try:
-            assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
+    def gui_plot_intensity_clicked(self, new_value):
+        self.frmPlot_Int_Selection.setEnabled(new_value)
 
-            if mode == 'current':
-                particles = [self.currentparticle]
-            elif mode == 'selected':
-                particles = self.get_checked_particles()
-            else:
-                particles = self.currentparticle.dataset.particles
+    def gui_plot_lifetime_clicked(self, new_value):
+        self.frmPlot_Lifetime_Selection.setEnabled(new_value)
 
-            # save_dlg = QFileDialog(self)
-            # save_dlg.setAcceptMode(QFileDialog.AcceptSave)
-            # save_dlg.setFileMode(QFileDialog.DirectoryOnly)
-            # save_dlg.setViewMode(QFileDialog.List)
-            # save_dlg.setOption(QFileDialog.DontUseNativeDialog)
-            # save_dlg.findChild(QLineEdit, 'fileNameEdit').setProperty('Visable', False)
-            # save_dlg.findChild(QComboBox, 'fileTypeCombo').setProperty('enabled', True)
-            # # filters = QDir.Filter("Comma delimited (*.csv)")  #;;Space delimited (*.txt);;Tab delimited (.*txt)
-            # save_dlg.setNameFilter("Comma delimited (*.csv);;Space delimited (*.txt);;Tab delimited (.*txt)")
-            # test2 = save_dlg.exec()
-
-            f_dir = QFileDialog.getExistingDirectory(self)
-            # print(f_dir)
-
-            if f_dir:
-                ex_traces = self.chbEx_Trace.isChecked()
-                ex_levels = self.chbEx_Levels.isChecked()
-                ex_grouped_levels = self.chbEx_Grouped_Levels.isChecked()
-                ex_grouping_info = self.chbEx_Grouping_Info.isChecked()
-                ex_grouping_results = self.chbEx_Grouping_Results.isChecked()
-                ex_lifetime = self.chbEx_Lifetimes.isChecked()
-                ex_hist = self.chbEx_Hist.isChecked()
-                ex_spectra_2d = self.chbEx_Spectra_2D.isChecked()
-
-                def open_file(path:str):
-                    return open(path, 'w', newline='')
-
-                # Export fits of whole traces
-                if ex_lifetime:
-                    p = particles[0]
-                    if p.numexp == 1:
-                        taucol = ['Lifetime (ns)']
-                        ampcol = ['Amp']
-                    elif p.numexp == 2:
-                        taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
-                        ampcol = ['Amp 1', 'Amp 2']
-                    elif p.numexp == 3:
-                        taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
-                        ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
-                    lifetime_path = os.path.join(f_dir, 'Whole trace lifetimes.csv')
-                    rows = list()
-                    rows.append(['Particle #'] + taucol + ampcol +
-                                ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG', 'Chi Squared'])
-                    for i, p in enumerate(particles):
-                        if p.histogram.tau is None or p.histogram.amp is None:  # Problem with fitting the level
-                            tauexp = ['0' for i in range(p.numexp)]
-                            ampexp = ['0' for i in range(p.numexp)]
-                            other_exp = ['0', '0', '0', '0']
-                        else:
-                            if p.numexp == 1:
-                                tauexp = [str(p.histogram.tau)]
-                                ampexp = [str(p.histogram.amp)]
-                            else:
-                                tauexp = [str(tau) for tau in p.histogram.tau]
-                                ampexp = [str(amp) for amp in p.histogram.amp]
-                            other_exp = [str(p.histogram.avtau), str(p.histogram.shift), str(p.histogram.bg),
-                                         str(p.histogram.irfbg), str(p.histogram.chisq)]
-
-                        rows.append([str(i)] + tauexp + ampexp + other_exp)
-
-                    with open_file(lifetime_path) as f:
-                        writer = csv.writer(f, dialect=csv.excel)
-                        writer.writerows(rows)
-
-                # Export data for levels
-                for num, p in enumerate(particles):
-                    if ex_traces:
-                        tr_path = os.path.join(f_dir, p.name + ' trace.csv')
-                        ints = p.binnedtrace.intdata
-                        times = p.binnedtrace.inttimes / 1E3
-                        rows = list()
-                        rows.append(['Bin #', 'Bin Time (s)', f'Bin Int (counts/{p.bin_size}ms)'])
-                        for i in range(len(ints)):
-                            rows.append([str(i), str(times[i]), str(ints[i])])
-
-                        with open_file(tr_path) as f:
-                            writer = csv.writer(f, dialect=csv.excel)
-                            writer.writerows(rows)
-
-                    if ex_levels:
-                        if p.has_levels:
-                            lvl_tr_path = os.path.join(f_dir, p.name + ' levels-plot.csv')
-                            ints, times = p.levels2data(use_grouped=False)
-                            rows = list()
-                            rows.append(['Level #', 'Time (s)', 'Int (counts/s)'])
-                            for i in range(len(ints)):
-                                rows.append([str(i // 2), str(times[i]), str(ints[i])])
-                            with open_file(lvl_tr_path) as f:
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                            lvl_path = os.path.join(f_dir, p.name + ' levels.csv')
-                            rows = list()
-                            rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
-                                         'Int (counts/s)', 'Num of Photons'])
-                            for i, l in enumerate(p.cpts.levels):
-                                rows.append(
-                                    [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
-                                     str(l.int_p_s), str(l.num_photons)])
-
-                            with open_file(lvl_path) as f:
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                    if ex_grouped_levels:
-                        if p.has_groups:
-                            grp_lvl_tr_path = os.path.join(f_dir, p.name + ' levels-grouped-plot.csv')
-                            ints, times = p.levels2data(use_grouped=True)
-                            rows = list()
-                            rows.append(['Grouped Level #', 'Time (s)', 'Int (counts/s)'])
-                            for i in range(len(ints)):
-                                rows.append([str(i // 2), str(times[i]), str(ints[i])])
-
-                            with open_file(grp_lvl_tr_path) as f:
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                            grp_lvl_path = os.path.join(f_dir, p.name + ' levels-grouped.csv')
-                            rows = list()
-                            rows.append(['Grouped Level #', 'Start Time (s)', 'End Time (s)',
-                                         'Dwell Time (/s)', 'Int (counts/s)', 'Num of Photons',
-                                         'Group Index'])
-                            for i, l in enumerate(p.ahca.selected_step.group_levels):
-                                rows.append(
-                                    [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
-                                     str(l.int_p_s), str(l.num_photons), str(l.group_ind)])
-
-                            with open_file(grp_lvl_path) as f:
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                    if ex_grouping_info:
-                        if p.has_groups:
-                            group_info_path = os.path.join(f_dir, p.name + ' group_info.csv')
-                            with open_file(group_info_path) as f:
-                                f.write(f"# of Groups:,{p.ahca.best_step.num_groups}\n")
-                                if p.ahca.best_step_ind == p.ahca.selected_step_ind:
-                                    answer = 'Yes'
-                                else:
-                                    answer = 'No'
-                                f.write(f"Selected solution highest BIC value? {answer}\n\n")
-
-                                rows = list()
-                                rows.append(['Group #', 'Int (counts/s)', 'Total Dwell Time (s)',
-                                             '# of Levels', '# of Photons'])
-                                for num, group in enumerate(p.ahca.selected_step.groups):
-                                    rows.append([str(num), str(group.int_p_s), str(group.dwell_time_s),
-                                                 str(len(group.lvls)), str(group.num_photons)])
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                    if ex_grouping_results:
-                        if p.has_groups:
-                            group_info_path = os.path.join(f_dir, p.name + ' grouping_results.csv')
-                            with open_file(group_info_path) as f:
-                                f.write(f"# of Steps:,{p.ahca.num_steps}\n")
-                                f.write(f"Step with highest BIC value:,{p.ahca.best_step.bic}\n")
-                                f.write(f"Step selected:,{p.ahca.selected_step_ind}\n\n")
-
-                                rows = list()
-                                rows.append(['Step #', '# of Groups', 'BIC value'])
-                                for num, step in enumerate(p.ahca.steps):
-                                    rows.append([str(num), str(step.num_groups), str(step.bic)])
-
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                    if ex_lifetime:
-                        if p.numexp == 1:
-                            taucol = ['Lifetime (ns)']
-                            ampcol = ['Amp']
-                        elif p.numexp == 2:
-                            taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
-                            ampcol = ['Amp 1', 'Amp 2']
-                        elif p.numexp == 3:
-                            taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
-                            ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
-                        if p.has_levels:
-                            lvl_path = os.path.join(f_dir, p.name + ' levels_lifetimes.csv')
-                            rows = list()
-                            rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
-                                         'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
-                                        ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
-                                         'Chi Squared'])
-                            for i, l in enumerate(p.levels):
-                                if l.histogram.tau is None or l.histogram.amp is None:  # Problem with fitting the level
-                                    tauexp = ['0' for i in range(p.numexp)]
-                                    ampexp = ['0' for i in range(p.numexp)]
-                                    other_exp = ['0', '0', '0', '0']
-                                else:
-                                    if p.numexp == 1:
-                                        tauexp = [str(l.histogram.tau)]
-                                        ampexp = [str(l.histogram.amp)]
-                                    else:
-                                        tauexp = [str(tau) for tau in l.histogram.tau]
-                                        ampexp = [str(amp) for amp in l.histogram.amp]
-                                    other_exp = [str(l.histogram.avtau), str(l.histogram.shift), str(l.histogram.bg),
-                                                 str(l.histogram.irfbg), str(l.histogram.chisq)]
-
-                                rows.append(
-                                    [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
-                                     str(l.int_p_s), str(l.num_photons)] + tauexp + ampexp + other_exp)
-
-                            with open_file(lvl_path) as f:
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                        if p.has_groups:
-                            group_path = os.path.join(f_dir, p.name + ' groups_lifetimes.csv')
-                            rows = list()
-                            rows.append(['Group #', 'Dwell Time (/s)',
-                                         'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
-                                        ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
-                                         'Chi Squared'])
-                            for i, g in enumerate(p.groups):
-                                if g.histogram.tau is None or g.histogram.amp is None:  # Problem with fitting the level
-                                    tauexp = ['0' for i in range(p.numexp)]
-                                    ampexp = ['0' for i in range(p.numexp)]
-                                    other_exp = ['0', '0', '0', '0']
-                                else:
-                                    if p.numexp == 1:
-                                        tauexp = [str(g.histogram.tau)]
-                                        ampexp = [str(g.histogram.amp)]
-                                    else:
-                                        tauexp = [str(tau) for tau in g.histogram.tau]
-                                        ampexp = [str(amp) for amp in g.histogram.amp]
-                                    other_exp = [str(g.histogram.avtau), str(g.histogram.shift), str(g.histogram.bg),
-                                                 str(g.histogram.irfbg), str(g.histogram.chisq)]
-
-                                rows.append(
-                                    [str(i), str(g.dwell_time_s), str(g.int_p_s), str(g.num_photons)]
-                                    + tauexp + ampexp + other_exp)
-
-                            with open_file(group_path) as f:
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                    if ex_hist:
-                        tr_path = os.path.join(f_dir, p.name + ' histogram.csv')
-                        times = p.histogram.convd_t
-                        if times is not None:
-                            decay = p.histogram.fit_decay
-                            convd = p.histogram.convd
-                            rows = list()
-                            rows.append(['Time (ns)', 'Decay', 'Fitted'])
-                            for i, time in enumerate(times):
-                                rows.append([str(time), str(decay[i]), str(convd[i])])
-
-                            with open_file(tr_path) as f:
-                                writer = csv.writer(f, dialect=csv.excel)
-                                writer.writerows(rows)
-
-                        if p.has_levels:
-                            dir_path = os.path.join(f_dir, p.name + ' histograms')
-                            try:
-                                os.mkdir(dir_path)
-                            except FileExistsError:
-                                pass
-                            for i, l in enumerate(p.levels):
-                                hist_path = os.path.join(dir_path, 'level ' + str(i) + ' histogram.csv')
-                                times = l.histogram.convd_t
-                                if times is None:
-                                    continue
-                                decay = l.histogram.fit_decay
-                                convd = l.histogram.convd
-                                rows = list()
-                                rows.append(['Time (ns)', 'Decay', 'Fitted'])
-                                for j, time in enumerate(times):
-                                    rows.append([str(time), str(decay[j]), str(convd[j])])
-
-                                with open_file(hist_path) as f:
-                                    writer = csv.writer(f, dialect=csv.excel)
-                                    writer.writerows(rows)
-
-                            for i, g in enumerate(p.groups):
-                                hist_path = os.path.join(dir_path, 'group ' + str(i) + ' histogram.csv')
-                                times = g.histogram.convd_t
-                                if times is None:
-                                    continue
-                                decay = g.histogram.fit_decay
-                                convd = g.histogram.convd
-                                rows = list()
-                                rows.append(['Time (ns)', 'Decay', 'Fitted'])
-                                for j, time in enumerate(times):
-                                    rows.append([str(time), str(decay[j]), str(convd[j])])
-
-                                with open_file(hist_path) as f:
-                                    writer = csv.writer(f, dialect=csv.excel)
-                                    writer.writerows(rows)
-
-                    if ex_spectra_2d:
-                        spectra_2d_path = os.path.join(f_dir, p.name + ' spectra-2D.csv')
-                        with open_file(spectra_2d_path) as f:
-                            f.write("First row:,Wavelength (nm)\n")
-                            f.write("First column:,Time (s)\n")
-                            f.write("Values:,Intensity (counts/s)\n\n")
-
-                            rows = list()
-                            rows.append([''] + p.spectra.wavelengths.tolist())
-                            for num, spec_row in enumerate(p.spectra.data[:]):
-                                this_row = list()
-                                this_row.append(str(p.spectra.series_times[num]))
-                                for single_val in spec_row:
-                                    this_row.append(str(single_val))
-                                rows.append(this_row)
-
-                            writer = csv.writer(f, dialect=csv.excel)
-                            writer.writerows(rows)
-
-                    logger.info('Exporting Finished')
-        except Exception as e:
-            logger.error(e)
+    def gui_export(self, mode: str = None):
+        export_data(self, mode= mode)
 
     def convert_pt3_dialog(self):
         convert_pt3 = ConvertPt3Dialog(mainwindow=self)
@@ -1204,10 +901,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.spbBinSize.setEnabled(new_state)
         self.actionReset_Analysis.setEnabled(new_state)
         self.actionSave_Selected.setEnabled(new_state)
+        enable_levels = False
         if new_state:
             enable_levels = self.level_resolved
-        else:
-            enable_levels = new_state
         self.actionTrim_Dead_Traces.setEnabled(enable_levels)
 
         # Lifetime
