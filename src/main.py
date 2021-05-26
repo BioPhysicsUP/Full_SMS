@@ -139,6 +139,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnNextLevel.clicked.connect(l_c.gui_next_lev)
         self.btnWholeTrace.clicked.connect(l_c.gui_whole_trace)
         self.chbLifetime_Show_Groups.stateChanged.connect(l_c.plot_all)
+        self.chbShow_Residuals.stateChanged.connect(l_c.gui_show_hide_residuals)
         self.btnJumpToGroups.clicked.connect(l_c.gui_jump_to_groups)
         self.btnLoadIRF.clicked.connect(l_c.gui_load_irf)
         self.btnFitParameters.clicked.connect(l_c.gui_fit_param)
@@ -452,6 +453,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 else:
                     self.lifetime_controller.plot_decay(remove_empty=False)
                     self.lifetime_controller.plot_convd()
+                    self.lifetime_controller.plot_residuals()
                     self.lifetime_controller.update_results()
 
                 if self.currentparticle.has_groups:
