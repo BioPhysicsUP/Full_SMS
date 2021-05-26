@@ -24,6 +24,8 @@ from tcspcfit import FittingParameters, FittingDialog
 from threads import ProcessThread, ProcessTaskResult, WorkerBinAll
 from thread_tasks import OpenFile, BinAll, bin_all
 
+EXPORT_WIDTH = 1500
+
 logger = setup_logger(__name__)
 
 
@@ -58,7 +60,7 @@ def export_plot_item(plot_item: pg.PlotItem, path: str, text: str = None):
     # plot_item.getAxis('bottom').font().setPointSizeF(new_axis_point_size)
 
     ex = ImageExporter(plot_item.scene())
-    ex.parameters()['width'] = 1000
+    ex.parameters()['width'] = EXPORT_WIDTH
     ex.export(path)
 
     plot_item.getAxis('left').setAutoFillBackground(left_autofill)
@@ -1012,24 +1014,29 @@ class LifetimeController(QObject):
     def plot_all(self):
         self.mainwindow.display_data()
 
-    def update_results(self, for_export: bool = False, str_return: bool = False) -> str:
+    def update_results(self, select_ind: int = None, particle: Particle = None,
+                       for_export: bool = False, str_return: bool = False) -> Union[str, None]:
 
-        cp = self.mainwindow.currentparticle
-        level_ind = cp.level_selected
+        if select_ind is None:
+            select_ind = self.mainwindow.currentparticle.level_selected
+        elif select_ind <= -1:
+            select_ind = None
+        if particle is None:
+            particle = self.mainwindow.currentparticle
         is_group = False
         is_level = False
 
-        fit_name = f"{cp.name}"
-        if level_ind is None:
-            histogram = cp.histogram
+        fit_name = f"{particle.name}"
+        if select_ind is None:
+            histogram = particle.histogram
             fit_name = fit_name + ", Whole Trace"
-        elif level_ind <= cp.num_levels - 1:
-            histogram = cp.levels[level_ind].histogram
-            fit_name = fit_name + f", Level #{level_ind + 1}"
+        elif select_ind <= particle.num_levels - 1:
+            histogram = particle.levels[select_ind].histogram
+            fit_name = fit_name + f", Level #{select_ind + 1}"
             is_level = True
         else:
-            group_ind = level_ind - cp.num_levels
-            histogram = cp.groups[group_ind].histogram
+            group_ind = select_ind - particle.num_levels
+            histogram = particle.groups[group_ind].histogram
             is_group = True
             fit_name = fit_name + f", Group #{group_ind + 1}"
         if not histogram.fitted:
@@ -1052,16 +1059,16 @@ class LifetimeController(QObject):
         info = info + f'\nChi-Sq = {histogram.chisq: .3g}\n(0.8 <- 1 -> 1.3)'
 
         if is_group:
-            group = cp.groups[group_ind]
+            group = particle.groups[group_ind]
             info = info + f'\n\nTotal Dwell Time (s) = {group.dwell_time_s: .3g}'
             info = info + f'\n# of photons = {group.num_photons}'
         elif is_level:
-            level = cp.levels[level_ind]
+            level = particle.levels[select_ind]
             info = info + f'\n\nDwell Time (s) {level.dwell_time_s: .3g}'
             info = info + f'\n# of photons = {level.num_photons}'
         else:
-            info = info + f'\n\nDwell Times (s) = {cp.dwell_time: .3g}'
-            info = info + f'\n# of photons = {cp.num_photons}'
+            info = info + f'\n\nDwell Times (s) = {particle.dwell_time: .3g}'
+            info = info + f'\n# of photons = {particle.num_photons}'
 
         if not for_export:
             self.mainwindow.textBrowser.setText(info)
@@ -1078,6 +1085,8 @@ class LifetimeController(QObject):
 
         if select_ind is None:
             select_ind = self.mainwindow.currentparticle.level_selected
+        elif select_ind <= -1:
+            select_ind = None
         # print(currentlevel)
         if particle is None:
             particle = self.mainwindow.currentparticle
@@ -1154,7 +1163,7 @@ class LifetimeController(QObject):
                 decay = decay[:shortest]
                 life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
 
-            unit = 'ns with ' + str(particle.channelwidth) + 'ns bins'
+            unit = f'ns with {particle.channelwidth: .3g} ns bins'
             life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
             max_t = self.mainwindow.currentparticle.histogram.t[-1]
             life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
@@ -1183,6 +1192,8 @@ class LifetimeController(QObject):
 
         if select_ind is None:
             select_ind = self.mainwindow.currentparticle.level_selected
+        elif select_ind <= -1:
+            select_ind = None
         if particle is None:
             particle = self.mainwindow.currentparticle
 
@@ -1190,7 +1201,6 @@ class LifetimeController(QObject):
         if select_ind is None:
             try:
                 convd = particle.histogram.convd
-                residuals = particle.histogram.residuals
                 t = particle.histogram.convd_t
 
             except AttributeError:
@@ -1199,7 +1209,6 @@ class LifetimeController(QObject):
         elif select_ind <= particle.num_levels - 1:
             try:
                 convd = particle.levels[select_ind].histogram.convd
-                residuals = particle.levels[select_ind].histogram.residuals
                 t = particle.levels[select_ind].histogram.convd_t
             except ValueError:
                 return
@@ -1207,7 +1216,6 @@ class LifetimeController(QObject):
             try:
                 group_ind = select_ind - particle.num_levels
                 convd = particle.groups[group_ind].histogram.convd
-                residuals = particle.groups[group_ind].histogram.residuals
                 t = particle.groups[group_ind].histogram.convd_t
             except ValueError:
                 return
@@ -1247,7 +1255,11 @@ class LifetimeController(QObject):
                 else:
                     type_str = f' hist fitted (group {group_ind + 1}).png'
                 full_path = os.path.join(export_path, particle.name + type_str)
-                text_str = self.update_results(for_export=True, str_return=True)
+                text_select_ind = select_ind
+                if text_select_ind is None:
+                    text_select_ind = -1
+                text_str = self.update_results(select_ind=text_select_ind, particle=particle,
+                                               for_export=True, str_return=True)
                 export_plot_item(plot_item=plot_item, path=full_path, text=text_str)
 
     def plot_residuals(self, select_ind: int = None,
@@ -1258,6 +1270,8 @@ class LifetimeController(QObject):
 
         if select_ind is None:
             select_ind = self.mainwindow.currentparticle.level_selected
+        elif select_ind <= -1:
+            select_ind = None
         if particle is None:
             particle = self.mainwindow.currentparticle
 
@@ -1293,7 +1307,7 @@ class LifetimeController(QObject):
         if cur_tab_name == 'tabLifetime' or for_export:
 
             self.residual_plot.clear()
-            scat_plot = pg.ScatterPlotItem(x=t, y=residuals, symbol='o', size=5, pen="#0000CC",
+            scat_plot = pg.ScatterPlotItem(x=t, y=residuals, symbol='o', size=3, pen="#0000CC",
                                            brush="#0000CC")
             self.residual_plot.addItem(scat_plot)
             unit = f'ns with {particle.channelwidth: .3g} ns bins'
@@ -1304,16 +1318,14 @@ class LifetimeController(QObject):
             self.residual_plot.getViewBox().setLimits(xMin=0, xMax=t[-1])
 
             if for_export and export_path is not None:
-                plot_item = self.life_hist_plot
                 if select_ind is None:
-                    type_str = ' hist fitted (whole trace).png'
+                    type_str = ' residuals (whole trace).png'
                 elif group_ind is None:
-                    type_str = f' hist fitted (level {select_ind + 1}).png'
+                    type_str = f' residuals (level {select_ind + 1}).png'
                 else:
-                    type_str = f' hist fitted (group {group_ind + 1}).png'
+                    type_str = f' residuals (group {group_ind + 1}).png'
                 full_path = os.path.join(export_path, particle.name + type_str)
-                text_str = self.update_results(for_export=True, str_return=True)
-                export_plot_item(plot_item=plot_item, path=full_path, text=text_str)
+                export_plot_item(plot_item=self.residual_plot, path=full_path)
 
     def start_fitting_thread(self, mode: str = 'current') -> None:
         """
@@ -1431,6 +1443,7 @@ class LifetimeController(QObject):
         self.mainwindow.chbEx_Hist.setEnabled(True)
         self.mainwindow.rdbWith_Fit.setEnabled(True)
         self.mainwindow.chbEx_Plot_Residuals.setEnabled(True)
+        self.mainwindow.chbShow_Residuals.setChecked(True)
         if not mode == 'current':
             self.mainwindow.status_message("Done")
         logger.info('Fitting levels complete')
@@ -1763,8 +1776,10 @@ class SpectraController(QObject):
 
         print("gui_sub_bkg")
 
-    def plot_spectra(self, for_export: bool = False, export_path: str = None):
-        particle = self.mainwindow.currentparticle
+    def plot_spectra(self, particle: Particle = None, for_export: bool = False,
+                     export_path: str = None):
+        if particle is None:
+            particle = self.mainwindow.currentparticle
         spectra_data = np.flip(particle.spectra.data[:])
         spectra_data = spectra_data.transpose()
         data_shape = spectra_data.shape
@@ -1776,7 +1791,7 @@ class SpectraController(QObject):
         if for_export and export_path is not None:
             full_path = os.path.join(export_path, f"{particle.name} spectra.png")
             ex = ImageExporter(self.spectra_widget.getView())
-            ex.parameters()['width'] = 1000
+            ex.parameters()['width'] = EXPORT_WIDTH
             ex.export(full_path)
 
         # print('here')

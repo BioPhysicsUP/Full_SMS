@@ -109,7 +109,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                          str(p.histogram.bg),
                                          str(p.histogram.irfbg), str(p.histogram.chisq)]
 
-                        rows.append([str(i)] + tauexp + ampexp + other_exp)
+                        rows.append([str(i + 1)] + tauexp + ampexp + other_exp)
 
                 with open_file(lifetime_path) as f:
                     writer = csv.writer(f, dialect=csv.excel)
@@ -124,7 +124,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                     rows = list()
                     rows.append(['Bin #', 'Bin Time (s)', f'Bin Int (counts/{p.bin_size}ms)'])
                     for i in range(len(ints)):
-                        rows.append([str(i), str(times[i]), str(ints[i])])
+                        rows.append([str(i + 1), str(times[i]), str(ints[i])])
 
                     with open_file(tr_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
@@ -142,7 +142,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                         rows = list()
                         rows.append(['Level #', 'Time (s)', 'Int (counts/s)'])
                         for i in range(len(ints)):
-                            rows.append([str(i // 2), str(times[i]), str(ints[i])])
+                            rows.append([str((i // 2) + 1), str(times[i]), str(ints[i])])
                         with open_file(lvl_tr_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
@@ -153,7 +153,8 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                      'Int (counts/s)', 'Num of Photons'])
                         for i, l in enumerate(p.cpts.levels):
                             rows.append(
-                                [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
+                                [str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
+                                 str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons)])
 
                         with open_file(lvl_path) as f:
@@ -174,7 +175,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                         rows = list()
                         rows.append(['Grouped Level #', 'Time (s)', 'Int (counts/s)'])
                         for i in range(len(ints)):
-                            rows.append([str(i // 2), str(times[i]), str(ints[i])])
+                            rows.append([str((i // 2) + 1), str(times[i]), str(ints[i])])
 
                         with open_file(grp_lvl_tr_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
@@ -187,7 +188,8 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                      'Group Index'])
                         for i, l in enumerate(p.ahca.selected_step.group_levels):
                             rows.append(
-                                [str(i), str(l.times_s[0]), str(l.times_s[1]), str(l.dwell_time_s),
+                                [str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
+                                 str(l.dwell_time_s),
                                  str(l.int_p_s), str(l.num_photons), str(l.group_ind)])
 
                         with open_file(grp_lvl_path) as f:
@@ -217,8 +219,9 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                             rows.append(['Group #', 'Int (counts/s)', 'Total Dwell Time (s)',
                                          '# of Levels', '# of Photons'])
                             for num, group in enumerate(p.ahca.selected_step.groups):
-                                rows.append([str(num), str(group.int_p_s), str(group.dwell_time_s),
-                                             str(len(group.lvls)), str(group.num_photons)])
+                                rows.append([str(num + 1), str(group.int_p_s),
+                                             str(group.dwell_time_s), str(len(group.lvls)),
+                                             str(group.num_photons)])
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
@@ -233,7 +236,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                             rows = list()
                             rows.append(['Step #', '# of Groups', 'BIC value'])
                             for num, step in enumerate(p.ahca.steps):
-                                rows.append([str(num), str(step.num_groups), str(step.bic)])
+                                rows.append([str(num + 1), str(step.num_groups), str(step.bic)])
 
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
@@ -281,7 +284,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                                  str(l.histogram.bg),
                                                  str(l.histogram.irfbg), str(l.histogram.chisq)]
 
-                                rows.append([str(i), str(l.times_s[0]), str(l.times_s[1]),
+                                rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                              str(l.dwell_time_s), str(l.int_p_s),
                                              str(l.num_photons)] + tauexp + ampexp + other_exp)
 
@@ -316,7 +319,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                                      str(g.histogram.irfbg), str(g.histogram.chisq)]
 
                                     rows.append(
-                                        [str(i), str(g.dwell_time_s), str(g.int_p_s), str(g.num_photons)]
+                                        [str(i + 1), str(g.dwell_time_s), str(g.int_p_s), str(g.num_photons)]
                                         + tauexp + ampexp + other_exp)
 
                         with open_file(group_path) as f:
@@ -380,7 +383,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                     writer.writerows(rows)
 
                 if ex_plot_lifetimes and ex_plot_hist_only:
-                    mainwindow.lifetime_controller.plot_decay(particle=p,
+                    mainwindow.lifetime_controller.plot_decay(select_ind=-1, particle=p,
                                                               for_export=True,
                                                               export_path=f_dir)
                     dir_path = os.path.join(f_dir, p.name + ' histograms')
@@ -403,9 +406,10 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                                                           export_path=dir_path)
 
                 if ex_plot_lifetimes and ex_plot_with_fit:
-                    mainwindow.lifetime_controller.plot_decay(particle=p, for_export=True)
-                    mainwindow.lifetime_controller.plot_convd(particle=p,
-                                                              for_export=True,
+                    mainwindow.lifetime_controller.plot_decay(select_ind=-1,
+                                                              particle=p, for_export=True)
+                    mainwindow.lifetime_controller.plot_convd(select_ind=-1,
+                                                              particle=p, for_export=True,
                                                               export_path=f_dir)
                     dir_path = os.path.join(f_dir, p.name + ' histograms')
                     try:
@@ -433,7 +437,10 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                                                           export_path=dir_path)
 
                 if ex_plot_lifetimes and ex_plot_residuals:
-                    mainwindow.lifetime_controller.plot_residuals(particle=p,
+                    was_showing = mainwindow.chbShow_Residuals.isChecked()
+                    if not was_showing:
+                        mainwindow.lifetime_controller.residual_widget.show()
+                    mainwindow.lifetime_controller.plot_residuals(select_ind=-1, particle=p,
                                                                   for_export=True,
                                                                   export_path=f_dir)
                     dir_path = os.path.join(f_dir, p.name + ' histograms')
@@ -454,6 +461,8 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                                                               particle=p,
                                                                               for_export=True,
                                                                               export_path=dir_path)
+                    if not was_showing:
+                        mainwindow.lifetime_controller.residual_widget.hide()
 
                 if ex_spectra_2d:
                     spectra_2d_path = os.path.join(f_dir, p.name + ' spectra-2D.csv')
@@ -475,7 +484,8 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                         writer.writerows(rows)
 
                 if ex_plot_spectra:
-                    pass
+                    mainwindow.spectra_controller.plot_spectra(particle=p, for_export=True,
+                                                               export_path=f_dir)
 
                 logger.info('Exporting Finished')
     except Exception as e:
