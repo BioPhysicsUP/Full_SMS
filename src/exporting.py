@@ -432,7 +432,11 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                                                           for_export=True,
                                                                           export_path=dir_path)
 
+<<<<<<< HEAD
                 if ex_plot_lifetimes and ex_plot_residuals:
+=======
+                if ex_plot_residuals:
+>>>>>>> master
                     mainwindow.lifetime_controller.plot_residuals(particle=p,
                                                                   for_export=True,
                                                                   export_path=f_dir)
