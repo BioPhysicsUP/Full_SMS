@@ -432,6 +432,29 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                                                           for_export=True,
                                                                           export_path=dir_path)
 
+                if ex_plot_lifetimes and ex_plot_residuals:
+                    mainwindow.lifetime_controller.plot_residuals(particle=p,
+                                                                  for_export=True,
+                                                                  export_path=f_dir)
+                    dir_path = os.path.join(f_dir, p.name + ' histograms')
+                    try:
+                        os.mkdir(dir_path)
+                    except FileExistsError:
+                        pass
+                    if p.has_levels:
+                        for i in range(p.num_levels):
+                            mainwindow.lifetime_controller.plot_residuals(select_ind=i,
+                                                                          particle=p,
+                                                                          for_export=True,
+                                                                          export_path=dir_path)
+                        if p.has_groups:
+                            for i in range(p.num_groups):
+                                i_g = i + p.num_levels
+                                mainwindow.lifetime_controller.plot_residuals(select_ind=i_g,
+                                                                              particle=p,
+                                                                              for_export=True,
+                                                                              export_path=dir_path)
+
                 if ex_spectra_2d:
                     spectra_2d_path = os.path.join(f_dir, p.name + ' spectra-2D.csv')
                     with open_file(spectra_2d_path) as f:

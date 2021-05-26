@@ -609,6 +609,7 @@ class Histogram:
         self.irfbg = None
         self.avtau = None
         self.numexp = None
+        self.residuals = None
 
     @property
     def t(self):
@@ -660,6 +661,7 @@ class Histogram:
             self.bg = fit.bg
             self.irfbg = fit.irfbg
             self.chisq = fit.chisq
+            self.residuals = fit.residuals
             self.fitted = True
             if numexp == 1:
                 self.avtau = self.tau
