@@ -17,7 +17,7 @@ import pyqtgraph as pg
 from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot
 from PyQt5.QtGui import QIcon, QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
-    QApplication, QStyleFactory
+    QApplication, QStyleFactory, QTreeWidget
 from PyQt5 import uic
 from typing import Union
 import time
