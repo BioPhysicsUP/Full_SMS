@@ -157,3 +157,4 @@ src/ui/mainwindow.ui.autosave
 Syncfolders_Database_db
 
 test_data/export/
+/src/analysis/results/

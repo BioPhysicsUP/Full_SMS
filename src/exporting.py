@@ -190,7 +190,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                             rows.append(
                                 [str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                  str(l.dwell_time_s),
-                                 str(l.int_p_s), str(l.num_photons), str(l.group_ind)])
+                                 str(l.int_p_s), str(l.num_photons), str(l.group_ind + 1)])
 
                         with open_file(grp_lvl_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
@@ -206,7 +206,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
 
                 if ex_grouping_info:
                     if p.has_groups:
-                        group_info_path = os.path.join(f_dir, p.name + ' group_info.csv')
+                        group_info_path = os.path.join(f_dir, p.name + ' groups-info.csv')
                         with open_file(group_info_path) as f:
                             f.write(f"# of Groups:,{p.ahca.best_step.num_groups}\n")
                             if p.ahca.best_step_ind == p.ahca.selected_step_ind:
@@ -227,7 +227,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
 
                 if ex_grouping_results:
                     if p.has_groups:
-                        group_info_path = os.path.join(f_dir, p.name + ' grouping_results.csv')
+                        group_info_path = os.path.join(f_dir, p.name + ' grouping-results.csv')
                         with open_file(group_info_path) as f:
                             f.write(f"# of Steps:,{p.ahca.num_steps}\n")
                             f.write(f"Step with highest BIC value:,{p.ahca.best_step.bic}\n")
@@ -259,7 +259,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
 
                     all_fitted_lvls = [lvl.histogram.fitted for lvl in p.levels]
                     if p.has_levels and any(all_fitted_lvls):
-                        lvl_path = os.path.join(f_dir, p.name + ' levels_lifetimes.csv')
+                        lvl_path = os.path.join(f_dir, p.name + ' levels-lifetimes.csv')
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)',
                                      'Dwell Time (/s)', 'Int (counts/s)',
@@ -294,7 +294,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
 
                         all_fitted_grps = [grp.histogram.fitted for grp in p.groups]
                         if p.has_groups and any(all_fitted_grps):
-                            group_path = os.path.join(f_dir, p.name + ' groups_lifetimes.csv')
+                            group_path = os.path.join(f_dir, p.name + ' groups-lifetimes.csv')
                             rows = list()
                             rows.append(['Group #', 'Dwell Time (/s)',
                                          'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
@@ -327,7 +327,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                             writer.writerows(rows)
 
                 if ex_hist:
-                    tr_path = os.path.join(f_dir, p.name + ' histogram.csv')
+                    tr_path = os.path.join(f_dir, p.name + ' hist.csv')
                     times = p.histogram.convd_t
                     if times is not None:
                         decay = p.histogram.fit_decay
@@ -349,7 +349,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                             pass
                         for i, l in enumerate(p.levels):
                             hist_path = os.path.join(dir_path,
-                                                     'level ' + str(i + 1) + ' histogram.csv')
+                                                     'level ' + str(i + 1) + ' hist.csv')
                             times = l.histogram.convd_t
                             if times is None:
                                 continue
@@ -367,7 +367,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                         if p.has_groups:
                             for i, g in enumerate(p.groups):
                                 hist_path = os.path.join(dir_path,
-                                                         'group ' + str(i + 1) + ' histogram.csv')
+                                                         'group ' + str(i + 1) + ' hist.csv')
                                 times = g.histogram.convd_t
                                 if times is None:
                                     continue
@@ -386,7 +386,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                     mainwindow.lifetime_controller.plot_decay(select_ind=-1, particle=p,
                                                               for_export=True,
                                                               export_path=f_dir)
-                    dir_path = os.path.join(f_dir, p.name + ' histograms')
+                    dir_path = os.path.join(f_dir, p.name + ' hist')
                     try:
                         os.mkdir(dir_path)
                     except FileExistsError:
@@ -411,7 +411,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                     mainwindow.lifetime_controller.plot_convd(select_ind=-1,
                                                               particle=p, for_export=True,
                                                               export_path=f_dir)
-                    dir_path = os.path.join(f_dir, p.name + ' histograms')
+                    dir_path = os.path.join(f_dir, p.name + ' hist')
                     try:
                         os.mkdir(dir_path)
                     except FileExistsError:
@@ -443,7 +443,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                     mainwindow.lifetime_controller.plot_residuals(select_ind=-1, particle=p,
                                                                   for_export=True,
                                                                   export_path=f_dir)
-                    dir_path = os.path.join(f_dir, p.name + ' histograms')
+                    dir_path = os.path.join(f_dir, p.name + ' hist')
                     try:
                         os.mkdir(dir_path)
                     except FileExistsError:

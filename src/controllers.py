@@ -1249,11 +1249,11 @@ class LifetimeController(QObject):
             if for_export and export_path is not None:
                 plot_item = self.life_hist_plot
                 if select_ind is None:
-                    type_str = ' hist fitted (whole trace).png'
+                    type_str = ' hist-fitted (whole trace).png'
                 elif group_ind is None:
-                    type_str = f' hist fitted (level {select_ind + 1}).png'
+                    type_str = f' hist-fitted (level {select_ind + 1}).png'
                 else:
-                    type_str = f' hist fitted (group {group_ind + 1}).png'
+                    type_str = f' hist-fitted (group {group_ind + 1}).png'
                 full_path = os.path.join(export_path, particle.name + type_str)
                 text_select_ind = select_ind
                 if text_select_ind is None:
