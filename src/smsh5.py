@@ -32,8 +32,6 @@ if TYPE_CHECKING:
 logger = setup_logger(__name__)
 
 
-
-
 class H5dataset:
 
     def __init__(self, filename, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
@@ -51,15 +49,17 @@ class H5dataset:
         except KeyError:
             self.version = '0.1'
 
-        unsorted_names = list(self.file.keys())
-        natural_p_names = [None]*len(unsorted_names)
+        all_keys = self.file.keys()
+        part_keys = [part_key for part_key in all_keys if 'Particle ' in part_key]
+
+        natural_p_names = [None]*len(part_keys)
         natural_key = []
-        for name in unsorted_names:
+        for name in part_keys:
             for seg in re.split('(\d+)', name):
                 if seg.isdigit():
                     natural_key.append(int(seg))
         for num, key_num in enumerate(natural_key):
-            natural_p_names[key_num-1] = unsorted_names[num]
+            natural_p_names[key_num-1] = part_keys[num]
 
         self.all_sums = CPSums(n_min=10, n_max=1000, prog_fb=prog_fb)
 
@@ -219,9 +219,13 @@ class Particle:
         self.rasterscan = RasterScan(self)
         self.description = self.datadict.attrs['Discription']
         self.irf = None
-        if channelwidth is None:
-            differences = np.diff(np.sort(self.microtimes[:]))
-            channelwidth = np.unique(differences)[1]
+        try:
+            if channelwidth is None:
+                differences = np.diff(np.sort(self.microtimes[:]))
+                channelwidth = np.unique(differences)[1]
+        except IndexError as e:
+            logger.error(f"channelwidth could not be detemined. Inspect {self.name}.")
+            channelwidth = 0.01220703125
         self.channelwidth = channelwidth
         if tmin is None:
             self.tmin = 0
