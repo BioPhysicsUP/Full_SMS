@@ -442,6 +442,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if hasattr(self, 'currentparticle') and type(self.currentparticle) is smsh5.Particle:
             cur_tab_name = self.tabWidget.currentWidget().objectName()
 
+            self.txtDescription.setText(self.currentparticle.description)
+
             if cur_tab_name in ['tabIntensity', 'tabGrouping', 'tabLifetime']:
                 if cur_tab_name == 'tabIntensity':
                     self.update_int_gui()
