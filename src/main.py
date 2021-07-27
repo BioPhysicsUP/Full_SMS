@@ -13,12 +13,12 @@ import sys
 from platform import system
 import ctypes
 
+import pyqtgraph as pg
 from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot
 from PyQt5.QtGui import QIcon, QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QStyleFactory, QTreeWidget
 from PyQt5 import uic
-import pyqtgraph as pg
 from typing import Union
 import time
 
@@ -609,10 +609,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if self.data_loaded and not irf:
             self.currentparticle = self.tree2particle(0)
             self.treeViewParticles.expandAll()
-            try:
-                self.treeViewParticles.setCurrentIndex(self.part_index[1])
-            except IndexError:
-                self.treeViewParticles.setCurrentIndex(self.part_index[0])
+            self.treeViewParticles.setCurrentIndex(self.part_index[1])
             any_spectra = any([part.has_spectra for part in self.currentparticle.dataset.particles])
             if any_spectra:
                 self.has_spectra = True

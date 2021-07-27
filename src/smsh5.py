@@ -207,10 +207,7 @@ class Particle:
         self.dataset = dataset
         self.dataset_ind = dataset_ind
         self.datadict = self.dataset.file[self.name]
-        if float(self.dataset.version) >= 1.03:
-            self.microtimes = self.datadict['Micro Times (ns)']
-        else:
-            self.microtimes = self.datadict['Micro Times (s)']
+        self.microtimes = self.datadict['Micro Times (s)']
         self.abstimes = self.datadict['Absolute Times (ns)']
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
@@ -220,10 +217,7 @@ class Particle:
 
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
-        if float(self.dataset.version) >= 1.03:
-            self.description = self.datadict.attrs['Description']
-        else:
-            self.description = self.datadict.attrs['Discription']
+        self.description = self.datadict.attrs['Discription']
         self.irf = None
         try:
             if channelwidth is None:
