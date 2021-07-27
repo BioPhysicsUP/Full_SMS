@@ -314,7 +314,8 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
                             if os.path.isfile(os.path.join(self._source_path, f))]
 
         pt3_f_name = self.edtFileNames_pt3.text()
-        pt3_fs = [file for file in all_source_files if file.startswith(pt3_f_name)]
+        pt3_fs = [file for file in all_source_files if file.startswith(pt3_f_name) and
+                  file.endswith('.pt3')]
         pt3_fs.sort()
         num_files = len(pt3_fs)
 

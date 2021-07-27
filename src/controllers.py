@@ -280,19 +280,35 @@ class IntController(QObject):
         """
 
         mw = self.mainwindow
-        dataset = mw.currentparticle.dataset
+        try:
+            dataset = mw.currentparticle.dataset
+            mw.start_progress(dataset.num_parts)
+            mw.status_message("Binning all particles...")
+            for part in dataset.particles:
+                part.binints(bin_size)
+                mw.update_progress()
+        except Exception as err:
+            mw.status_message("An error has occurred...")
+            mw.end_progress()
+            logger.error('Error Occured:')
+        else:
+            mw.display_data()
+            mw.repaint()
+            mw.status_message("Done")
+            mw.end_progress()
+            logger.info('All traces binned')
 
-        ba_process_thread = ProcessThread(num_processes=1)
-        ba_process_thread.signals.start_progress.connect(mw.start_progress)
-        ba_process_thread.signals.set_progress.connect(mw.set_progress)
-        ba_process_thread.signals.step_progress.connect(mw.update_progress)
-        ba_process_thread.signals.add_progress.connect(mw.update_progress)
-        ba_process_thread.signals.end_progress.connect(mw.end_progress)
-        ba_process_thread.signals.error.connect(self.error)
-        ba_process_thread.signals.finished.connect(self.binall_thread_complete)
-
-        ba_obj = BinAll(dataset=dataset, bin_size=bin_size)
-        ba_process_thread.add_tasks_from_methods(ba_obj, 'run_bin_all')
+        # ba_process_thread = ProcessThread(num_processes=1)
+        # ba_process_thread.signals.start_progress.connect(mw.start_progress)
+        # ba_process_thread.signals.set_progress.connect(mw.set_progress)
+        # ba_process_thread.signals.step_progress.connect(mw.update_progress)
+        # ba_process_thread.signals.add_progress.connect(mw.update_progress)
+        # ba_process_thread.signals.end_progress.connect(mw.end_progress)
+        # ba_process_thread.signals.error.connect(self.error)
+        # ba_process_thread.signals.finished.connect(self.binall_thread_complete)
+        #
+        # ba_obj = BinAll(dataset=dataset, bin_size=bin_size)
+        # ba_process_thread.add_tasks_from_methods(ba_obj, 'run_bin_all')
 
 
         # binall_thread = WorkerBinAll(dataset, bin_all, bin_size)
@@ -301,8 +317,8 @@ class IntController(QObject):
         # binall_thread.signals.progress.connect(mw.update_progress)
         # binall_thread.signals.status_message.connect(mw.status_message)
 
-        mw.threadpool.start(ba_process_thread)
-        mw.active_threads.append(ba_process_thread)
+        # mw.threadpool.start(ba_process_thread)
+        # mw.active_threads.append(ba_process_thread)
 
     def binall_thread_complete(self):
 
@@ -769,15 +785,24 @@ class IntController(QObject):
                         cp.level_selected = clicked_group + cp.num_levels
                         self.mainwindow.display_data()
                 else:
-                    clicked_time = event.currentItem.mapSceneToView(event.scenePos()).x()
-                    level_times = [lvl.times_s for lvl in cp.levels]
-                    clicked_level = None
-                    for i, (start, end) in enumerate(level_times):
-                        if start <= clicked_time <= end:
-                            clicked_level = i
-                            break
-                    if clicked_level is not None:
-                        cp.level_selected = clicked_level
+                    try:
+                        clicked_time = event.currentItem.mapSceneToView(event.scenePos()).x()
+                    except AttributeError as err:
+                        if err.args[0] == '\'AxisItem\' object has no attribute \'mapSceneToView\'':
+                            cp.level_selected = None
+                        else:
+                            logger.error(err)
+                            raise err
+                    else:
+                        level_times = [lvl.times_s for lvl in cp.levels]
+                        clicked_level = None
+                        for i, (start, end) in enumerate(level_times):
+                            if start <= clicked_time <= end:
+                                clicked_level = i
+                                break
+                        if clicked_level is not None:
+                            cp.level_selected = clicked_level
+                    finally:
                         self.mainwindow.display_data()
 
     def error(self, e):
@@ -1299,6 +1324,7 @@ class LifetimeController(QObject):
                 return
 
         if residuals is None or t is None:
+            self.residual_plot.clear()
             return
 
         # convd = convd / convd.max()
@@ -1522,6 +1548,8 @@ class GroupingController(QObject):
             last_solution = points[0]
             self.all_last_solutions[self.mainwindow.currentparticle.dataset_ind] = last_solution
 
+            if curr_part.using_group_levels:
+                curr_part.using_group_levels = False
             self.mainwindow.display_data()
 
     def plot_group_bic(self, particle: Particle = None,

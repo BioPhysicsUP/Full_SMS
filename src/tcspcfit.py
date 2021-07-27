@@ -11,8 +11,8 @@ from __future__ import annotations
 import numpy as np
 import pyqtgraph as pg
 import scipy
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPen, QColor, QDoubleValidator
+from PyQt5.QtCore import Qt, QRegExp
+from PyQt5.QtGui import QPen, QColor, QDoubleValidator, QRegExpValidator
 from PyQt5.QtWidgets import QLineEdit, QCheckBox, QDialog, QComboBox, QMessageBox
 from matplotlib import pyplot as plt
 from scipy.fftpack import fft, ifft
@@ -757,39 +757,31 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         self.irf_shift_edit = self.lineShift
 
-        self._tau_validator = QDoubleValidator(0.00001, 1000, 5)
-        self._tau_validator.setNotation(QDoubleValidator.StandardNotation)
+        reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
+        reg_val = QRegExpValidator(reg_exp)
+
+        self._reg_exp_validator = reg_val
         for tau_edit in self.tau_edits:
-            tau_edit.setValidator(self._tau_validator)
+            tau_edit.setValidator(self._reg_exp_validator)
             tau_edit.textChanged.connect(self.updateplot)
 
-        self._tau_min_max_validator = QDoubleValidator(0, 1000, 5)
-        self._tau_min_max_validator.setNotation(QDoubleValidator.StandardNotation)
         for tau_min_max_edit in [*self.amp_min_edits, *self.tau_max_edits]:
-            tau_min_max_edit.setValidator(self._tau_min_max_validator)
+            tau_min_max_edit.setValidator(self._reg_exp_validator)
 
-        self._amp_validator = QDoubleValidator(0.00001, 1, 5)
-        self._amp_validator.setNotation(QDoubleValidator.StandardNotation)
         for amp_edit in self.amp_edits:
-            amp_edit.setValidator(self._amp_validator)
+            amp_edit.setValidator(self._reg_exp_validator)
             amp_edit.textChanged.connect(self.updateplot)
 
-        self._amp_min_max_validator = QDoubleValidator(0, 1, 5)
-        self._amp_min_max_validator.setNotation(QDoubleValidator.StandardNotation)
         for amp_min_max_edit in [*self.amp_min_edits, *self.amp_max_edits]:
-            amp_min_max_edit.setValidator(self._amp_min_max_validator)
+            amp_min_max_edit.setValidator(self._reg_exp_validator)
 
-        self._bg_time_validator = QDoubleValidator(0, 5000, 5)
-        self._bg_time_validator.setNotation(QDoubleValidator.StandardNotation)
         for bg_edit in self.bg_edits:
-            bg_edit.setValidator(self._bg_time_validator)
+            bg_edit.setValidator(self._reg_exp_validator)
         for time_edit in self.time_edits:
-            time_edit.setValidator(self._bg_time_validator)
+            time_edit.setValidator(self._reg_exp_validator)
             time_edit.textChanged.connect(self.updateplot)
 
-        self._irf_validator = QDoubleValidator(-1000, 1000, 5)
-        self._irf_validator.setNotation(QDoubleValidator.StandardNotation)
-        self.irf_shift_edit.setValidator(self._irf_validator)
+        self.irf_shift_edit.setValidator(self._reg_exp_validator)
         self.irf_shift_edit.textChanged.connect(self.updateplot)
         self.combNumExp.currentIndexChanged.connect(self.updateplot)
 
