@@ -269,10 +269,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
 
+        logger.info("Performing Open H5 Action")
         file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
             self.status_message(message="Opening file...")
+            logger.info("About to create ProcessThread object")
             of_process_thread = ProcessThread(num_processes=1)
+            logger.info("About to connect signals")
             of_process_thread.worker_signals.add_datasetindex.connect(self.add_dataset)
             of_process_thread.worker_signals.add_particlenode.connect(self.add_node)
             of_process_thread.worker_signals.add_all_particlenodes.connect(self.add_all_nodes)
@@ -287,9 +290,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
             of_process_thread.signals.error.connect(self.error_handler)
             of_process_thread.signals.finished.connect(self.open_file_thread_complete)
 
+            logger.info("About to create OpenFile object")
             of_obj = OpenFile(file_path=file_path)  # , progress_tracker=of_progress_tracker)
             of_process_thread.add_tasks_from_methods(of_obj, 'open_h5')
+            logger.info("About to start Process Thread")
             self.threadpool.start(of_process_thread)
+            logger.info("Started Process Thread")
             self.active_threads.append(of_process_thread)
 
     def act_save_selected(self):

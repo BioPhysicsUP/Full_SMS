@@ -1,11 +1,11 @@
-from __future__ import  annotations
+from __future__ import annotations
 import multiprocessing as mp
 from multiprocessing import managers
 from enum import IntEnum, auto
 from queue import Empty
 from typing import List, Union, TYPE_CHECKING
 from uuid import UUID, uuid1
-import time
+# import time
 from numpy import ndarray
 import os
 from tempfile import TemporaryDirectory
@@ -18,8 +18,8 @@ import pickle
 from inspect import signature
 from functools import wraps
 
-from change_point import ChangePoints
-from grouping import AHCA
+# from change_point import ChangePoints
+# from grouping import AHCA
 # from smsh5 import Histogram
 
 if TYPE_CHECKING:
@@ -45,7 +45,7 @@ def apply_autoproxy_fix():
     if "manager_owned" in signature(managers.AutoProxy).parameters:
         return
 
-    logger.debug("Patching multiprocessing.managers.AutoProxy to add manager_owned")
+    logger.info("Patching multiprocessing.managers.AutoProxy to add manager_owned")
     managers.AutoProxy = AutoProxy
 
     # re-register any types already registered to SyncManager without a custom
@@ -65,12 +65,14 @@ def apply_autoproxy_fix():
         )
 
 
-apply_autoproxy_fix()
+# apply_autoproxy_fix()
 
 
 def create_manager() -> mp.Manager:
-    manager = mp.Manager()
     apply_autoproxy_fix()
+    logger.info("Applied AutoProxy Fix")
+    manager = mp.Manager()
+    logger.info("About to return manager")
     return manager
 
 

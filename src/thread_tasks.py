@@ -92,6 +92,7 @@ class OpenFile:
             Queue to send feedback to ProcessThread
         """
         try:
+            logger.info("Running Open File Thread Task")
             sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
             prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
 

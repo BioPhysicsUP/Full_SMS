@@ -1,4 +1,4 @@
-import copy
+# import copy
 import time
 from typing import Union, List
 
@@ -8,7 +8,7 @@ from PyQt5.QtCore import QRunnable, pyqtSlot
 from my_logger import setup_logger
 from signals import WorkerSignals, ProcessThreadSignals, worker_sig_pass
 from smsh5 import H5dataset, Particle
-from thread_commands import StatusCmd, ProgressCmd
+# from thread_commands import StatusCmd, ProgressCmd
 from processes import ProcessProgressCmd as PPCmd, ProcessSigPassTask as PSCmd,\
     ProcessProgressTask as PPTask, ProcessSigPassTask as PSTask, ProcessTask, create_queue,\
     get_max_num_processes, get_empty_queue_exception, SingleProcess, ProcessTaskResult, \
@@ -30,9 +30,13 @@ class ProcessThread(QRunnable):
                  task_buffer_size: int = None,
                  status_message: str = None,
                  temp_dir: TemporaryDirectory = None):
+        logger.info("Inside ProcessThread __init__")
         super().__init__()
+        logger.info("After super().__init__()")
         self._processes = []
+        logger.info("About to create manager")
         self._manager = create_manager()
+        logger.info("About to create queues")
         self.task_queue = create_queue()
         self.result_queue = create_queue()
         self.feedback_queue = self._manager.Queue()
@@ -57,6 +61,7 @@ class ProcessThread(QRunnable):
         self.task_buffer_size = task_buffer_size
 
         if not signals:
+            logger.info("About to create ProcessThreadsSignals object")
             self.signals = ProcessThreadSignals()
         else:
             # assert type(signals) is ThreadSignals, 'Provided signals wrong ' \
@@ -122,6 +127,7 @@ class ProcessThread(QRunnable):
         Your code goes in this function
         """
 
+        logger.info("Running Process Thread")
         self.is_running = True
         num_active_processes = 0
         try:
