@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox,
 from PyQt5 import uic
 from typing import Union
 import time
+from multiprocessing import Process, freeze_support
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController
 from thread_tasks import OpenFile
@@ -996,4 +997,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    freeze_support()
+    Process(target=main).start()
