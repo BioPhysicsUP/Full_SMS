@@ -170,7 +170,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>3</number>
       </property>
       <property name="iconSize">
        <size>
@@ -1911,7 +1911,7 @@
         <string>Spectra</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_7">
-        <item row="3" column="0">
+        <item row="2" column="0">
          <layout class="QHBoxLayout" name="laySpectra_Buttons">
           <item>
            <spacer name="spcSpectra_Buttons_Left">
@@ -1973,7 +1973,7 @@
           </item>
          </layout>
         </item>
-        <item row="2" column="0">
+        <item row="1" column="0">
          <widget class="Line" name="lineSpectra_Buttons">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -1987,14 +1987,11 @@
          </widget>
         </item>
         <item row="0" column="0">
-         <widget class="ImageView" name="pgSpectra_ImageView" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+         <layout class="QVBoxLayout" name="laySpectra">
+          <property name="bottomMargin">
+           <number>6</number>
           </property>
-         </widget>
+         </layout>
         </item>
        </layout>
       </widget>
@@ -3439,12 +3436,6 @@
   <customwidget>
    <class>PlotWidget</class>
    <extends>QGraphicsView</extends>
-   <header>pyqtgraph.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>ImageView</class>
-   <extends>QWidget</extends>
    <header>pyqtgraph.h</header>
    <container>1</container>
   </customwidget>

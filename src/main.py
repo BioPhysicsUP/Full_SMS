@@ -117,7 +117,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.lifetime_controller = \
             LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
                                residual_widget=self.pgLieftime_Residuals_PlotWidget)
-        self.spectra_controller = SpectraController(self, spectra_widget=self.pgSpectra_ImageView)
+        self.pgSpectra_Image_View = pg.ImageView(view=pg.PlotItem())
+        self.laySpectra.addWidget(self.pgSpectra_Image_View)
+        self.pgSpectra_Image_View.show()
+        self.spectra_controller = SpectraController(self, spectra_image_view=self.pgSpectra_Image_View)
         self.grouping_controller = \
             GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
 

@@ -342,7 +342,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                             writer.writerows(rows)
 
                     if p.has_levels:
-                        dir_path = os.path.join(f_dir, p.name + ' histograms')
+                        dir_path = os.path.join(f_dir, p.name + ' hists')
                         try:
                             os.mkdir(dir_path)
                         except FileExistsError:
@@ -386,7 +386,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                     mainwindow.lifetime_controller.plot_decay(select_ind=-1, particle=p,
                                                               for_export=True,
                                                               export_path=f_dir)
-                    dir_path = os.path.join(f_dir, p.name + ' hist')
+                    dir_path = os.path.join(f_dir, p.name + ' hists')
                     try:
                         os.mkdir(dir_path)
                     except FileExistsError:
@@ -411,7 +411,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                     mainwindow.lifetime_controller.plot_convd(select_ind=-1,
                                                               particle=p, for_export=True,
                                                               export_path=f_dir)
-                    dir_path = os.path.join(f_dir, p.name + ' hist')
+                    dir_path = os.path.join(f_dir, p.name + ' hists')
                     try:
                         os.mkdir(dir_path)
                     except FileExistsError:
@@ -443,7 +443,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                     mainwindow.lifetime_controller.plot_residuals(select_ind=-1, particle=p,
                                                                   for_export=True,
                                                                   export_path=f_dir)
-                    dir_path = os.path.join(f_dir, p.name + ' hist')
+                    dir_path = os.path.join(f_dir, p.name + ' hists')
                     try:
                         os.mkdir(dir_path)
                     except FileExistsError:

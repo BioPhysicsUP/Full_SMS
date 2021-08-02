@@ -1774,13 +1774,21 @@ class GroupingController(QObject):
 
 class SpectraController(QObject):
 
-    def __init__(self, mainwindow: MainWindow, spectra_widget: pg.ImageView):
+    def __init__(self, mainwindow: MainWindow, spectra_image_view: pg.ImageView):
         super().__init__()
 
         self.mainwindow = mainwindow
-        self.spectra_widget = spectra_widget
+        self.spectra_image_view = spectra_image_view
+        self.spectra_image_view.setPredefinedGradient('plasma')
+        self.spectra_image_view.view.getAxis('left').setLabel("Wavelength (nm)")
+        self.spectra_image_view.view.getAxis('bottom').setLabel("Time (s)")
 
-        self.spectra_widget.setPredefinedGradient('plasma')
+        # self.spectra_imv = self.spectra_widget
+        # self.spectra_widget.view = pg.PlotItem()
+
+        # self.spectra_imv = self.spectra_widget.addItem(pg.ImageItem())
+        # self.spectra_imv = pg.ImageView(view=self.spectra_widget.plotItem, parent=self.spectra_widget)
+        # self.spectra_imv.show()
 
         # blue, red = Color('blue'), Color('red')
         # colours = blue.range_to(red, 256)
@@ -1788,15 +1796,16 @@ class SpectraController(QObject):
         # self._look_up_table = c_array.astype(np.uint8)
 
         # self.spectra_plot = spectra_widget.addPlot()
-        # self.spectra_plot_item = pg.ImageItem()
-        # self.spectra_plot.addItem(self.spectra_plot_item)
-
+        # self.spectra_plot_item = self.spectra_widget.plotItem
+        # self.spectra_image_item = pg.ImageItem()
+        # self.spectra_widget.addItem(self.spectra_image_item)
+        #
         # axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
-        # self.spectra_image_item.getAxis('left').setPen(axis_line_pen)
-        # self.spectra_image_item.getAxis('bottom').setPen(axis_line_pen)
+        # self.spectra_plot_item.getAxis('left').setPen(axis_line_pen)
+        # self.spectra_plot_item.getAxis('bottom').setPen(axis_line_pen)
         #
         # # Set axis label bold and size
-        # font = self.spectra_image_item.getAxis('left').label.font()
+        # font = self.spectra_plot_item.getAxis('left').label.font()
         # font.setBold(True)
         #
         # self.spectra_image_item.getAxis('left').label.setFont(font)
@@ -1817,17 +1826,36 @@ class SpectraController(QObject):
                      export_path: str = None):
         if particle is None:
             particle = self.mainwindow.current_particle
-        spectra_data = np.flip(particle.spectra.data[:])
-        spectra_data = spectra_data.transpose()
+        # spectra_data = np.flip(particle.spectra.data[:])
+        spectra_data = particle.spectra.data[:]
+        # spectra_data = spectra_data.transpose()
         data_shape = spectra_data.shape
         current_ratio = data_shape[1]/data_shape[0]
-        self.spectra_widget.getView().setAspectLocked(False, current_ratio)
+        self.spectra_image_view.getView().setAspectLocked(False, current_ratio)
 
-        self.spectra_widget.setImage(spectra_data)
+        self.spectra_image_view.setImage(spectra_data)
+
+        wl = particle.spectra.wavelengths
+        y_ticks_wavelength = np.linspace(wl.max(), wl.min(), 15)
+        y_ticks_pixel = np.linspace(0, 512, 15)
+        y_ticks = [[(y_ticks_pixel[i], f"{y_ticks_wavelength[i]: .1f}") for i in range(15)]]
+        self.spectra_image_view.view.getAxis('left').setTicks(y_ticks)
+
+        t_series = particle.spectra.series_times
+        mod_selector = len(t_series)//30 + 1
+        x_ticks_t = list()
+        for i in range(len(t_series)):
+            if not (mod_selector + i)%mod_selector:
+                x_ticks_t.append(t_series[i])
+        x_ticks_value = np.linspace(0, spectra_data.shape[0], len(x_ticks_t))
+        x_ticks = [[(x_ticks_value[i], f"{x_ticks_t[i]:.1f}") for i in range(len(x_ticks_t))]]
+        self.spectra_image_view.view.getAxis('bottom').setTicks(x_ticks)
+
+        # self.spectra_image_view.view.getAxis('left').setTicks([particle.spectra.wavelengths.tolist()])
 
         if for_export and export_path is not None:
             full_path = os.path.join(export_path, f"{particle.name} spectra.png")
-            ex = ImageExporter(self.spectra_widget.getView())
+            ex = ImageExporter(self.spectra_image_view.getView())
             ex.parameters()['width'] = EXPORT_WIDTH
             ex.export(full_path)
 
