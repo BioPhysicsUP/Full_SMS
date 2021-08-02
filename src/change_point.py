@@ -21,8 +21,9 @@ import dbg
 import file_manager as fm
 from my_logger import setup_logger
 
-MIN_PHOTONS = 10
-BURST_MIN_DWELL = 0.1  # Seconds
+MIN_PHOTONS = 20
+MIN_EDGE_PHOTONS = 7
+BURST_MIN_DWELL = 0.001  # Seconds
 BURST_INT_SIGMA = 3
 
 logger = setup_logger(__name__)
@@ -510,7 +511,6 @@ class ChangePointAnalysis:
         else:
             return None
 
-
     def __weighted_likelihood_ratio(self, seg_inds=None) -> Tuple[bool, Optional[int]]:
         """
         Calculates the Weighted & Standardised Likelihood ratio and detects the possible change point.
@@ -582,7 +582,8 @@ class ChangePointAnalysis:
         max_ind_local = int(wlr.argmax())
 
         cpt = None
-        if wlr[max_ind_local] >= self._tau.get_tau_a(n):
+        if max_ind_local >= MIN_EDGE_PHOTONS and n - max_ind_local >= MIN_EDGE_PHOTONS and\
+                wlr[max_ind_local] >= self._tau.get_tau_a(n):
             cpt = max_ind_local + start_ind
             self.cpt_inds = np.append(self.cpt_inds, max_ind_local + start_ind)
             tau_b_inv = wlr.max() - self._tau.get_tau_b(n)
