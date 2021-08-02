@@ -824,7 +824,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         shift, decaybg, irfbg, start, end = self.getparams()
 
-        channelwidth = self.mainwindow.currentparticle.channelwidth
+        channelwidth = self.mainwindow.current_particle.channelwidth
         shift = shift / channelwidth
         start = int(start / channelwidth)
         end = int(end / channelwidth)
@@ -835,15 +835,15 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         convd = convd / convd.max()
 
         try:
-            if self.mainwindow.currentparticle.level_selected is None:
-                histogram = self.mainwindow.currentparticle.histogram
+            if self.mainwindow.current_particle.level_selected is None:
+                histogram = self.mainwindow.current_particle.histogram
             else:
-                level = self.mainwindow.currentparticle.level_selected
-                if level <= self.mainwindow.currentparticle.num_levels - 1:
-                    histogram = self.mainwindow.currentparticle.levels[level].histogram
+                level = self.mainwindow.current_particle.level_selected
+                if level <= self.mainwindow.current_particle.num_levels - 1:
+                    histogram = self.mainwindow.current_particle.levels[level].histogram
                 else:
-                    group = level - self.mainwindow.currentparticle.num_levels
-                    histogram = self.mainwindow.currentparticle.groups[group].histogram
+                    group = level - self.mainwindow.current_particle.num_levels
+                    histogram = self.mainwindow.current_particle.groups[group].histogram
             decay = histogram.decay
             decay = decay / decay.max()
             t = histogram.t
@@ -926,7 +926,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
     def make_model(self):
         fp = self.lifetime_controller.fitparam
-        t = self.mainwindow.currentparticle.histogram.t
+        t = self.mainwindow.current_particle.histogram.t
         fp.getfromdialog()
         if fp.numexp == 1:
             tau = fp.tau[0][0]

@@ -7,17 +7,17 @@ University of Pretoria
 
 __docformat__ = 'NumPy'
 
-import csv
+# import csv
 import os
 import sys
 from platform import system
 import ctypes
 
 import pyqtgraph as pg
-from PyQt5.QtCore import pyqtSignal, Qt, QThreadPool, pyqtSlot
-from PyQt5.QtGui import QIcon, QResizeEvent
+from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot
+from PyQt5.QtGui import QIcon  #, QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
-    QApplication, QStyleFactory, QTreeWidget
+    QApplication, QStyleFactory  #, QTreeWidget
 from PyQt5 import uic
 from typing import Union
 import time
@@ -161,6 +161,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.actionOpen_h5.triggered.connect(self.act_open_h5)
         self.actionSave_Selected.triggered.connect(self.act_save_selected)
+        self.actionSelect_All.triggered.connect(self.act_select_all)
+        self.actionInvert_Selection.triggered.connect(self.act_invert_selection)
+        self.actionDeselect_All.triggered.connect(self.act_deselect_all)
         self.actionTrim_Dead_Traces.triggered.connect(self.act_trim)
         self.actionSwitch_All.triggered.connect(self.act_switch_all)
         self.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
@@ -178,6 +181,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.treeViewParticles.setModel(self.treemodel)
         # Connect the tree selection to data display
         self.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
+        self.treeViewParticles.clicked.connect(self.tree_view_clicked)
+        self._root_was_checked = False
 
         self.part_nodes = list()
         self.part_index = list()
@@ -274,9 +279,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
         if file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
             self.status_message(message="Opening file...")
-            logger.info("About to create ProcessThread object")
+            # logger.info("About to create ProcessThread object")
             of_process_thread = ProcessThread(num_processes=1)
-            logger.info("About to connect signals")
+            # logger.info("About to connect signals")
             of_process_thread.worker_signals.add_datasetindex.connect(self.add_dataset)
             of_process_thread.worker_signals.add_particlenode.connect(self.add_node)
             of_process_thread.worker_signals.add_all_particlenodes.connect(self.add_all_nodes)
@@ -291,12 +296,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
             of_process_thread.signals.error.connect(self.error_handler)
             of_process_thread.signals.finished.connect(self.open_file_thread_complete)
 
-            logger.info("About to create OpenFile object")
+            # logger.info("About to create OpenFile object")
             of_obj = OpenFile(file_path=file_path)  # , progress_tracker=of_progress_tracker)
             of_process_thread.add_tasks_from_methods(of_obj, 'open_h5')
-            logger.info("About to start Process Thread")
+            # logger.info("About to start Process Thread")
             self.threadpool.start(of_process_thread)
-            logger.info("Started Process Thread")
+            # logger.info("Started Process Thread")
             self.active_threads.append(of_process_thread)
 
     def act_save_selected(self):
@@ -359,7 +364,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             start = self.lifetime_controller.startpoint
         try:
             # self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start, channel=True)
-            dataset = self.currentparticle.dataset
+            dataset = self.current_particle.dataset
             dataset.makehistograms(remove_zeros=False, startpoint=start, channel=True)
         except Exception as exc:
             print(exc)
@@ -374,34 +379,67 @@ class MainWindow(QMainWindow, UI_Main_Window):
     ############ Internal Methods ############
     #######################################"""
 
-    def add_dataset(self, datasetnode):
-        self.datasetindex = self.treemodel.addChild(datasetnode)
+    def add_dataset(self, dataset_node):
+        self.dataset_node = dataset_node
+        self.dataset_index = self.treemodel.addChild(dataset_node)
 
-    def add_node(self, particlenode, num):
-        index = self.treemodel.addChild(particlenode, self.datasetindex)  #, progress_sig)
+    def add_node(self, particle_node, num):
+        index = self.treemodel.addChild(particle_node, self.dataset_index)  #, progress_sig)
         if num == 0:
-            self.treeViewParticles.expand(self.datasetindex)
+            self.treeViewParticles.expand(self.dataset_index)
             self.treeViewParticles.setCurrentIndex(index)
+            self.current_particle = particle_node.dataobj
 
-        self.part_nodes.append(particlenode)
+        self.part_nodes.append(particle_node)
         self.part_index.append(index)
 
-    def add_all_nodes(self, all_particlenodes):
-        for particlenode, num in all_particlenodes:
-            index = self.treemodel.addChild(particlenode, self.datasetindex)  # , progress_sig)
-            if num == 0:
-                self.treeViewParticles.expand(self.datasetindex)
-                self.treeViewParticles.setCurrentIndex(index)
-            self.part_nodes.append(particlenode)
-            self.part_index.append(index)
+    def add_all_nodes(self, all_nodes):
+        for node, num in all_nodes:
+            if num == -1:
+                assert type(node.dataobj) is smsh5.H5dataset, "First node must be for H5Dataset"
+                self.add_dataset(node)
+                self.treeViewParticles.expand(self.dataset_index)
+            # index = self.treemodel.addChild(node, self.datasetindex)  # , progress_sig)
+            else:
+                assert type(node.dataobj) is smsh5.Particle, "Node must be for Particle"
+                self.add_node(node, num)
+
+    def tree_view_clicked(self, model_index):
+        if self.treemodel.data(model_index, Qt.UserRole) is self.dataset_node.dataobj:
+            root_node_checked = self.dataset_node.checked()
+            if all([node.checked() for node in self.part_nodes]) != root_node_checked:
+                for part_node in self.part_nodes:
+                    part_node.setChecked(root_node_checked)
+                self._root_was_checked = root_node_checked
+                self.treeViewParticles.viewport().repaint()
+        else:
+            all_checked = all([node.checked() for node in self.part_nodes])
+            self.dataset_node.setChecked(all_checked)
+            self.treeViewParticles.viewport().repaint()
+
+    def act_select_all(self, *args, **kwargs):
+        if self.data_loaded:
+            for node in self.part_nodes:
+                node.setChecked(True)
+
+    def act_invert_selection(self, *args, **kwargs):
+        if self.data_loaded:
+            for node in self.part_nodes:
+                node.setChecked(not node.checked())
+            self.treeViewParticles.viewport().repaint()
+
+    def act_deselect_all(self, *args, **kwargs):
+        if self.data_loaded:
+            for node in self.part_nodes:
+                node.setChecked(False)
 
     def tab_change(self, active_tab_index: int):
-        if self.data_loaded and hasattr(self, 'currentparticle'):
+        if self.data_loaded and hasattr(self, 'current_particle'):
             if self.tabWidget.currentIndex() in [0, 1, 2, 3]:
                 self.display_data()
 
     def update_int_gui(self):
-        cur_part = self.currentparticle
+        cur_part = self.current_particle
 
         if cur_part.has_levels:
             self.chbInt_Disp_Resolved.show()
@@ -442,19 +480,20 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         # self.current_ind = current
         # self.pre_ind = prev
+        self.treeViewParticles.viewport().repaint()
         if current is not None:
-            if hasattr(self, 'currentparticle'):
-                self.currentparticle = self.treemodel.get_particle(current)
+            if hasattr(self, 'current_particle'):
+                self.current_particle = self.treemodel.get_particle(current)
             # self.current_level = None  # Reset current level when particle changes.
-        if hasattr(self, 'currentparticle') and type(self.currentparticle) is smsh5.Particle:
+        if hasattr(self, 'current_particle') and type(self.current_particle) is smsh5.Particle:
             cur_tab_name = self.tabWidget.currentWidget().objectName()
 
-            self.txtDescription.setText(self.currentparticle.description)
+            self.txtDescription.setText(self.current_particle.description)
 
             if cur_tab_name in ['tabIntensity', 'tabGrouping', 'tabLifetime']:
                 if cur_tab_name == 'tabIntensity':
                     self.update_int_gui()
-                self.int_controller.set_bin(self.currentparticle.bin_size)
+                self.int_controller.set_bin(self.current_particle.bin_size)
                 self.int_controller.plot_trace()
                 self.int_controller.update_level_info()
                 if cur_tab_name != 'tabLifetime':
@@ -465,22 +504,22 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.lifetime_controller.plot_residuals()
                     self.lifetime_controller.update_results()
 
-                if self.currentparticle.has_groups:
+                if self.current_particle.has_groups:
                     self.int_controller.plot_group_bounds()
                     if cur_tab_name == 'tabGrouping':
                         self.grouping_controller.plot_group_bic()
                 else:
                     self.grouping_controller.clear_bic()
 
-            if cur_tab_name == 'tabSpectra' and self.currentparticle.has_spectra:
+            if cur_tab_name == 'tabSpectra' and self.current_particle.has_spectra:
                 self.spectra_controller.plot_spectra()
 
             # Set Enables
             set_apply_groups = False
-            if self.currentparticle.has_levels:
+            if self.current_particle.has_levels:
                 self.int_controller.plot_levels()
                 set_group = True
-                if self.currentparticle.has_groups:
+                if self.current_particle.has_groups:
                     set_apply_groups = True
                 else:
                     set_apply_groups = False
@@ -595,7 +634,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         """
         if type(identifier) is int:
-            return self.datasetindex.child(identifier,0).data(Qt.UserRole)
+            return self.dataset_index.child(identifier, 0).data(Qt.UserRole)
         if type(identifier) is DatasetTreeNode:
             return identifier.dataobj
 
@@ -607,7 +646,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         smsh5.H5dataset
         """
         # return self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
-        return self.datasetindex.data(Qt.UserRole)
+        return self.dataset_index.data(Qt.UserRole)
 
     def set_data_loaded(self):
         self.data_loaded = True
@@ -616,10 +655,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """ Is called as soon as all of the threads have finished. """
 
         if self.data_loaded and not irf:
-            self.currentparticle = self.tree2particle(0)
+            self.current_particle = self.tree2particle(0)
             self.treeViewParticles.expandAll()
             self.treeViewParticles.setCurrentIndex(self.part_index[1])
-            any_spectra = any([part.has_spectra for part in self.currentparticle.dataset.particles])
+            any_spectra = any([part.has_spectra for part in self.current_particle.dataset.particles])
             if any_spectra:
                 self.has_spectra = True
             self.display_data()
@@ -795,12 +834,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def check_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
-            particles = [self.currentparticle]
+            particles = [self.current_particle]
         elif mode == 'selected':
             particles = self.get_checked_particles()
         else:
             # particles = self.tree2dataset().particles
-            particles = self.currentparticle.dataset.particles  #TODO: This needs to change.
+            particles = self.current_particle.dataset.particles  #TODO: This needs to change.
 
         removed_bursts = False  # TODO: Remove
         has_burst = [particle.has_burst for particle in particles]
@@ -821,7 +860,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 for num, particle in enumerate(particles):
                     if has_burst[num]:
                         particle.cpts.remove_bursts()
-            self.currentparticle.dataset.makehistograms()
+            self.current_particle.dataset.makehistograms()
 
             self.display_data()
 
@@ -855,7 +894,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def get_checked(self):
         checked = list()
-        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+        for ind in range(self.treemodel.rowCount(self.dataset_index)):
             if self.part_nodes[ind].checked():
                 checked.append((ind, self.part_nodes[ind]))
                 # checked_nums.append(ind)
@@ -864,14 +903,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def get_checked_nums(self):
         checked_nums = list()
-        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+        for ind in range(self.treemodel.rowCount(self.dataset_index)):
             if self.part_nodes[ind].checked():
                 checked_nums.append(ind + 1)
         return checked_nums
 
     def get_checked_particles(self):
         checked_particles = list()
-        for ind in range(self.treemodel.rowCount(self.datasetindex)):
+        for ind in range(self.treemodel.rowCount(self.dataset_index)):
             if self.part_nodes[ind].checked():
                 checked_particles.append(self.tree2particle(ind))
         return checked_particles
@@ -997,5 +1036,8 @@ def main():
 
 
 if __name__ == '__main__':
-    freeze_support()
-    Process(target=main).start()
+    if '--debug' not in sys.argv:
+        freeze_support()
+        Process(target=main).start()
+    else:
+        main()

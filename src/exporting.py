@@ -19,11 +19,11 @@ def export_data(mainwindow: MainWindow, mode: str = None):
         assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
 
         if mode == 'current':
-            particles = [mainwindow.currentparticle]
+            particles = [mainwindow.current_particle]
         elif mode == 'selected':
             particles = mainwindow.get_checked_particles()
         else:
-            particles = mainwindow.currentparticle.dataset.particles
+            particles = mainwindow.current_particle.dataset.particles
 
         # save_dlg = QFileDialog(self)
         # save_dlg.setAcceptMode(QFileDialog.AcceptSave)
@@ -488,5 +488,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                                                export_path=f_dir)
 
                 logger.info('Exporting Finished')
+                p.has_exported = True
+
     except Exception as e:
         logger.error(e)

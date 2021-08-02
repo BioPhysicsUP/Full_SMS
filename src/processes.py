@@ -70,9 +70,9 @@ def apply_autoproxy_fix():
 
 def create_manager() -> mp.Manager:
     apply_autoproxy_fix()
-    logger.info("Applied AutoProxy Fix")
+    # logger.info("Applied AutoProxy Fix")
     manager = mp.Manager()
-    logger.info("About to return manager")
+    # logger.info("About to return manager")
     return manager
 
 

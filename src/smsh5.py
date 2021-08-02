@@ -15,6 +15,7 @@ from uuid import uuid1
 import h5pickle
 import numpy as np
 from pyqtgraph import ScatterPlotItem, SpotItem
+from PyQt5.QtGui import QPixmap
 
 import dbg
 import tcspcfit
@@ -30,6 +31,10 @@ if TYPE_CHECKING:
     from change_point import Level
 
 logger = setup_logger(__name__)
+
+
+# class ParticleIcons:
+#     test_icon = QPixmap('c:\\google drive\\current_projects\\full_sms\\resources\\icons\\test.png').scaledToHeight(12)
 
 
 class H5dataset:
@@ -247,6 +252,9 @@ class Particle:
         self.level_selected = None
         self.using_group_levels = False
 
+        self.has_fit_a_lifetime = False
+        self.has_exported = False
+
     @property
     def has_spectra(self) -> bool:
         return self.spectra._has_spectra
@@ -351,6 +359,10 @@ class Particle:
     @property
     def numexp(self):
         return self.histogram.numexp
+
+    # @property
+    # def icon(self):
+    #     return ParticleIcons.test_icon
 
     def levels2data(self, use_grouped: bool = None) -> [np.ndarray, np.ndarray]:
         """

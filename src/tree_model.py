@@ -1,14 +1,20 @@
 from __future__ import annotations
 from PyQt5.QtCore import QAbstractItemModel, Qt, QModelIndex
+from PyQt5.QtGui import QPixmap, QIcon
 
 # import smsh5
 from my_logger import setup_logger
 from typing import TYPE_CHECKING
+import file_manager as fm
 
 if TYPE_CHECKING:
     import smsh5
 
 logger = setup_logger(__name__)
+
+
+# class ParitcleIcons:
+#     def __init__(self):
 
 
 class DatasetTreeNode(object):
@@ -30,18 +36,21 @@ class DatasetTreeNode(object):
             self._data = list(name)
         if type(name) in (str, bytes) or not hasattr(name, '__getitem__'):
             self._data = [name]
+            # self._data = [name, False]
 
         self._columncount = len(self._data)
         self._children = []
         self._parent = None
         self._row = 0
 
+        self.datatype = datatype
         if datatype == 'dataset':
             pass
 
         elif datatype == 'particle':
             pass
 
+        # self.icon = QIcon('c:\\google drive\\current_projects\\full_sms\\resources\\icons\\group-all.png')
         self.dataobj = dataobj
         self.setChecked(checked)
 
@@ -61,8 +70,10 @@ class DatasetTreeNode(object):
     def data(self, in_column):
         """ TODO: Docstring """
 
-        if in_column >= 0 and in_column < len(self._data):
+        if in_column == 0:
             return self._data[in_column]
+        # elif in_column >=1 and in_column <= len(self._data) and self.datatype == 'particle':
+        #     return QIcon('c:\\google drive\\current_projects\\full_sms\\resources\\icons\\group-all.png')
 
     def columnCount(self):
         """ TODO: Docstring """
@@ -117,6 +128,18 @@ class DatasetTreeModel(QAbstractItemModel):
         self._root = DatasetTreeNode(None, None, None)
         # for node in in_nodes:
         #     self._root.addChild(node)
+        self.none = QPixmap(fm.path('particle-none.png', fm.Type.Icons)).scaledToHeight(12)
+        self.e = QPixmap(fm.path('particle-e.png', fm.Type.Icons)).scaledToHeight(12)
+        self.r = QPixmap(fm.path('particle-r.png', fm.Type.Icons)).scaledToHeight(12)
+        self.re = QPixmap(fm.path('particle-re.png', fm.Type.Icons)).scaledToHeight(12)
+        self.rg = QPixmap(fm.path('particle-rg.png', fm.Type.Icons)).scaledToHeight(12)
+        self.rge = QPixmap(fm.path('particle-rge.png', fm.Type.Icons)).scaledToHeight(12)
+        self.l = QPixmap(fm.path('particle-l.png', fm.Type.Icons)).scaledToHeight(12)
+        self.le = QPixmap(fm.path('particle-le.png', fm.Type.Icons)).scaledToHeight(12)
+        self.rl = QPixmap(fm.path('particle-rl.png', fm.Type.Icons)).scaledToHeight(12)
+        self.rle = QPixmap(fm.path('particle-rle.png', fm.Type.Icons)).scaledToHeight(12)
+        self.rgl = QPixmap(fm.path('particle-rgl.png', fm.Type.Icons)).scaledToHeight(12)
+        self.rgle = QPixmap(fm.path('particle-rgle.png', fm.Type.Icons)).scaledToHeight(12)
 
     def flags(self, index):
         # return self.flags(index) | Qt.ItemIsUserCheckable
@@ -242,6 +265,40 @@ class DatasetTreeModel(QAbstractItemModel):
         node = in_index.internalPointer()
         if role == Qt.DisplayRole:
             return node.data(in_index.column())
+        if role == Qt.DecorationRole:
+            if hasattr(node, 'datatype') and node.datatype == 'particle':
+                p = node.dataobj
+                r = p.has_levels
+                g = p.has_groups
+                l = p.has_fit_a_lifetime
+                e = p.has_exported
+
+                icon = None
+                if not any([r, g, l, e]):
+                    icon = self.none
+                elif e and not any([r, g, l]):
+                    icon = self.e
+                elif r and not any([g, l, e]):
+                    icon = self.r
+                elif r and e and not any([g, l]):
+                    icon = self.re
+                elif r and g and not any([l, e]):
+                    icon = self.rg
+                elif r and g and e and not l:
+                    icon = self.rge
+                elif l and not any([r, g, e]):
+                    icon = self.l
+                elif l and e and not any([r, g]):
+                    icon = self.le
+                elif r and l and not any([g, e]):
+                    icon = self.rl
+                elif r and l and e and not g:
+                    icon = self.rle
+                elif r and g and l and not e:
+                    icon = self.rgl
+                elif all([r, g, l, e]):
+                    icon = self.rgle
+                return icon
         if role == Qt.UserRole:
             return node.dataobj
         if role == Qt.CheckStateRole:

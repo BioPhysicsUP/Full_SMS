@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "full_sms"
-version = "0.1.0"
+version = "0.2.1"
 description = "Application to display and analyse single-molecule spectroscopy measurements."
 authors = ["Josh <Joshua.Botha@up.ac.za>"]
 
@@ -16,7 +16,6 @@ statsmodels = "^0.12.1"
 pyqtgraph = "^0.11.0"
 matplotlib = "^3.3.3"
 h5pickle = "^0.4.2"
-numba = "^0.53.1"
 
 
 [tool.poetry.dev-dependencies]

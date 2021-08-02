@@ -32,11 +32,11 @@ class ProcessThread(QRunnable):
                  temp_dir: TemporaryDirectory = None):
         logger.info("Inside ProcessThread __init__")
         super().__init__()
-        logger.info("After super().__init__()")
+        # logger.info("After super().__init__()")
         self._processes = []
-        logger.info("About to create manager")
+        # logger.info("About to create manager")
         self._manager = create_manager()
-        logger.info("About to create queues")
+        # logger.info("About to create queues")
         self.task_queue = create_queue()
         self.result_queue = create_queue()
         self.feedback_queue = self._manager.Queue()
@@ -61,7 +61,7 @@ class ProcessThread(QRunnable):
         self.task_buffer_size = task_buffer_size
 
         if not signals:
-            logger.info("About to create ProcessThreadsSignals object")
+            # logger.info("About to create ProcessThreadsSignals object")
             self.signals = ProcessThreadSignals()
         else:
             # assert type(signals) is ThreadSignals, 'Provided signals wrong ' \

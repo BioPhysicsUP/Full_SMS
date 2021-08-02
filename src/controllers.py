@@ -237,7 +237,7 @@ class IntController(QObject):
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
         try:
-            self.mainwindow.currentparticle.binints(self.get_bin())
+            self.mainwindow.current_particle.binints(self.get_bin())
         except Exception as err:
             logger.error('Error Occured:')
         else:
@@ -281,7 +281,7 @@ class IntController(QObject):
 
         mw = self.mainwindow
         try:
-            dataset = mw.currentparticle.dataset
+            dataset = mw.current_particle.dataset
             mw.start_progress(dataset.num_parts)
             mw.status_message("Binning all particles...")
             for part in dataset.particles:
@@ -377,7 +377,7 @@ class IntController(QObject):
         try:
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             if particle is None:
-                particle = self.mainwindow.currentparticle
+                particle = self.mainwindow.current_particle
             trace = particle.binnedtrace.intdata
             times = particle.binnedtrace.inttimes / 1E3
         except AttributeError:
@@ -423,7 +423,7 @@ class IntController(QObject):
                     export_path: str = None):
         """ Used to plot the resolved intensity levels of the current particle. """
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
         if not particle.has_levels:
             return
         try:
@@ -490,7 +490,7 @@ class IntController(QObject):
 
     def plot_hist(self, particle: Particle = None, for_export: bool = False):
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
         try:
             int_data = particle.binnedtrace.intdata
         except AttributeError:
@@ -524,12 +524,12 @@ class IntController(QObject):
             int_hist.rotate(-90)
             plot_item.addItem(int_hist)
 
-            if self.mainwindow.currentparticle.has_levels:
-                level_ints = self.mainwindow.currentparticle.level_ints
+            if self.mainwindow.current_particle.has_levels:
+                level_ints = self.mainwindow.current_particle.level_ints
 
-                level_ints *= self.mainwindow.currentparticle.bin_size / 1000
+                level_ints *= self.mainwindow.current_particle.bin_size / 1000
                 dwell_times = [level.dwell_time_s for level in
-                               self.mainwindow.currentparticle.levels]
+                               self.mainwindow.current_particle.levels]
                 level_freq, level_hist_bins = np.histogram(np.negative(level_ints), bins=bin_edges,
                                                            weights=dwell_times, density=True)
                 level_freq /= np.max(level_freq)
@@ -544,7 +544,7 @@ class IntController(QObject):
 
     def update_level_info(self, particle: Particle = None):
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
 
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabIntensity' and self.show_level_info:
@@ -579,7 +579,7 @@ class IntController(QObject):
                           for_export: bool = False,
                           export_path: str = None):
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
 
         if for_export:
             cur_tab_name = 'tabIntensity'
@@ -671,7 +671,7 @@ class IntController(QObject):
 
         _, conf = self.get_gui_confidence()
         data = mw.tree2dataset()
-        currentparticle = mw.currentparticle
+        currentparticle = mw.current_particle
         # print(currentparticle)
 
         self.resolve_mode = mode
@@ -710,7 +710,7 @@ class IntController(QObject):
 
 
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
-        particles = self.mainwindow.currentparticle.dataset.particles
+        particles = self.mainwindow.current_particle.dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
             results = [results]
@@ -737,7 +737,7 @@ class IntController(QObject):
                 logger.error(msg="Results gathering timeout")
                 raise RuntimeError
 
-        if self.mainwindow.currentparticle.has_levels:  # tree2dataset().cpa_has_run:
+        if self.mainwindow.current_particle.has_levels:  # tree2dataset().cpa_has_run:
             self.mainwindow.tabGrouping.setEnabled(True)
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
@@ -761,7 +761,7 @@ class IntController(QObject):
     def any_int_plot_double_click(self, event: MouseClickEvent):
         if event.double():
             event.accept()
-            cp = self.mainwindow.currentparticle
+            cp = self.mainwindow.current_particle
             if cp.has_levels:
                 use_groups = False
                 if event.currentItem is self.int_plot.vb:
@@ -867,7 +867,7 @@ class LifetimeController(QObject):
     def gui_prev_lev(self):
         """ Moves to the previous resolves level and displays its decay curve. """
 
-        cp = self.mainwindow.currentparticle
+        cp = self.mainwindow.current_particle
         changed = False
         if cp.level_selected is not None:
             if cp.level_selected == 0:
@@ -883,7 +883,7 @@ class LifetimeController(QObject):
     def gui_next_lev(self):
         """ Moves to the next resolves level and displays its decay curve. """
 
-        cp = self.mainwindow.currentparticle
+        cp = self.mainwindow.current_particle
         changed = False
         if cp.level_selected is None:
             cp.level_selected = 0
@@ -903,11 +903,11 @@ class LifetimeController(QObject):
         "Unselects selected level and shows whole trace's decay curve"
 
         # self.mainwindow.current_level = None
-        self.mainwindow.currentparticle.level_selected = None
+        self.mainwindow.current_particle.level_selected = None
         self.mainwindow.display_data()
 
     def gui_jump_to_groups(self):
-        cp = self.mainwindow.currentparticle
+        cp = self.mainwindow.current_particle
         if cp.has_groups:
             cp.level_selected = cp.num_levels
             self.mainwindow.display_data()
@@ -987,7 +987,7 @@ class LifetimeController(QObject):
     def gui_fit_current(self):
         """ Fits the currently selected level's decay curve using the provided settings. """
 
-        cp = self.mainwindow.currentparticle
+        cp = self.mainwindow.current_particle
         selected_level = cp.level_selected
         if selected_level is None:
             histogram = cp.histogram
@@ -999,7 +999,7 @@ class LifetimeController(QObject):
                 selected_group = selected_level - cp.num_levels
                 histogram = cp.groups[selected_group].histogram
         try:
-            channelwidth = self.mainwindow.currentparticle.channelwidth
+            channelwidth = self.mainwindow.current_particle.channelwidth
             shift = self.fitparam.shift / channelwidth
             # shift = self.fitparam.shift
             if self.fitparam.start is not None:
@@ -1015,6 +1015,8 @@ class LifetimeController(QObject):
                                  start, end, self.fitparam.addopt,
                                  self.fitparam.irf, self.fitparam.shiftfix):
                 return  # fit unsuccessful
+            else:
+                cp.has_fit_a_lifetime = True
         except AttributeError:
             logger.error("No decay")
         else:
@@ -1043,11 +1045,11 @@ class LifetimeController(QObject):
                        for_export: bool = False, str_return: bool = False) -> Union[str, None]:
 
         if select_ind is None:
-            select_ind = self.mainwindow.currentparticle.level_selected
+            select_ind = self.mainwindow.current_particle.level_selected
         elif select_ind <= -1:
             select_ind = None
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
         is_group = False
         is_level = False
 
@@ -1109,12 +1111,12 @@ class LifetimeController(QObject):
         """ Used to display the histogram of the decay data of the current particle. """
 
         if select_ind is None:
-            select_ind = self.mainwindow.currentparticle.level_selected
+            select_ind = self.mainwindow.current_particle.level_selected
         elif select_ind <= -1:
             select_ind = None
         # print(currentlevel)
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
 
         group_ind = None
         if select_ind is None:
@@ -1190,7 +1192,7 @@ class LifetimeController(QObject):
 
             unit = f'ns with {particle.channelwidth: .3g} ns bins'
             life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
-            max_t = self.mainwindow.currentparticle.histogram.t[-1]
+            max_t = self.mainwindow.current_particle.histogram.t[-1]
             life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
             life_hist_plot.getViewBox().setRange(xRange=[0, max_t])
             if not for_export:
@@ -1216,11 +1218,11 @@ class LifetimeController(QObject):
         """ Used to display the histogram of the decay data of the current particle. """
 
         if select_ind is None:
-            select_ind = self.mainwindow.currentparticle.level_selected
+            select_ind = self.mainwindow.current_particle.level_selected
         elif select_ind <= -1:
             select_ind = None
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
 
         group_ind = None
         if select_ind is None:
@@ -1294,11 +1296,11 @@ class LifetimeController(QObject):
         """ Used to display the histogram of the decay data of the current particle. """
 
         if select_ind is None:
-            select_ind = self.mainwindow.currentparticle.level_selected
+            select_ind = self.mainwindow.current_particle.level_selected
         elif select_ind <= -1:
             select_ind = None
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
 
         group_ind = None
         if select_ind is None:
@@ -1372,13 +1374,13 @@ class LifetimeController(QObject):
         mw = self.mainwindow
         if mode == 'current':
             status_message = "Fitting Levels for Current Particle..."
-            particles = [mw.currentparticle]
+            particles = [mw.current_particle]
         elif mode == 'selected':
             status_message = "Fitting Levels for Selected Particles..."
             particles = mw.get_checked_particles()
         elif mode == 'all':
             status_message = "Fitting Levels for All Particles..."
-            particles = mw.currentparticle.dataset.particles
+            particles = mw.current_particle.dataset.particles
 
         f_p = self.fitparam
         channelwidth = particles[0].channelwidth
@@ -1417,13 +1419,14 @@ class LifetimeController(QObject):
         mw.active_threads.append(f_process_thread)
 
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
-        particles = self.mainwindow.currentparticle.dataset.particles
+        particles = self.mainwindow.current_particle.dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
             results = [results]
         result_part_uuids = [result.new_task_obj.part_uuid for result in results]
         try:
             for num, result in enumerate(results):
+                any_successful_fit = None
                 result_part_ind = part_uuids.index(result_part_uuids[num])
                 target_particle = self.mainwindow.tree2particle(result_part_ind)
 
@@ -1434,6 +1437,7 @@ class LifetimeController(QObject):
                 result.new_task_obj.part_hist.microtimes = target_microtimes
 
                 target_particle.histogram = result.new_task_obj.part_hist
+                any_successful_fit = [result.new_task_obj.part_hist.fitted]
 
                 for i, res_hist in enumerate(result.new_task_obj.level_hists):
                     target_level = target_particle.levels[i]
@@ -1444,6 +1448,7 @@ class LifetimeController(QObject):
                     res_hist.level = target_level
 
                     target_level.histogram = res_hist
+                    any_successful_fit.append(res_hist.fitted)
 
                 for i, res_group_hist in enumerate(result.new_task_obj.group_hists):
                     target_group_lvls_inds = target_particle.groups[i].lvls_inds
@@ -1457,6 +1462,10 @@ class LifetimeController(QObject):
                     res_group_hist.level = target_group_lvls_inds
 
                     target_particle.groups[i].histogram = res_group_hist
+                    any_successful_fit.append(res_group_hist.fitted)
+
+                if any(any_successful_fit):
+                    target_particle.has_fit_a_lifetime = True
 
         except ValueError as e:
             logger.error(e)
@@ -1533,9 +1542,9 @@ class GroupingController(QObject):
         self.bic_scatter_plot.clear()
 
     def solution_clicked(self, plot, points):
-        last_solution = self.all_last_solutions[self.mainwindow.currentparticle.dataset_ind]
+        last_solution = self.all_last_solutions[self.mainwindow.current_particle.dataset_ind]
         if last_solution != points[0]:
-            curr_part = self.mainwindow.currentparticle
+            curr_part = self.mainwindow.current_particle
             point_num_groups = int(points[0].pos()[0])
             new_ind = curr_part.ahca.steps_num_groups.index(point_num_groups)
             curr_part.ahca.set_selected_step(new_ind)
@@ -1546,7 +1555,7 @@ class GroupingController(QObject):
             for p in points:
                 p.setPen('r', width=2)
             last_solution = points[0]
-            self.all_last_solutions[self.mainwindow.currentparticle.dataset_ind] = last_solution
+            self.all_last_solutions[self.mainwindow.current_particle.dataset_ind] = last_solution
 
             if curr_part.using_group_levels:
                 curr_part.using_group_levels = False
@@ -1559,7 +1568,7 @@ class GroupingController(QObject):
         cur_tab_name = 'tabGrouping'
         if cur_tab_name == 'tabGrouping' or for_export:
             if particle is None:
-                particle = self.mainwindow.currentparticle
+                particle = self.mainwindow.current_particle
             if particle.ahca.best_step.single_level:
                 self.bic_plot_widget.getPlotItem().clear()
                 return
@@ -1654,14 +1663,14 @@ class GroupingController(QObject):
         mw = self.mainwindow
 
         if mode == 'current':
-            grouping_objs = [mw.currentparticle.ahca]
+            grouping_objs = [mw.current_particle.ahca]
             status_message = "Grouping levels for current particle..."
         elif mode == 'selected':
             checked_particles = mw.get_checked_particles()
             grouping_objs = [particle.ahca for particle in checked_particles]
             status_message = "Grouping levels for selected particle..."
         elif mode == 'all':
-            all_particles = mw.currentparticle.dataset.particles
+            all_particles = mw.current_particle.dataset.particles
             grouping_objs = [particle.ahca for particle in all_particles]
             status_message = "Grouping levels for all particle..."
 
@@ -1684,7 +1693,7 @@ class GroupingController(QObject):
         self.mainwindow.threadpool.start(g_process_thread)
 
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
-        particles = self.mainwindow.currentparticle.dataset.particles
+        particles = self.mainwindow.current_particle.dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
             results = [results]
@@ -1745,11 +1754,11 @@ class GroupingController(QObject):
 
     def apply_groups(self, mode: str = 'current'):
         if mode == 'current':
-            particles = [self.mainwindow.currentparticle]
+            particles = [self.mainwindow.current_particle]
         elif mode == 'selected':
             particles = self.mainwindow.get_checked_particles()
         else:
-            particles = self.mainwindow.currentparticle.dataset.particles
+            particles = self.mainwindow.current_particle.dataset.particles
 
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:
@@ -1807,7 +1816,7 @@ class SpectraController(QObject):
     def plot_spectra(self, particle: Particle = None, for_export: bool = False,
                      export_path: str = None):
         if particle is None:
-            particle = self.mainwindow.currentparticle
+            particle = self.mainwindow.current_particle
         spectra_data = np.flip(particle.spectra.data[:])
         spectra_data = spectra_data.transpose()
         data_shape = spectra_data.shape

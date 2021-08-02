@@ -101,15 +101,15 @@ class OpenFile:
             datasetnode = DatasetTreeNode(self.file_path[0][self.file_path[0].rfind('/') + 1:-3],
                                           dataset, 'dataset')
 
-            sig_fb.add_datasetnode(node=datasetnode)
+            # sig_fb.add_datasetnode(node=datasetnode)
             prog_fb.set_status(status="Adding particles...")
             # prog_fb.start(max_value=dataset.numpart)
 
-            all_particles = list()
+            all_nodes = [(datasetnode, -1)]
             for i, particle in enumerate(dataset.particles):
                 particlenode = DatasetTreeNode(particle.name, particle, 'particle')
-                all_particles.append((particlenode, i))
-            sig_fb.add_all_particlenodes(all_nodes=all_particles)
+                all_nodes.append((particlenode, i))
+            sig_fb.add_all_particlenodes(all_nodes=all_nodes)
 
             sig_fb.reset_tree()
 
