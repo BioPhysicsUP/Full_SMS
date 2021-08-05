@@ -15,7 +15,9 @@ from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBro
 import time
 import pickle
 
+
 if TYPE_CHECKING:
+    import main
     from main import MainWindow
 
 from my_logger import setup_logger
@@ -739,7 +741,7 @@ class IntController(QObject):
 
         if self.mainwindow.current_particle.has_levels:  # tree2dataset().cpa_has_run:
             self.mainwindow.tabGrouping.setEnabled(True)
-        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+        if self.mainwindow.treeViewParticles.currentIndex().dataset(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.check_remove_bursts(mode=self.resolve_mode)
         self.mainwindow.chbEx_Levels.setEnabled(True)
@@ -1433,7 +1435,7 @@ class LifetimeController(QObject):
                 target_hist = target_particle.histogram
                 target_microtimes = target_hist.microtimes
 
-                result.new_task_obj.part_hist.particle = target_particle
+                result.new_task_obj.part_hist._particle = target_particle
                 result.new_task_obj.part_hist.microtimes = target_microtimes
 
                 target_particle.histogram = result.new_task_obj.part_hist
@@ -1443,7 +1445,7 @@ class LifetimeController(QObject):
                     target_level = target_particle.levels[i]
                     target_level_microtimes = target_level.microtimes
 
-                    res_hist.particle = target_particle
+                    res_hist._particle = target_particle
                     res_hist.microtimes = target_level_microtimes
                     res_hist.level = target_level
 
@@ -1457,7 +1459,7 @@ class LifetimeController(QObject):
                         m_times = target_particle.cpts.levels[lvls_ind].microtimes
                         target_g_lvls_microtimes = np.append(target_g_lvls_microtimes, m_times)
 
-                    res_group_hist.particle = target_particle
+                    res_group_hist._particle = target_particle
                     res_group_hist.microtimes = target_g_lvls_microtimes
                     res_group_hist.level = target_group_lvls_inds
 
@@ -1471,7 +1473,7 @@ class LifetimeController(QObject):
             logger.error(e)
 
     def fitting_thread_complete(self, mode: str = None):
-        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+        if self.mainwindow.treeViewParticles.currentIndex().dataset(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.chbEx_Lifetimes.setEnabled(False)
         self.mainwindow.chbEx_Lifetimes.setEnabled(True)
@@ -1717,7 +1719,7 @@ class GroupingController(QObject):
                                     for ahc_lvl in group.lvls:
                                         ahc_hist = ahc_lvl.histogram
                                         if hasattr(ahc_hist, 'particle'):
-                                            ahc_hist.particle = new_part
+                                            ahc_hist._particle = new_part
 
                 new_part.ahca = result_ahca
                 if new_part.has_groups:
@@ -1739,7 +1741,7 @@ class GroupingController(QObject):
         self.temp_dir.cleanup()
         self.temp_dir = None
         self.gather_replace_results(results=results)
-        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
+        if self.mainwindow.treeViewParticles.currentIndex().dataset(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
         self.mainwindow.levels_grouped = True
@@ -1827,7 +1829,7 @@ class SpectraController(QObject):
         if particle is None:
             particle = self.mainwindow.current_particle
         # spectra_data = np.flip(particle.spectra.data[:])
-        spectra_data = particle.spectra.data[:]
+        spectra_data = particle.spectra.dataset[:]
         # spectra_data = spectra_data.transpose()
         data_shape = spectra_data.shape
         current_ratio = data_shape[1]/data_shape[0]
@@ -1861,6 +1863,33 @@ class SpectraController(QObject):
 
         # print('here')
         # self.spectra_widget.getImageItem().setLookupTable(self._look_up_table)
+
+
+class RasterScanController(QObject):
+
+    def __init__(self, main_window: MainWindow, raster_scan_image_view: pg.ImageView):
+        super().__init__()
+        self.main_window = main_window
+        self.raster_scan_image_view = raster_scan_image_view
+        self.raster_scan_image_view.setPredefinedGradient('plasma')
+
+    def plot_raster_scan(self, particle: Particle = None, for_export: bool = False,
+                     export_path: str = None):
+        if particle is None:
+            particle = self.main_window.current_particle
+        raster_scan_data = particle.spectra.dataset[:]
+        data_shape = raster_scan_data.shape
+        current_ratio = data_shape[1]/data_shape[0]
+        self.spectra_image_view.getView().setAspectLocked(False, current_ratio)
+
+        self.spectra_image_view.setImage(raster_scan_data)
+
+        if for_export and export_path is not None:
+            full_path = os.path.join(export_path, f"{particle.name} raster_scan.png")
+            ex = ImageExporter(self.spectra_image_view.getView())
+            ex.parameters()['width'] = EXPORT_WIDTH
+            ex.export(full_path)
+
 
 # def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 #                    status_sig: pyqtSignal,

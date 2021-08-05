@@ -264,7 +264,7 @@ class DatasetTreeModel(QAbstractItemModel):
             return None
         node = in_index.internalPointer()
         if role == Qt.DisplayRole:
-            return node.data(in_index.column())
+            return node.dataset(in_index.column())
         if role == Qt.DecorationRole:
             if hasattr(node, 'datatype') and node.datatype == 'particle':
                 p = node.dataobj

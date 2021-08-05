@@ -170,7 +170,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>3</number>
+       <number>4</number>
       </property>
       <property name="iconSize">
        <size>
@@ -204,7 +204,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset>
+        <iconset resource="../icons.qrc">
          <normaloff>:/icons/icons/intensity.png</normaloff>:/icons/icons/intensity.png</iconset>
        </attribute>
        <attribute name="title">
@@ -240,7 +240,7 @@
              <string>Resolve Selected</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/resolve-selected.png</normaloff>:/icons/icons/resolve-selected.png</iconset>
             </property>
             <property name="iconSize">
@@ -269,7 +269,7 @@
              <string>Apply To All</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/apply-all.png</normaloff>:/icons/icons/apply-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -359,7 +359,7 @@
              <string>Apply Bin Size</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/apply-one.png</normaloff>:/icons/icons/apply-one.png</iconset>
             </property>
             <property name="iconSize">
@@ -388,7 +388,7 @@
              <string>Resolve All</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/resolve-all.png</normaloff>:/icons/icons/resolve-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -444,7 +444,7 @@
              <string>Resolve</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/resolve-current.png</normaloff>:/icons/icons/resolve-current.png</iconset>
             </property>
             <property name="iconSize">
@@ -950,7 +950,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset>
+        <iconset resource="../icons.qrc">
          <normaloff>:/icons/icons/grouping.png</normaloff>:/icons/icons/grouping.png</iconset>
        </attribute>
        <attribute name="title">
@@ -1160,7 +1160,7 @@
                <string>Group Current</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/group-current.png</normaloff>:/icons/icons/group-current.png</iconset>
               </property>
               <property name="iconSize">
@@ -1192,7 +1192,7 @@
                <string>Group Selected</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/group-selected.png</normaloff>:/icons/icons/group-selected.png</iconset>
               </property>
               <property name="iconSize">
@@ -1224,7 +1224,7 @@
                <string>Group All</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -1306,7 +1306,7 @@
                <string>Apply Current</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -1338,7 +1338,7 @@
                <string>Apply Selected</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -1370,7 +1370,7 @@
                <string>Apply All</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -1392,7 +1392,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset>
+        <iconset resource="../icons.qrc">
          <normaloff>:/icons/icons/lifetime.png</normaloff>:/icons/icons/lifetime.png</iconset>
        </attribute>
        <attribute name="title">
@@ -1448,7 +1448,7 @@
              <string>Load IRF</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
             </property>
             <property name="iconSize">
@@ -1477,7 +1477,7 @@
              <string>Fitting Parameters</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/fitting-parameters.png</normaloff>:/icons/icons/fitting-parameters.png</iconset>
             </property>
             <property name="iconSize">
@@ -1522,7 +1522,7 @@
              <string>Fit Current Hist</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/fit-current-level.png</normaloff>:/icons/icons/fit-current-level.png</iconset>
             </property>
             <property name="iconSize">
@@ -1567,7 +1567,7 @@
              <string>Fit All Particle Hists</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/fit-particle.png</normaloff>:/icons/icons/fit-particle.png</iconset>
             </property>
             <property name="iconSize">
@@ -1596,7 +1596,7 @@
              <string>Fit Selected</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/fit-selected.png</normaloff>:/icons/icons/fit-selected.png</iconset>
             </property>
             <property name="iconSize">
@@ -1625,7 +1625,7 @@
              <string>Fit All</string>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/fit-all.png</normaloff>:/icons/icons/fit-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -1664,7 +1664,7 @@
              <string/>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/arrow-left.png</normaloff>:/icons/icons/arrow-left.png</iconset>
             </property>
             <property name="iconSize">
@@ -1721,7 +1721,7 @@
              <string/>
             </property>
             <property name="icon">
-             <iconset>
+             <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/arrow-right.png</normaloff>:/icons/icons/arrow-right.png</iconset>
             </property>
             <property name="iconSize">
@@ -1904,7 +1904,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset>
+        <iconset resource="../icons.qrc">
          <normaloff>:/icons/icons/spectra.png</normaloff>:/icons/icons/spectra.png</iconset>
        </attribute>
        <attribute name="title">
@@ -1995,6 +1995,76 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="tabRaster_Scan">
+       <property name="autoFillBackground">
+        <bool>true</bool>
+       </property>
+       <attribute name="icon">
+        <iconset resource="../icons.qrc">
+         <normaloff>:/icons/icons/raster-scan.png</normaloff>:/icons/icons/raster-scan.png</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Raster Scan</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_3">
+        <item row="0" column="0">
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_16">
+            <item>
+             <widget class="QListWidget" name="listWidget">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>150</width>
+                <height>16777215</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="verticalSpacer_5">
+              <property name="orientation">
+               <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>20</width>
+                <height>40</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="ImageView" name="pgRaster_Scan_Image_View" native="true">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>100</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
       <widget class="QWidget" name="tabExport">
        <property name="minimumSize">
         <size>
@@ -2006,7 +2076,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset>
+        <iconset resource="../icons.qrc">
          <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
        </attribute>
        <attribute name="title">
@@ -3126,7 +3196,7 @@
                <string>Export Current</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
               </property>
               <property name="iconSize">
@@ -3155,7 +3225,7 @@
                <string>Export Selected</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/export-selected.png</normaloff>:/icons/icons/export-selected.png</iconset>
               </property>
               <property name="iconSize">
@@ -3184,7 +3254,7 @@
                <string>Export All</string>
               </property>
               <property name="icon">
-               <iconset>
+               <iconset resource="../icons.qrc">
                 <normaloff>:/icons/icons/export-all.png</normaloff>:/icons/icons/export-all.png</iconset>
               </property>
               <property name="iconSize">
@@ -3439,6 +3509,12 @@
    <header>pyqtgraph.h</header>
    <container>1</container>
   </customwidget>
+  <customwidget>
+   <class>ImageView</class>
+   <extends>QWidget</extends>
+   <header>pyqtgraph.h</header>
+   <container>1</container>
+  </customwidget>
  </customwidgets>
  <tabstops>
   <tabstop>tabWidget</tabstop>
@@ -3458,6 +3534,7 @@
  </tabstops>
  <resources>
   <include location="../../src/icons.qrc"/>
+  <include location="../icons.qrc"/>
  </resources>
  <connections/>
 </ui>

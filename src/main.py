@@ -23,7 +23,8 @@ from typing import Union
 import time
 from multiprocessing import Process, freeze_support
 
-from controllers import IntController, LifetimeController, GroupingController, SpectraController
+from controllers import IntController, LifetimeController, GroupingController, SpectraController,\
+    RasterScanController
 from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
@@ -114,16 +115,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                             level_info_container=self.wdgInt_Level_Info_Container,
                                             level_info_text=self.txtLevelInfoInt,
                                             int_level_line=self.lineInt_Level)
-        self.lifetime_controller = \
-            LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
-                               residual_widget=self.pgLieftime_Residuals_PlotWidget)
-        self.pgSpectra_Image_View = pg.ImageView(view=pg.PlotItem())
-        self.laySpectra.addWidget(self.pgSpectra_Image_View)
-        self.pgSpectra_Image_View.show()
-        self.spectra_controller = SpectraController(self, spectra_image_view=self.pgSpectra_Image_View)
-        self.grouping_controller = \
-            GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
-
         # Connect all GUI buttons with outside class functions
         i_c = self.int_controller
         self.btnApplyBin.clicked.connect(i_c.gui_apply_bin)
@@ -138,6 +129,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
         self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
 
+        self.lifetime_controller = \
+            LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
+                               residual_widget=self.pgLieftime_Residuals_PlotWidget)
         l_c = self.lifetime_controller
         self.btnPrevLevel.clicked.connect(l_c.gui_prev_lev)
         self.btnNextLevel.clicked.connect(l_c.gui_next_lev)
@@ -152,6 +146,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnFitSelected.clicked.connect(l_c.gui_fit_selected)
         self.btnFitAll.clicked.connect(l_c.gui_fit_all)
 
+        self.grouping_controller = \
+            GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
         g_c = self.grouping_controller
         self.btnGroupCurrent.clicked.connect(g_c.gui_group_current)
         self.btnGroupSelected.clicked.connect(g_c.gui_group_selected)
@@ -159,6 +155,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnApplyGroupsCurrent.clicked.connect(g_c.gui_apply_groups_current)
         self.btnApplyGroupsSelected.clicked.connect(g_c.gui_apply_groups_selected)
         self.btnApplyGroupsAll.clicked.connect(g_c.gui_apply_groups_all)
+
+        self.pgSpectra_Image_View = pg.ImageView(view=pg.PlotItem())
+        self.laySpectra.addWidget(self.pgSpectra_Image_View)
+        self.pgSpectra_Image_View.show()
+        self.spectra_controller = \
+            SpectraController(self, spectra_image_view=self.pgSpectra_Image_View)
+
+        self.raster_scan_controller = \
+            RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
@@ -516,6 +521,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
             if cur_tab_name == 'tabSpectra' and self.current_particle.has_spectra:
                 self.spectra_controller.plot_spectra()
+            if cur_tab_name == 'tabRaster_Scan' and self.current_particle.has_raster_scan:
+                self.raster_scan_controller.plot_raster_scan()
 
             # Set Enables
             set_apply_groups = False
@@ -637,7 +644,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         """
         if type(identifier) is int:
-            return self.dataset_index.child(identifier, 0).data(Qt.UserRole)
+            return self.dataset_index.child(identifier, 0).dataset(Qt.UserRole)
         if type(identifier) is DatasetTreeNode:
             return identifier.dataobj
 
@@ -649,7 +656,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         smsh5.H5dataset
         """
         # return self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
-        return self.dataset_index.data(Qt.UserRole)
+        return self.dataset_index.dataset(Qt.UserRole)
 
     def set_data_loaded(self):
         self.data_loaded = True

@@ -380,8 +380,8 @@ class SingleProcess(mp.Process):
                         task.obj._cpa._particle = None
                     elif task.method_name == "run_grouping":
                         dont_send = True
-                        task_name = task.obj.particle.name
-                        task.obj.particle = None
+                        task_name = task.obj._particle.name
+                        task.obj._particle = None
                         task.obj.best_step._particle = None
                         for step in task.obj.steps:
                             step._particle = None
@@ -393,7 +393,7 @@ class SingleProcess(mp.Process):
                                             for ahc_lvl in group.lvls:
                                                 ahc_hist = ahc_lvl.histogram
                                                 if hasattr(ahc_hist, 'particle'):
-                                                    ahc_hist.particle = None
+                                                    ahc_hist._particle = None
                         assert self._temp_dir is not None, "temp_folder has not been set"
                         assert task_name is not None, "task_name has not been set"
                         file_path = os.path.join(self._temp_dir.name, task_name)
@@ -403,13 +403,13 @@ class SingleProcess(mp.Process):
                         with open(file_path, 'wb') as f:
                             pickle.dump(obj=pickle_result, file=f)
                     elif task.method_name == 'fit_part_and_levels':
-                        task.obj.part_hist.particle = None
+                        task.obj.part_hist._particle = None
                         task.obj.microtimes = None
                         levels_groups_hists = list()
                         levels_groups_hists.extend(task.obj.level_hists)
                         levels_groups_hists.extend(task.obj.group_hists)
                         for hist in levels_groups_hists:
-                            hist.particle = None
+                            hist._particle = None
                             hist.microtimes = None
                             hist.level = None
 

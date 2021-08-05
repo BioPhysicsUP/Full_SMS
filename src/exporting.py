@@ -473,7 +473,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
 
                         rows = list()
                         rows.append([''] + p.spectra.wavelengths.tolist())
-                        for num, spec_row in enumerate(p.spectra.data[:]):
+                        for num, spec_row in enumerate(p.spectra.dataset[:]):
                             this_row = list()
                             this_row.append(str(p.spectra.series_times[num]))
                             for single_val in spec_row:

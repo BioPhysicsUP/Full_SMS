@@ -13,6 +13,7 @@ from typing import List, Union, TYPE_CHECKING
 from uuid import uuid1
 
 import h5pickle
+import h5py
 import numpy as np
 from pyqtgraph import ScatterPlotItem, SpotItem
 from PyQt5.QtGui import QPixmap
@@ -68,12 +69,44 @@ class H5dataset:
 
         self.all_sums = CPSums(n_min=10, n_max=1000, prog_fb=prog_fb)
 
+        self.all_raster_scans = list()
+        map_particle_indexes = self.get_all_raster_scans(particle_names=natural_p_names)
+
         self.particles = []
-        for num, particlename in enumerate(natural_p_names):
-            self.particles.append(Particle(name=particlename, dataset_ind=num, dataset=self))
+        for num, particle_name in enumerate(natural_p_names):
+            self.particles.append(
+                Particle(name=particle_name, dataset_ind=num, dataset=self,
+                         raster_scan_dataset_index=map_particle_indexes[num]))
         self.num_parts = len(self.particles)
         assert self.num_parts == self.file.attrs['# Particles']
         self.channelwidth = None
+
+    def get_all_raster_scans(self, particle_names: List[str]) -> list:
+        raster_scans = list()
+        file_keys = self.file.keys()
+        for num, particle_name in enumerate(particle_names):
+            if particle_name in file_keys:
+                particle_keys = self.file[particle_name].keys()
+                if 'Raster Scan' in particle_keys:
+                    raster_scans.append((self.file[particle_name]['Raster Scan'], num))
+
+        prev_raster_scan = None
+        group_indexes = list()
+        map_particle_index = list()
+        for raster_scan, num in raster_scans:
+            if raster_scan == prev_raster_scan:
+                group_indexes.append(num)
+            else:
+                self.all_raster_scans.append(RasterScan(raster_scan_dataset=raster_scan,
+                                                        particle_indexes=group_indexes))
+                group_indexes = [num]
+                prev_raster_scan = raster_scan
+            map_particle_index.append(len(self.all_raster_scans)-1)
+
+        return map_particle_index
+
+
+        print('here')
 
     def makehistograms(self, remove_zeros=True, startpoint=None, channel=True):
         """Put the arrival times into histograms"""
@@ -190,8 +223,8 @@ class Particle:
     Class for particle in H5dataset.
     """
 
-    def __init__(self, name: str, dataset_ind: int, dataset: H5dataset, tmin=None, tmax=None,
-                 channelwidth=None):  # , number, irf, tmin, tmax, channelwidth=None):
+    def __init__(self, name: str, dataset_ind: int, dataset: H5dataset,
+                 raster_scan_dataset_index: int = None, tmin=None, tmax=None, channelwidth=None):
         """
         Creates an instance of Particle
 
@@ -224,7 +257,8 @@ class Particle:
         self.int_std_weighted = None
 
         self.spectra = Spectra(self)
-        self.rasterscan = RasterScan(self)
+        self._raster_scan_dataset_index = raster_scan_dataset_index
+        self.has_raster_scan = raster_scan_dataset_index is not None
         if self.dataset.version in ['1.0', '1.01', '1.02']:
             self.description = self.datadict.attrs['Discription']
         else:
@@ -264,6 +298,11 @@ class Particle:
     @property
     def has_spectra(self) -> bool:
         return self.spectra._has_spectra
+
+    @property
+    def raster_scan(self) -> RasterScan:
+        if self.has_raster_scan and self.dataset is not None:
+            return self.dataset.all_raster_scans[self._raster_scan_dataset_index]
 
     @property
     def has_levels(self):
@@ -745,20 +784,20 @@ class ParticleAllHists:
 
 
 class RasterScan:
-    def __init__(self, particle):
-        self._particle = particle
-        if 'Raster Scan' in particle.datadict.keys():
-            self.data = particle.datadict['Raster Scan']
-            self.integration_time = self.data.attrs["Int. Time (ms/um)"]
-            self.pixel_per_line = self.data.attrs["Pixels per Line"]
-            self.range = self.data.attrs["Range (um)"]
-            self.x_start = self.data.attrs["XStart (um)"]
-            self.y_start = self.data.attrs["YStart (um)"]
+    def __init__(self, raster_scan_dataset: h5py.Dataset, particle_indexes: List[int]):
+        self._has_raster_scan = False
+        self.dataset = raster_scan_dataset
+        self.particle_indexes = particle_indexes
+        self.integration_time = self.dataset.attrs["Int. Time (ms/um)"]
+        self.pixel_per_line = self.dataset.attrs["Pixels per Line"]
+        self.range = self.dataset.attrs["Range (um)"]
+        self.x_start = self.dataset.attrs["XStart (um)"]
+        self.y_start = self.dataset.attrs["YStart (um)"]
 
 
 class Spectra:
-    def __init__(self, particle):
-        self.particle = particle
+    def __init__(self, particle: Particle):
+        self._particle = particle
         self._has_spectra = False
         if 'Spectra (counts\\s)' in particle.datadict.keys():
             self._has_spectra = True
