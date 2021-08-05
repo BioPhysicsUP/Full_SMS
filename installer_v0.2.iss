@@ -2,10 +2,17 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Full SMS"
-#define MyAppVersion "0.2.1"
+#define MyAppVersion "0.2.3"
+#define MyInstallerName "Full_SMS_v" + MyAppVersion + "_Win10_64-bit"
 #define MyAppPublisher "University of Pretoria"
 #define MyAppURL "https://www.up.ac.za/"
 #define MyAppExeName "Full_SMS.exe"
+#define MyRootFolder "C:\Google Drive\Current_Projects\Full_SMS"
+#define MyIconFile MyRootFolder + "\resources\icons\Full-SMS.ico"
+#define MyOutputFolder MyRootFolder + "\dist"
+#define MyLicenseFile MyRootFolder + "\license.txt"
+#define MyDistFolder MyRootFolder + "\dist\Full_SMS"
+
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -13,19 +20,19 @@
 AppId={{0445CF4E-0BB6-4CD5-A3DD-B7F275B7A908}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-;AppVerName={#MyAppName} {#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
-LicenseFile=C:\Google Drive\Current_Projects\Full_SMS\license.txt
+LicenseFile={#MyLicenseFile}
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
-OutputDir=C:\Google Drive\Current_Projects\Full_SMS\dist
-OutputBaseFilename=Full_SMS_v1.2.1_installer
-SetupIconFile=C:\Google Drive\Current_Projects\Full_SMS\resources\icons\Full-SMS.ico
+OutputDir={#MyOutputFolder}
+OutputBaseFilename={#MyInstallerName}
+SetupIconFile={#MyIconFile}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -38,8 +45,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Google Drive\Current_Projects\Full_SMS\dist\Full_SMS\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Google Drive\Current_Projects\Full_SMS\dist\Full_SMS\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyDistFolder}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyDistFolder}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

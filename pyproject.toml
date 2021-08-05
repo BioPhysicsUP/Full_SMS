@@ -7,7 +7,6 @@ authors = ["Josh <Joshua.Botha@up.ac.za>"]
 [tool.poetry.dependencies]
 python = ">=3.9.1, <3.10"
 h5py = "^3.1.0"
-numpy = "1.19.3"
 scipy = "^1.5.4"
 PyQt5-stubs = "^5.14.2"
 PyQt5 = "5.15.1"

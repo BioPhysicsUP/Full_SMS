@@ -52,7 +52,7 @@ class H5dataset:
         try:
             self.version = self.file.attrs['Version']
         except KeyError:
-            self.version = '0.1'
+            self.version = '1.0'
 
         all_keys = self.file.keys()
         part_keys = [part_key for part_key in all_keys if 'Particle ' in part_key]
@@ -212,7 +212,10 @@ class Particle:
         self.dataset = dataset
         self.dataset_ind = dataset_ind
         self.datadict = self.dataset.file[self.name]
-        self.microtimes = self.datadict['Micro Times (s)']
+        if self.dataset.version in ['1.0', '1.01', '1.02']:
+            self.microtimes = self.datadict['Micro Times (s)']
+        else:
+            self.microtimes = self.datadict['Micro Times (ns)']
         self.abstimes = self.datadict['Absolute Times (ns)']
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
@@ -222,7 +225,10 @@ class Particle:
 
         self.spectra = Spectra(self)
         self.rasterscan = RasterScan(self)
-        self.description = self.datadict.attrs['Discription']
+        if self.dataset.version in ['1.0', '1.01', '1.02']:
+            self.description = self.datadict.attrs['Discription']
+        else:
+            self.description = self.datadict.attrs['Description']
         self.irf = None
         try:
             if channelwidth is None:
