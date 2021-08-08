@@ -5,6 +5,7 @@ import os
 from typing import TYPE_CHECKING
 
 from PyQt5.QtWidgets import QFileDialog
+import numpy as np
 
 from my_logger import setup_logger
 
@@ -65,6 +66,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                 ex_plot_residuals = mainwindow.chbEx_Plot_Residuals.isChecked()
             ex_spectra_2d = mainwindow.chbEx_Spectra_2D.isChecked()
             ex_plot_spectra = mainwindow.chbEx_Plot_Spectra.isChecked()
+            ex_plot_raster_scans = mainwindow.chbEx_Plot_Raster_Scans.isChecked()
 
             def open_file(path: str):
                 return open(path, 'w', newline='')
@@ -489,6 +491,20 @@ def export_data(mainwindow: MainWindow, mode: str = None):
 
                 logger.info('Exporting Finished')
                 p.has_exported = True
+
+            if ex_plot_raster_scans:
+                # all_raster_scan_particles = list()
+                # for part in particles:
+                #     all_raster_scan_particles.extend(part.raster_scan.particle_indexes)
+                # all_part_with_raster_scans = np.unique(all_raster_scan_particles).tolist()
+                dataset = particles[0].dataset
+                raster_scans_use = [part.raster_scan.dataset_index for part in particles]
+                raster_scans_use = np.unique(raster_scans_use).tolist()
+                for raster_scan_index in raster_scans_use:
+                    mainwindow.raster_scan_controller.plot_raster_scan(
+                        raster_scan=dataset.all_raster_scans[raster_scan_index], for_export=True,
+                        export_path=f_dir)
+
 
     except Exception as e:
         logger.error(e)

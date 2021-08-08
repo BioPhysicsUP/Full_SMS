@@ -71,6 +71,10 @@ class H5dataset:
 
         self.all_raster_scans = list()
         map_particle_indexes = self.get_all_raster_scans(particle_names=natural_p_names)
+        if len(map_particle_indexes) > 0:
+            self.has_raster_scans = True
+        else:
+            self.has_raster_scans = False
 
         self.particles = []
         for num, particle_name in enumerate(natural_p_names):
@@ -93,15 +97,47 @@ class H5dataset:
         prev_raster_scan = None
         group_indexes = list()
         map_particle_index = list()
+        raster_scan_counter = 0
         for raster_scan, num in raster_scans:
-            if raster_scan == prev_raster_scan:
+            if raster_scan == prev_raster_scan and num != len(raster_scans) - 1:
+                # Must not add new RasterScan, because same raster scan as previous and not last
                 group_indexes.append(num)
-            else:
-                self.all_raster_scans.append(RasterScan(raster_scan_dataset=raster_scan,
-                                                        particle_indexes=group_indexes))
+                raster_scan_num = len(self.all_raster_scans)
+            else:  # Must add new RasterScan, because raster scan different from previous, or last
+                if num != 0:  # Not first one
+                    if num != len(raster_scans) - 1:  # Not last one
+                        # Save previous raster scan with previous group indexes
+                        self.all_raster_scans.append(
+                            RasterScan(raster_scan_dataset=prev_raster_scan,
+                                       particle_indexes=group_indexes,
+                                       dataset_index=raster_scan_num))
+                        raster_scan_counter += 1
+                        raster_scan_num = len(self.all_raster_scans)
+                    else:  # Last one
+                        # Save this raster scan with updated group indexes
+                        if raster_scan == prev_raster_scan:
+                            # Last one is part of previous group
+                            group_indexes.append(num)
+                            raster_scan_num = len(self.all_raster_scans)
+                        else:
+                            # Last one part of new group
+                            self.all_raster_scans.append(
+                                RasterScan(raster_scan_dataset=prev_raster_scan,
+                                           particle_indexes=group_indexes,
+                                           dataset_index=raster_scan_num))
+                            raster_scan_counter += 1
+                            group_indexes = [num]
+                            raster_scan_num = len(self.all_raster_scans)
+                        self.all_raster_scans.append(RasterScan(raster_scan_dataset=raster_scan,
+                                                                particle_indexes=group_indexes,
+                                                                dataset_index=raster_scan_counter))
+                        raster_scan_counter += 1
+                else:
+                    raster_scan_num = 0
                 group_indexes = [num]
                 prev_raster_scan = raster_scan
-            map_particle_index.append(len(self.all_raster_scans)-1)
+
+            map_particle_index.append(raster_scan_num)
 
         return map_particle_index
 
@@ -303,6 +339,15 @@ class Particle:
     def raster_scan(self) -> RasterScan:
         if self.has_raster_scan and self.dataset is not None:
             return self.dataset.all_raster_scans[self._raster_scan_dataset_index]
+
+    @property
+    def raster_scan_coordinates(self) -> tuple:
+        particle_attr_keys = self.datadict.attrs.keys()
+        if self.has_raster_scan and 'RS Coord. (um)' in particle_attr_keys:
+            coords = self.datadict.attrs['RS Coord. (um)']
+            return coords[1], coords[0]
+        else:
+            return None, None
 
     @property
     def has_levels(self):
@@ -784,9 +829,10 @@ class ParticleAllHists:
 
 
 class RasterScan:
-    def __init__(self, raster_scan_dataset: h5py.Dataset, particle_indexes: List[int]):
-        self._has_raster_scan = False
+    def __init__(self, raster_scan_dataset: h5py.Dataset, particle_indexes: List[int],
+                 dataset_index: int = None):
         self.dataset = raster_scan_dataset
+        self.dataset_index = dataset_index
         self.particle_indexes = particle_indexes
         self.integration_time = self.dataset.attrs["Int. Time (ms/um)"]
         self.pixel_per_line = self.dataset.attrs["Pixels per Line"]

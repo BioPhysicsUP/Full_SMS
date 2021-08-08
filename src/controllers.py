@@ -1,7 +1,6 @@
-
 from __future__ import annotations
 import os
-from typing import Union, List, TYPE_CHECKING
+from typing import Union, List, Tuple, TYPE_CHECKING
 from copy import copy
 import tempfile
 
@@ -15,13 +14,12 @@ from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBro
 import time
 import pickle
 
-
 if TYPE_CHECKING:
     import main
     from main import MainWindow
 
 from my_logger import setup_logger
-from smsh5 import H5dataset, Particle, ParticleAllHists
+from smsh5 import H5dataset, Particle, ParticleAllHists, RasterScan
 from tcspcfit import FittingParameters, FittingDialog
 from threads import ProcessThread, ProcessTaskResult, WorkerBinAll
 from thread_tasks import OpenFile, BinAll, bin_all
@@ -223,7 +221,6 @@ class IntController(QObject):
 
         self.show_level_info = self.mainwindow.chbInt_Show_Level_Info.isChecked()
 
-
         if self.show_level_info:
             if self.show_int_hist:
                 self.hide_show_chb(chb_obj=self.mainwindow.chbInt_Show_Hist, show=False)
@@ -234,7 +231,6 @@ class IntController(QObject):
         else:
             self.int_level_info_container.hide()
             self.int_level_line.hide()
-
 
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
@@ -311,7 +307,6 @@ class IntController(QObject):
         #
         # ba_obj = BinAll(dataset=dataset, bin_size=bin_size)
         # ba_process_thread.add_tasks_from_methods(ba_obj, 'run_bin_all')
-
 
         # binall_thread = WorkerBinAll(dataset, bin_all, bin_size)
         # binall_thread.signals.resolve_finished.connect(self.binall_thread_complete)
@@ -589,10 +584,10 @@ class IntController(QObject):
             cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
 
         if cur_tab_name == 'tabIntensity' \
-                or cur_tab_name == 'tabGrouping'\
+                or cur_tab_name == 'tabGrouping' \
                 or cur_tab_name == 'tabLifetime':
             if not particle.has_groups \
-                    or particle.ahca.best_step.single_level\
+                    or particle.ahca.best_step.single_level \
                     or particle.ahca.selected_step.num_groups < 2:
                 return
             try:
@@ -710,7 +705,6 @@ class IntController(QObject):
         mw.threadpool.start(r_process_thread)
         mw.active_threads.append(r_process_thread)
 
-
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
         particles = self.mainwindow.current_particle.dataset.particles
         part_uuids = [part.uuid for part in particles]
@@ -775,7 +769,7 @@ class IntController(QObject):
 
                 if cp.has_groups and use_groups:
                     clicked_int = event.currentItem.mapSceneToView(event.scenePos()).y()
-                    clicked_int = clicked_int * (1000/self.mainwindow.spbBinSize.value())
+                    clicked_int = clicked_int * (1000 / self.mainwindow.spbBinSize.value())
                     clicked_group = None
                     group_bounds = cp.groups_bounds
                     group_bounds.reverse()
@@ -951,7 +945,6 @@ class LifetimeController(QObject):
             of_process_thread.add_tasks_from_methods(of_obj, 'open_irf')
             mw.threadpool.start(of_process_thread)
             mw.active_threads.append(of_process_thread)
-
 
             # of_worker = WorkerOpenFile(fname, irf=True, tmin=self.tmin)
             # of_worker.signals.openfile_finished.connect(self.mainwindow.open_file_thread_complete)
@@ -1728,7 +1721,6 @@ class GroupingController(QObject):
                     new_part.using_group_levels = False
                     new_part.makegrouphists()
 
-
             # self.results_gathered = True
         except ValueError as e:
             logger.error(e)
@@ -1829,10 +1821,10 @@ class SpectraController(QObject):
         if particle is None:
             particle = self.mainwindow.current_particle
         # spectra_data = np.flip(particle.spectra.data[:])
-        spectra_data = particle.spectra.dataset[:]
+        spectra_data = particle.spectra.data[:]
         # spectra_data = spectra_data.transpose()
         data_shape = spectra_data.shape
-        current_ratio = data_shape[1]/data_shape[0]
+        current_ratio = data_shape[1] / data_shape[0]
         self.spectra_image_view.getView().setAspectLocked(False, current_ratio)
 
         self.spectra_image_view.setImage(spectra_data)
@@ -1844,10 +1836,10 @@ class SpectraController(QObject):
         self.spectra_image_view.view.getAxis('left').setTicks(y_ticks)
 
         t_series = particle.spectra.series_times
-        mod_selector = len(t_series)//30 + 1
+        mod_selector = len(t_series) // 30 + 1
         x_ticks_t = list()
         for i in range(len(t_series)):
-            if not (mod_selector + i)%mod_selector:
+            if not (mod_selector + i) % mod_selector:
                 x_ticks_t.append(t_series[i])
         x_ticks_value = np.linspace(0, spectra_data.shape[0], len(x_ticks_t))
         x_ticks = [[(x_ticks_value[i], f"{x_ticks_t[i]:.1f}") for i in range(len(x_ticks_t))]]
@@ -1865,30 +1857,147 @@ class SpectraController(QObject):
         # self.spectra_widget.getImageItem().setLookupTable(self._look_up_table)
 
 
+class MyCrosshairOverlay(pg.CrosshairROI):
+    def __init__(self, pos=None, size=None, **kargs):
+        self._shape = None
+        pg.ROI.__init__(self, pos, size, **kargs)
+        self.sigRegionChanged.connect(self.invalidate)
+        self.aspectLocked = True
+
+
 class RasterScanController(QObject):
 
-    def __init__(self, main_window: MainWindow, raster_scan_image_view: pg.ImageView):
+    def __init__(self, main_window: MainWindow, raster_scan_image_view: pg.ImageView,
+                 list_text: QTextBrowser):
         super().__init__()
         self.main_window = main_window
         self.raster_scan_image_view = raster_scan_image_view
         self.raster_scan_image_view.setPredefinedGradient('plasma')
+        self.list_text = list_text
+        self._crosshair_item = None
+        self._text_item = None
 
-    def plot_raster_scan(self, particle: Particle = None, for_export: bool = False,
-                     export_path: str = None):
-        if particle is None:
+    @staticmethod
+    def create_crosshair_item(pos: Tuple[int, int]) -> MyCrosshairOverlay:
+        pen = QPen(Qt.green, 0.1)
+        pen.setWidthF(0.5)
+        crosshair_item = MyCrosshairOverlay(pos=pos, size=2, pen=pen, movable=False)
+        return crosshair_item
+
+    @staticmethod
+    def create_text_item(text: str, pos: Tuple[int, int]) -> pg.TextItem:
+        text_item = pg.TextItem(text=text)
+        text_item.setPos(*pos)
+        text_item.setColor(QColor(Qt.green))
+        font = QFont()
+        font.setPointSize(12)
+        font.setBold(True)
+        text_item.setFont(font)
+        text_item.setAnchor(anchor=(1, 0))
+        return text_item
+
+    def plot_raster_scan(self, particle: Particle = None, raster_scan: RasterScan = None,
+        for_export: bool = False, export_path: str = None):
+        dataset = self.main_window.current_particle.dataset
+        if particle is None and raster_scan is None:
             particle = self.main_window.current_particle
-        raster_scan_data = particle.spectra.dataset[:]
-        data_shape = raster_scan_data.shape
-        current_ratio = data_shape[1]/data_shape[0]
-        self.spectra_image_view.getView().setAspectLocked(False, current_ratio)
+            raster_scan = particle.raster_scan
+        elif particle is not None:
+            if raster_scan is None:
+                raster_scan = particle.raster_scan
+        else:
+            particle = dataset.particles[raster_scan.particle_indexes[0]]
+        raster_scan_data = raster_scan.dataset[:]
+        # data_shape = raster_scan_data.shape
+        # current_ratio = data_shape[1]/data_shape[0]
+        # self.raster_scan_image_view.getView().setAspectLocked(False, current_ratio)
 
-        self.spectra_image_view.setImage(raster_scan_data)
+        self.raster_scan_image_view.setImage(raster_scan_data)
+
+        um_per_pixel = raster_scan.range / particle.raster_scan.pixel_per_line
 
         if for_export and export_path is not None:
-            full_path = os.path.join(export_path, f"{particle.name} raster_scan.png")
-            ex = ImageExporter(self.spectra_image_view.getView())
+            if self._crosshair_item is not None:
+                self.raster_scan_image_view.getView().removeItem(self._crosshair_item)
+            if self._text_item is not None:
+                self.raster_scan_image_view.getView().removeItem(self._text_item)
+            all_crosshair_items = list()
+            all_text_items = list()
+            for part_index in raster_scan.particle_indexes:
+                this_particle = dataset.particles[part_index]
+                raw_coords = this_particle.raster_scan_coordinates
+                coords = (raw_coords[0] - raster_scan.x_start) / um_per_pixel, \
+                         (raw_coords[1] - raster_scan.y_start) / um_per_pixel
+                crosshair_item = self.create_crosshair_item(pos=coords)
+                all_crosshair_items.append(crosshair_item)
+                text_item = self.create_text_item(text=str(this_particle.dataset_ind + 1),
+                                                  pos=coords)
+                all_text_items.append(text_item)
+                self.raster_scan_image_view.getView().addItem(crosshair_item)
+                self.raster_scan_image_view.getView().addItem(text_item)
+
+                # for text_item in all_text_items:
+                #     text_item.setScale(0.1)
+
+            self.raster_scan_image_view.autoRange()
+            self.raster_scan_image_view.autoLevels()
+            self.raster_scan_image_view.getView()
+            full_path = os.path.join(export_path,
+                                     f"Raster Scan {raster_scan.dataset_index + 1}.png")
+            ex = ImageExporter(self.raster_scan_image_view.getView())
             ex.parameters()['width'] = EXPORT_WIDTH
             ex.export(full_path)
+
+            for crosshair_item in all_crosshair_items:
+                self.raster_scan_image_view.getView().removeItem(crosshair_item)
+            for text_item in all_text_items:
+                self.raster_scan_image_view.getView().removeItem(text_item)
+            if self._crosshair_item is not None:
+                self.raster_scan_image_view.getView().addItem(self._crosshair_item)
+            if self._text_item is not None:
+                self.raster_scan_image_view.getView().addItem(self._text_item)
+
+        else:
+            raw_coords = particle.raster_scan_coordinates
+            coords = (raw_coords[0] - raster_scan.x_start) / um_per_pixel, \
+                     (raw_coords[1] - raster_scan.y_start) / um_per_pixel
+
+            if self._crosshair_item is None:
+                self._crosshair_item = self.create_crosshair_item(pos=coords)
+                self.raster_scan_image_view.getView().addItem(self._crosshair_item)
+            else:
+                self._crosshair_item.setPos(pos=coords)
+
+            # part_text = particle.name.split(' ')[1]
+            if self._text_item is None:
+                self._text_item = self.create_text_item(text=str(particle.dataset_ind + 1),
+                                                        pos=coords)
+                self.raster_scan_image_view.getView().addItem(self._text_item)
+            else:
+                self._text_item.setText(text=str(particle.dataset_ind + 1))
+                self._text_item.setPos(*coords)
+
+            self.list_text.clear()
+            dataset = particle.dataset
+            all_text = f"<h3>Raster Scan {raster_scan.dataset_index + 1}</h3><p>"
+            rs_part_coord = [dataset.particles[part_ind].raster_scan_coordinates
+                             for part_ind in raster_scan.particle_indexes]
+            all_text = all_text + f"<p>Range (um) = {raster_scan.range}<br></br>" \
+                                  f"Pixels per line = {raster_scan.pixel_per_line}<br></br>" \
+                                  f"Int time (ms/um) = {raster_scan.integration_time}<br></br>" \
+                                  f"X Start (um) = {raster_scan.x_start: .1f}<br></br>" \
+                                  f"Y Start (um) = {raster_scan.y_start: .1f}</p><p>"
+            for num, part_index in enumerate(raster_scan.particle_indexes):
+                if num != 0:
+                    all_text = all_text + "<br></br>"
+                if particle is dataset.particles[part_index]:
+                    all_text = all_text + \
+                               f"<strong>{num + 1}) {particle.name}</strong>: "
+                else:
+                    all_text = all_text + f"{num + 1}) {dataset.particles[part_index].name}: "
+                all_text = all_text + f"x={rs_part_coord[num][0]: .1f}, " \
+                                      f"y={rs_part_coord[num][1]: .1f}"
+            self.list_text.setText(all_text)
 
 
 # def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
@@ -2019,9 +2128,9 @@ class RasterScanController(QObject):
 #     except Exception as exc:
 #         raise RuntimeError("Couldn't group levels.") from exc
 
-    # grou.emit()
-    # data.makehistograms(progress=False)
-    # reset_gui_sig.emit()
+# grou.emit()
+# data.makehistograms(progress=False)
+# reset_gui_sig.emit()
 
 
 # def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,

@@ -170,7 +170,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>4</number>
+       <number>5</number>
       </property>
       <property name="iconSize">
        <size>
@@ -2012,16 +2012,22 @@
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_16">
             <item>
-             <widget class="QListWidget" name="listWidget">
+             <widget class="QTextBrowser" name="txtRaster_Scan_List">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+               <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
+              <property name="minimumSize">
+               <size>
+                <width>180</width>
+                <height>0</height>
+               </size>
+              </property>
               <property name="maximumSize">
                <size>
-                <width>150</width>
+                <width>180</width>
                 <height>16777215</height>
                </size>
               </property>
@@ -3098,6 +3104,24 @@
                     </property>
                     <property name="text">
                      <string>Spectra</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QCheckBox" name="chbEx_Plot_Raster_Scans">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>10</pointsize>
+                      <weight>50</weight>
+                      <bold>false</bold>
+                      <underline>false</underline>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Raster Scans</string>
                     </property>
                    </widget>
                   </item>

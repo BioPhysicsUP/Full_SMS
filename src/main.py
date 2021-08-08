@@ -163,7 +163,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             SpectraController(self, spectra_image_view=self.pgSpectra_Image_View)
 
         self.raster_scan_controller = \
-            RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View)
+            RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
+                                 list_text=self.txtRaster_Scan_List)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
@@ -216,6 +217,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.levels_grouped = False
         self.irf_loaded = False
         self.has_spectra = False
+        self.has_raster_scans = False
 
         # self._current_level = None
 
@@ -443,7 +445,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def tab_change(self, active_tab_index: int):
         if self.data_loaded and hasattr(self, 'current_particle'):
-            if self.tabWidget.currentIndex() in [0, 1, 2, 3]:
+            if self.tabWidget.currentIndex() in [0, 1, 2, 3, 4]:
                 self.display_data()
 
     def update_int_gui(self):
@@ -644,7 +646,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         """
         if type(identifier) is int:
-            return self.dataset_index.child(identifier, 0).dataset(Qt.UserRole)
+            return self.dataset_index.child(identifier, 0).data(Qt.UserRole)
         if type(identifier) is DatasetTreeNode:
             return identifier.dataobj
 
@@ -668,9 +670,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.current_particle = self.tree2particle(0)
             self.treeViewParticles.expandAll()
             self.treeViewParticles.setCurrentIndex(self.part_index[1])
-            any_spectra = any([part.has_spectra for part in self.current_particle.dataset.particles])
+            any_spectra = any([part.has_spectra
+                               for part in self.current_particle.dataset.particles])
             if any_spectra:
                 self.has_spectra = True
+            self.has_raster_scans = self.current_particle.dataset.has_raster_scans
             self.display_data()
 
             # msgbx = TimedMessageBox(30, parent=self)
@@ -707,6 +711,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if self.has_spectra:
             self.chbEx_Spectra_2D.setEnabled(True)
             self.chbEx_Plot_Spectra.setEnabled(True)
+        if self.has_raster_scans:
+            self.chbEx_Plot_Raster_Scans.setEnabled(True)
         self.reset_gui()
         logger.info('File opened')
 
