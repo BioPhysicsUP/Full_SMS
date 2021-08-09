@@ -279,7 +279,7 @@ class IntController(QObject):
 
         mw = self.mainwindow
         try:
-            dataset = mw.current_particle.dataset
+            dataset = mw.current_dataset
             mw.start_progress(dataset.num_parts)
             mw.status_message("Binning all particles...")
             for part in dataset.particles:
@@ -686,10 +686,11 @@ class IntController(QObject):
             logger.error(msg="Provided mode not valid")
             raise TypeError
 
+        all_sums = self.mainwindow.current_dataset.all_sums
         r_process_thread = ProcessThread()
         r_process_thread.add_tasks_from_methods(objects=cpt_objs,
                                                 method_name='run_cpa',
-                                                args=(conf, True))
+                                                args=(all_sums, conf, True))
 
         r_process_thread.signals.start_progress.connect(mw.start_progress)
         r_process_thread.signals.status_update.connect(mw.status_message)
@@ -706,7 +707,7 @@ class IntController(QObject):
         mw.active_threads.append(r_process_thread)
 
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
-        particles = self.mainwindow.current_particle.dataset.particles
+        particles = self.mainwindow.current_dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
             results = [results]
@@ -1375,7 +1376,7 @@ class LifetimeController(QObject):
             particles = mw.get_checked_particles()
         elif mode == 'all':
             status_message = "Fitting Levels for All Particles..."
-            particles = mw.current_particle.dataset.particles
+            particles = mw.current_dataset.particles
 
         f_p = self.fitparam
         channelwidth = particles[0].channelwidth
@@ -1414,7 +1415,7 @@ class LifetimeController(QObject):
         mw.active_threads.append(f_process_thread)
 
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
-        particles = self.mainwindow.current_particle.dataset.particles
+        particles = self.mainwindow.current_dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
             results = [results]
@@ -1537,7 +1538,7 @@ class GroupingController(QObject):
         self.bic_scatter_plot.clear()
 
     def solution_clicked(self, plot, points):
-        last_solution = self.all_last_solutions[self.mainwindow.current_particle.dataset_ind]
+        last_solution = self.all_last_solutions[self.mainwindow.current_dataset_ind]
         if last_solution != points[0]:
             curr_part = self.mainwindow.current_particle
             point_num_groups = int(points[0].pos()[0])
@@ -1550,7 +1551,7 @@ class GroupingController(QObject):
             for p in points:
                 p.setPen('r', width=2)
             last_solution = points[0]
-            self.all_last_solutions[self.mainwindow.current_particle.dataset_ind] = last_solution
+            self.all_last_solutions[self.mainwindow.current_dataset_ind] = last_solution
 
             if curr_part.using_group_levels:
                 curr_part.using_group_levels = False
@@ -1665,7 +1666,7 @@ class GroupingController(QObject):
             grouping_objs = [particle.ahca for particle in checked_particles]
             status_message = "Grouping levels for selected particle..."
         elif mode == 'all':
-            all_particles = mw.current_particle.dataset.particles
+            all_particles = mw.current_dataset.particles
             grouping_objs = [particle.ahca for particle in all_particles]
             status_message = "Grouping levels for all particle..."
 
@@ -1688,7 +1689,7 @@ class GroupingController(QObject):
         self.mainwindow.threadpool.start(g_process_thread)
 
     def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
-        particles = self.mainwindow.current_particle.dataset.particles
+        particles = self.mainwindow.current_dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
             results = [results]
@@ -1752,7 +1753,7 @@ class GroupingController(QObject):
         elif mode == 'selected':
             particles = self.mainwindow.get_checked_particles()
         else:
-            particles = self.mainwindow.current_particle.dataset.particles
+            particles = self.mainwindow.current_dataset.particles
 
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:
@@ -1898,7 +1899,7 @@ class RasterScanController(QObject):
 
     def plot_raster_scan(self, particle: Particle = None, raster_scan: RasterScan = None,
         for_export: bool = False, export_path: str = None):
-        dataset = self.main_window.current_particle.dataset
+        dataset = self.main_window.current_dataset
         if particle is None and raster_scan is None:
             particle = self.main_window.current_particle
             raster_scan = particle.raster_scan
@@ -1978,7 +1979,7 @@ class RasterScanController(QObject):
                 self._text_item.setPos(*coords)
 
             self.list_text.clear()
-            dataset = particle.dataset
+            dataset = self.main_window.current_dataset
             all_text = f"<h3>Raster Scan {raster_scan.dataset_index + 1}</h3><p>"
             rs_part_coord = [dataset.particles[part_ind].raster_scan_coordinates
                              for part_ind in raster_scan.particle_indexes]

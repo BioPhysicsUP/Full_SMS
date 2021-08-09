@@ -24,7 +24,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
         elif mode == 'selected':
             particles = mainwindow.get_checked_particles()
         else:
-            particles = mainwindow.current_particle.dataset.particles
+            particles = mainwindow.current_dataset.particles
 
         # save_dlg = QFileDialog(self)
         # save_dlg.setAcceptMode(QFileDialog.AcceptSave)
@@ -497,7 +497,7 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                 # for part in particles:
                 #     all_raster_scan_particles.extend(part.raster_scan.particle_indexes)
                 # all_part_with_raster_scans = np.unique(all_raster_scan_particles).tolist()
-                dataset = particles[0].dataset
+                dataset = mainwindow.current_dataset
                 raster_scans_use = [part.raster_scan.dataset_index for part in particles]
                 raster_scans_use = np.unique(raster_scans_use).tolist()
                 for raster_scan_index in raster_scans_use:

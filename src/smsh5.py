@@ -80,7 +80,8 @@ class H5dataset:
         for num, particle_name in enumerate(natural_p_names):
             self.particles.append(
                 Particle(name=particle_name, dataset_ind=num, dataset=self,
-                         raster_scan_dataset_index=map_particle_indexes[num]))
+                         raster_scan_dataset_index=map_particle_indexes[num],
+                         raster_scan=self.all_raster_scans[map_particle_indexes[num]]))
         self.num_parts = len(self.particles)
         assert self.num_parts == self.file.attrs['# Particles']
         self.channelwidth = None
@@ -260,7 +261,8 @@ class Particle:
     """
 
     def __init__(self, name: str, dataset_ind: int, dataset: H5dataset,
-                 raster_scan_dataset_index: int = None, tmin=None, tmax=None, channelwidth=None):
+                 raster_scan_dataset_index: int = None, raster_scan: RasterScan = None,
+                 tmin=None, tmax=None, channelwidth=None):
         """
         Creates an instance of Particle
 
@@ -278,10 +280,11 @@ class Particle:
         """
         self.uuid = uuid1()
         self.name = name
-        self.dataset = dataset
+        # self.dataset = dataset
         self.dataset_ind = dataset_ind
-        self.datadict = self.dataset.file[self.name]
-        if self.dataset.version in ['1.0', '1.01', '1.02']:
+        self.file = dataset.file
+        self.datadict = self.file[self.name]
+        if dataset.version in ['1.0', '1.01', '1.02']:
             self.microtimes = self.datadict['Micro Times (s)']
         else:
             self.microtimes = self.datadict['Micro Times (ns)']
@@ -294,8 +297,9 @@ class Particle:
 
         self.spectra = Spectra(self)
         self._raster_scan_dataset_index = raster_scan_dataset_index
-        self.has_raster_scan = raster_scan_dataset_index is not None
-        if self.dataset.version in ['1.0', '1.01', '1.02']:
+        self.raster_scan = raster_scan
+        self.has_raster_scan = raster_scan is not None
+        if dataset.version in ['1.0', '1.01', '1.02']:
             self.description = self.datadict.attrs['Discription']
         else:
             self.description = self.datadict.attrs['Description']
@@ -335,10 +339,10 @@ class Particle:
     def has_spectra(self) -> bool:
         return self.spectra._has_spectra
 
-    @property
-    def raster_scan(self) -> RasterScan:
-        if self.has_raster_scan and self.dataset is not None:
-            return self.dataset.all_raster_scans[self._raster_scan_dataset_index]
+    # @property
+    # def raster_scan(self) -> RasterScan:
+    #     if self.has_raster_scan and self.dataset is not None:
+    #         return self.dataset.all_raster_scans[self._raster_scan_dataset_index]
 
     @property
     def raster_scan_coordinates(self) -> tuple:

@@ -5,6 +5,7 @@ University of Pretoria
 2020
 """
 
+from __future__ import annotations
 __docformat__ = 'NumPy'
 
 # import csv
@@ -223,6 +224,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.tabWidget.currentChanged.connect(self.tab_change)
 
+        self.current_dataset = None
+        self.current_particle = None
+
         self.reset_gui()
         self.repaint()
 
@@ -374,7 +378,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             start = self.lifetime_controller.startpoint
         try:
             # self.tree2dataset().makehistograms(remove_zeros=False, startpoint=start, channel=True)
-            dataset = self.current_particle.dataset
+            dataset = self.current_dataset
             dataset.makehistograms(remove_zeros=False, startpoint=start, channel=True)
         except Exception as exc:
             print(exc)
@@ -392,6 +396,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def add_dataset(self, dataset_node):
         self.dataset_node = dataset_node
         self.dataset_index = self.treemodel.addChild(dataset_node)
+        self.currect_dataset = dataset_node.dataobj
 
     def add_node(self, particle_node, num):
         index = self.treemodel.addChild(particle_node, self.dataset_index)  #, progress_sig)
@@ -667,14 +672,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """ Is called as soon as all of the threads have finished. """
 
         if self.data_loaded and not irf:
+            self.current_dataset = self.tree2dataset()
             self.current_particle = self.tree2particle(0)
             self.treeViewParticles.expandAll()
             self.treeViewParticles.setCurrentIndex(self.part_index[1])
-            any_spectra = any([part.has_spectra
-                               for part in self.current_particle.dataset.particles])
+            any_spectra = any([part.has_spectra for part in self.current_dataset.particles])
             if any_spectra:
                 self.has_spectra = True
-            self.has_raster_scans = self.current_particle.dataset.has_raster_scans
+            self.has_raster_scans = self.current_dataset.has_raster_scans
             self.display_data()
 
             # msgbx = TimedMessageBox(30, parent=self)
@@ -855,7 +860,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             particles = self.get_checked_particles()
         else:
             # particles = self.tree2dataset().particles
-            particles = self.current_particle.dataset.particles  #TODO: This needs to change.
+            particles = self.current_dataset.particles
 
         removed_bursts = False  # TODO: Remove
         has_burst = [particle.has_burst for particle in particles]
@@ -876,7 +881,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 for num, particle in enumerate(particles):
                     if has_burst[num]:
                         particle.cpts.remove_bursts()
-            self.current_particle.dataset.makehistograms()
+            self.current_dataset.makehistograms()
 
             self.display_data()
 

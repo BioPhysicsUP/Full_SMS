@@ -1,6 +1,7 @@
 # import copy
+from __future__ import annotations
 import time
-from typing import Union, List
+from typing import Union, List, TYPE_CHECKING
 
 from PyQt5.QtCore import QRunnable, pyqtSlot
 
@@ -14,6 +15,11 @@ from processes import ProcessProgressCmd as PPCmd, ProcessSigPassTask as PSCmd,\
     get_max_num_processes, get_empty_queue_exception, SingleProcess, ProcessTaskResult, \
     prog_sig_pass, ProcessProgress, ProcessProgFeedback, apply_autoproxy_fix, create_manager
 from tempfile import TemporaryDirectory
+
+
+if TYPE_CHECKING:
+    from generate_sums import CPSums
+
 
 logger = setup_logger(__name__)
 

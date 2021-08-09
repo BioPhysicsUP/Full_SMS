@@ -8,10 +8,11 @@ University of Pretoria
 2019
 """
 
+from __future__ import annotations
 __docformat__ = 'NumPy'
 
 import os
-from typing import Tuple, Optional
+from typing import Tuple, Optional, TYPE_CHECKING
 
 import numpy as np
 from h5py import Dataset
@@ -20,6 +21,10 @@ from statsmodels.stats.weightstats import DescrStatsW
 import dbg
 import file_manager as fm
 from my_logger import setup_logger
+
+if TYPE_CHECKING:
+    from smsh5 import Particle
+    from generate_sums import CPSums
 
 MIN_PHOTONS = 20
 MIN_EDGE_PHOTONS = 7
@@ -98,7 +103,7 @@ class DatasetSubset:
 class ChangePoints:
     """ Contains all the attributes to describe the found change points in an analysed particles. """
 
-    def __init__(self, particle, confidence=None, run_levels=None):
+    def __init__(self, particle, confidence=None, run_levels: bool = None):
         """
         Creates an instance of ChangePoints for the particle object provided.
 
@@ -123,9 +128,6 @@ class ChangePoints:
             self._run_levels = run_levels
         else:
             self._run_levels = False
-
-        if confidence is not None:
-            self.run_cpa()
 
     @property
     def has_levels(self):
@@ -205,7 +207,7 @@ class ChangePoints:
     #     if self.cpa_has_run:
     #         self._cpa.dt_uncertainty = dt_uncertainty
 
-    def run_cpa(self, confidence=None, run_levels=None, end_time_s=None):
+    def run_cpa(self, all_sums: CPSums, confidence=None, run_levels=None, end_time_s=None):
         """
         Run change point analysis.
 
@@ -231,7 +233,7 @@ class ChangePoints:
 
         if self.cpa_has_run:
             self._cpa.reset(confidence)
-        self._cpa.run_cpa(confidence, end_time_s=end_time_s)
+        self._cpa.run_cpa(all_sums=all_sums, confidence=confidence, end_time_s=end_time_s)
         if self._run_levels:
             self._cpa.define_levels()
             if self.has_levels:
@@ -449,7 +451,7 @@ class TauData:
 class ChangePointAnalysis:
     """ Perform analysis of particle abstimes data to resolve change points. """
 
-    def __init__(self, particle=None, confidence=None):
+    def __init__(self, particle: Particle = None, confidence=None):
         """
         Initiate ChangePointAnalysis instance.
         :param particle: Object containing particle data
@@ -511,7 +513,8 @@ class ChangePointAnalysis:
         else:
             return None
 
-    def __weighted_likelihood_ratio(self, seg_inds=None) -> Tuple[bool, Optional[int]]:
+    def __weighted_likelihood_ratio(self, all_sums: CPSums,
+                                    seg_inds=None) -> Tuple[bool, Optional[int]]:
         """
         Calculates the Weighted & Standardised Likelihood ratio and detects the possible change point.
 
@@ -551,10 +554,10 @@ class ChangePointAnalysis:
         wlr = np.zeros(n, float)
 
         # sig_e = np.pi ** 2 / 6 - sum(1 / j ** 2 for j in range(1, (n - 1) + 1))
-        sig_e = self._particle.dataset.all_sums.get_sig_e(n)
+        sig_e = all_sums.get_sig_e(n)
 
         for k in range(2, (n - 2) + 1):  # Remember!!!! range(1, N) = [1, ... , N-1]
-            sum_set = self._particle.dataset.all_sums.get_set(n, k)
+            sum_set = all_sums.get_set(n, k)
 
             cap_v_k = (time_data[k] - ini_time) / period  # Just after eq. 4
 
@@ -564,8 +567,8 @@ class ChangePointAnalysis:
             # u_n_k = -sum(1 / j for j in range(n - k, (n - 1) + 1))  # Just after eq. 6
             u_n_k = sum_set['u_n_k']
 
-            l0_minus_expec_l0 = -2 * k * np.log(cap_v_k) + 2 * k * u_k - 2 * (n - k) * np.log(1 - cap_v_k) + 2 * (
-                    n - k) * u_n_k  # Just after eq. 6
+            l0_minus_expec_l0 = -2 * k * np.log(cap_v_k) + 2 * k * u_k - 2 * (n - k) *\
+                                np.log(1 - cap_v_k) + 2 * (n - k) * u_n_k  # Just after eq. 6
 
             # v_k2 = sum(1 / j ** 2 for j in range(k, (n - 1) + 1))  # Just before eq. 7
             v2_k = sum_set['v2_k']
@@ -573,8 +576,7 @@ class ChangePointAnalysis:
             # v2_n_k = sum(1 / j ** 2 for j in range(n - k, (n - 1) + 1))  # Just before eq. 7
             v2_n_k = sum_set['v2_n_k']
 
-            sigma_k = np.sqrt(
-                4 * (k ** 2) * v2_k + 4 * ((n - k) ** 2) * v2_n_k - 8 * k * (n - k) * sig_e)  # Just before eq. 7, and note errata
+            sigma_k = np.sqrt( 4*(k**2)*v2_k + 4*((n - k)**2)*v2_n_k - 8*k*(n - k)*sig_e)  # Just before eq. 7, and note errata
             w_k = (1 / 2) * np.log((4 * k * (n - k)) / n ** 2)  # Just after eq. 6
 
             wlr.itemset(k, l0_minus_expec_l0 / sigma_k + w_k)  # Eq. 6 and just after eq. 6
@@ -686,10 +688,8 @@ class ChangePointAnalysis:
 
         return next_start_ind, next_end_ind
 
-    def _find_all_cpts(self,
-                       _seg_inds: Tuple[int, int] = None,
-                       _side: str = None,
-                       _right_cpt: int = None):
+    def _find_all_cpts(self, all_sums: CPSums, _seg_inds: Tuple[int, int] = None,
+                       _side: str = None, _right_cpt: int = None):
         """
         Find all change points in particle.
 
@@ -728,11 +728,13 @@ class ChangePointAnalysis:
         self._i += 1
 
         if _seg_inds != (None, None):
-            cpt_found, _right_cpt = self.__weighted_likelihood_ratio(_seg_inds)
+            cpt_found, _right_cpt = self.__weighted_likelihood_ratio(all_sums, _seg_inds)
 
             if cpt_found:
-                self._find_all_cpts(_seg_inds, _side='left')  # Left side of change point
-                self._find_all_cpts(_seg_inds, _side='right', _right_cpt=_right_cpt)  # Right side of change point
+                # Left side of change point
+                self._find_all_cpts(all_sums, _seg_inds, _side='left')
+                # Right side of change point
+                self._find_all_cpts(all_sums, _seg_inds, _side='right', _right_cpt=_right_cpt)
                 pass  # Exits if recursive
 
             if self.end_at_photon is not None:
@@ -741,7 +743,7 @@ class ChangePointAnalysis:
                 end_ind = self.num_photons
 
             if _seg_inds[1] <= end_ind + 9 and _side is None:
-                self._find_all_cpts(_seg_inds)
+                self._find_all_cpts(all_sums, _seg_inds)
 
         if is_top_level:
             self._finding = False
@@ -836,7 +838,7 @@ class ChangePointAnalysis:
             self.has_levels = True
 
     # @dbg.profile
-    def run_cpa(self, confidence=None, end_time_s = None):
+    def run_cpa(self, all_sums: CPSums, confidence=None, end_time_s=None):
         """
         Runs the change point analysis.
 
@@ -872,7 +874,7 @@ class ChangePointAnalysis:
             self.end_at_photon = np.argmax(self._abstimes[:] > (end_time_s * 1E9))
             if self.end_at_photon == 0:
                 self.end_at_photon = self.num_photons
-        self._find_all_cpts()
+        self._find_all_cpts(all_sums=all_sums)
         self.has_run = True
 
 

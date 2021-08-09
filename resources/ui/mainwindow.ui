@@ -3108,6 +3108,22 @@
                    </widget>
                   </item>
                   <item>
+                   <spacer name="spcEx_Grouping_8">
+                    <property name="orientation">
+                     <enum>Qt::Vertical</enum>
+                    </property>
+                    <property name="sizeType">
+                     <enum>QSizePolicy::Minimum</enum>
+                    </property>
+                    <property name="sizeHint" stdset="0">
+                     <size>
+                      <width>20</width>
+                      <height>5</height>
+                     </size>
+                    </property>
+                   </spacer>
+                  </item>
+                  <item>
                    <widget class="QCheckBox" name="chbEx_Plot_Raster_Scans">
                     <property name="enabled">
                      <bool>false</bool>

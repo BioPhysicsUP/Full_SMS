@@ -4,6 +4,7 @@ change point detection algorithm in the change_point module.
 Written by Joshua Botha, University of Pretoria, Physics department.
 """
 
+from __future__ import annotations
 __docformat__ = 'NumPy'
 
 import os
@@ -105,6 +106,7 @@ class CPSums:
                     logger.info('all_sums.pickle found')
             else:
                 self._calc_and_store()
+        self.prog_fb = None
 
     def _calc_sums(self) -> None:
         """
