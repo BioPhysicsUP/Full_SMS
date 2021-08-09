@@ -1428,7 +1428,7 @@ class LifetimeController(QObject):
                 target_hist = target_particle.histogram
                 target_microtimes = target_hist.microtimes
 
-                result.new_task_obj.part_hist._particle = target_particle
+                result.new_task_obj.part_hist.particle = target_particle
                 result.new_task_obj.part_hist.microtimes = target_microtimes
 
                 target_particle.histogram = result.new_task_obj.part_hist
@@ -1438,7 +1438,7 @@ class LifetimeController(QObject):
                     target_level = target_particle.levels[i]
                     target_level_microtimes = target_level.microtimes
 
-                    res_hist._particle = target_particle
+                    res_hist.particle = target_particle
                     res_hist.microtimes = target_level_microtimes
                     res_hist.level = target_level
 
