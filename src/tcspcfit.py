@@ -445,11 +445,14 @@ class FluoFit:
 
         # residuals = self.convd - self.measured
         # residuals = residuals / np.sqrt(np.abs(self.measured))
-        residuals = (self.convd - self.measured) * self.meas_max
-        residuals = residuals / np.sqrt(np.abs(self.measured * self.meas_max))
-        residualsnotinf = residuals != np.inf
+        measured = self.measured
+        if any(measured == 0):
+            measured[measured == 0] = 1E-10
+        residuals = (self.convd - measured) * self.meas_max
+        residuals = residuals / np.sqrt(np.abs(measured * self.meas_max))
+        residualsnotinf = np.abs(residuals) != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
-        chisquared = np.sum((residuals ** 2)) / (np.size(self.measured) - param_df - 1)
+        chisquared = np.sum((residuals ** 2)) / (np.size(measured) - param_df - 1)
         # chisquared = chisquared * self.meas_max  # This is necessary because of normalisation
         self.chisq = chisquared
         self.t = self.t[self.startpoint:self.endpoint]
@@ -459,12 +462,12 @@ class FluoFit:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
             ax1.set_yscale('log')
             # ax1.set_ylim([self.measured.min() * 1000, self.measured.max() * 2])
-            ax1.plot(self.t, self.measured.flatten(), color='gray', linewidth=1)
+            ax1.plot(self.t, measured.flatten(), color='gray', linewidth=1)
             ax1.plot(self.t, self.convd.flatten(), color='C3', linewidth=1)
             # ax1.plot(self.irf[self.startpoint:self.endpoint])
             # ax1.plot(colorshift(self.irf, shift)[self.startpoint:self.endpoint])
             textx = (self.endpoint - self.startpoint) * self.channelwidth * 1.4
-            texty = self.measured.max()
+            texty = measured.max()
             try:
                 ax1.text(textx, texty, 'Tau = ' + ' '.join('{:#.3g}'.format(F) for F in tau))
                 ax1.text(textx, texty / 2, 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp))

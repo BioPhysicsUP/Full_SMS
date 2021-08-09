@@ -365,8 +365,8 @@ class AHCA:
         """
 
         self.has_groups = False
-        self.particle = particle
-        self.uuid = self.particle.uuid
+        self._particle = particle
+        self.uuid = self._particle.uuid
         self.steps = None
         self.best_step_ind = None
         self.bics = None
@@ -404,18 +404,18 @@ class AHCA:
         """
 
         try:
-            if self.particle.has_levels:
+            if self._particle.has_levels:
 
                 steps = []
-                if self.particle.num_levels == 1:
-                    self.steps = [ClusteringStep(self.particle, single_level=True)]
+                if self._particle.num_levels == 1:
+                    self.steps = [ClusteringStep(self._particle, single_level=True)]
                     self.num_steps = 1
                     self.best_step_ind = 0
                     self.selected_step_ind = 0
                     self.has_groups = True
                 else:
-                    c_step = ClusteringStep(self.particle, first=True)
-                    current_num_groups = self.particle.num_levels
+                    c_step = ClusteringStep(self._particle, first=True)
+                    current_num_groups = self._particle.num_levels
                     while current_num_groups != 1:
                         c_step.ahc()
                         c_step.emc()
@@ -434,9 +434,9 @@ class AHCA:
                     self.best_step_ind = np.argmax(self.bics)
                     self.selected_step_ind = self.best_step_ind
                     self.has_groups = True
-                    logger.info(f"{self.particle.name} levels grouped")
+                    logger.info(f"{self._particle.name} levels grouped")
             else:
-                logger.info(f"{self.particle.name} has no levels to group")
+                logger.info(f"{self._particle.name} has no levels to group")
         except Exception as e:
             logger.error(e)
             pass
@@ -445,9 +445,9 @@ class AHCA:
         assert 0 <= step_ind < self.num_steps, "AHCA: Provided step index out of range."
         self.selected_step_ind = step_ind
         if not all([lvl.histogram is not None for lvl in self.steps[step_ind].group_levels]):
-            self.particle.makelevelhists(force_group_levels=True)
+            self._particle.makelevelhists(force_group_levels=True)
         if not all([group.histogram is not None for group in self.steps[step_ind].groups]):
-            self.particle.makegrouphists()
+            self._particle.makegrouphists()
 
 
     def reset_selected_step(self):

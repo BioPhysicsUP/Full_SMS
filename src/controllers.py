@@ -735,7 +735,7 @@ class IntController(QObject):
 
         if self.mainwindow.current_particle.has_levels:  # tree2dataset().cpa_has_run:
             self.mainwindow.tabGrouping.setEnabled(True)
-        if self.mainwindow.treeViewParticles.currentIndex().dataset(Qt.UserRole) is not None:
+        if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.check_remove_bursts(mode=self.resolve_mode)
         self.mainwindow.chbEx_Levels.setEnabled(True)
@@ -1466,7 +1466,7 @@ class LifetimeController(QObject):
             logger.error(e)
 
     def fitting_thread_complete(self, mode: str = None):
-        if self.mainwindow.treeViewParticles.currentIndex().dataset(Qt.UserRole) is not None:
+        if self.mainwindow.current_particle is not None:
             self.mainwindow.display_data()
         self.mainwindow.chbEx_Lifetimes.setEnabled(False)
         self.mainwindow.chbEx_Lifetimes.setEnabled(True)
@@ -1700,7 +1700,7 @@ class GroupingController(QObject):
                 new_part.level_selected = None
 
                 result_ahca = result.new_task_obj
-                result_ahca.particle = new_part
+                result_ahca._particle = new_part
                 result_ahca.best_step._particle = new_part
                 for step in result_ahca.steps:
                     step._particle = new_part
@@ -1711,7 +1711,7 @@ class GroupingController(QObject):
                                 for group in group_attr:
                                     for ahc_lvl in group.lvls:
                                         ahc_hist = ahc_lvl.histogram
-                                        if hasattr(ahc_hist, 'particle'):
+                                        if hasattr(ahc_hist, '_particle'):
                                             ahc_hist._particle = new_part
 
                 new_part.ahca = result_ahca
@@ -1733,7 +1733,7 @@ class GroupingController(QObject):
         self.temp_dir.cleanup()
         self.temp_dir = None
         self.gather_replace_results(results=results)
-        if self.mainwindow.treeViewParticles.currentIndex().dataset(Qt.UserRole) is not None:
+        if self.mainwindow.current_particle is not None:
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
         self.mainwindow.levels_grouped = True

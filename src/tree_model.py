@@ -128,18 +128,19 @@ class DatasetTreeModel(QAbstractItemModel):
         self._root = DatasetTreeNode(None, None, None)
         # for node in in_nodes:
         #     self._root.addChild(node)
-        self.none = QPixmap(fm.path('particle-none.png', fm.Type.Icons)).scaledToHeight(12)
-        self.e = QPixmap(fm.path('particle-e.png', fm.Type.Icons)).scaledToHeight(12)
-        self.r = QPixmap(fm.path('particle-r.png', fm.Type.Icons)).scaledToHeight(12)
-        self.re = QPixmap(fm.path('particle-re.png', fm.Type.Icons)).scaledToHeight(12)
-        self.rg = QPixmap(fm.path('particle-rg.png', fm.Type.Icons)).scaledToHeight(12)
-        self.rge = QPixmap(fm.path('particle-rge.png', fm.Type.Icons)).scaledToHeight(12)
-        self.l = QPixmap(fm.path('particle-l.png', fm.Type.Icons)).scaledToHeight(12)
-        self.le = QPixmap(fm.path('particle-le.png', fm.Type.Icons)).scaledToHeight(12)
-        self.rl = QPixmap(fm.path('particle-rl.png', fm.Type.Icons)).scaledToHeight(12)
-        self.rle = QPixmap(fm.path('particle-rle.png', fm.Type.Icons)).scaledToHeight(12)
-        self.rgl = QPixmap(fm.path('particle-rgl.png', fm.Type.Icons)).scaledToHeight(12)
-        self.rgle = QPixmap(fm.path('particle-rgle.png', fm.Type.Icons)).scaledToHeight(12)
+        height = 11
+        self.none = QPixmap(fm.path('particle-none.png', fm.Type.Icons)).scaledToHeight(height)
+        self.e = QPixmap(fm.path('particle-e.png', fm.Type.Icons)).scaledToHeight(height)
+        self.r = QPixmap(fm.path('particle-r.png', fm.Type.Icons)).scaledToHeight(height)
+        self.re = QPixmap(fm.path('particle-re.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rg = QPixmap(fm.path('particle-rg.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rge = QPixmap(fm.path('particle-rge.png', fm.Type.Icons)).scaledToHeight(height)
+        self.l = QPixmap(fm.path('particle-l.png', fm.Type.Icons)).scaledToHeight(height)
+        self.le = QPixmap(fm.path('particle-le.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rl = QPixmap(fm.path('particle-rl.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rle = QPixmap(fm.path('particle-rle.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rgl = QPixmap(fm.path('particle-rgl.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rgle = QPixmap(fm.path('particle-rgle.png', fm.Type.Icons)).scaledToHeight(height)
 
     def flags(self, index):
         # return self.flags(index) | Qt.ItemIsUserCheckable

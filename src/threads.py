@@ -30,7 +30,7 @@ class ProcessThread(QRunnable):
                  task_buffer_size: int = None,
                  status_message: str = None,
                  temp_dir: TemporaryDirectory = None):
-        logger.info("Inside ProcessThread __init__")
+        # logger.info("Inside ProcessThread __init__")
         super().__init__()
         # logger.info("After super().__init__()")
         self._processes = []

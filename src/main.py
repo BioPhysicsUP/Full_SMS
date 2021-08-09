@@ -658,7 +658,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         smsh5.H5dataset
         """
         # return self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
-        return self.dataset_index.dataset(Qt.UserRole)
+        return self.dataset_index.data(Qt.UserRole)
 
     def set_data_loaded(self):
         self.data_loaded = True

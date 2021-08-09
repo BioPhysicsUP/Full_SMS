@@ -392,7 +392,7 @@ class SingleProcess(mp.Process):
                                         for group in group_attr:
                                             for ahc_lvl in group.lvls:
                                                 ahc_hist = ahc_lvl.histogram
-                                                if hasattr(ahc_hist, 'particle'):
+                                                if hasattr(ahc_hist, '_particle'):
                                                     ahc_hist._particle = None
                         assert self._temp_dir is not None, "temp_folder has not been set"
                         assert task_name is not None, "task_name has not been set"
