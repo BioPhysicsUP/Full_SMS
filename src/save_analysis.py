@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 import pickle
 import copy
 import os
+import lzma
 
 import h5pickle
 from tree_model import DatasetTreeNode
@@ -40,13 +41,14 @@ def save_analysis(main_window: MainWindow, dataset: H5dataset):
     copy_dataset.save_selected = [node.checked() for node in main_window.part_nodes]
 
     save_file_name = copy_dataset.name[:-2] + 'smsa'
-    with open(save_file_name, 'wb') as f:
+    # with open(save_file_name, 'wb') as f:
+    with lzma.open(save_file_name, 'wb') as f:
         pickle.dump(copy_dataset, f)
 
 
 def load_analysis(main_window: MainWindow, analysis_file: str):
     h5_file = h5pickle.File(analysis_file[:-4] + 'h5')
-    with open(analysis_file, 'rb') as f:
+    with lzma.open(analysis_file, 'rb') as f:
         loaded_dataset = pickle.load(f)
 
     for particle in loaded_dataset.particles:
