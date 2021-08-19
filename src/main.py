@@ -29,6 +29,7 @@ from controllers import IntController, LifetimeController, GroupingController, S
 from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
+import save_analysis
 
 try:
     import pkg_resources.py2_warn
@@ -171,6 +172,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.actionOpen_h5.triggered.connect(self.act_open_h5)
         self.actionSave_Selected.triggered.connect(self.act_save_selected)
+        self.actionSave_Analysis.triggered.connect(self.act_save_analysis)
         self.actionSelect_All.triggered.connect(self.act_select_all)
         self.actionInvert_Selection.triggered.connect(self.act_invert_selection)
         self.actionDeselect_All.triggered.connect(self.act_deselect_all)
@@ -291,7 +293,20 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         logger.info("Performing Open H5 Action")
         file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
-        if file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
+        if os.path.exists(file_path[0][:-2] + 'smsa') and \
+                os.path.isfile(file_path[0][:-2] + 'smsa'):
+            msg_box = QMessageBox(parent=self)
+            msg_box.setWindowTitle("Load analysis?")
+            msg_box.setText("Analysis file found. Would you like to load it?")
+            msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg_box.exec()
+            if msg_box.result() == QMessageBox.Yes:
+                save_analysis.load_analysis(main_window=self,
+                                            analysis_file=file_path[0][:-2] + 'smsa')
+                self.data_loaded = True
+                self.open_file_thread_complete()
+
+        elif file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
             self.status_message(message="Opening file...")
             # logger.info("About to create ProcessThread object")
             of_process_thread = ProcessThread(num_processes=1)
@@ -355,6 +370,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.tree2dataset().save_particles(fname, selected_nums)
 
+    def act_save_analysis(self):
+        if self.current_dataset is not None:
+            save_analysis.save_analysis(self, self.current_dataset)
+
     def act_trim(self):
         """ Used to trim the 'dead' part of a trace as defined by two parameters. """
 
@@ -396,7 +415,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def add_dataset(self, dataset_node):
         self.dataset_node = dataset_node
         self.dataset_index = self.treemodel.addChild(dataset_node)
-        self.currect_dataset = dataset_node.dataobj
+        self.current_dataset = dataset_node.dataobj
 
     def add_node(self, particle_node, num):
         index = self.treemodel.addChild(particle_node, self.dataset_index)  #, progress_sig)
@@ -668,7 +687,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def set_data_loaded(self):
         self.data_loaded = True
 
-    def open_file_thread_complete(self, thread: ProcessThread, irf=False) -> None:
+    def open_file_thread_complete(self, thread: ProcessThread = None, irf=False) -> None:
         """ Is called as soon as all of the threads have finished. """
 
         if self.data_loaded and not irf:

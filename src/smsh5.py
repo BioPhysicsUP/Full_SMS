@@ -71,20 +71,27 @@ class H5dataset:
 
         self.all_raster_scans = list()
         map_particle_indexes = self.get_all_raster_scans(particle_names=natural_p_names)
-        if len(map_particle_indexes) > 0:
+        if map_particle_indexes is not None:
             self.has_raster_scans = True
         else:
             self.has_raster_scans = False
 
         self.particles = []
         for num, particle_name in enumerate(natural_p_names):
+            if map_particle_indexes is not None:
+                this_raster_scan_index = map_particle_indexes[num]
+                this_raster_scan = self.all_raster_scans[map_particle_indexes[num]]
+            else:
+                this_raster_scan_index = None
+                this_raster_scan = None
             self.particles.append(
                 Particle(name=particle_name, dataset_ind=num, dataset=self,
-                         raster_scan_dataset_index=map_particle_indexes[num],
-                         raster_scan=self.all_raster_scans[map_particle_indexes[num]]))
+                         raster_scan_dataset_index=this_raster_scan_index,
+                         raster_scan=this_raster_scan))
         self.num_parts = len(self.particles)
         assert self.num_parts == self.file.attrs['# Particles']
         self.channelwidth = None
+        self.save_selected = None
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
         raster_scans = list()
@@ -95,52 +102,54 @@ class H5dataset:
                 if 'Raster Scan' in particle_keys:
                     raster_scans.append((self.file[particle_name]['Raster Scan'], num))
 
-        prev_raster_scan = None
-        group_indexes = list()
-        map_particle_index = list()
-        raster_scan_counter = 0
-        for raster_scan, num in raster_scans:
-            if raster_scan == prev_raster_scan and num != len(raster_scans) - 1:
-                # Must not add new RasterScan, because same raster scan as previous and not last
-                group_indexes.append(num)
-                raster_scan_num = len(self.all_raster_scans)
-            else:  # Must add new RasterScan, because raster scan different from previous, or last
-                if num != 0:  # Not first one
-                    if num != len(raster_scans) - 1:  # Not last one
-                        # Save previous raster scan with previous group indexes
-                        self.all_raster_scans.append(
-                            RasterScan(raster_scan_dataset=prev_raster_scan,
-                                       particle_indexes=group_indexes,
-                                       dataset_index=raster_scan_num))
-                        raster_scan_counter += 1
-                        raster_scan_num = len(self.all_raster_scans)
-                    else:  # Last one
-                        # Save this raster scan with updated group indexes
-                        if raster_scan == prev_raster_scan:
-                            # Last one is part of previous group
-                            group_indexes.append(num)
-                            raster_scan_num = len(self.all_raster_scans)
-                        else:
-                            # Last one part of new group
+        if len(raster_scans) != 0:
+            prev_raster_scan = None
+            group_indexes = list()
+            map_particle_index = list()
+            raster_scan_counter = 0
+            for raster_scan, num in raster_scans:
+                if raster_scan == prev_raster_scan and num != len(raster_scans) - 1:
+                    # Must not add new RasterScan, because same raster scan as previous and not last
+                    group_indexes.append(num)
+                    raster_scan_num = len(self.all_raster_scans)
+                else:  # Must add new RasterScan, because raster scan different from previous, or last
+                    if num != 0:  # Not first one
+                        if num != len(raster_scans) - 1:  # Not last one
+                            # Save previous raster scan with previous group indexes
                             self.all_raster_scans.append(
                                 RasterScan(raster_scan_dataset=prev_raster_scan,
                                            particle_indexes=group_indexes,
                                            dataset_index=raster_scan_num))
                             raster_scan_counter += 1
-                            group_indexes = [num]
                             raster_scan_num = len(self.all_raster_scans)
-                        self.all_raster_scans.append(RasterScan(raster_scan_dataset=raster_scan,
-                                                                particle_indexes=group_indexes,
-                                                                dataset_index=raster_scan_counter))
-                        raster_scan_counter += 1
-                else:
-                    raster_scan_num = 0
-                group_indexes = [num]
-                prev_raster_scan = raster_scan
+                        else:  # Last one
+                            # Save this raster scan with updated group indexes
+                            if raster_scan == prev_raster_scan:
+                                # Last one is part of previous group
+                                group_indexes.append(num)
+                                raster_scan_num = len(self.all_raster_scans)
+                            else:
+                                # Last one part of new group
+                                self.all_raster_scans.append(
+                                    RasterScan(raster_scan_dataset=prev_raster_scan,
+                                               particle_indexes=group_indexes,
+                                               dataset_index=raster_scan_num))
+                                raster_scan_counter += 1
+                                group_indexes = [num]
+                                raster_scan_num = len(self.all_raster_scans)
+                            self.all_raster_scans.append(RasterScan(raster_scan_dataset=raster_scan,
+                                                                    particle_indexes=group_indexes,
+                                                                    dataset_index=raster_scan_counter))
+                            raster_scan_counter += 1
+                    else:
+                        raster_scan_num = 0
+                    group_indexes = [num]
+                    prev_raster_scan = raster_scan
 
-            map_particle_index.append(raster_scan_num)
-
-        return map_particle_index
+                map_particle_index.append(raster_scan_num)
+            return map_particle_index
+        else:
+            return None
 
 
         print('here')
@@ -637,17 +646,17 @@ class Histogram:
                  channel: bool = True,
                  trim_start: bool = False):
         no_sort = False
-        self.particle = particle
+        self._particle = particle
         self.level = level
         if level is None:
-            self.microtimes = self.particle.microtimes[:]
+            self.microtimes = self._particle.microtimes[:]
         elif type(level) is list:
-            if not self.particle.has_groups:
+            if not self._particle.has_groups:
                 logger.error("Multiple levels provided, but has no groups")
                 raise RuntimeError("Multiple levels provided, but has no groups")
             self.microtimes = np.array([])
             for ind in level:
-                self.microtimes = np.append(self.microtimes, self.particle.cpts.levels[
+                self.microtimes = np.append(self.microtimes, self._particle.cpts.levels[
                     ind].microtimes)
         else:
             self.microtimes = self.level.microtimes[:]
@@ -656,19 +665,19 @@ class Histogram:
             self.decay = np.empty(1)
             self.t = np.empty(1)
         else:
-            tmin = min(self.particle.tmin, self.microtimes.min())
-            tmax = max(self.particle.tmax, self.microtimes.max())
+            tmin = min(self._particle.tmin, self.microtimes.min())
+            tmax = max(self._particle.tmax, self.microtimes.max())
             if start_point is None:
                 pass
             else:
                 if channel:
                     start_point = int(start_point)
-                    t = np.arange(tmin, tmax, self.particle.channelwidth)
+                    t = np.arange(tmin, tmax, self._particle.channelwidth)
                     tmin = t[start_point]
                     no_sort = True
                 else:
                     tmin = start_point
-                    tmax = max(self.particle.tmax, self.microtimes.max())
+                    tmax = max(self._particle.tmax, self.microtimes.max())
 
             sorted_micro = np.sort(self.microtimes)
             if not no_sort and trim_start:
@@ -676,9 +685,9 @@ class Histogram:
             tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # - 1  # Fix if max is end
 
             window = tmax-tmin
-            numpoints = int(window//self.particle.channelwidth)
+            numpoints = int(window // self._particle.channelwidth)
 
-            t = np.arange(tmin, tmax, self.particle.channelwidth)
+            t = np.arange(tmin, tmax, self._particle.channelwidth)
 
             self.decay, self.t = np.histogram(self.microtimes, bins=t)
             self.t = self.t[:-1]  # Remove last value so the arrays are the same size
@@ -702,7 +711,7 @@ class Histogram:
             try:
                 self.t -= self.t.min()
             except ValueError:
-                dbg.p(f"Histogram object of {self.particle.name} does not have a valid self.t attribute", "Histogram")
+                dbg.p(f"Histogram object of {self._particle.name} does not have a valid self.t attribute", "Histogram")
 
         # print(f"{particle.name}: tmin={tmin}, tmax={tmax}")
         self.convd = None
@@ -744,13 +753,13 @@ class Histogram:
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
             if numexp == 1:
-                fit = tcspcfit.OneExp(irf, self.decay, self.t, self.particle.channelwidth,
+                fit = tcspcfit.OneExp(irf, self.decay, self.t, self._particle.channelwidth,
                                       tauparam, None, shift, decaybg, irfbg, start, end, addopt)
             elif numexp == 2:
-                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self.particle.channelwidth, tauparam,
-                                      ampparam, shift, decaybg, irfbg, start, end, addopt)
+                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self._particle.channelwidth,
+                                      tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt)
             elif numexp == 3:
-                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self.particle.channelwidth,
+                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self._particle.channelwidth,
                                         tauparam, ampparam, shift, decaybg,
                                         irfbg, start, end, addopt)
         except Exception as e:
@@ -781,11 +790,11 @@ class Histogram:
         return True
 
     def levelhist(self, level):
-        levelobj = self.particle.levels[level]
+        levelobj = self._particle.levels[level]
         tmin = levelobj.microtimes[:].min()
         tmax = levelobj.microtimes[:].max()
         window = tmax-tmin
-        numpoints = int(window//self.particle.channelwidth)
+        numpoints = int(window // self._particle.channelwidth)
         t = np.linspace(0, window, numpoints)
 
         decay, t = np.histogram(levelobj.microtimes[:], bins=t)

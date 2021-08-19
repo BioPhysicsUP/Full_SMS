@@ -190,7 +190,7 @@ class OpenFile:
         except Exception as err:
             self.signals.error.emit(err)
 
-    def load_data(self, fname:str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
+    def load_data(self, fname: str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
 
         dataset = smsh5.H5dataset(fname[0], sig_fb=sig_fb, prog_fb=prog_fb)
         bin_all(dataset=dataset, bin_size=100, for_irf=self.irf, sig_fb=sig_fb,

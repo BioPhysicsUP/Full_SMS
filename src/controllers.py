@@ -1429,7 +1429,7 @@ class LifetimeController(QObject):
                 target_hist = target_particle.histogram
                 target_microtimes = target_hist.microtimes
 
-                result.new_task_obj.part_hist.particle = target_particle
+                result.new_task_obj.part_hist._particle = target_particle
                 result.new_task_obj.part_hist.microtimes = target_microtimes
 
                 target_particle.histogram = result.new_task_obj.part_hist
@@ -1439,7 +1439,7 @@ class LifetimeController(QObject):
                     target_level = target_particle.levels[i]
                     target_level_microtimes = target_level.microtimes
 
-                    res_hist.particle = target_particle
+                    res_hist._particle = target_particle
                     res_hist.microtimes = target_level_microtimes
                     res_hist.level = target_level
 
@@ -1538,7 +1538,8 @@ class GroupingController(QObject):
         self.bic_scatter_plot.clear()
 
     def solution_clicked(self, plot, points):
-        last_solution = self.all_last_solutions[self.mainwindow.current_dataset_ind]
+        curr_part = self.mainwindow.current_particle
+        last_solution = self.all_last_solutions[curr_part.dataset_ind]
         if last_solution != points[0]:
             curr_part = self.mainwindow.current_particle
             point_num_groups = int(points[0].pos()[0])
@@ -1551,7 +1552,7 @@ class GroupingController(QObject):
             for p in points:
                 p.setPen('r', width=2)
             last_solution = points[0]
-            self.all_last_solutions[self.mainwindow.current_dataset_ind] = last_solution
+            self.all_last_solutions[curr_part.dataset_ind] = last_solution
 
             if curr_part.using_group_levels:
                 curr_part.using_group_levels = False

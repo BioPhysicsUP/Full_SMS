@@ -3360,6 +3360,8 @@
     <addaction name="actionOpen_h5"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Selected"/>
+    <addaction name="separator"/>
+    <addaction name="actionSave_Analysis"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -3538,6 +3540,11 @@
   <action name="actionSelect_All">
    <property name="text">
     <string>Select All</string>
+   </property>
+  </action>
+  <action name="actionSave_Analysis">
+   <property name="text">
+    <string>Save Analysis</string>
    </property>
   </action>
  </widget>
