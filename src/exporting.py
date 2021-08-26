@@ -328,16 +328,18 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
 
+# TODO: make a function for the repeated code
                 if ex_hist:
                     tr_path = os.path.join(f_dir, p.name + ' hist.csv')
                     times = p.histogram.convd_t
                     if times is not None:
                         decay = p.histogram.fit_decay
                         convd = p.histogram.convd
+                        residual = p.histogram.residuals
                         rows = list()
-                        rows.append(['Time (ns)', 'Decay', 'Fitted'])
+                        rows.append(['Time (ns)', 'Decay', 'Fitted', 'Residual'])
                         for i, time in enumerate(times):
-                            rows.append([str(time), str(decay[i]), str(convd[i])])
+                            rows.append([str(time), str(decay[i]), str(convd[i]), str(residual[i])])
 
                         with open_file(tr_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
@@ -357,10 +359,11 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                 continue
                             decay = l.histogram.fit_decay
                             convd = l.histogram.convd
+                            residual = l.histogram.residuals
                             rows = list()
-                            rows.append(['Time (ns)', 'Decay', 'Fitted'])
+                            rows.append(['Time (ns)', 'Decay', 'Fitted', 'Residual'])
                             for j, time in enumerate(times):
-                                rows.append([str(time), str(decay[j]), str(convd[j])])
+                                rows.append([str(time), str(decay[j]), str(convd[j]), str(residual[j])])
 
                             with open_file(hist_path) as f:
                                 writer = csv.writer(f, dialect=csv.excel)
@@ -375,10 +378,11 @@ def export_data(mainwindow: MainWindow, mode: str = None):
                                     continue
                                 decay = g.histogram.fit_decay
                                 convd = g.histogram.convd
+                                residual = g.histogram.residuals
                                 rows = list()
-                                rows.append(['Time (ns)', 'Decay', 'Fitted'])
+                                rows.append(['Time (ns)', 'Decay', 'Fitted', 'Residual'])
                                 for j, time in enumerate(times):
-                                    rows.append([str(time), str(decay[j]), str(convd[j])])
+                                    rows.append([str(time), str(decay[j]), str(convd[j]), str(residual[j])])
 
                                 with open_file(hist_path) as f:
                                     writer = csv.writer(f, dialect=csv.excel)
