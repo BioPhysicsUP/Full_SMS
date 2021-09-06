@@ -694,7 +694,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.current_dataset = self.tree2dataset()
             self.current_particle = self.tree2particle(0)
             self.treeViewParticles.expandAll()
-            self.treeViewParticles.setCurrentIndex(self.part_index[1])
+            self.treeViewParticles.setCurrentIndex(self.part_index[0])
             any_spectra = any([part.has_spectra for part in self.current_dataset.particles])
             if any_spectra:
                 self.has_spectra = True

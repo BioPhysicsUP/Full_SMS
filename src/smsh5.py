@@ -143,6 +143,12 @@ class H5dataset:
                             raster_scan_counter += 1
                     else:
                         raster_scan_num = 0
+                        if len(raster_scans) == 1:
+                            group_indexes = [0]
+                            self.all_raster_scans.append(
+                                RasterScan(raster_scan_dataset=raster_scan,
+                                           particle_indexes=group_indexes,
+                                           dataset_index=raster_scan_counter))
                     group_indexes = [num]
                     prev_raster_scan = raster_scan
 
