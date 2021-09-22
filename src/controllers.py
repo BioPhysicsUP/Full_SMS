@@ -8,7 +8,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
-from PyQt5.QtCore import QObject, Qt, pyqtSignal
+from PyQt5.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QPen, QColor, QPalette, QFont
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
@@ -366,6 +366,7 @@ class IntController(QObject):
 
         self.start_resolve_thread(mode='all', end_time_s=end_time_s)
 
+    # @pyqtSlot()
     def plot_trace(self, particle: Particle = None,
                    for_export: bool = False,
                    export_path: str = None) -> None:
@@ -736,13 +737,13 @@ class IntController(QObject):
 
         if self.mainwindow.current_particle.has_levels:  # tree2dataset().cpa_has_run:
             self.mainwindow.tabGrouping.setEnabled(True)
+        self.mainwindow.current_dataset.has_levels = True
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
         self.mainwindow.check_remove_bursts(mode=self.resolve_mode)
-        self.mainwindow.chbEx_Levels.setEnabled(True)
-        self.mainwindow.rdbWith_Levels.setEnabled(True)
+        # self.mainwindow.chbEx_Levels.setEnabled(True)
+        # self.mainwindow.rdbWith_Levels.setEnabled(True)
         self.mainwindow.set_startpoint()
-        self.mainwindow.level_resolved = True
         self.mainwindow.reset_gui()
         self.mainwindow.status_message("Done")
         logger.info('Resolving levels complete')
@@ -1469,14 +1470,15 @@ class LifetimeController(QObject):
     def fitting_thread_complete(self, mode: str = None):
         if self.mainwindow.current_particle is not None:
             self.mainwindow.display_data()
-        self.mainwindow.chbEx_Lifetimes.setEnabled(False)
-        self.mainwindow.chbEx_Lifetimes.setEnabled(True)
-        self.mainwindow.chbEx_Hist.setEnabled(True)
-        self.mainwindow.rdbWith_Fit.setEnabled(True)
-        self.mainwindow.chbEx_Plot_Residuals.setEnabled(True)
+        # self.mainwindow.chbEx_Lifetimes.setEnabled(False)
+        # self.mainwindow.chbEx_Lifetimes.setEnabled(True)
+        # self.mainwindow.chbEx_Hist.setEnabled(True)
+        # self.mainwindow.rdbWith_Fit.setEnabled(True)
+        # self.mainwindow.rdbAnd_Residuals.setEnabled(True)
         self.mainwindow.chbShow_Residuals.setChecked(True)
         if not mode == 'current':
             self.mainwindow.status_message("Done")
+        self.mainwindow.current_dataset.has_lifetimes = True
         logger.info('Fitting levels complete')
 
     def change_irf_start(self, start):
@@ -1496,6 +1498,12 @@ class LifetimeController(QObject):
 
     def set_tmin(self, tmin=0):
         self.tmin = tmin
+
+    def show_residuals_widget(self, show: bool = True):
+        if show:
+            self.lifetime_controller.residual_widget.show()
+        else:
+            self.lifetime_controller.residual_widget.hide()
 
     def error(self, e):
         logger.error(e)
@@ -1735,16 +1743,16 @@ class GroupingController(QObject):
         self.temp_dir.cleanup()
         self.temp_dir = None
         self.gather_replace_results(results=results)
+        self.mainwindow.current_dataset.has_groups = True
         if self.mainwindow.current_particle is not None:
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
-        self.mainwindow.levels_grouped = True
-        self.mainwindow.chbEx_Grouped_Levels.setEnabled(True)
-        self.mainwindow.gbxExport_Groups.setEnabled(True)
-        self.mainwindow.chbEx_Grouping_Info.setEnabled(True)
-        self.mainwindow.chbEx_Grouping_Results.setEnabled(True)
-        self.mainwindow.rdbAnd_Groups.setEnabled(True)
-        self.mainwindow.chbEx_Plot_Group_BIC.setEnabled(True)
+        # self.mainwindow.chbEx_Grouped_Levels.setEnabled(True)
+        # self.mainwindow.gbxExport_Groups.setEnabled(True)
+        # self.mainwindow.chbEx_Grouping_Info.setEnabled(True)
+        # self.mainwindow.chbEx_Grouping_Results.setEnabled(True)
+        # self.mainwindow.rdbAnd_Groups.setEnabled(True)
+        # self.mainwindow.chbEx_Plot_Group_BIC.setEnabled(True)
         self.mainwindow.reset_gui()
         logger.info('Grouping levels complete')
 
@@ -1889,6 +1897,7 @@ class RasterScanController(QObject):
     @staticmethod
     def create_text_item(text: str, pos: Tuple[int, int]) -> pg.TextItem:
         text_item = pg.TextItem(text=text)
+        # Offset
         text_item.setPos(*pos)
         text_item.setColor(QColor(Qt.green))
         font = QFont()
@@ -1899,7 +1908,7 @@ class RasterScanController(QObject):
         return text_item
 
     def plot_raster_scan(self, particle: Particle = None, raster_scan: RasterScan = None,
-        for_export: bool = False, export_path: str = None):
+                         for_export: bool = False, export_path: str = None):
         dataset = self.main_window.current_dataset
         if particle is None and raster_scan is None:
             particle = self.main_window.current_particle
@@ -1971,13 +1980,15 @@ class RasterScanController(QObject):
                 self._crosshair_item.setPos(pos=coords)
 
             # part_text = particle.name.split(' ')[1]
+            # Offset text
+            text_coords = (coords[0] - 1, coords[1] + 1)
             if self._text_item is None:
                 self._text_item = self.create_text_item(text=str(particle.dataset_ind + 1),
-                                                        pos=coords)
+                                                        pos=text_coords)
                 self.raster_scan_image_view.getView().addItem(self._text_item)
             else:
                 self._text_item.setText(text=str(particle.dataset_ind + 1))
-                self._text_item.setPos(*coords)
+                self._text_item.setPos(*text_coords)
 
             self.list_text.clear()
             dataset = self.main_window.current_dataset

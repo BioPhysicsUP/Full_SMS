@@ -1564,7 +1564,7 @@
              </size>
             </property>
             <property name="text">
-             <string>Fit All Particle Hists</string>
+             <string>Fit Current</string>
             </property>
             <property name="icon">
              <iconset resource="../icons.qrc">
@@ -2825,7 +2825,7 @@
                   <item>
                    <widget class="QFrame" name="frmPlot_Int_Selection">
                     <property name="enabled">
-                     <bool>false</bool>
+                     <bool>true</bool>
                     </property>
                     <property name="frameShape">
                      <enum>QFrame::NoFrame</enum>
@@ -2983,7 +2983,7 @@
                   <item>
                    <widget class="QFrame" name="frmPlot_Lifetime_Selection">
                     <property name="enabled">
-                     <bool>false</bool>
+                     <bool>true</bool>
                     </property>
                     <property name="frameShape">
                      <enum>QFrame::StyledPanel</enum>
@@ -3053,7 +3053,7 @@
                       </widget>
                      </item>
                      <item>
-                      <widget class="QCheckBox" name="chbEx_Plot_Residuals">
+                      <widget class="QRadioButton" name="rdbAnd_Residuals">
                        <property name="enabled">
                         <bool>false</bool>
                        </property>
@@ -3066,7 +3066,16 @@
                         </font>
                        </property>
                        <property name="text">
-                        <string>Residuals</string>
+                        <string>and Residuals</string>
+                       </property>
+                       <property name="checkable">
+                        <bool>true</bool>
+                       </property>
+                       <property name="checked">
+                        <bool>false</bool>
+                       </property>
+                       <property name="autoExclusive">
+                        <bool>true</bool>
                        </property>
                       </widget>
                      </item>

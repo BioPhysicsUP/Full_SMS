@@ -92,6 +92,9 @@ class H5dataset:
         assert self.num_parts == self.file.attrs['# Particles']
         self.channelwidth = None
         self.save_selected = None
+        self.has_levels = False
+        self.has_groups = False
+        self.has_lifetimes = False
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
         raster_scans = list()
@@ -215,7 +218,8 @@ class H5dataset:
             num_existing = 0
 
         for i, selected in enumerate(selected_nums):
-            new_h5file.copy(self.file[f'/Particle {selected}'], new_h5file, name=f'/Particle {num_existing+i+1}')
+            new_h5file.copy(self.file[f'/Particle {selected}'],
+                            new_h5file, name=f'/Particle {num_existing+i+1}')
 
         if add:
             new_h5file.attrs.modify('# Particles', num_existing+len(selected_nums))

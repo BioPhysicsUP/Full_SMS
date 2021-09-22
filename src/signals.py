@@ -46,6 +46,23 @@ class WorkerSignals(QObject):
     set_start = pyqtSignal(float)
     set_tmin = pyqtSignal(float)
 
+    plot_trace = pyqtSignal(object, bool)
+    plot_trace_export = pyqtSignal(object, bool, str)
+    plot_levels = pyqtSignal(object, bool)
+    plot_levels_export = pyqtSignal(object, bool, str)
+    # plot_group_bounds = pyqtSignal(object, bool)
+    plot_group_bounds_export = pyqtSignal(object, bool, str)
+    # plot_grouping_bic = pyqtSignal(object, bool)
+    plot_grouping_bic_export = pyqtSignal(object, bool, str)
+    plot_decay = pyqtSignal(int, object, bool)
+    plot_decay_export = pyqtSignal(int, object, bool, str)
+    # plot_convd= pyqtSignal(int, object, bool)
+    plot_convd_export = pyqtSignal(int, object, bool, bool, str)
+    show_residual_widget = pyqtSignal(bool)
+    plot_residuals_export = pyqtSignal(int, object, bool, str)
+    plot_spectra_export = pyqtSignal(object, bool, str)
+    plot_raster_scan_export = pyqtSignal(object, object, bool, str)
+
 
 class WorkerSigPassType(IntEnum):
     resolve_finished = auto()

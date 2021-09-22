@@ -42,7 +42,8 @@ from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
 from convert_pt3 import ConvertPt3Dialog
-from exporting import export_data
+from exporting import export_data, ExportWorker
+from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -216,11 +217,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.statusBar().addPermanentWidget(self.progress)
         self.current_progress = float()
         self.data_loaded = False
-        self.level_resolved = False
-        self.levels_grouped = False
         self.irf_loaded = False
-        self.has_spectra = False
-        self.has_raster_scans = False
 
         # self._current_level = None
 
@@ -293,6 +290,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         logger.info("Performing Open H5 Action")
         file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
+        loading_analysis = False
         if os.path.exists(file_path[0][:-2] + 'smsa') and \
                 os.path.isfile(file_path[0][:-2] + 'smsa'):
             msg_box = QMessageBox(parent=self)
@@ -301,12 +299,23 @@ class MainWindow(QMainWindow, UI_Main_Window):
             msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             msg_box.exec()
             if msg_box.result() == QMessageBox.Yes:
-                save_analysis.load_analysis(main_window=self,
-                                            analysis_file=file_path[0][:-2] + 'smsa')
-                self.data_loaded = True
-                self.open_file_thread_complete()
+                load_analysis_worker = LoadAnalysisWorker(main_window=self,
+                                                          file_path=file_path[0][:-2] + 'smsa')
+                load_analysis_worker.signals.status_message.connect(self.status_message)
+                load_analysis_worker.signals.start_progress.connect(self.start_progress)
+                load_analysis_worker.signals.end_progress.connect(self.end_progress)
+                load_analysis_worker.signals.error.connect(self.error_handler)
+                load_analysis_worker.signals.\
+                    openfile_finished.connect(self.open_file_thread_complete)
+                self.threadpool.start(load_analysis_worker)
+                loading_analysis = True
+                # save_analysis.load_analysis(main_window=self,
+                #                             analysis_file=file_path[0][:-2] + 'smsa')
+                # self.data_loaded = True
+                # self.open_file_thread_complete()
 
-        elif file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
+        # fname will equal ('', # '') if the # user canceled.
+        if file_path != ('', '') and not loading_analysis:
             self.status_message(message="Opening file...")
             # logger.info("About to create ProcessThread object")
             of_process_thread = ProcessThread(num_processes=1)
@@ -336,6 +345,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def act_save_selected(self):
         """" Saves selected particles into a new HDF5 file."""
 
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Still in development")
+        msg.setText("This functionality is still in development")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+        return
+
         selected_nums = self.get_checked_nums()
 
         if not len(selected_nums):
@@ -359,7 +375,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if msg.exec() == QMessageBox.Cancel:
                 return
 
-        if self.tree2dataset().name == fname:
+        if self.current_dataset.name == fname:
             msg = QMessageBox(self)
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle('Save Error')
@@ -368,11 +384,18 @@ class MainWindow(QMainWindow, UI_Main_Window):
             msg.exec()
             return
 
-        self.tree2dataset().save_particles(fname, selected_nums)
+        self.current_dataset.save_particles(fname, selected_nums)
 
     def act_save_analysis(self):
         if self.current_dataset is not None:
-            save_analysis.save_analysis(self, self.current_dataset)
+            save_analysis_worker = SaveAnalysisWorker(main_window=self,
+                                                      dataset=self.current_dataset)
+            save_analysis_worker.signals.status_message.connect(self.status_message)
+            save_analysis_worker.signals.start_progress.connect(self.start_progress)
+            save_analysis_worker.signals.end_progress.connect(self.end_progress)
+            save_analysis_worker.signals.error.connect(self.error_handler)
+            self.threadpool.start(save_analysis_worker)
+            # save_analysis.save_analysis(self, self.current_dataset)
 
     def act_trim(self):
         """ Used to trim the 'dead' part of a trace as defined by two parameters. """
@@ -439,6 +462,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.add_node(node, num)
 
     def tree_view_clicked(self, model_index):
+        self.set_export_options()
         if self.treemodel.data(model_index, Qt.UserRole) is self.dataset_node.dataobj:
             root_node_checked = self.dataset_node.checked()
             if all([node.checked() for node in self.part_nodes]) != root_node_checked:
@@ -545,10 +569,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 else:
                     self.grouping_controller.clear_bic()
 
-            if cur_tab_name == 'tabSpectra' and self.current_particle.has_spectra:
+            elif cur_tab_name == 'tabSpectra' and self.current_particle.has_spectra:
                 self.spectra_controller.plot_spectra()
-            if cur_tab_name == 'tabRaster_Scan' and self.current_particle.has_raster_scan:
+
+            elif cur_tab_name == 'tabRaster_Scan' and self.current_particle.has_raster_scan:
                 self.raster_scan_controller.plot_raster_scan()
+
+            elif cur_tab_name == 'tabExport':
+                self.set_export_options()
 
             # Set Enables
             set_apply_groups = False
@@ -692,13 +720,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         if self.data_loaded and not irf:
             self.current_dataset = self.tree2dataset()
-            self.current_particle = self.tree2particle(0)
             self.treeViewParticles.expandAll()
             self.treeViewParticles.setCurrentIndex(self.part_index[0])
+            self.current_particle = self.tree2particle(0)
             any_spectra = any([part.has_spectra for part in self.current_dataset.particles])
             if any_spectra:
-                self.has_spectra = True
-            self.has_raster_scans = self.current_dataset.has_raster_scans
+                self.current_dataset.has_spectra = True
             self.display_data()
 
             # msgbx = TimedMessageBox(30, parent=self)
@@ -723,22 +750,42 @@ class MainWindow(QMainWindow, UI_Main_Window):
             #     self.cmbConfIndex.setCurrentIndex(index)
             #     self.int_controller.start_resolve_thread('all')
         self.chbEx_Trace.setEnabled(True)
-        # self.gbxExport_Int.setEnabled(True)
-        # self.gbxExport_Plots.setEnabled(True)
         self.chbEx_Plot_Intensity.setEnabled(True)
         self.rdbInt_Only.setEnabled(True)
         self.chbEx_Plot_Lifetimes.setEnabled(True)
         self.rdbHist_Only.setEnabled(True)
-        # self.frmPlot_Lifetime_Selection.setEnabled(True)
-        # self.rdbWith_Levels.setEnabled(False)
-        # self.rdbWith_Groups.setEnabled(False)
-        if self.has_spectra:
-            self.chbEx_Spectra_2D.setEnabled(True)
-            self.chbEx_Plot_Spectra.setEnabled(True)
-        if self.has_raster_scans:
-            self.chbEx_Plot_Raster_Scans.setEnabled(True)
+        self.set_export_options()
         self.reset_gui()
         logger.info('File opened')
+
+    def set_export_options(self):
+        particles = self.get_checked_particles()
+        particles.append(self.current_particle)
+        # if len(particles) == 0:
+        #     particles = [self.current_particle]
+
+        all_have_levels = all([p.has_levels for p in particles])
+        all_have_groups = all([p.has_groups for p in particles])
+        all_have_lifetimes = all([p.has_fit_a_lifetime for p in particles])
+        all_have_raster_scans = all([p.has_raster_scan for p in particles])
+        all_have_spectra = all([p.has_spectra for p in particles])
+
+        self.chbEx_Levels.setEnabled(all_have_levels)
+        self.chbEx_Grouped_Levels.setEnabled(all_have_groups)
+        self.chbEx_Grouping_Info.setEnabled(all_have_groups)
+        self.chbEx_Grouping_Results.setEnabled(all_have_groups)
+        self.chbEx_Lifetimes.setEnabled(all_have_lifetimes)
+        self.chbEx_Hist.setEnabled(all_have_lifetimes)  # Shouldn't this be true always?
+        self.chbEx_Spectra_2D.setEnabled(all_have_spectra)
+        self.chbEx_Spectra_Fitting.setEnabled(False)  # Add when spectra analysis added
+        self.chbEx_Spectra_Traces.setEnabled(False)  # Add when spectra analysis added
+        self.rdbWith_Levels.setEnabled(all_have_levels)
+        self.rdbAnd_Groups.setEnabled(all_have_groups)
+        self.chbEx_Plot_Group_BIC.setEnabled(all_have_groups)
+        self.rdbWith_Fit.setEnabled(all_have_lifetimes)
+        self.rdbAnd_Residuals.setEnabled(all_have_lifetimes)
+        self.chbEx_Plot_Spectra.setEnabled(all_have_spectra)
+        self.chbEx_Plot_Raster_Scans.setEnabled(all_have_raster_scans)
 
     @pyqtSlot(Exception)
     def open_file_error(self, err: Exception):
@@ -956,7 +1003,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         return checked_particles
 
     def set_level_resolved(self):
-        self.level_resolved = True
+        self.current_dataset.level_resolved = True
         # print(self.level_resolved)
 
     def gui_plot_intensity_clicked(self, new_value):
@@ -966,7 +1013,29 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.frmPlot_Lifetime_Selection.setEnabled(new_value)
 
     def gui_export(self, mode: str = None):
-        export_data(self, mode= mode)
+        export_worker = ExportWorker(mainwindow=self, mode=mode)
+        sigs = export_worker.signals
+        sigs.start_progress.connect(self.start_progress)
+        sigs.progress.connect(self.update_progress)
+        sigs.end_progress.connect(self.end_progress)
+        sigs.status_message.connect(self.status_message)
+        sigs.error.connect(self.error_handler)
+
+        sigs.plot_trace.connect(self.int_controller.plot_trace)
+        sigs.plot_trace_export.connect(self.int_controller.plot_trace)
+        sigs.plot_levels.connect(self.int_controller.plot_levels)
+        sigs.plot_levels_export.connect(self.int_controller.plot_levels)
+        sigs.plot_group_bounds_export.connect(self.int_controller.plot_group_bounds)
+        sigs.plot_grouping_bic_export.connect(self.grouping_controller.plot_group_bic)
+        sigs.plot_decay.connect(self.lifetime_controller.plot_decay)
+        sigs.plot_decay_export.connect(self.lifetime_controller.plot_decay)
+        sigs.plot_convd_export.connect(self.lifetime_controller.plot_convd)
+        sigs.show_residual_widget.connect(self.lifetime_controller.show_residuals_widget)
+        sigs.plot_residuals_export.connect(self.lifetime_controller.plot_residuals)
+        sigs.plot_spectra_export.connect(self.spectra_controller.plot_spectra)
+        sigs.plot_raster_scan_export.connect(self.raster_scan_controller.plot_raster_scan)
+
+        self.threadpool.start(export_worker)
 
     def convert_pt3_dialog(self):
         convert_pt3 = ConvertPt3Dialog(mainwindow=self)
@@ -993,7 +1062,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionSave_Selected.setEnabled(new_state)
         enable_levels = False
         if new_state:
-            enable_levels = self.level_resolved
+            enable_levels = self.current_dataset.has_levels
         self.actionTrim_Dead_Traces.setEnabled(enable_levels)
 
         # Lifetime
@@ -1013,35 +1082,20 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # print(enable_levels)
 
         # Spectral
-        if self.has_spectra:
+        if self.current_dataset and self.current_dataset.has_spectra:
             self.tabSpectra.setEnabled(True)
             self.btnSubBackground.setEnabled(new_state)
         else:
             self.tabSpectra.setEnabled(False)
 
-    # @property
-    # def current_level(self):
-    #     return self._current_level
-    #
-    # @current_level.setter
-    # def current_level(self, value):
-    #     if value is None:
-    #         self._current_level = None
-    #     else:
-    #         try:
-    #             # print(self.currentparticle.current2data(value))
-    #             self._current_level = value
-    #         except:
-    #             pass
-
     def error_handler(self, e: Exception):
-        # logger(e)
         raise e
 
 
 def display_on():
     print("Always On")
     ctypes.windll.kernel32.SetThreadExecutionState(0x80000002)
+
 
 def display_reset():
     ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)

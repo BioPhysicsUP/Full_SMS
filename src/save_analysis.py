@@ -7,14 +7,38 @@ import os
 import lzma
 
 import h5pickle
+from PyQt5.QtCore import QRunnable, pyqtSlot
+
+
 from tree_model import DatasetTreeNode
+from threads import WorkerSignals
 
 if TYPE_CHECKING:
     from smsh5 import H5dataset
     from main import MainWindow
 
 
-def save_analysis(main_window: MainWindow, dataset: H5dataset):
+class SaveAnalysisWorker(QRunnable):
+
+    def __init__(self, main_window: MainWindow, dataset: H5dataset):
+        super().__init__()
+        self.main_window = main_window
+        self.dataset = dataset
+        self.signals = WorkerSignals()
+
+    @pyqtSlot()
+    def run(self) -> None:
+        try:
+            save_analysis(main_window=self.main_window, dataset=self.dataset, signals=self.signals)
+        except Exception as err:
+            self.signals.error.emit(err)
+
+
+def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSignals = None):
+    if signals:
+        signals.status_message.emit("Saving analysis...")
+        signals.start_progress.emit(0)
+
     copy_dataset = copy.copy(dataset)
     copy_dataset.file = None
     for particle in copy_dataset.particles:
@@ -45,8 +69,35 @@ def save_analysis(main_window: MainWindow, dataset: H5dataset):
     with lzma.open(save_file_name, 'wb') as f:
         pickle.dump(copy_dataset, f)
 
+    if signals:
+        signals.status_message.emit("Done")
+        signals.end_progress.emit()
 
-def load_analysis(main_window: MainWindow, analysis_file: str):
+
+class LoadAnalysisWorker(QRunnable):
+
+    def __init__(self, main_window: MainWindow, file_path: str):
+        super().__init__()
+        self.main_window = main_window
+        self.signals = WorkerSignals()
+        self.file_path = file_path
+
+    @pyqtSlot()
+    def run(self) -> None:
+        try:
+            load_analysis(main_window=self.main_window, analysis_file=self.file_path,
+                          signals = self.signals)
+            self.main_window.data_loaded = True
+            self.signals.openfile_finished.emit(False)
+        except Exception as err:
+            self.signals.error.emit(err)
+
+
+def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSignals = None):
+    if signals:
+        signals.status_message.emit("Loading analysis file...")
+        signals.start_progress.emit(0)
+
     h5_file = h5pickle.File(analysis_file[:-4] + 'h5')
     with lzma.open(analysis_file, 'rb') as f:
         loaded_dataset = pickle.load(f)
@@ -87,3 +138,7 @@ def load_analysis(main_window: MainWindow, analysis_file: str):
     main_window.add_all_nodes(all_nodes=all_nodes)
     for i, node in enumerate(main_window.part_nodes):
         node.setChecked(loaded_dataset.save_selected[i])
+
+    if signals:
+        signals.status_message.emit("Done")
+        signals.end_progress.emit()
