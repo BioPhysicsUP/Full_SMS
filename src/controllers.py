@@ -13,6 +13,7 @@ from PyQt5.QtGui import QPen, QColor, QPalette, QFont
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
 import pickle
+from multiprocessing.synchronize import Lock
 
 if TYPE_CHECKING:
     import main
@@ -369,9 +370,13 @@ class IntController(QObject):
     # @pyqtSlot()
     def plot_trace(self, particle: Particle = None,
                    for_export: bool = False,
-                   export_path: str = None) -> None:
+                   export_path: str = None,
+                   lock: Lock = None) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
 
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         try:
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             if particle is None:
@@ -415,11 +420,17 @@ class IntController(QObject):
                         raise AssertionError("Provided path not valid")
                     full_path = os.path.join(export_path, particle.name + ' trace.png')
                     export_plot_item(plot_item=plot_item, path=full_path)
+        if lock:
+            lock.release()
 
     def plot_levels(self, particle: Particle = None,
                     for_export: bool = False,
-                    export_path: str = None):
+                    export_path: str = None,
+                    lock: Lock = None):
         """ Used to plot the resolved intensity levels of the current particle. """
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         if particle is None:
             particle = self.mainwindow.current_particle
         if not particle.has_levels:
@@ -485,8 +496,12 @@ class IntController(QObject):
                     plot_item.plot(x=current_times, y=current_ints, pen=level_plot_pen, symbol=None)
                 else:
                     logger.info('Infinity in level')
+        if lock:
+            lock.release()
 
-    def plot_hist(self, particle: Particle = None, for_export: bool = False):
+    def plot_hist(self, particle: Particle = None,
+                  for_export: bool = False,
+                  lock: Lock = None):
         if particle is None:
             particle = self.mainwindow.current_particle
         try:
@@ -536,6 +551,8 @@ class IntController(QObject):
 
                 level_hist.rotate(-90)
                 plot_item.addItem(level_hist)
+        if lock:
+            lock.release()
 
     # def export_particle_plot(self, particle:Particle, width:int = 800):
     #     plt =
@@ -575,7 +592,11 @@ class IntController(QObject):
 
     def plot_group_bounds(self, particle: Particle = None,
                           for_export: bool = False,
-                          export_path: str = None):
+                          export_path: str = None,
+                          lock: Lock = None):
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         if particle is None:
             particle = self.mainwindow.current_particle
 
@@ -637,6 +658,8 @@ class IntController(QObject):
                 full_path = os.path.join(export_path,
                                          particle.name + ' trace (levels and groups).png')
                 export_plot_item(plot_item=int_plot, path=full_path)
+        if lock:
+            lock.release()
 
     def plot_all(self):
         self.plot_trace()
@@ -1100,13 +1123,48 @@ class LifetimeController(QObject):
         if str_return:
             return info
 
+    def plot_decay_and_convd(self, particle: Particle,
+                             export_path: str,
+                             has_groups: bool,
+                             lock: Lock = None):
+        for i in range(particle.num_levels):
+            self.plot_decay(select_ind=i,
+                            particle=particle,
+                            remove_empty=False,
+                            for_export=True,
+                            export_path=None)
+            self.plot_convd(select_ind=i,
+                            particle=particle,
+                            remove_empty=False,
+                            for_export=True,
+                            export_path=export_path)
+        if has_groups:
+            for i in range(particle.num_groups):
+                i_g = i + particle.num_levels
+                self.plot_decay(select_ind=i_g,
+                                particle=particle,
+                                remove_empty=False,
+                                for_export=True,
+                                export_path=None)
+                self.plot_convd(select_ind=i_g,
+                                particle=particle,
+                                remove_empty=False,
+                                for_export=True,
+                                export_path=export_path)
+        if lock:
+            lock.release()
+
     def plot_decay(self, select_ind: int = None,
                    particle: Particle = None,
                    remove_empty: bool = False,
                    for_export: bool = False,
-                   export_path: str = None) -> None:
+                   export_path: str = None,
+                   lock: Lock = None) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         if select_ind is None:
             select_ind = self.mainwindow.current_particle.level_selected
         elif select_ind <= -1:
@@ -1206,14 +1264,20 @@ class LifetimeController(QObject):
                     type_str = f' hist (group {group_ind + 1}).png'
                 full_path = os.path.join(export_path, particle.name + type_str)
                 export_plot_item(plot_item=life_hist_plot, path=full_path)
+        if lock:
+            lock.release()
 
     def plot_convd(self, select_ind: int = None,
                    particle: Particle = None,
                    remove_empty: bool = False,
                    for_export: bool = False,
-                   export_path: str = None) -> None:
+                   export_path: str = None,
+                   lock: Lock = None) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         if select_ind is None:
             select_ind = self.mainwindow.current_particle.level_selected
         elif select_ind <= -1:
@@ -1285,13 +1349,19 @@ class LifetimeController(QObject):
                 text_str = self.update_results(select_ind=text_select_ind, particle=particle,
                                                for_export=True, str_return=True)
                 export_plot_item(plot_item=plot_item, path=full_path, text=text_str)
+        if lock:
+            lock.release()
 
     def plot_residuals(self, select_ind: int = None,
                        particle: Particle = None,
                        for_export: bool = False,
-                       export_path: str = None) -> None:
+                       export_path: str = None,
+                       lock: Lock = None) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         if select_ind is None:
             select_ind = self.mainwindow.current_particle.level_selected
         elif select_ind <= -1:
@@ -1351,6 +1421,8 @@ class LifetimeController(QObject):
                     type_str = f' residuals (group {group_ind + 1}).png'
                 full_path = os.path.join(export_path, particle.name + type_str)
                 export_plot_item(plot_item=self.residual_plot, path=full_path)
+        if lock:
+            lock.release()
 
     def start_fitting_thread(self, mode: str = 'current') -> None:
         """
@@ -1568,8 +1640,12 @@ class GroupingController(QObject):
 
     def plot_group_bic(self, particle: Particle = None,
                        for_export: bool = False,
-                       export_path: str = None):
+                       export_path: str = None,
+                       lock: Lock = None):
 
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         cur_tab_name = 'tabGrouping'
         if cur_tab_name == 'tabGrouping' or for_export:
             if particle is None:
@@ -1632,6 +1708,8 @@ class GroupingController(QObject):
                     raise AssertionError("Provided path not valid")
                 full_path = os.path.join(export_path, particle.name + ' BIC.png')
                 export_plot_item(plot_item=self.bic_scatter_plot, path=full_path)
+        if lock:
+            lock.release()
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
@@ -1826,8 +1904,13 @@ class SpectraController(QObject):
 
         print("gui_sub_bkg")
 
-    def plot_spectra(self, particle: Particle = None, for_export: bool = False,
-                     export_path: str = None):
+    def plot_spectra(self, particle: Particle = None,
+                     for_export: bool = False,
+                     export_path: str = None,
+                     lock: Lock = None):
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         if particle is None:
             particle = self.mainwindow.current_particle
         # spectra_data = np.flip(particle.spectra.data[:])
@@ -1865,6 +1948,9 @@ class SpectraController(QObject):
 
         # print('here')
         # self.spectra_widget.getImageItem().setLookupTable(self._look_up_table)
+
+        if lock:
+            lock.release()
 
 
 class MyCrosshairOverlay(pg.CrosshairROI):
@@ -1907,8 +1993,14 @@ class RasterScanController(QObject):
         text_item.setAnchor(anchor=(1, 0))
         return text_item
 
-    def plot_raster_scan(self, particle: Particle = None, raster_scan: RasterScan = None,
-                         for_export: bool = False, export_path: str = None):
+    def plot_raster_scan(self, particle: Particle = None,
+                         raster_scan: RasterScan = None,
+                         for_export: bool = False,
+                         export_path: str = None,
+                         lock: Lock = None):
+        if type(export_path) is Lock:
+            lock = export_path
+            export_path = None
         dataset = self.main_window.current_dataset
         if particle is None and raster_scan is None:
             particle = self.main_window.current_particle
@@ -2011,6 +2103,8 @@ class RasterScanController(QObject):
                 all_text = all_text + f"x={rs_part_coord[num][0]: .1f}, " \
                                       f"y={rs_part_coord[num][1]: .1f}"
             self.list_text.setText(all_text)
+        if lock:
+            lock.release()
 
 
 # def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
