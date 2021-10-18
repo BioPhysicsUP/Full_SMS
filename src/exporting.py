@@ -95,11 +95,6 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
         return open(path, 'w', newline='')
 
     # Export fits of whole traces
-    # all_fitted = [p.histogram.fitted]
-    # if p.has_levels and all([lvl.histogram is not None for lvl in p.levels]):
-    #     all_fitted.extend([lvl.histogram.fitted for lvl in p.levels])
-    #     if p.has_groups and all([grp.histogram is not None for grp in p.groups]):
-    #         all_fitted.extend([grp.histogram.fitted for grp in p.groups])
     all_fitted = [part.histogram.fitted for part in particles]
     if ex_lifetime and any(all_fitted):
         p = particles[0]
@@ -373,7 +368,6 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                     writer = csv.writer(f, dialect=csv.excel)
                     writer.writerows(rows)
 
-        # TODO: make a function for the repeated code
         if ex_hist:
             tr_path = os.path.join(f_dir, p.name + ' hist.csv')
             times = p.histogram.convd_t
@@ -488,34 +482,6 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
             if p.has_levels:
                 signals.plot_decay_convd_export_lock.emit(p, dir_path, p.has_groups, lock)
                 lock.acquire()
-                # for i in range(p.num_levels):
-                #     if signals:
-                #         signals.plot_decay.emit(i, p, True)
-                #         signals.plot_convd_export.emit(i, p, True, True, dir_path)
-                #         sleep(1)
-                #     else:
-                #         mainwindow.lifetime_controller.plot_decay(select_ind=i,
-                #                                                   particle=p,
-                #                                                   for_export=True)
-                #         mainwindow.lifetime_controller.plot_convd(select_ind=i,
-                #                                                   particle=p,
-                #                                                   for_export=True,
-                #                                                   export_path=dir_path)
-                # if p.has_groups:
-                #     for i in range(p.num_groups):
-                #         i_g = i + p.num_levels
-                #         if signals:
-                #             signals.plot_decay.emit(i_g, p, True)
-                #             signals.plot_convd_export.emit(i_g, p, True, True, dir_path)
-                #             sleep(1)
-                #         else:
-                #             mainwindow.lifetime_controller.plot_decay(select_ind=i_g,
-                #                                                       particle=p,
-                #                                                       for_export=True)
-                #             mainwindow.lifetime_controller.plot_convd(select_ind=i_g,
-                #                                                       particle=p,
-                #                                                       for_export=True,
-                #                                                       export_path=dir_path)
 
         if ex_plot_and_residuals:
             was_showing = mainwindow.chbShow_Residuals.isChecked()
@@ -596,10 +562,6 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
         p.has_exported = True
 
     if ex_plot_raster_scans:
-        # all_raster_scan_particles = list()
-        # for part in particles:
-        #     all_raster_scan_particles.extend(part.raster_scan.particle_indexes)
-        # all_part_with_raster_scans = np.unique(all_raster_scan_particles).tolist()
         dataset = mainwindow.current_dataset
         for raster_scan_index in raster_scans_use:
             raster_scan = dataset.all_raster_scans[raster_scan_index]

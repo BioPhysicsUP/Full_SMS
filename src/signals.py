@@ -22,6 +22,7 @@ class WorkerSignals(QObject):
     fitting_finished = pyqtSignal(str)
     grouping_finished = pyqtSignal(str)
     openfile_finished = pyqtSignal(bool)
+    save_file_version_outdated = pyqtSignal()
     error = pyqtSignal(Exception)
     result = pyqtSignal(object)
 

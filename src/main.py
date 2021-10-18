@@ -307,6 +307,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 load_analysis_worker.signals.error.connect(self.error_handler)
                 load_analysis_worker.signals.\
                     openfile_finished.connect(self.open_file_thread_complete)
+                load_analysis_worker.signals.save_file_version_outdated.\
+                    connect(self.open_save_file_version_outdated)
+                load_analysis_worker.signals.show_residual_widget.\
+                    connect( self.lifetime_controller.show_residuals_widget)
                 self.threadpool.start(load_analysis_worker)
                 loading_analysis = True
                 # save_analysis.load_analysis(main_window=self,
@@ -715,6 +719,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def set_data_loaded(self):
         self.data_loaded = True
 
+    def open_save_file_version_outdated(self):
+        msg_box = QMessageBox(parent=self)
+        msg_box.setWindowTitle("Save File Outdated")
+        msg_box.setText("The save file is outdated. Please reload *.h5 file instead.")
+        msg_box.setStandardButtons(QMessageBox.Ok)
+        msg_box.exec()
+
     def open_file_thread_complete(self, thread: ProcessThread = None, irf=False) -> None:
         """ Is called as soon as all of the threads have finished. """
 
@@ -749,14 +760,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
             #             index = list(self.confidence_index.values()).index(int(float(item) * 100))
             #     self.cmbConfIndex.setCurrentIndex(index)
             #     self.int_controller.start_resolve_thread('all')
-        self.chbEx_Trace.setEnabled(True)
-        self.chbEx_Plot_Intensity.setEnabled(True)
-        self.rdbInt_Only.setEnabled(True)
-        self.chbEx_Plot_Lifetimes.setEnabled(True)
-        self.rdbHist_Only.setEnabled(True)
-        self.set_export_options()
-        self.reset_gui()
-        logger.info('File opened')
+        if self.data_loaded:
+            self.chbEx_Trace.setEnabled(True)
+            self.chbEx_Plot_Intensity.setEnabled(True)
+            self.rdbInt_Only.setEnabled(True)
+            self.chbEx_Plot_Lifetimes.setEnabled(True)
+            self.rdbHist_Only.setEnabled(True)
+            self.set_export_options()
+            self.reset_gui()
+            logger.info('File opened')
 
     def set_export_options(self):
         particles = self.get_checked_particles()

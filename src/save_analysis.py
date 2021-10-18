@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from main import MainWindow
 
 
+SAVING_VERSION = '1.01'
+
+
 class SaveAnalysisWorker(QRunnable):
 
     def __init__(self, main_window: MainWindow, dataset: H5dataset):
@@ -40,6 +43,7 @@ def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSi
         signals.start_progress.emit(0)
 
     copy_dataset = copy.copy(dataset)
+    copy_dataset.save_version = SAVING_VERSION
     copy_dataset.file = None
     for particle in copy_dataset.particles:
         particle.file = None
@@ -51,9 +55,9 @@ def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSi
         if particle.has_levels:
             levels = particle.levels
             if particle.has_groups:
-                all_group_levels = [step.group_levels for step in particle.ahca.steps]
-                for group_levels in all_group_levels:
-                    levels.extend(group_levels)
+                particle.all_group_levels = [step.group_levels for step in particle.ahca.steps]
+                # for group_levels in all_group_levels:
+                #     levels.extend(group_levels)
             for level in levels:
                 level.microtimes._dataset = None
         if particle.has_spectra:
@@ -87,7 +91,6 @@ class LoadAnalysisWorker(QRunnable):
         try:
             load_analysis(main_window=self.main_window, analysis_file=self.file_path,
                           signals = self.signals)
-            self.main_window.data_loaded = True
             self.signals.openfile_finished.emit(False)
         except Exception as err:
             self.signals.error.emit(err)
@@ -102,6 +105,12 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
     with lzma.open(analysis_file, 'rb') as f:
         loaded_dataset = pickle.load(f)
 
+    if not hasattr(loaded_dataset, 'save_version') or loaded_dataset.save_version != SAVING_VERSION:
+        signals.save_file_version_outdated.emit()
+        signals.status_message.emit("Done")
+        signals.end_progress.emit()
+        return
+
     for particle in loaded_dataset.particles:
         particle.file = h5_file
         particle.datadict = h5_file[particle.name]
@@ -112,9 +121,12 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
         if particle.has_levels:
             levels = particle.levels
             if particle.has_groups:
-                all_group_levels = [step.group_levels for step in particle.ahca.steps]
-                for group_levels in all_group_levels:
-                    levels.extend(group_levels)
+                for i, step in enumerate(particle.ahca.steps):
+                    step.group_levels = particle.all_group_levels[i]
+                particle.all_group_levels = None
+                # all_group_levels = [step.group_levels for step in particle.ahca.steps]
+                # for group_levels in all_group_levels:
+                #     levels.extend(group_levels)
             for level in levels:
                 level.microtimes._dataset = particle.microtimes
         if particle.has_spectra:
@@ -131,14 +143,20 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
                                   loaded_dataset, 'dataset')
 
     all_nodes = [(datasetnode, -1)]
+    all_has_lifetimes = list()
     for i, particle in enumerate(loaded_dataset.particles):
         particlenode = DatasetTreeNode(particle.name, particle, 'particle')
         all_nodes.append((particlenode, i))
+        if hasattr(particlenode.dataobj.histogram, 'fitted'):
+            all_has_lifetimes.append(particlenode.dataobj.histogram.fitted)
 
     main_window.add_all_nodes(all_nodes=all_nodes)
     for i, node in enumerate(main_window.part_nodes):
         node.setChecked(loaded_dataset.save_selected[i])
 
+    main_window.data_loaded = True
     if signals:
+        if any(all_has_lifetimes):
+            signals.show_residual_widget.emit(True)
         signals.status_message.emit("Done")
         signals.end_progress.emit()

@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBro
 import time
 import pickle
 from multiprocessing.synchronize import Lock
+from time import sleep
 
 if TYPE_CHECKING:
     import main
@@ -1571,11 +1572,14 @@ class LifetimeController(QObject):
     def set_tmin(self, tmin=0):
         self.tmin = tmin
 
-    def show_residuals_widget(self, show: bool = True):
+    def show_residuals_widget(self, show: bool = True, lock: Lock = None):
         if show:
-            self.lifetime_controller.residual_widget.show()
+            self.residual_widget.show()
         else:
-            self.lifetime_controller.residual_widget.hide()
+            self.residual_widget.hide()
+        self.mainwindow.chbShow_Residuals.setChecked(show)
+        if lock:
+            lock.release()
 
     def error(self, e):
         logger.error(e)
@@ -2044,12 +2048,14 @@ class RasterScanController(QObject):
 
             self.raster_scan_image_view.autoRange()
             self.raster_scan_image_view.autoLevels()
-            self.raster_scan_image_view.getView()
+            # self.raster_scan_image_view.getView()
+            sleep(1)
             full_path = os.path.join(export_path,
                                      f"Raster Scan {raster_scan.dataset_index + 1}.png")
             ex = ImageExporter(self.raster_scan_image_view.getView())
             ex.parameters()['width'] = EXPORT_WIDTH
-            ex.export(full_path)
+            image = ex.export(toBytes=True)
+            image.save(full_path)
 
             for crosshair_item in all_crosshair_items:
                 self.raster_scan_image_view.getView().removeItem(crosshair_item)
