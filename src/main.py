@@ -188,6 +188,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnEx_All.clicked.connect(self.gui_export_all)
         self.chbEx_Plot_Intensity.clicked.connect(self.gui_plot_intensity_clicked)
         self.chbEx_Plot_Lifetimes.clicked.connect(self.gui_plot_lifetime_clicked)
+        self.chbEx_DF_Levels.stateChanged.connect(self.set_export_options)
+        self.chbEx_DF_Grouped_Levels.stateChanged.connect(self.set_export_options)
+        self.btnSelectAllExport.clicked.connect(self.select_all_export_options)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()
@@ -739,27 +742,28 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.current_dataset.has_spectra = True
             self.display_data()
 
-            # msgbx = TimedMessageBox(30, parent=self)
-            # msgbx.setIcon(QMessageBox.Question)
-            # msgbx.setText("Would you like to resolve levels now?")
-            # msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
-            #                        message_posttime=" seconds)")
-            # msgbx.setWindowTitle("Resolve Levels?")
-            # msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-            # msgbx.setDefaultButton(QMessageBox.Yes)
-            # msgbx_result, timed_out = msgbx.exec()
-            # if msgbx_result == QMessageBox.Yes:
-            #     confidences = ("0.99", "0.95", "0.90", "0.69")
-            #     if timed_out:
-            #         index = 0
-            #     else:
-            #         item, ok = QInputDialog.getItem(self, "Choose Confidence",
-            #                                         "Select confidence interval to use.",
-            #                                         confidences, 0, False)
-            #         if ok:
-            #             index = list(self.confidence_index.values()).index(int(float(item) * 100))
-            #     self.cmbConfIndex.setCurrentIndex(index)
-            #     self.int_controller.start_resolve_thread('all')
+            msgbx = TimedMessageBox(30, parent=self)
+            msgbx.setIcon(QMessageBox.Question)
+            msgbx.setText("Would you like to resolve levels now?")
+            msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
+                                   message_posttime=" seconds)")
+            msgbx.setWindowTitle("Resolve Levels?")
+            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+            msgbx.setDefaultButton(QMessageBox.Yes)
+            msgbx_result, timed_out = msgbx.exec()
+            if msgbx_result == QMessageBox.Yes:
+                confidences = ("0.99", "0.95", "0.90", "0.69")
+                if timed_out:
+                    index = 0
+                else:
+                    item, ok = QInputDialog.getItem(self, "Choose Confidence",
+                                                    "Select confidence interval to use.",
+                                                    confidences, 0, False)
+                    if ok:
+                        index = list(self.confidence_index.values()).index(int(float(item) * 100))
+                self.cmbConfIndex.setCurrentIndex(index)
+                self.int_controller.start_resolve_thread('all')
+
         if self.data_loaded:
             self.chbEx_Trace.setEnabled(True)
             self.chbEx_Hist.setEnabled(True)
@@ -784,153 +788,84 @@ class MainWindow(QMainWindow, UI_Main_Window):
         all_have_spectra = all([p.has_spectra for p in particles])
 
         self.chbEx_Levels.setEnabled(all_have_levels)
+        self.chbEx_DF_Levels.setEnabled(all_have_levels)
+        if self.chbEx_DF_Levels.isChecked() and all_have_lifetimes:
+            self.chbEx_DF_Levels_Lifetimes.setEnabled(True)
+        else:
+            self.chbEx_DF_Levels_Lifetimes.setEnabled(False)
+
         self.chbEx_Grouped_Levels.setEnabled(all_have_groups)
+        self.chbEx_DF_Grouped_Levels.setEnabled(all_have_groups)
+        if self.chbEx_DF_Grouped_Levels.isChecked() and all_have_groups:
+            self.chbEx_DF_Grouped_Levels_Lifetimes.setEnabled(True)
+        else:
+            self.chbEx_DF_Grouped_Levels_Lifetimes.setEnabled(False)
+
         self.chbEx_Grouping_Info.setEnabled(all_have_groups)
         self.chbEx_Grouping_Results.setEnabled(all_have_groups)
+        self.chbEx_DF_Grouping_Info.setEnabled(all_have_groups)
+
+        # Hists always enabled
         self.chbEx_Lifetimes.setEnabled(all_have_lifetimes)
-        # self.chbEx_Hist.setEnabled(all_have_lifetimes)  # Shouldn't this be true always?
+        self.chbEx_DF_Lifetimes.setEnabled(all_have_lifetimes)
+
         self.chbEx_Spectra_2D.setEnabled(all_have_spectra)
         self.chbEx_Spectra_Fitting.setEnabled(False)  # Add when spectra analysis added
         self.chbEx_Spectra_Traces.setEnabled(False)  # Add when spectra analysis added
+
+        # Int plot always enalbed
+        self.rdbInt_Only.setEnabled(True)
+        if not (all_have_groups or all_have_levels):
+            self.rdbInt_Only.setChecked(True)
         self.rdbWith_Levels.setEnabled(all_have_levels)
         self.rdbAnd_Groups.setEnabled(all_have_groups)
+
+        # self.chbEx_Hist.setEnabled(all_have_lifetimes)  # Shouldn't this be true always?
+
         self.chbEx_Plot_Group_BIC.setEnabled(all_have_groups)
+
+        self.chbEx_Plot_Lifetimes.setEnabled(all_have_lifetimes)
         self.rdbWith_Fit.setEnabled(all_have_lifetimes)
         self.rdbAnd_Residuals.setEnabled(all_have_lifetimes)
+
         self.chbEx_Plot_Spectra.setEnabled(all_have_spectra)
+
         self.chbEx_Plot_Raster_Scans.setEnabled(all_have_raster_scans)
+
+    def select_all_export_options(self):
+        self.chbEx_Trace.setChecked(self.chbEx_Trace.isEnabled())
+        self.chbEx_Levels.setChecked(self.chbEx_Levels.isEnabled())
+        self.chbEx_Grouped_Levels.setChecked(self.chbEx_Grouped_Levels.isEnabled())
+        self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
+        self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
+        self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
+        self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
+            self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
+        self.chbEx_Grouping_Info.setChecked(self.chbEx_Grouping_Info.isEnabled())
+        self.chbEx_Grouping_Results.setChecked(self.chbEx_Grouping_Results.isEnabled())
+        self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
+        self.chbEx_Hist.setChecked(self.chbEx_Hist.isEnabled())
+        self.chbEx_Lifetimes.setChecked(self.chbEx_Lifetimes.isEnabled())
+        self.chbEx_DF_Lifetimes.setChecked(self.chbEx_DF_Lifetimes.isEnabled())
+        self.chbEx_Spectra_2D.setChecked(self.chbEx_Spectra_2D.isEnabled())
+        # self.chbEx_Spectra_Fitting.setChecked(self.chbEx_Spectra_Fitting.isEnabled())
+        # self.chbEx_Sptecra_Traces.setChecked(self.chbEx_Sptecra_Traces.isEnabled())
+        self.chbEx_Plot_Intensity.setChecked(self.chbEx_Plot_Intensity.isEnabled())
+        self.rdbInt_Only.setChecked(self.rdbInt_Only.isEnabled())
+        self.rdbWith_Levels.setChecked(self.rdbWith_Levels.isEnabled())
+        self.rdbAnd_Groups.setChecked(self.rdbAnd_Groups.isEnabled())
+        self.chbEx_Plot_Group_BIC.setChecked(self.chbEx_Plot_Group_BIC.isEnabled())
+        self.chbEx_Plot_Lifetimes.setChecked(self.chbEx_Plot_Lifetimes.isEnabled())
+        self.rdbHist_Only.setChecked(self.rdbHist_Only.isEnabled())
+        self.rdbWith_Fit.setChecked(self.rdbWith_Fit.isEnabled())
+        self.rdbAnd_Residuals.setChecked(self.rdbAnd_Residuals.isEnabled())
+        self.chbEx_Plot_Spectra.setChecked(self.chbEx_Plot_Spectra.isEnabled())
+        self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
 
     @pyqtSlot(Exception)
     def open_file_error(self, err: Exception):
         # logger.error(err)
         pass
-
-
-    # def start_resolve_thread(self, mode: str = 'current', thread_finished=None) -> None:
-    #     """
-    #     Creates a worker to resolve levels.
-    #
-    #     Depending on the ``current_selected_all`` parameter the worker will be
-    #     given the necessary parameter to fit the current, selected or all particles.
-    #
-    #     Parameters
-    #     ----------
-    #     thread_finished
-    #     mode : {'current', 'selected', 'all'}
-    #         Possible values are 'current' (default), 'selected', and 'all'.
-    #     """
-    #
-    #     if thread_finished is None:
-    #         if self.data_loaded:
-    #             thread_finished = self.resolve_thread_complete
-    #         else:
-    #             thread_finished = self.open_file_thread_complete
-    #
-    #     selected = None
-    #     if mode == 'selected':
-    #         selected = self.get_checked_particles()
-    #
-    #     resolve_thread = WorkerResolveLevels(resolve_levels,
-    #                                          conf=self.confidence_index[
-    #                                              self.cmbConfIndex.currentIndex()],
-    #                                          data=self.tree2dataset(),
-    #                                          currentparticle=self.currentparticle,
-    #                                          mode=mode,
-    #                                          resolve_selected=selected)
-    #     resolve_thread.signals.resolve_finished.connect(self.resolve_thread_complete)
-    #     resolve_thread.signals.start_progress.connect(self.start_progress)
-    #     resolve_thread.signals.progress.connect(self.update_progress)
-    #     resolve_thread.signals.status_message.connect(self.status_message)
-    #     resolve_thread.signals.reset_gconnect(self.reset_gui)
-    #
-    #     self.threadpool.start(resolve_thread)
-    #
-    # # TODO: remove this method as it has been replaced by function
-    # def resolve_levels(self, start_progress_sig: pyqtSignal,
-    #                    progress_sig: pyqtSignal, status_sig: pyqtSignal,
-    #                    mode: str,
-    #                    resolve_selected=None) -> None:  # parallel: bool = False
-    #     """
-    #     Resolves the levels in particles by finding the change points in the
-    #     abstimes data of a Particle instance.
-    #
-    #     Parameters
-    #     ----------
-    #     start_progress_sig : pyqtSignal
-    #         Used to call method to set up progress bar on G
-    #     progress_sig : pyqtSignal
-    #         Used to call method to increment progress bar on G
-    #     status_sig : pyqtSignal
-    #         Used to call method to show status bar message on G
-    #     mode : {'current', 'selected', 'all'}
-    #         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-    #     resolve_selected : list[smsh5.Partilce]
-    #         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-    #     """
-    #
-    #     assert mode in ['current', 'selected', 'all'], \
-    #         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-    #
-    #     if mode == 'current':  # Then resolve current
-    #         _, conf = self.get_gui_confidence()
-    #         self.currentparticle.cpts.run_cpa(confidence=conf, run_levels=True)
-    #
-    #     elif mode == 'all':  # Then resolve all
-    #         data = self.tree2dataset()
-    #         _, conf = self.get_gui_confidence()
-    #         try:
-    #             status_sig.emit('Resolving All Particle Levels...')
-    #             start_progress_sig.emit(data.num_parts)
-    #             # if parallel:
-    #             #     self.conf_parallel = conf
-    #             #     Parallel(n_jobs=-2, backend='threading')(
-    #             #         delayed(self.run_parallel_cpa)
-    #             #         (self.tree2particle(num)) for num in range(data.numpart)
-    #             #     )
-    #             #     del self.conf_parallel
-    #             # else:
-    #             for num in range(data.num_parts):
-    #                 data.particles[num].cpts.run_cpa(confidence=conf, run_levels=True)
-    #                 progress_sig.emit()
-    #             status_sig.emit('Done')
-    #         except Exception as exc:
-    #             raise RuntimeError("Couldn't resolve levels.") from exc
-    #
-    #     elif mode == 'selected':  # Then resolve selected
-    #         assert resolve_selected is not None, \
-    #             'No selected particles provided.'
-    #         try:
-    #             _, conf = self.get_gui_confidence()
-    #             status_sig.emit('Resolving Selected Particle Levels...')
-    #             start_progress_sig.emit(len(resolve_selected))
-    #             for particle in resolve_selected:
-    #                 particle.cpts.run_cpa(confidence=conf, run_levels=True)
-    #                 progress_sig.emit()
-    #             status_sig.emit('Done')
-    #         except Exception as exc:
-    #             raise RuntimeError("Couldn't resolve levels.") from exc
-    #
-    # def run_parallel_cpa(self, particle):
-    #     particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
-    #
-    # TODO: remove this function
-    # def resolve_thread_complete(self, mode: str):
-    #     """
-    #     Is performed after thread has been terminated.
-    #
-    #     Parameters
-    #     ----------
-    #     mode : {'current', 'selected', 'all'}
-    #         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-    #     """
-    #     if self.tree2dataset().cpa_has_run:
-    #         self.tabGrouping.setEnabled(True)
-    #     if self.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
-    #         self.display_data()
-    #     logger.info('Resolving levels complete')
-    #     self.check_remove_bursts(mode=mode)
-    #     self.set_startpoint()
-    #     self.chbEx_Levels.setEnabled(True)
 
     def check_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
@@ -938,7 +873,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         elif mode == 'selected':
             particles = self.get_checked_particles()
         else:
-            # particles = self.tree2dataset().particles
             particles = self.current_dataset.particles
 
         removed_bursts = False  # TODO: Remove

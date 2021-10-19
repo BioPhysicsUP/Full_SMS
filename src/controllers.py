@@ -1829,12 +1829,6 @@ class GroupingController(QObject):
         if self.mainwindow.current_particle is not None:
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
-        # self.mainwindow.chbEx_Grouped_Levels.setEnabled(True)
-        # self.mainwindow.gbxExport_Groups.setEnabled(True)
-        # self.mainwindow.chbEx_Grouping_Info.setEnabled(True)
-        # self.mainwindow.chbEx_Grouping_Results.setEnabled(True)
-        # self.mainwindow.rdbAnd_Groups.setEnabled(True)
-        # self.mainwindow.chbEx_Plot_Group_BIC.setEnabled(True)
         self.mainwindow.reset_gui()
         logger.info('Grouping levels complete')
 
