@@ -2503,24 +2503,6 @@
                    <number>10</number>
                   </property>
                   <item>
-                   <widget class="QCheckBox" name="chbEx_Lifetimes">
-                    <property name="enabled">
-                     <bool>false</bool>
-                    </property>
-                    <property name="font">
-                     <font>
-                      <pointsize>10</pointsize>
-                      <weight>50</weight>
-                      <bold>false</bold>
-                      <underline>false</underline>
-                     </font>
-                    </property>
-                    <property name="text">
-                     <string>Fitting Results</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item>
                    <widget class="QCheckBox" name="chbEx_Hist">
                     <property name="enabled">
                      <bool>false</bool>
@@ -2535,6 +2517,24 @@
                     </property>
                     <property name="text">
                      <string>Decay Histograms</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QCheckBox" name="chbEx_Lifetimes">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>10</pointsize>
+                      <weight>50</weight>
+                      <bold>false</bold>
+                      <underline>false</underline>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>Fitting Results</string>
                     </property>
                    </widget>
                   </item>

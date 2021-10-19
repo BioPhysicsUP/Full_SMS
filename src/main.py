@@ -497,7 +497,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def tab_change(self, active_tab_index: int):
         if self.data_loaded and hasattr(self, 'current_particle'):
-            if self.tabWidget.currentIndex() in [0, 1, 2, 3, 4]:
+            if self.tabWidget.currentIndex() in [0, 1, 2, 3, 4, 5]:
                 self.display_data()
 
     def update_int_gui(self):
@@ -762,6 +762,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             #     self.int_controller.start_resolve_thread('all')
         if self.data_loaded:
             self.chbEx_Trace.setEnabled(True)
+            self.chbEx_Hist.setEnabled(True)
             self.chbEx_Plot_Intensity.setEnabled(True)
             self.rdbInt_Only.setEnabled(True)
             self.chbEx_Plot_Lifetimes.setEnabled(True)
@@ -787,7 +788,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_Grouping_Info.setEnabled(all_have_groups)
         self.chbEx_Grouping_Results.setEnabled(all_have_groups)
         self.chbEx_Lifetimes.setEnabled(all_have_lifetimes)
-        self.chbEx_Hist.setEnabled(all_have_lifetimes)  # Shouldn't this be true always?
+        # self.chbEx_Hist.setEnabled(all_have_lifetimes)  # Shouldn't this be true always?
         self.chbEx_Spectra_2D.setEnabled(all_have_spectra)
         self.chbEx_Spectra_Fitting.setEnabled(False)  # Add when spectra analysis added
         self.chbEx_Spectra_Traces.setEnabled(False)  # Add when spectra analysis added

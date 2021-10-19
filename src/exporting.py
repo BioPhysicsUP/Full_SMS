@@ -370,19 +370,29 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
 
         if ex_hist:
             tr_path = os.path.join(f_dir, p.name + ' hist.csv')
-            times = p.histogram.convd_t
-            if times is not None:
-                decay = p.histogram.fit_decay
-                convd = p.histogram.convd
-                residual = p.histogram.residuals
-                rows = list()
-                rows.append(['Time (ns)', 'Decay', 'Fitted', 'Residual'])
+            if not p.histogram.fitted:
+                decay = p.histogram.decay
+                times = p.histogram.t
+                rows = ['Times (ns)', 'Decay']
                 for i, time in enumerate(times):
-                    rows.append([str(time), str(decay[i]), str(convd[i]), str(residual[i])])
-
+                    rows.append([str(time), str(decay[i])])
                 with open_file(tr_path) as f:
                     writer = csv.writer(f, dialect=csv.excel)
                     writer.writerows(rows)
+            else:
+                times = p.histogram.convd_t
+                if times is not None:
+                    decay = p.histogram.fit_decay
+                    convd = p.histogram.convd
+                    residual = p.histogram.residuals
+                    rows = list()
+                    rows.append(['Time (ns)', 'Decay', 'Fitted', 'Residual'])
+                    for i, time in enumerate(times):
+                        rows.append([str(time), str(decay[i]), str(convd[i]), str(residual[i])])
+
+                    with open_file(tr_path) as f:
+                        writer = csv.writer(f, dialect=csv.excel)
+                        writer.writerows(rows)
 
             if p.has_levels:
                 dir_path = os.path.join(f_dir, p.name + ' hists')
