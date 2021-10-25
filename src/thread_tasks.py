@@ -181,6 +181,7 @@ class OpenFile:
                 # particle.tmin = np.min(particle.histogram.microtimes)
 
             irfhist = dataset.particles[0].histogram
+            irfhist._particle = None
             # irfhist.t -= irfhist.t.min()
             sig_fb.add_irf(irfhist.decay, irfhist.t, dataset)
             prog_fb.set_status(status="Done")

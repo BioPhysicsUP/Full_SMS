@@ -95,6 +95,9 @@ class H5dataset:
         self.has_levels = False
         self.has_groups = False
         self.has_lifetimes = False
+        self.irf = None
+        self.irf_t = None
+        self.has_irf = False
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
         raster_scans = list()

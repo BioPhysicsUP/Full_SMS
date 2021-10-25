@@ -973,31 +973,17 @@ class LifetimeController(QObject):
             mw.threadpool.start(of_process_thread)
             mw.active_threads.append(of_process_thread)
 
-            # of_worker = WorkerOpenFile(fname, irf=True, tmin=self.tmin)
-            # of_worker.signals.openfile_finished.connect(self.mainwindow.open_file_thread_complete)
-            # of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
-            # of_worker.signals.progress.connect(self.mainwindow.update_progress)
-            # of_worker.signals.auto_progress.connect(self.mainwindow.update_progress)
-            # of_worker.signals.start_progress.connect(self.mainwindow.start_progress)
-            # of_worker.signals.status_message.connect(self.mainwindow.status_message)
-            # of_worker.signals.add_datasetindex.connect(self.mainwindow.add_dataset)
-            # of_worker.signals.add_particlenode.connect(self.mainwindow.add_node)
-            # of_worker.signals.reset_tree.connect(
-            #     lambda: self.mainwindow.treemodel.modelReset.emit())
-            # of_worker.signals.data_loaded.connect(self.mainwindow.set_data_loaded)
-            # of_worker.signals.bin_size.connect(self.mainwindow.spbBinSize.setValue)
-            # of_worker.signals.add_irf.connect(self.add_irf)
-            #
-            # self.mainwindow.threadpool.start(of_worker)
-
     def add_irf(self, decay, t, irfdata):
 
         self.fitparam.irf = decay
         self.fitparam.irft = t
-        self.fitparam.irfdata = irfdata
+        # self.fitparam.irfdata = irfdata
         self.irf_loaded = True
-        self.mainwindow.set_startpoint()
+        self.mainwindow.set_startpoint(irf_data=irfdata)
         self.mainwindow.reset_gui
+        self.mainwindow.dataset_node.dataobj.irf = decay
+        self.mainwindow.dataset_node.dataobj.irf_t = t
+        self.mainwindow.dataset_node.dataobj.has_irf = True
         self.fitparamdialog.updateplot()
 
     def gui_fit_param(self):
@@ -1555,8 +1541,9 @@ class LifetimeController(QObject):
         self.mainwindow.current_dataset.has_lifetimes = True
         logger.info('Fitting levels complete')
 
-    def change_irf_start(self, start):
-        dataset = self.fitparam.irfdata
+    def change_irf_start(self, start, irf_data):
+        # dataset = self.fitparam.irfdata
+        dataset = irf_data
 
         dataset.makehistograms(remove_zeros=False, startpoint=start, channel=True)
         irfhist = dataset.particles[0].histogram

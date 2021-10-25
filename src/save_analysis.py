@@ -150,6 +150,10 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
         if hasattr(particlenode.dataobj.histogram, 'fitted'):
             all_has_lifetimes.append(particlenode.dataobj.histogram.fitted)
 
+    if loaded_dataset.has_irf:
+        main_window.lifetime_controller.fitparam.irf = loaded_dataset.irf
+        main_window.lifetime_controller.fitparam.irft = loaded_dataset.irf_t
+        main_window.lifetime_controller.irf_loaded = True
     main_window.add_all_nodes(all_nodes=all_nodes)
     for i, node in enumerate(main_window.part_nodes):
         node.setChecked(loaded_dataset.save_selected[i])

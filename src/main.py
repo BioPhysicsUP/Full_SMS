@@ -424,7 +424,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         start, ok = QInputDialog.getInt(self, 'Input Dialog', 'Enter startpoint:')
         self.set_startpoint(start)
 
-    def set_startpoint(self, start=None):
+    def set_startpoint(self, irf_data, start=None):
         if start is None:
             start = self.lifetime_controller.startpoint
         try:
@@ -434,7 +434,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         except Exception as exc:
             print(exc)
         if self.lifetime_controller.irf_loaded:
-            self.lifetime_controller.change_irf_start(start)
+            self.lifetime_controller.change_irf_start(start, irf_data)
         if self.lifetime_controller.startpoint is None:
             self.lifetime_controller.startpoint = start
         self.display_data()
