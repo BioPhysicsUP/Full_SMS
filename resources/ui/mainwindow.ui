@@ -1651,13 +1651,13 @@
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>180</height>
+              <height>150</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
               <width>30</width>
-              <height>180</height>
+              <height>150</height>
              </size>
             </property>
             <property name="text">
@@ -1686,13 +1686,13 @@
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>180</height>
+              <height>150</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>180</height>
+              <height>150</height>
              </size>
             </property>
            </widget>
@@ -1708,13 +1708,13 @@
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>180</height>
+              <height>150</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
               <width>30</width>
-              <height>180</height>
+              <height>150</height>
              </size>
             </property>
             <property name="text">
@@ -2746,58 +2746,6 @@
                     </property>
                    </widget>
                   </item>
-                  <item>
-                   <widget class="QGroupBox" name="gbxDFLifetime">
-                    <property name="font">
-                     <font>
-                      <pointsize>8</pointsize>
-                      <weight>50</weight>
-                      <bold>false</bold>
-                      <underline>true</underline>
-                      <strikeout>false</strikeout>
-                     </font>
-                    </property>
-                    <property name="title">
-                     <string>Pandas DataFrame</string>
-                    </property>
-                    <layout class="QVBoxLayout" name="verticalLayout_21">
-                     <property name="spacing">
-                      <number>3</number>
-                     </property>
-                     <property name="leftMargin">
-                      <number>6</number>
-                     </property>
-                     <property name="topMargin">
-                      <number>6</number>
-                     </property>
-                     <property name="rightMargin">
-                      <number>6</number>
-                     </property>
-                     <property name="bottomMargin">
-                      <number>6</number>
-                     </property>
-                     <item>
-                      <widget class="QCheckBox" name="chbEx_DF_Lifetimes">
-                       <property name="enabled">
-                        <bool>false</bool>
-                       </property>
-                       <property name="font">
-                        <font>
-                         <pointsize>8</pointsize>
-                         <weight>50</weight>
-                         <bold>false</bold>
-                         <underline>false</underline>
-                         <strikeout>false</strikeout>
-                        </font>
-                       </property>
-                       <property name="text">
-                        <string>Fitting Results</string>
-                       </property>
-                      </widget>
-                     </item>
-                    </layout>
-                   </widget>
-                  </item>
                  </layout>
                 </widget>
                </item>
@@ -2955,6 +2903,59 @@
                     </property>
                     <property name="text">
                      <string>Traces</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="gbxExport_Spectra_2">
+                 <property name="enabled">
+                  <bool>true</bool>
+                 </property>
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="minimumSize">
+                  <size>
+                   <width>0</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>12</pointsize>
+                   <weight>75</weight>
+                   <bold>true</bold>
+                   <underline>true</underline>
+                  </font>
+                 </property>
+                 <property name="title">
+                  <string>Raster Scan</string>
+                 </property>
+                 <layout class="QVBoxLayout" name="verticalLayout_21">
+                  <property name="spacing">
+                   <number>10</number>
+                  </property>
+                  <item>
+                   <widget class="QCheckBox" name="chbEx_Raster_Scan_2D">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="font">
+                     <font>
+                      <pointsize>10</pointsize>
+                      <weight>50</weight>
+                      <bold>false</bold>
+                      <underline>false</underline>
+                     </font>
+                    </property>
+                    <property name="text">
+                     <string>2D Array</string>
                     </property>
                    </widget>
                   </item>
@@ -3748,6 +3749,8 @@
     <addaction name="actionSelect_All"/>
     <addaction name="actionInvert_Selection"/>
     <addaction name="actionDeselect_All"/>
+    <addaction name="separator"/>
+    <addaction name="actionRange_Selection"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -3878,6 +3881,14 @@
   <action name="actionSave_Analysis">
    <property name="text">
     <string>Save Analysis</string>
+   </property>
+  </action>
+  <action name="actionRange_Selection">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Range Selection</string>
    </property>
   </action>
  </widget>

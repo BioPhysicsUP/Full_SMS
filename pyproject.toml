@@ -26,7 +26,6 @@ pandas = "^1.2.4"
 dfply = "^0.3.3"
 auto-py-to-exe = "^2.10.0"
 Pympler = "^0.9"
-pyarrow = "^5.0.0"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

@@ -17,7 +17,6 @@ from multiprocessing.synchronize import Lock
 from time import sleep
 
 if TYPE_CHECKING:
-    import main
     from main import MainWindow
 
 from my_logger import setup_logger
@@ -145,7 +144,8 @@ class IntController(QObject):
 
     def setup_plot(self, plot_item: pg.PlotItem,
                    is_int_hist: bool = False,
-                   is_group_hist: bool = False):
+                   is_group_hist: bool = False,
+                   is_lifetime: bool = False):
 
         # Set axis label bold and size
         axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
@@ -175,7 +175,8 @@ class IntController(QObject):
             plot_item.vb.setLimits(xMin=0, xMax=1, yMin=0)
         else:
             left_axis.setLabel('Intensity', 'counts/100ms')
-            bottom_axis.setLabel('Time', 's')
+            if not is_lifetime:
+                bottom_axis.setLabel('Time', 's')
             plot_item.vb.setLimits(xMin=0, yMin=0)
 
     @staticmethod

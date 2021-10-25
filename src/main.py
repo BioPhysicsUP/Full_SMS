@@ -44,6 +44,7 @@ from my_logger import setup_logger
 from convert_pt3 import ConvertPt3Dialog
 from exporting import export_data, ExportWorker
 from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
+from selection import RangeSelectionDialog
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -182,6 +183,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
         self.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
         self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
+        self.actionRange_Selection.triggered.connect(self.range_selection)
 
         self.btnEx_Current.clicked.connect(self.gui_export_current)
         self.btnEx_Selected.clicked.connect(self.gui_export_selected)
@@ -469,7 +471,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.add_node(node, num)
 
     def tree_view_clicked(self, model_index):
-        self.set_export_options()
+        if type(self.treemodel.data(model_index, Qt.UserRole)) is smsh5.Particle:
+            self.set_export_options()
         if self.treemodel.data(model_index, Qt.UserRole) is self.dataset_node.dataobj:
             root_node_checked = self.dataset_node.checked()
             if all([node.checked() for node in self.part_nodes]) != root_node_checked:
@@ -742,27 +745,28 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.current_dataset.has_spectra = True
             self.display_data()
 
-            msgbx = TimedMessageBox(30, parent=self)
-            msgbx.setIcon(QMessageBox.Question)
-            msgbx.setText("Would you like to resolve levels now?")
-            msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
-                                   message_posttime=" seconds)")
-            msgbx.setWindowTitle("Resolve Levels?")
-            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-            msgbx.setDefaultButton(QMessageBox.Yes)
-            msgbx_result, timed_out = msgbx.exec()
-            if msgbx_result == QMessageBox.Yes:
-                confidences = ("0.99", "0.95", "0.90", "0.69")
-                if timed_out:
-                    index = 0
-                else:
-                    item, ok = QInputDialog.getItem(self, "Choose Confidence",
-                                                    "Select confidence interval to use.",
-                                                    confidences, 0, False)
-                    if ok:
-                        index = list(self.confidence_index.values()).index(int(float(item) * 100))
-                self.cmbConfIndex.setCurrentIndex(index)
-                self.int_controller.start_resolve_thread('all')
+            if not any([p.has_levels for p in self.current_dataset.particles]):
+                msgbx = TimedMessageBox(30, parent=self)
+                msgbx.setIcon(QMessageBox.Question)
+                msgbx.setText("Would you like to resolve levels now?")
+                msgbx.set_timeout_text(message_pretime="(Resolving levels in ",
+                                       message_posttime=" seconds)")
+                msgbx.setWindowTitle("Resolve Levels?")
+                msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+                msgbx.setDefaultButton(QMessageBox.Yes)
+                msgbx_result, timed_out = msgbx.exec()
+                if msgbx_result == QMessageBox.Yes:
+                    confidences = ("0.99", "0.95", "0.90", "0.69")
+                    if timed_out:
+                        index = 0
+                    else:
+                        item, ok = QInputDialog.getItem(self, "Choose Confidence",
+                                                        "Select confidence interval to use.",
+                                                        confidences, 0, False)
+                        if ok:
+                            index = list(self.confidence_index.values()).index(int(float(item) * 100))
+                    self.cmbConfIndex.setCurrentIndex(index)
+                    self.int_controller.start_resolve_thread('all')
 
         if self.data_loaded:
             self.chbEx_Trace.setEnabled(True)
@@ -771,6 +775,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.rdbInt_Only.setEnabled(True)
             self.chbEx_Plot_Lifetimes.setEnabled(True)
             self.rdbHist_Only.setEnabled(True)
+            self.actionRange_Selection.setEnabled(True)
             self.set_export_options()
             self.reset_gui()
             logger.info('File opened')
@@ -807,7 +812,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         # Hists always enabled
         self.chbEx_Lifetimes.setEnabled(all_have_lifetimes)
-        self.chbEx_DF_Lifetimes.setEnabled(all_have_lifetimes)
 
         self.chbEx_Spectra_2D.setEnabled(all_have_spectra)
         self.chbEx_Spectra_Fitting.setEnabled(False)  # Add when spectra analysis added
@@ -830,6 +834,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.chbEx_Plot_Spectra.setEnabled(all_have_spectra)
 
+        self.chbEx_Raster_Scan_2D.setEnabled(all_have_raster_scans)
         self.chbEx_Plot_Raster_Scans.setEnabled(all_have_raster_scans)
 
     def select_all_export_options(self):
@@ -860,6 +865,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.rdbWith_Fit.setChecked(self.rdbWith_Fit.isEnabled())
         self.rdbAnd_Residuals.setChecked(self.rdbAnd_Residuals.isEnabled())
         self.chbEx_Plot_Spectra.setChecked(self.chbEx_Plot_Spectra.isEnabled())
+        self.chbEx_Raster_Scan_2D.setChecked(self.chbEx_Raster_Scan_2D.isEnabled())
         self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
 
     @pyqtSlot(Exception)
@@ -988,6 +994,41 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def convert_pt3_dialog(self):
         convert_pt3 = ConvertPt3Dialog(mainwindow=self)
         convert_pt3.exec()
+
+    def range_selection(self):
+        range_selection_dialog = RangeSelectionDialog(main_window=self)
+        if range_selection_dialog.exec_():
+            selection_indexes = range_selection_dialog.get_selection(max_range=len(self.part_nodes))
+            mode_only, mode_add, mode_remove, _ = range_selection_dialog.get_mode()
+            if max(selection_indexes) > len(self.part_nodes):
+                msg = QMessageBox(self)
+                msg.setWindowTitle("Range Selection")
+                msg.setText("Selection out of bounds!")
+                msg.setIcon(QMessageBox.Warning)
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec()
+            else:
+                for i, node in enumerate(self.part_nodes):
+                    is_checked = node.checked()
+                    if mode_only:
+                        if i + 1 in selection_indexes:
+                            is_checked = True
+                        else:
+                            is_checked = False
+                    elif mode_add:
+                        if i + 1 in selection_indexes:
+                            is_checked = True
+                    elif mode_remove:
+                        if i + 1 in selection_indexes:
+                            is_checked = False
+                    else:
+                        if i + 1 not in selection_indexes:
+                            is_checked = True
+                        else:
+                            is_checked = False
+
+                    if is_checked != node.checked():
+                        node.setChecked(is_checked)
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """

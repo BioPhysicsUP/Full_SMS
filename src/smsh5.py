@@ -863,6 +863,9 @@ class RasterScan:
         self.x_start = self.dataset.attrs["XStart (um)"]
         self.y_start = self.dataset.attrs["YStart (um)"]
 
+        self.x_axis_pos = np.linspace(self.x_start, self.x_start + self.range, self.pixel_per_line)
+        self.y_axis_pos = np.linspace(self.y_start, self.y_start + self.range, self.pixel_per_line)
+
 
 class Spectra:
     def __init__(self, particle: Particle):

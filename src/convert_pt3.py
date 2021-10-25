@@ -240,7 +240,6 @@ class Pt3Reader:
             for channel in self.channel_records:
                 channel.trim_empty()
 
-
     def add_particle_to_h5(self, h5_file):
         pass
 
@@ -267,7 +266,7 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
 
     def set_source_folder(self):
         f_dir = QFileDialog.getExistingDirectory(self)
-        if f_dir != ('',''):
+        if f_dir != ('', ''):
             self._source_path = f_dir
 
             display_path = f_dir
