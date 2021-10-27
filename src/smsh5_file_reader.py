@@ -81,16 +81,23 @@ def microtimes(particle: Particle) -> h5pickle.Dataset:
 
 
 def has_raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> bool:
-    if TYPE_CHECKING:
-        if type(particle) is Particle:
-            has_rs = "Raster Scan" in particle.datadict.keys()
-        elif type(particle) is h5pickle.Dataset:
-            has_rs = "Raster Scan" in particle.keys()
-    return
+    if str(type(particle)) == "<class 'smsh5.Particle'>":
+        has_rs = "Raster Scan" in particle.datadict.keys()
+    elif str(type(particle)) == "<class 'h5pickle.Group'>" :
+        has_rs = "Raster Scan" in particle.keys()
+    else:
+        raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
+    return has_rs
 
 
-def raster_scan(particle: Particle) -> h5pickle.Dataset:
-    return particle.datadict["Raster Scan"]
+def raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> h5pickle.Dataset:
+    if str(type(particle)) == "<class 'smsh5.Particle'>":
+        rs = particle.datadict["Raster Scan"]
+    elif str(type(particle)) == "<class 'h5pickle.Group'>" :
+        rs = particle["Raster Scan"]
+    else:
+        raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
+    return rs
 
 
 def has_spectra(particle: Particle) -> bool:
@@ -103,12 +110,13 @@ def spectra(particle: Particle) -> h5pickle.Dataset:
 
 # Raster Scan Attributes
 def __get_rs_dataset(part_or_rs: Union[Particle, RasterScan]) -> h5pickle.Dataset:
-    if type(part_or_rs) is Particle:
+    if str(type(part_or_rs)) in ["<class 'smsh5.Particle'>", "<class 'h5pickle.Dataset'>"]:
         raster_scan_dataset = raster_scan(particle=part_or_rs)
-    elif type(part_or_rs) is RasterScan:
+    elif str(type(part_or_rs)) == "<class 'smsh5.RasterScan'>" :
         raster_scan_dataset = part_or_rs.dataset
     else:
         raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
+    return raster_scan_dataset
 
 def rs_integration_time(part_or_rs: Union[Particle, RasterScan]) -> np.float64:
     raster_scan_dataset = __get_rs_dataset(part_or_rs=part_or_rs)
