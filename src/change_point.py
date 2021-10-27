@@ -335,7 +335,10 @@ class Level:
         if int_p_s:
             self.int_p_s = int_p_s
         else:
-            self.int_p_s = self.num_photons / self.dwell_time_s
+            try:
+                self.int_p_s = self.num_photons / self.dwell_time_s
+            except RuntimeWarning as e:
+                print("here")
         self.microtimes = DatasetSubset(microtimes, self.level_inds[0], self.level_inds[1])
         # self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
         self.group_ind = group_ind
@@ -678,7 +681,7 @@ class ChangePointAnalysis:
                     next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
             elif last_photon_ind - prev_end_ind >= 10:  # Next segment needs to be at least 10 photons large.
                 if prev_end_ind - 200 < self.cpt_inds[-1] < prev_end_ind:
-                    next_start_ind, next_end_ind = int(self.cpt_inds[-1]) + 1, last_photon_ind
+                    next_start_ind, next_end_ind = int(max(self.cpt_inds)), last_photon_ind
                 else:
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
             else:

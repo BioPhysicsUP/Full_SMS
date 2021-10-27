@@ -45,6 +45,7 @@ from convert_pt3 import ConvertPt3Dialog
 from exporting import export_data, ExportWorker
 from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
+import smsh5_file_reader
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -424,7 +425,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         start, ok = QInputDialog.getInt(self, 'Input Dialog', 'Enter startpoint:')
         self.set_startpoint(start)
 
-    def set_startpoint(self, irf_data, start=None):
+    def set_startpoint(self, irf_data = None, start=None):
         if start is None:
             start = self.lifetime_controller.startpoint
         try:
@@ -433,7 +434,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             dataset.makehistograms(remove_zeros=False, startpoint=start, channel=True)
         except Exception as exc:
             print(exc)
-        if self.lifetime_controller.irf_loaded:
+        if self.lifetime_controller.irf_loaded and irf_data:
             self.lifetime_controller.change_irf_start(start, irf_data)
         if self.lifetime_controller.startpoint is None:
             self.lifetime_controller.startpoint = start

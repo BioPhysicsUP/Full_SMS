@@ -16,17 +16,16 @@ import h5pickle
 import h5py
 import numpy as np
 from pyqtgraph import ScatterPlotItem, SpotItem
-from PyQt5.QtGui import QPixmap
 
 import dbg
 import tcspcfit
 from change_point import ChangePoints
 from generate_sums import CPSums
 from grouping import AHCA
-# from signals import PassSigFeedback
 from my_logger import setup_logger
 from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
 from tcspcfit import FittingParameters
+import smsh5_file_reader as h5_fr
 
 if TYPE_CHECKING:
     from change_point import Level
@@ -34,26 +33,15 @@ if TYPE_CHECKING:
 logger = setup_logger(__name__)
 
 
-# class ParticleIcons:
-#     test_icon = QPixmap('c:\\google drive\\current_projects\\full_sms\\resources\\icons\\test.png').scaledToHeight(12)
-
-
 class H5dataset:
 
     def __init__(self, filename, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
-
-        # self.sig_fb = sig_fb
-        # self.prog_fb = prog_fb
-
         self.cpa_has_run = False
         self.use_parallel = False
         self.name = filename
         prog_fb.set_status(status="Reading file...")
         self.file = h5pickle.File(self.name, 'r')
-        try:
-            self.version = self.file.attrs['Version']
-        except KeyError:
-            self.version = '1.0'
+        self.file_version = h5_fr.file_version(dataset=self)
 
         all_keys = self.file.keys()
         part_keys = [part_key for part_key in all_keys if 'Particle ' in part_key]
@@ -89,7 +77,7 @@ class H5dataset:
                          raster_scan_dataset_index=this_raster_scan_index,
                          raster_scan=this_raster_scan))
         self.num_parts = len(self.particles)
-        assert self.num_parts == self.file.attrs['# Particles']
+        assert self.num_parts == h5_fr.num_parts(dataset=self)
         self.channelwidth = None
         self.save_selected = None
         self.has_levels = False
@@ -104,9 +92,9 @@ class H5dataset:
         file_keys = self.file.keys()
         for num, particle_name in enumerate(particle_names):
             if particle_name in file_keys:
-                particle_keys = self.file[particle_name].keys()
-                if 'Raster Scan' in particle_keys:
-                    raster_scans.append((self.file[particle_name]['Raster Scan'], num))
+                particle = h5_fr.particle(particle_num=num+1, dataset=self)
+                if h5_fr.has_raster_scan(particle=particle):
+                    raster_scans.append((h5_fr.raster_scan(particle=particle), num))
 
         if len(raster_scans) != 0:
             prev_raster_scan = None
@@ -162,9 +150,6 @@ class H5dataset:
             return map_particle_index
         else:
             return None
-
-
-        print('here')
 
     def makehistograms(self, remove_zeros=True, startpoint=None, channel=True):
         """Put the arrival times into histograms"""
@@ -277,6 +262,8 @@ class BICPlotData:
         self._selected_spot = None
 
 
+
+
 class Particle:
     """
     Class for particle in H5dataset.
@@ -305,12 +292,10 @@ class Particle:
         # self.dataset = dataset
         self.dataset_ind = dataset_ind
         self.file = dataset.file
+        self.file_version = h5_fr.file_version(dataset=dataset)
         self.datadict = self.file[self.name]
-        if dataset.version in ['1.0', '1.01', '1.02']:
-            self.microtimes = self.datadict['Micro Times (s)']
-        else:
-            self.microtimes = self.datadict['Micro Times (ns)']
-        self.abstimes = self.datadict['Absolute Times (ns)']
+        self.microtimes = h5_fr.microtimes(particle=self)
+        self.abstimes = h5_fr.abstimes(particle=self)
         self.num_photons = len(self.abstimes)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
@@ -321,10 +306,7 @@ class Particle:
         self._raster_scan_dataset_index = raster_scan_dataset_index
         self.raster_scan = raster_scan
         self.has_raster_scan = raster_scan is not None
-        if dataset.version in ['1.0', '1.01', '1.02']:
-            self.description = self.datadict.attrs['Discription']
-        else:
-            self.description = self.datadict.attrs['Description']
+        self.description = h5_fr.description(particle=self)
         self.irf = None
         try:
             if channelwidth is None:
@@ -369,8 +351,8 @@ class Particle:
     @property
     def raster_scan_coordinates(self) -> tuple:
         particle_attr_keys = self.datadict.attrs.keys()
-        if self.has_raster_scan and 'RS Coord. (um)' in particle_attr_keys:
-            coords = self.datadict.attrs['RS Coord. (um)']
+        if self.has_raster_scan:
+            coords = h5_fr.raster_scan_coord(particle=self)
             return coords[1], coords[0]
         else:
             return None, None
@@ -724,7 +706,8 @@ class Histogram:
             try:
                 self.t -= self.t.min()
             except ValueError:
-                dbg.p(f"Histogram object of {self._particle.name} does not have a valid self.t attribute", "Histogram")
+                dbg.p(f"Histogram object of {self._particle.name} does not have a valid"
+                      f" self.t attribute", "Histogram")
 
         # print(f"{particle.name}: tmin={tmin}, tmax={tmax}")
         self.convd = None
@@ -860,11 +843,11 @@ class RasterScan:
         self.dataset = raster_scan_dataset
         self.dataset_index = dataset_index
         self.particle_indexes = particle_indexes
-        self.integration_time = self.dataset.attrs["Int. Time (ms/um)"]
-        self.pixel_per_line = self.dataset.attrs["Pixels per Line"]
-        self.range = self.dataset.attrs["Range (um)"]
-        self.x_start = self.dataset.attrs["XStart (um)"]
-        self.y_start = self.dataset.attrs["YStart (um)"]
+        self.integration_time = h5_fr.rs_integration_time(part_or_rs=self)
+        self.pixel_per_line = h5_fr.rs_pixels_per_line(part_or_rs=self)
+        self.range = h5_fr.rs_range(part_or_rs=self)
+        self.x_start = h5_fr.rs_x_start(part_or_rs=self)
+        self.y_start = h5_fr.rs_y_start(part_or_rs=self)
 
         self.x_axis_pos = np.linspace(self.x_start, self.x_start + self.range, self.pixel_per_line)
         self.y_axis_pos = np.linspace(self.y_start, self.y_start + self.range, self.pixel_per_line)
@@ -873,12 +856,11 @@ class RasterScan:
 class Spectra:
     def __init__(self, particle: Particle):
         self._particle = particle
-        self._has_spectra = False
-        if 'Spectra (counts\\s)' in particle.datadict.keys():
-            self._has_spectra = True
-            self.data = particle.datadict['Spectra (counts\\s)']
-            self.wavelengths = self.data.attrs['Wavelengths']
-            self.series_times = self.data.attrs['Spectra Abs. Times (s)']
+        self._has_spectra = h5_fr.has_spectra(particle=particle)
+        if self._has_spectra:
+            self.data = h5_fr.spectra(particle=particle)
+            self.wavelengths = h5_fr.spectra_wavelengths(particle=particle)
+            self.series_times = h5_fr.spectra_abstimes(particle=particle)
 
 
 def start_at_value(decay, t, neg_t=True, decaystart=None):

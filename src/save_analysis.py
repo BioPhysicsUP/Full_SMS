@@ -12,13 +12,14 @@ from PyQt5.QtCore import QRunnable, pyqtSlot
 
 from tree_model import DatasetTreeNode
 from threads import WorkerSignals
+import smsh5_file_reader as h5_fr
 
 if TYPE_CHECKING:
     from smsh5 import H5dataset
     from main import MainWindow
 
 
-SAVING_VERSION = '1.02'
+SAVING_VERSION = '1.03'
 
 
 class SaveAnalysisWorker(QRunnable):
@@ -114,8 +115,8 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
     for particle in loaded_dataset.particles:
         particle.file = h5_file
         particle.datadict = h5_file[particle.name]
-        particle.abstimes = particle.datadict['Absolute Times (ns)']
-        particle.microtimes = particle.datadict['Micro Times (s)']
+        particle.abstimes = h5_fr.abstimes(particle=particle)
+        particle.microtimes = h5_fr.microtimes(particle=particle)
         particle.cpts._cpa._abstimes = particle.abstimes
         particle.cpts._cpa._microtimes = particle.microtimes
         if particle.has_levels:
@@ -130,12 +131,12 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
             for level in levels:
                 level.microtimes._dataset = particle.microtimes
         if particle.has_spectra:
-            particle.spectra.data = particle.datadict['Spectra (counts\\s)']
+            particle.spectra.data = h5_fr.spectra(particle=particle)
 
     if loaded_dataset.has_raster_scans:
         for raster_scan in loaded_dataset.all_raster_scans:
-            first_particle_name = loaded_dataset.particles[raster_scan.particle_indexes[0]].name
-            raster_scan.dataset = h5_file[first_particle_name + '/Raster Scan']
+            first_particle = loaded_dataset.particles[raster_scan.particle_indexes[0]]
+            raster_scan.dataset = h5_fr.raster_scan(particle=first_particle)
 
     loaded_dataset.name = analysis_file[:-4] + 'h5'
 
