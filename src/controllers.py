@@ -3,6 +3,7 @@ import os
 from typing import Union, List, Tuple, TYPE_CHECKING
 from copy import copy
 import tempfile
+from io import BytesIO
 
 import numpy as np
 import pyqtgraph as pg
@@ -13,7 +14,8 @@ from PyQt5.QtGui import QPen, QColor, QPalette, QFont
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
 import pickle
-from multiprocessing.synchronize import Lock
+from threading import Lock
+# from multiprocessing.synchronize import Lock
 from time import sleep
 
 if TYPE_CHECKING:
@@ -24,8 +26,12 @@ from smsh5 import H5dataset, Particle, ParticleAllHists, RasterScan
 from tcspcfit import FittingParameters, FittingDialog
 from threads import ProcessThread, ProcessTaskResult, WorkerBinAll
 from thread_tasks import OpenFile, BinAll, bin_all
+import matplotlib.pyplot as plt
 
 EXPORT_WIDTH = 1500
+EXPORT_MPL_WIDTH = 10
+EXPORT_MPL_HEIGHT = 4.5
+EXPORT_MPL_DPI = 100
 
 logger = setup_logger(__name__)
 
@@ -132,6 +138,10 @@ class IntController(QObject):
         self.int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
         self.groups_int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
         self.lifetime_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
+
+        self.temp_fig = None
+        self.temp_ax = None
+        self.temp_bins = None
 
         # Setup axes and limits
         # self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
@@ -299,27 +309,6 @@ class IntController(QObject):
             mw.end_progress()
             logger.info('All traces binned')
 
-        # ba_process_thread = ProcessThread(num_processes=1)
-        # ba_process_thread.signals.start_progress.connect(mw.start_progress)
-        # ba_process_thread.signals.set_progress.connect(mw.set_progress)
-        # ba_process_thread.signals.step_progress.connect(mw.update_progress)
-        # ba_process_thread.signals.add_progress.connect(mw.update_progress)
-        # ba_process_thread.signals.end_progress.connect(mw.end_progress)
-        # ba_process_thread.signals.error.connect(self.error)
-        # ba_process_thread.signals.finished.connect(self.binall_thread_complete)
-        #
-        # ba_obj = BinAll(dataset=dataset, bin_size=bin_size)
-        # ba_process_thread.add_tasks_from_methods(ba_obj, 'run_bin_all')
-
-        # binall_thread = WorkerBinAll(dataset, bin_all, bin_size)
-        # binall_thread.signals.resolve_finished.connect(self.binall_thread_complete)
-        # binall_thread.signals.start_progress.connect(mw.start_progress)
-        # binall_thread.signals.progress.connect(mw.update_progress)
-        # binall_thread.signals.status_message.connect(mw.status_message)
-
-        # mw.threadpool.start(ba_process_thread)
-        # mw.active_threads.append(ba_process_thread)
-
     def binall_thread_complete(self):
 
         self.mainwindow.status_message('Done')
@@ -369,14 +358,13 @@ class IntController(QObject):
 
         self.start_resolve_thread(mode='all', end_time_s=end_time_s)
 
-    # @pyqtSlot()
     def plot_trace(self, particle: Particle = None,
                    for_export: bool = False,
                    export_path: str = None,
-                   lock: Lock = None) -> None:
+                   lock: bool = False) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
 
-        if type(export_path) is Lock:
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
         try:
@@ -409,28 +397,48 @@ class IntController(QObject):
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor(0, 0, 0, 50))
 
-                plot_pen.setJoinStyle(Qt.RoundJoin)
-
-                plot_item.clear()
                 unit = 'counts/' + str(self.get_bin()) + 'ms'
-                plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
-                plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
-                plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
+                if not for_export:
+                    plot_pen.setJoinStyle(Qt.RoundJoin)
 
-                if for_export and export_path is not None:
-                    if not (os.path.exists(export_path) and os.path.isdir(export_path)):
-                        raise AssertionError("Provided path not valid")
-                    full_path = os.path.join(export_path, particle.name + ' trace.png')
-                    export_plot_item(plot_item=plot_item, path=full_path)
+                    plot_item.clear()
+                    plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
+                    plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
+                    plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
+                else:
+                    if self.temp_fig is None:
+                        self.temp_fig = plt.figure()
+                        self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
+                    else:
+                        self.temp_fig.clf()
+                    gs = self.temp_fig.add_gridspec(nrows=1, ncols=7, wspace=0, left=0.07,
+                                                    right=0.98)
+                    int_ax = self.temp_fig.add_subplot(gs[0, :-1])
+                    hist_ax = self.temp_fig.add_subplot(gs[0, -1])
+                    self.temp_ax = {'int_ax': int_ax, 'hist_ax': hist_ax}
+                    hist_ax.tick_params(direction='in', labelleft=False, labelbottom=False)
+                    hist_ax.spines['top'].set_visible(False)
+                    hist_ax.spines['right'].set_visible(False)
+                    int_ax.plot(times, trace)
+                    int_ax.set(xlabel='time (s)',
+                               ylabel=f'intensity {unit}',
+                               xlim=[0, times[-1]],
+                               ylim=[0, max(trace)])
+                    int_ax.spines['top'].set_visible(False)
+                    self.temp_fig.suptitle(f"{particle.name} Intensity Trace")
+                    self.plot_hist(particle=particle,
+                                   for_export=for_export,
+                                   export_path=export_path,
+                                   for_levels=False)
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
     def plot_levels(self, particle: Particle = None,
                     for_export: bool = False,
                     export_path: str = None,
-                    lock: Lock = None):
+                    lock: bool = False):
         """ Used to plot the resolved intensity levels of the current particle. """
-        if type(export_path) is Lock:
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
         if particle is None:
@@ -442,42 +450,39 @@ class IntController(QObject):
             level_ints = level_ints * self.get_bin() / 1E3
         except AttributeError:
             logger.error('No levels!')
-        # else:
-        plot_pen = QPen()
 
-        if for_export:
-            cur_tab_name = 'tabIntensity'
-        else:
+        if not for_export:
+            plot_pen = QPen()
             cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+            if cur_tab_name == 'tabIntensity':
+                plot_item = self.int_plot
+                # pen_width = 1.5
+                plot_pen.setWidthF(1.5)
+                plot_pen.setColor(QColor('black'))
+            elif cur_tab_name == 'tabLifetime':
+                plot_item = self.lifetime_plot
+                # pen_width = 1.1
+                plot_pen.setWidthF(1.1)
+                plot_pen.setColor(QColor('black'))
+            elif cur_tab_name == 'tabGrouping':
+                plot_item = self.groups_int_plot
+                plot_pen.setWidthF(1)
+                plot_pen.setColor(QColor(0, 0, 0, 100))
+            else:
+                return
 
-        if cur_tab_name == 'tabIntensity':
-            plot_item = self.int_plot
-            # pen_width = 1.5
-            plot_pen.setWidthF(1.5)
-            plot_pen.setColor(QColor('black'))
-        elif cur_tab_name == 'tabLifetime':
-            plot_item = self.lifetime_plot
-            # pen_width = 1.1
-            plot_pen.setWidthF(1.1)
-            plot_pen.setColor(QColor('black'))
-        elif cur_tab_name == 'tabGrouping':
-            plot_item = self.groups_int_plot
-            plot_pen.setWidthF(1)
-            plot_pen.setColor(QColor(0, 0, 0, 100))
+            # plot_pen.brush()
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setCosmetic(True)
+
+            plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
         else:
-            return
-
-        # plot_pen.brush()
-        plot_pen.setJoinStyle(Qt.RoundJoin)
-        plot_pen.setCosmetic(True)
-
-        plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
-
-        if for_export and export_path is not None:
-            if not (os.path.exists(export_path) and os.path.isdir(export_path)):
-                raise AssertionError("Provided path not valid")
-            full_path = os.path.join(export_path, particle.name + ' trace (levels).png')
-            export_plot_item(plot_item=plot_item, path=full_path)
+            self.temp_ax['int_ax'].plot(times, level_ints, linewidth=0.7)
+            self.temp_fig.suptitle(f"{particle.name} Intensity Trace with Levels")
+            self.plot_hist(particle=particle,
+                           for_export=True,
+                           export_path=export_path,
+                           for_levels=True)
 
         if not for_export and (cur_tab_name == 'tabLifetime' or cur_tab_name == 'tabIntensity'):
             current_level = particle.level_selected
@@ -499,11 +504,13 @@ class IntController(QObject):
                 else:
                     logger.info('Infinity in level')
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
     def plot_hist(self, particle: Particle = None,
                   for_export: bool = False,
-                  lock: Lock = None):
+                  export_path: str = None,
+                  for_levels: bool = False,
+                  for_groups: bool = False):
         if particle is None:
             particle = self.mainwindow.current_particle
         try:
@@ -529,35 +536,90 @@ class IntController(QObject):
             else:
                 return
 
-            plot_item.clear()
+            if not for_export:
+                plot_item.clear()
 
-            bin_edges = np.histogram_bin_edges(np.negative(int_data), bins='auto')
-            freq, hist_bins = np.histogram(np.negative(int_data), bins=bin_edges, density=True)
-            freq /= np.max(freq)
-            int_hist = pg.PlotCurveItem(x=hist_bins, y=freq, pen=plot_pen,
-                                        stepMode=True, fillLevel=0, brush=(0, 0, 0, 50))
-            int_hist.rotate(-90)
-            plot_item.addItem(int_hist)
+                bin_edges = np.histogram_bin_edges(np.negative(int_data), bins=100)
+                freq, hist_bins = np.histogram(np.negative(int_data), bins=bin_edges, density=True)
+                freq /= np.max(freq)
+                int_hist = pg.PlotCurveItem(x=hist_bins, y=freq, pen=plot_pen,
+                                            stepMode=True, fillLevel=0, brush=(0, 0, 0, 50))
+                int_hist.rotate(-90)
+                plot_item.addItem(int_hist)
+            elif not (for_levels or for_groups):
+                hist_ax = self.temp_ax['hist_ax']
+                _, bins, _ = hist_ax.hist(int_data,
+                                          bins=50,
+                                          orientation='horizontal',
+                                          density=True,
+                                          edgecolor='k',
+                                          range=self.temp_ax['int_ax'].get_ylim(),
+                                          label='Trace')
+                self.temp_bins = bins
+                hist_ax.set_ylim(self.temp_ax['int_ax'].get_ylim())
 
-            if self.mainwindow.current_particle.has_levels:
-                level_ints = self.mainwindow.current_particle.level_ints
-
-                level_ints *= self.mainwindow.current_particle.bin_size / 1000
+            if particle.has_levels:
+                level_ints = particle.level_ints
+                level_ints *= particle.bin_size / 1000
                 dwell_times = [level.dwell_time_s for level in
-                               self.mainwindow.current_particle.levels]
-                level_freq, level_hist_bins = np.histogram(np.negative(level_ints), bins=bin_edges,
-                                                           weights=dwell_times, density=True)
-                level_freq /= np.max(level_freq)
-                level_hist = pg.PlotCurveItem(x=level_hist_bins, y=level_freq, stepMode=True,
-                                              pen=plot_pen, fillLevel=0, brush=(0, 0, 0, 255))
+                               particle.levels]
+                if not for_export:
+                    level_freq, level_hist_bins = np.histogram(np.negative(level_ints),
+                                                               bins=bin_edges,
+                                                               weights=dwell_times,
+                                                               density=True)
+                    level_freq /= np.max(level_freq)
+                    level_hist = pg.PlotCurveItem(x=level_hist_bins, y=level_freq, stepMode=True,
+                                                  pen=plot_pen, fillLevel=0, brush=(0, 0, 0, 255))
 
-                level_hist.rotate(-90)
-                plot_item.addItem(level_hist)
-        if lock:
-            lock.release()
+                    level_hist.rotate(-90)
+                    plot_item.addItem(level_hist)
+                elif for_levels and particle.has_levels:
+                    hist_ax = self.temp_ax['hist_ax']
+                    hist_ax.hist(level_ints,
+                                 bins=50,
+                                 weights=dwell_times,
+                                 orientation='horizontal',
+                                 density=True,
+                                 # rwidth=0.5,
+                                 edgecolor='k',
+                                 linewidth=0.5,
+                                 alpha=0.4,
+                                 range=self.temp_ax['int_ax'].get_ylim(),
+                                 label='Resolved')
+                elif for_groups and particle.has_groups:
+                    group_ints = np.array(particle.groups_ints)
+                    group_ints *= particle.bin_size / 1000
+                    group_dwell_times = [group.dwell_time_s for group in particle.groups]
+                    hist_ax = self.temp_ax['hist_ax']
+                    hist_ax.hist(group_ints,
+                                 bins=50,
+                                 weights=group_dwell_times,
+                                 orientation='horizontal',
+                                 density=True,
+                                 # rwidth=0.3,
+                                 # color='k',
+                                 fill=False,
+                                 hatch='///',
+                                 edgecolor='k',
+                                 linewidth=0.5,
+                                 # alpha=0.4,
+                                 range=self.temp_ax['int_ax'].get_ylim(),
+                                 label='Grouped')
 
-    # def export_particle_plot(self, particle:Particle, width:int = 800):
-    #     plt =
+        if for_export and export_path is not None:
+            if not (os.path.exists(export_path) and os.path.isdir(export_path)):
+                raise AssertionError("Provided path not valid")
+            if not (for_levels or for_groups):
+                full_path = os.path.join(export_path, particle.name + ' trace.png')
+            elif for_levels:
+                full_path = os.path.join(export_path, particle.name + ' trace (levels).png')
+            else:
+                full_path = os.path.join(export_path,
+                                         particle.name + ' trace (levels and groups).png')
+            hist_ax.legend(prop={'size': 6}, frameon=False)
+            self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+            sleep(1)
 
     def update_level_info(self, particle: Particle = None):
         if particle is None:
@@ -595,8 +657,8 @@ class IntController(QObject):
     def plot_group_bounds(self, particle: Particle = None,
                           for_export: bool = False,
                           export_path: str = None,
-                          lock: Lock = None):
-        if type(export_path) is Lock:
+                          lock: bool = False):
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
         if particle is None:
@@ -635,33 +697,52 @@ class IntController(QObject):
 
             int_conv = particle.bin_size / 1000
 
+            if for_export:
+                int_ax = self.temp_ax['int_ax']
             for i, bound in enumerate(group_bounds):
                 if i % 2:
                     bound = (bound[0] * int_conv, bound[1] * int_conv)
-                    int_plot.addItem(
-                        pg.LinearRegionItem(values=bound, orientation='horizontal', movable=False,
-                                            pen=QPen().setWidthF(0)))
+                    if not for_export:
+                        int_plot.addItem(
+                            pg.LinearRegionItem(values=bound,
+                                                orientation='horizontal',
+                                                movable=False,
+                                                pen=QPen().setWidthF(0)))
+                    else:
+                        ymin, ymax = bound
+                        int_ax.axhspan(ymin=ymin, ymax=ymax, color='k', alpha=0.15, linestyle='')
 
-            line_pen = QPen()
-            line_pen.setWidthF(1)
-            line_pen.setStyle(Qt.DashLine)
-            line_pen.brush()
-            # plot_pen.setJoinStyle(Qt.RoundJoin)
-            line_pen.setColor(QColor(0, 0, 0, 150))
-            line_pen.setCosmetic(True)
-            line_times = [0, particle.dwell_time]
+            if not for_export:
+                line_pen = QPen()
+                line_pen.setWidthF(1)
+                line_pen.setStyle(Qt.DashLine)
+                line_pen.brush()
+                # plot_pen.setJoinStyle(Qt.RoundJoin)
+                line_pen.setColor(QColor(0, 0, 0, 150))
+                line_pen.setCosmetic(True)
+                line_times = [0, particle.dwell_time]
             for group in groups:
-                g_ints = [group.int_p_s * int_conv, group.int_p_s * int_conv]
-                int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
+                g_int = group.int_p_s * int_conv
+                if not for_export:
+                    g_ints = [g_int] * 2
+                    int_plot.plot(x=line_times, y=g_ints, pen=line_pen, symbol=None)
+                else:
+                    int_ax.axhline(g_int, linestyle='--', linewidth=0.5, color='k')
 
             if for_export and export_path is not None:
                 if not (os.path.exists(export_path) and os.path.isdir(export_path)):
                     raise AssertionError("Provided path not valid")
                 full_path = os.path.join(export_path,
                                          particle.name + ' trace (levels and groups).png')
-                export_plot_item(plot_item=int_plot, path=full_path)
+                self.temp_fig.suptitle(f"{particle.name} Intensity Trace with Levels and Groups")
+                self.plot_hist(particle=particle,
+                               for_export=for_export,
+                               export_path=export_path,
+                               for_groups=True)
+                # self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+                # export_plot_item(plot_item=int_plot, path=full_path)
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
     def plot_all(self):
         self.plot_trace()
@@ -860,6 +941,9 @@ class LifetimeController(QObject):
         self.first = 0
         self.startpoint = None
         self.tmin = 0
+
+        self.temp_fig = None
+        self.temp_ax = None
 
     def setup_plot(self, plot: pg.PlotItem, is_residuals: bool = False):
         # Set axis label bold and size
@@ -1077,7 +1161,10 @@ class LifetimeController(QObject):
         if not histogram.fitted:
             self.mainwindow.textBrowser.setText('')
             return
-        info = fit_name + f"\n{len(fit_name) * '*'}\n"
+
+        info = ''
+        if not for_export:
+            info = fit_name + f"\n{len(fit_name) * '*'}\n"
 
         tau = histogram.tau
         amp = histogram.amp
@@ -1089,9 +1176,12 @@ class LifetimeController(QObject):
             info = info + '\nAmp = {:#.3g}'.format(amp)
 
         info = info + f'\n\nShift = {histogram.shift: .3g} ns'
-        info = info + f'\nDecay BG = {histogram.bg: .3g}'
-        info = info + f'\nIRF BG = {histogram.irfbg: .3g}'
-        info = info + f'\nChi-Sq = {histogram.chisq: .3g}\n(0.8 <- 1 -> 1.3)'
+        if not for_export:
+            info = info + f'\nDecay BG = {histogram.bg: .3g}'
+            info = info + f'\nIRF BG = {histogram.irfbg: .3g}'
+        info = info + f'\nChi-Sq = {histogram.chisq: .3g}'
+        if not for_export:
+            info = info + f'\n(0.8 <- 1 -> 1.3)'
 
         if is_group:
             group = particle.groups[group_ind]
@@ -1114,7 +1204,7 @@ class LifetimeController(QObject):
     def plot_decay_and_convd(self, particle: Particle,
                              export_path: str,
                              has_groups: bool,
-                             lock: Lock = None):
+                             lock: bool = False):
         for i in range(particle.num_levels):
             self.plot_decay(select_ind=i,
                             particle=particle,
@@ -1140,17 +1230,56 @@ class LifetimeController(QObject):
                                 for_export=True,
                                 export_path=export_path)
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
+
+    def plot_decay_convd_and_hist(self, particle: Particle,
+                                  export_path: str,
+                                  has_groups: bool,
+                                  lock: bool = False):
+        for i in range(particle.num_levels):
+            self.plot_decay(select_ind=i,
+                            particle=particle,
+                            remove_empty=False,
+                            for_export=True,
+                            export_path=None)
+            self.plot_convd(select_ind=i,
+                            particle=particle,
+                            remove_empty=False,
+                            for_export=True,
+                            export_path=None)
+            self.plot_residuals(select_ind=i,
+                                particle=particle,
+                                for_export=True,
+                                export_path=export_path)
+        if has_groups:
+            for i in range(particle.num_groups):
+                i_g = i + particle.num_levels
+                self.plot_decay(select_ind=i_g,
+                                particle=particle,
+                                remove_empty=False,
+                                for_export=True,
+                                export_path=None)
+                self.plot_convd(select_ind=i_g,
+                                particle=particle,
+                                remove_empty=False,
+                                for_export=True,
+                                export_path=None)
+                self.plot_residuals(select_ind=i_g,
+                                    particle=particle,
+                                    for_export=True,
+                                    export_path=export_path)
+        if lock:
+            self.mainwindow.lock.release()
 
     def plot_decay(self, select_ind: int = None,
                    particle: Particle = None,
                    remove_empty: bool = False,
                    for_export: bool = False,
                    export_path: str = None,
-                   lock: Lock = None) -> None:
+                   lock: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        if type(export_path) is Lock:
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
         if select_ind is None:
@@ -1204,12 +1333,6 @@ class LifetimeController(QObject):
 
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabLifetime' or for_export:
-            life_hist_plot = self.life_hist_plot
-            plot_pen = QPen()
-            plot_pen.setWidthF(2)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setColor(QColor('blue'))
-            plot_pen.setCosmetic(True)
 
             if remove_empty:
                 self.first = (decay > 4).argmax(axis=0)
@@ -1217,53 +1340,97 @@ class LifetimeController(QObject):
                 decay = decay[self.first:-1]
             else:
                 self.first = 0
-
-            # try:
-            #     decay = decay / decay.max()
-            # except ValueError:  # Empty decay
-            #     return
-            # print(decay.max())
-            life_hist_plot.clear()
-            try:
-                life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
-            except Exception as e:
-                logger.error(e)
-                shortest = min([len(t), len(decay)])
-                t = t[:shortest]
-                decay = decay[:shortest]
-                life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
-
             unit = f'ns with {particle.channelwidth: .3g} ns bins'
-            life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
             max_t = self.mainwindow.current_particle.histogram.t[-1]
-            life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
-            life_hist_plot.getViewBox().setRange(xRange=[0, max_t])
+
             if not for_export:
+                life_hist_plot = self.life_hist_plot
+                life_hist_plot.clear()
+                plot_pen = QPen()
+                plot_pen.setWidthF(2)
+                plot_pen.setJoinStyle(Qt.RoundJoin)
+                plot_pen.setColor(QColor('blue'))
+                plot_pen.setCosmetic(True)
+                try:
+                    life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+                except Exception as e:
+                    logger.error(e)
+                    shortest = min([len(t), len(decay)])
+                    t = t[:shortest]
+                    decay = decay[:shortest]
+                    life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+
+                life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
+                life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
+                life_hist_plot.getViewBox().setRange(xRange=[0, max_t])
                 self.fitparamdialog.updateplot()
+            else:
+                if self.temp_fig is None:
+                    self.temp_fig = plt.figure()
+                else:
+                    self.temp_fig.clf()
+                if self.mainwindow.rdbAnd_Residuals.isChecked():
+                    self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, 1.5 * EXPORT_MPL_HEIGHT)
+                    gs = self.temp_fig.add_gridspec(5, 1, hspace=0, left=0.1, right=0.95)
+                    decay_ax = self.temp_fig.add_subplot(gs[0:-1, 0])
+                    decay_ax.tick_params(direction='in', labelbottom=False)
+                    residual_ax = self.temp_fig.add_subplot(gs[-1, 0])
+                    residual_ax.spines['right'].set_visible(False)
+                    self.temp_ax = {'decay_ax': decay_ax, 'residual_ax': residual_ax}
+                else:
+                    self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
+                    gs = self.temp_fig.add_gridspec(1, 1, left=0.05, right=0.95)
+                    decay_ax = self.temp_fig.add_subplot(gs[0, 0])
+                    self.temp_ax = {'decay_ax': decay_ax}
+
+                decay_ax.spines['top'].set_visible(False)
+                decay_ax.spines['right'].set_visible(False)
+                try:
+                    decay_ax.semilogy(t, decay)
+                except Exception as e:
+                    shortest = min([len(t), len(decay)])
+                    t = t[:shortest]
+                    decay = decay[:shortest]
+                    decay_ax.semilogy(t, decay)
+
+                min_pos_decay = decay[np.where(decay > 0, decay, np.inf).argmin()]
+                max_decay = max(decay)
+                if min_pos_decay == max(decay):
+                    max_decay = min_pos_decay * 2
+                decay_ax.set(xlabel=f'decay time ({unit})',
+                             ylabel='counts',
+                             xlim=[t[0], max_t],
+                             ylim=[min_pos_decay, max_decay])
 
             if for_export and export_path is not None:
                 if not (os.path.exists(export_path) and os.path.isdir(export_path)):
                     raise AssertionError("Provided path not valid")
                 if select_ind is None:
                     type_str = ' hist (whole trace).png'
+                    title_str = f"{particle.name} Decay Trace"
                 elif group_ind is None:
                     type_str = f' hist (level {select_ind + 1}).png'
+                    title_str = f"{particle.name}, Level {select_ind + 1} Decay Trace"
                 else:
                     type_str = f' hist (group {group_ind + 1}).png'
+                    title_str = f"{particle.name}, Group {group_ind + 1} Decay Trace"
+                self.temp_fig.suptitle(title_str)
                 full_path = os.path.join(export_path, particle.name + type_str)
-                export_plot_item(plot_item=life_hist_plot, path=full_path)
+                self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+                sleep(1)
+                # export_plot_item(plot_item=life_hist_plot, path=full_path)
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
     def plot_convd(self, select_ind: int = None,
                    particle: Particle = None,
                    remove_empty: bool = False,
                    for_export: bool = False,
                    export_path: str = None,
-                   lock: Lock = None) -> None:
+                   lock: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        if type(export_path) is Lock:
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
         if select_ind is None:
@@ -1303,51 +1470,59 @@ class LifetimeController(QObject):
 
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabLifetime' or for_export:
-            # plot_item = self.pgLifetime.getPlotItem()
-            plot_pen = QPen()
-            plot_pen.setWidthF(1)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setColor(QColor('red'))
-            plot_pen.setCosmetic(True)
+            if not for_export:
+                plot_pen = QPen()
+                plot_pen.setWidthF(1)
+                plot_pen.setJoinStyle(Qt.RoundJoin)
+                plot_pen.setColor(QColor('red'))
+                plot_pen.setCosmetic(True)
 
-            # if remove_empty:
-            #     first = (decay > 4).argmax(axis=0)
-            #     t = t[first:-1] - t[first]
-            #     decay = decay[first:-1]
-            # convd = convd[self.first:-1]
-
-            self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
-            unit = f'ns with {particle.channelwidth: .3g} ns bins'
-            self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
-            self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
-            self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+                self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
+                unit = f'ns with {particle.channelwidth: .3g} ns bins'
+                self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
+                self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
+                self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+            else:
+                decay_ax = self.temp_ax['decay_ax']
+                decay_ax.semilogy(t, convd)
+                _, max_y = decay_ax.get_ylim()
+                min_y = min(convd)
+                decay_ax.set_ylim(min_y, max_y)
 
             if for_export and export_path is not None:
-                plot_item = self.life_hist_plot
+                # plot_item = self.life_hist_plot
                 if select_ind is None:
-                    type_str = ' hist-fitted (whole trace).png'
+                    type_str = f'{particle.name} hist-fitted (whole trace).png'
+                    title_str = f'{particle.name} Decay Trace and Fit'
                 elif group_ind is None:
-                    type_str = f' hist-fitted (level {select_ind + 1}).png'
+                    type_str = f'{particle.name} hist-fitted (level {select_ind + 1}).png'
+                    title_str = f'{particle.name}, Level {select_ind + 1} Decay Trace and Fit'
                 else:
-                    type_str = f' hist-fitted (group {group_ind + 1}).png'
-                full_path = os.path.join(export_path, particle.name + type_str)
+                    type_str = f'{particle.name} hist-fitted (group {group_ind + 1}).png'
+                    title_str = f'{particle.name}, Group {group_ind + 1} Decay Trace and Fit'
+                full_path = os.path.join(export_path, type_str)
                 text_select_ind = select_ind
                 if text_select_ind is None:
                     text_select_ind = -1
                 text_str = self.update_results(select_ind=text_select_ind, particle=particle,
                                                for_export=True, str_return=True)
-                export_plot_item(plot_item=plot_item, path=full_path, text=text_str)
+                decay_ax.text(0.8, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes)
+                self.temp_fig.suptitle(title_str)
+                self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+                sleep(1)
+
+                # export_plot_item(plot_item=plot_item, path=full_path, text=text_str)
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
     def plot_residuals(self, select_ind: int = None,
                        particle: Particle = None,
                        for_export: bool = False,
                        export_path: str = None,
-                       lock: Lock = None) -> None:
+                       lock: bool = False) -> None:
         """ Used to display the histogram of the decay data of the current particle. """
 
-        if type(export_path) is Lock:
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
         if select_ind is None:
@@ -1362,7 +1537,6 @@ class LifetimeController(QObject):
             try:
                 residuals = particle.histogram.residuals
                 t = particle.histogram.convd_t
-
             except AttributeError:
                 logger.error('No Decay!')
                 return
@@ -1380,37 +1554,55 @@ class LifetimeController(QObject):
             except ValueError:
                 return
 
-        if residuals is None or t is None:
-            self.residual_plot.clear()
-            return
-
-        # convd = convd / convd.max()
-
         cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
         if cur_tab_name == 'tabLifetime' or for_export:
 
-            self.residual_plot.clear()
-            scat_plot = pg.ScatterPlotItem(x=t, y=residuals, symbol='o', size=3, pen="#0000CC",
-                                           brush="#0000CC")
-            self.residual_plot.addItem(scat_plot)
             unit = f'ns with {particle.channelwidth: .3g} ns bins'
-            self.residual_plot.getAxis('bottom').setLabel('Decay time', unit)
-            self.residual_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
-            self.residual_plot.getViewBox().setYRange(min=residuals.min(),
-                                                      max=residuals.max(), padding=0)
-            self.residual_plot.getViewBox().setLimits(xMin=0, xMax=t[-1])
+            if not for_export:
+                if residuals is None or t is None:
+                    self.residual_plot.clear()
+                    return
+                self.residual_plot.clear()
+                scat_plot = pg.ScatterPlotItem(x=t, y=residuals, symbol='o', size=3, pen="#0000CC",
+                                               brush="#0000CC")
+                self.residual_plot.addItem(scat_plot)
+                self.residual_plot.getAxis('bottom').setLabel('Decay time', unit)
+                self.residual_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
+                self.residual_plot.getViewBox().setYRange(min=residuals.min(),
+                                                          max=residuals.max(), padding=0)
+                self.residual_plot.getViewBox().setLimits(xMin=0, xMax=t[-1])
+            else:
+                residual_ax = self.temp_ax['residual_ax']
+                residual_ax.scatter(t, residuals, s=1)
+                min_x, max_x = self.temp_ax['decay_ax'].get_xlim()
+                residual_ax.set(xlim=[min_x, max_x],
+                                xlabel=f'decay time ({unit})')
 
             if for_export and export_path is not None:
                 if select_ind is None:
                     type_str = ' residuals (whole trace).png'
+                    title_str = f'{particle.name} Decay Trace,Fit and Residuals'
                 elif group_ind is None:
-                    type_str = f' residuals (level {select_ind + 1}).png'
+                    type_str = f' residuals (level {select_ind + 1} with residuals).png'
+                    title_str = f'{particle.name},' \
+                                f' Level {select_ind + 1} Decay Trace, Fit and Residuals'
                 else:
-                    type_str = f' residuals (group {group_ind + 1}).png'
+                    type_str = f' residuals (group {group_ind + 1} with residuals).png'
+                    title_str = f'{particle.name}, Group {group_ind + 1}' \
+                                f' Decay Trace, Fit and Residuals'
+                text_select_ind = select_ind
+                if text_select_ind is None:
+                    text_select_ind = -1
+                text_str = self.update_results(select_ind=text_select_ind, particle=particle,
+                                               for_export=True, str_return=True)
+                decay_ax = self.temp_ax['decay_ax']
+                decay_ax.text(0.9, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes)
                 full_path = os.path.join(export_path, particle.name + type_str)
-                export_plot_item(plot_item=self.residual_plot, path=full_path)
+                self.temp_fig.suptitle(title_str)
+                self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+                sleep(1)
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
     def start_fitting_thread(self, mode: str = 'current') -> None:
         """
@@ -1560,14 +1752,14 @@ class LifetimeController(QObject):
     def set_tmin(self, tmin=0):
         self.tmin = tmin
 
-    def show_residuals_widget(self, show: bool = True, lock: Lock = None):
+    def show_residuals_widget(self, show: bool = True, lock: bool = None):
         if show:
             self.residual_widget.show()
         else:
             self.residual_widget.hide()
         self.mainwindow.chbShow_Residuals.setChecked(show)
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
     def error(self, e):
         logger.error(e)
@@ -1605,6 +1797,8 @@ class GroupingController(QObject):
         self.all_last_solutions = None
 
         self.temp_dir = None
+        self.temp_fig = None
+        self.temp_ax = None
 
     def clear_bic(self):
         self.bic_scatter_plot.clear()
@@ -1633,27 +1827,27 @@ class GroupingController(QObject):
     def plot_group_bic(self, particle: Particle = None,
                        for_export: bool = False,
                        export_path: str = None,
-                       lock: Lock = None):
+                       lock: bool = False):
 
-        if type(export_path) is Lock:
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
+
+        if particle is None:
+            particle = self.mainwindow.current_particle
+        if particle.ahca.best_step.single_level:
+            self.bic_plot_widget.getPlotItem().clear()
+            return
+        try:
+            grouping_bics = particle.grouping_bics.copy()
+            grouping_selected_ind = particle.grouping_selected_ind
+            best_grouping_ind = particle.best_grouping_ind
+            grouping_num_groups = particle.grouping_num_groups.copy()
+        except AttributeError:
+            logger.error('No groups!')
+
         cur_tab_name = 'tabGrouping'
-        if cur_tab_name == 'tabGrouping' or for_export:
-            if particle is None:
-                particle = self.mainwindow.current_particle
-            if particle.ahca.best_step.single_level:
-                self.bic_plot_widget.getPlotItem().clear()
-                return
-            try:
-                grouping_bics = particle.grouping_bics.copy()
-                grouping_selected_ind = particle.grouping_selected_ind
-                best_grouping_ind = particle.best_grouping_ind
-                grouping_num_groups = particle.grouping_num_groups.copy()
-
-            except AttributeError:
-                logger.error('No groups!')
-
+        if cur_tab_name == 'tabGrouping':  # or for_export:
             if self.all_bic_plots is None and self.all_last_solutions is None:
                 num_parts = self.mainwindow.tree2dataset().num_parts
                 self.all_bic_plots = [None] * num_parts
@@ -1691,17 +1885,87 @@ class GroupingController(QObject):
                 self.all_last_solutions[particle.dataset_ind] = best_solution
                 scat_plot_item.sigClicked.connect(self.solution_clicked)
 
-            self.bic_scatter_plot.clear()
-            # self.bic_plot_widget.getPlotItem().clear()
-            self.bic_scatter_plot.addItem(scat_plot_item)
+            if not for_export:
+                self.bic_scatter_plot.clear()
+                # self.bic_plot_widget.getPlotItem().clear()
+                self.bic_scatter_plot.addItem(scat_plot_item)
+            else:
+                # grouping_bics = particle.grouping_bics.copy()
+                # grouping_selected_ind = particle.grouping_selected_ind
+                # best_grouping_ind = particle.best_grouping_ind
+                # grouping_num_groups = particle.grouping_num_groups.copy()
+                if self.temp_fig is None:
+                    self.temp_fig, self.temp_ax = plt.subplots()
+                else:
+                    # self.temp_fig.clear()
+                    self.temp_ax.cla()
+                self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
+                self.temp_ax.set(xlabel="Solution's Number of Groups",
+                                 ylabel='BIC')
+                # self.temp_ax.tick_params(labeltop=False, labelright=False)
+                self.temp_ax.spines['right'].set_visible(False)
+                self.temp_ax.spines['top'].set_visible(False)
+                self.temp_ax.tick_params(axis='x', top=False)
+                self.temp_ax.tick_params(axis='y', right=False)
+
+                norm_points = [[grouping_num_groups[i], bic] for i, bic in enumerate(grouping_bics)\
+                               if (i != best_grouping_ind or i != grouping_selected_ind)]
+                norm_points = np.array(norm_points)
+
+                marker_size = 70
+                marker_line_width = 2
+                norm_color = 'lightgrey'
+                norm_line_color = 'k'
+                best_color = 'lightgreen'
+                selected_line_color = 'r'
+
+                self.temp_ax.scatter(norm_points[:, 0], norm_points[:, 1],
+                                     s=marker_size,
+                                     color=norm_color,
+                                     linewidths=marker_line_width,
+                                     edgecolors=norm_line_color,
+                                     label='Solutions')
+
+                if grouping_selected_ind == best_grouping_ind:
+                    num_groups = grouping_num_groups[best_grouping_ind]
+                    bic_value = grouping_bics[best_grouping_ind]
+                    self.temp_ax.scatter(num_groups, bic_value,
+                                         s=marker_size,
+                                         color=best_color,
+                                         linewidths=marker_line_width,
+                                         edgecolors=selected_line_color,
+                                         label='Best Solution Selected')
+                else:
+                    selected_num_groups = grouping_num_groups[grouping_selected_ind]
+                    selected_bic_value = grouping_bics[grouping_selected_ind]
+                    self.temp_ax.scatter(selected_num_groups, selected_bic_value,
+                                         s=marker_size,
+                                         color=norm_color,
+                                         linewidths=marker_line_width,
+                                         edgecolors=selected_line_color,
+                                         label='Solution Selected')
+
+                    best_num_groups = grouping_num_groups[best_grouping_ind]
+                    best_bic_value = grouping_bics[best_grouping_ind]
+                    self.temp_ax.scatter(best_num_groups, best_bic_value,
+                                         s=marker_size,
+                                         color=best_color,
+                                         linewidths=marker_line_width,
+                                         edgecolors=norm_line_color,
+                                         label='Best Solution')
+
+                self.temp_ax.set_title(f'{particle.name} Grouping Steps')
+                self.temp_ax.legend(frameon=False, loc='lower right')
 
             if for_export and export_path is not None:
                 if not (os.path.exists(export_path) and os.path.isdir(export_path)):
                     raise AssertionError("Provided path not valid")
                 full_path = os.path.join(export_path, particle.name + ' BIC.png')
-                export_plot_item(plot_item=self.bic_scatter_plot, path=full_path)
+                self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+                sleep(1)
+                # export_plot_item(plot_item=self.bic_scatter_plot, path=full_path)
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
     def gui_group_current(self):
         self.start_grouping_thread(mode='current')
@@ -1851,6 +2115,9 @@ class SpectraController(QObject):
         self.spectra_image_view.view.getAxis('left').setLabel("Wavelength (nm)")
         self.spectra_image_view.view.getAxis('bottom').setLabel("Time (s)")
 
+        self.temp_fig = None
+        self.temp_ax = None
+
         # self.spectra_imv = self.spectra_widget
         # self.spectra_widget.view = pg.PlotItem()
 
@@ -1893,8 +2160,8 @@ class SpectraController(QObject):
     def plot_spectra(self, particle: Particle = None,
                      for_export: bool = False,
                      export_path: str = None,
-                     lock: Lock = None):
-        if type(export_path) is Lock:
+                     lock: bool = False):
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
         if particle is None:
@@ -1902,41 +2169,67 @@ class SpectraController(QObject):
         # spectra_data = np.flip(particle.spectra.data[:])
         spectra_data = particle.spectra.data[:]
         # spectra_data = spectra_data.transpose()
-        data_shape = spectra_data.shape
-        current_ratio = data_shape[1] / data_shape[0]
-        self.spectra_image_view.getView().setAspectLocked(False, current_ratio)
+        if not for_export:
+            data_shape = spectra_data.shape
+            current_ratio = data_shape[1] / data_shape[0]
+            self.spectra_image_view.getView().setAspectLocked(False, current_ratio)
 
-        self.spectra_image_view.setImage(spectra_data)
+            self.spectra_image_view.setImage(spectra_data)
 
-        wl = particle.spectra.wavelengths
-        y_ticks_wavelength = np.linspace(wl.max(), wl.min(), 15)
-        y_ticks_pixel = np.linspace(0, 512, 15)
-        y_ticks = [[(y_ticks_pixel[i], f"{y_ticks_wavelength[i]: .1f}") for i in range(15)]]
-        self.spectra_image_view.view.getAxis('left').setTicks(y_ticks)
+            wl = particle.spectra.wavelengths
+            y_ticks_wavelength = np.linspace(wl.max(), wl.min(), 15)
+            y_ticks_pixel = np.linspace(0, 512, 15)
+            y_ticks = [[(y_ticks_pixel[i], f"{y_ticks_wavelength[i]: .1f}") for i in range(15)]]
+            self.spectra_image_view.view.getAxis('left').setTicks(y_ticks)
 
-        t_series = particle.spectra.series_times
-        mod_selector = len(t_series) // 30 + 1
-        x_ticks_t = list()
-        for i in range(len(t_series)):
-            if not (mod_selector + i) % mod_selector:
-                x_ticks_t.append(t_series[i])
-        x_ticks_value = np.linspace(0, spectra_data.shape[0], len(x_ticks_t))
-        x_ticks = [[(x_ticks_value[i], f"{x_ticks_t[i]:.1f}") for i in range(len(x_ticks_t))]]
-        self.spectra_image_view.view.getAxis('bottom').setTicks(x_ticks)
+            t_series = particle.spectra.series_times
+            mod_selector = len(t_series) // 30 + 1
+            x_ticks_t = list()
+            for i in range(len(t_series)):
+                if not (mod_selector + i) % mod_selector:
+                    x_ticks_t.append(t_series[i])
+            x_ticks_value = np.linspace(0, spectra_data.shape[0], len(x_ticks_t))
+            x_ticks = [[(x_ticks_value[i], f"{x_ticks_t[i]:.1f}") for i in range(len(x_ticks_t))]]
+            self.spectra_image_view.view.getAxis('bottom').setTicks(x_ticks)
+        else:
+            if self.temp_fig is None:
+                self.temp_fig = plt.figure()
+                gs = self.temp_fig.add_gridspec(1, 1, left=0.1, right=0.99)
+                self.temp_ax = self.temp_fig.add_subplot(gs[0, 0])
+                self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
+            else:
+                self.temp_fig.clf()
+            spectra_data = np.flip(spectra_data, axis=1)
+            spectra_data = spectra_data.transpose()
+            avg_int = np.mean(spectra_data[1:5, :])
+            spectra_data -= avg_int
+            times = particle.spectra.series_times
+            wavelengths = np.flip(particle.spectra.wavelengths)
+            c = self.temp_ax.pcolormesh(times, wavelengths, spectra_data,
+                                        shading='auto',
+                                        cmap='inferno')
+            c_bar = self.temp_fig.colorbar(c, ax=self.temp_ax)
+            c_bar.set_label('Intensity (counts/s)')
+            self.temp_ax.set(xlabel='times (s)',
+                             ylabel='wavelength (nm)',
+                             title=f'{particle.name} Spectral Trace')
+
 
         # self.spectra_image_view.view.getAxis('left').setTicks([particle.spectra.wavelengths.tolist()])
 
         if for_export and export_path is not None:
             full_path = os.path.join(export_path, f"{particle.name} spectra.png")
-            ex = ImageExporter(self.spectra_image_view.getView())
-            ex.parameters()['width'] = EXPORT_WIDTH
-            ex.export(full_path)
+            self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+            sleep(1)
+            # ex = ImageExporter(self.spectra_image_view.getView())
+            # ex.parameters()['width'] = EXPORT_WIDTH
+            # ex.export(full_path)
 
         # print('here')
         # self.spectra_widget.getImageItem().setLookupTable(self._look_up_table)
 
         if lock:
-            lock.release()
+            self.mainwindow.lock.release()
 
 
 class MyCrosshairOverlay(pg.CrosshairROI):
@@ -1958,6 +2251,9 @@ class RasterScanController(QObject):
         self.list_text = list_text
         self._crosshair_item = None
         self._text_item = None
+
+        self.temp_fig = None
+        self.temp_ax = None
 
     @staticmethod
     def create_crosshair_item(pos: Tuple[int, int]) -> MyCrosshairOverlay:
@@ -1983,8 +2279,8 @@ class RasterScanController(QObject):
                          raster_scan: RasterScan = None,
                          for_export: bool = False,
                          export_path: str = None,
-                         lock: Lock = None):
-        if type(export_path) is Lock:
+                         lock: bool = False):
+        if type(export_path) is bool:
             lock = export_path
             export_path = None
         dataset = self.main_window.current_dataset
@@ -2001,54 +2297,98 @@ class RasterScanController(QObject):
         # current_ratio = data_shape[1]/data_shape[0]
         # self.raster_scan_image_view.getView().setAspectLocked(False, current_ratio)
 
-        self.raster_scan_image_view.setImage(raster_scan_data)
-
-        um_per_pixel = raster_scan.range / particle.raster_scan.pixel_per_line
-
         if for_export and export_path is not None:
-            if self._crosshair_item is not None:
-                self.raster_scan_image_view.getView().removeItem(self._crosshair_item)
-            if self._text_item is not None:
-                self.raster_scan_image_view.getView().removeItem(self._text_item)
-            all_crosshair_items = list()
-            all_text_items = list()
-            for part_index in raster_scan.particle_indexes:
-                this_particle = dataset.particles[part_index]
-                raw_coords = this_particle.raster_scan_coordinates
-                coords = (raw_coords[0] - raster_scan.x_start) / um_per_pixel, \
-                         (raw_coords[1] - raster_scan.y_start) / um_per_pixel
-                crosshair_item = self.create_crosshair_item(pos=coords)
-                all_crosshair_items.append(crosshair_item)
-                text_item = self.create_text_item(text=str(this_particle.dataset_ind + 1),
-                                                  pos=coords)
-                all_text_items.append(text_item)
-                self.raster_scan_image_view.getView().addItem(crosshair_item)
-                self.raster_scan_image_view.getView().addItem(text_item)
+            if self.temp_fig is None:
+                self.temp_fig = plt.figure()
+            else:
+                self.temp_fig.clear()
+                # self.temp_ax.clear()
+            self.temp_fig.set_size_inches(8, 8)
+            gs = self.temp_fig.add_gridspec(1, 1, left=0.1, right=0.97, bottom=0.05, top=0.97)
+            self.temp_ax = self.temp_fig.add_subplot(gs[0, 0])
 
-                # for text_item in all_text_items:
-                #     text_item.setScale(0.1)
+            left = raster_scan.x_start
+            right = left + raster_scan.range
+            bottom = raster_scan.y_start
+            top = bottom + raster_scan.range
+            raster_scan_data = np.flip(raster_scan_data, axis=1)
+            raster_scan_data = raster_scan_data.transpose()
+            c = self.temp_ax.imshow(raster_scan_data,
+                                    cmap='inferno',
+                                    aspect='equal',
+                                    extent=(left, right, bottom, top))
+            if len(raster_scan.particle_indexes) > 1:
+                first_part = raster_scan.particle_indexes[0] + 1
+                last_part = raster_scan.particle_indexes[-1] + 1
+                title = f"Raster Scan for Particles {first_part}-{last_part}"
+            else:
+                title = f"Raster Scan for Particle {raster_scan.particle_indexes[0] + 1}"
+            self.temp_ax.set(xlabel='x axis (um)',
+                             ylabel='y axis (um)',
+                             title=title)
+            c_bar = self.temp_fig.colorbar(c, ax=self.temp_ax)
+            c_bar.set_label('intensity (counts/s)')
+            hw = 0.25
+            for ind in raster_scan.particle_indexes:
+                part_pos = dataset.particles[ind].raster_scan_coordinates
+                h_line = ([part_pos[0]-hw, part_pos[0]+hw], [part_pos[1], part_pos[1]])
+                v_line = ([part_pos[0], part_pos[0]], [part_pos[1]-hw, part_pos[1]+hw])
+                self.temp_ax.plot(*h_line, linewidth=3, color='lightgreen')
+                self.temp_ax.plot(*v_line, linewidth=3, color='lightgreen')
+                self.temp_ax.text(part_pos[0]-hw, part_pos[1]-hw, str(ind+1),
+                                  fontsize=14,
+                                  color='lightgreen',
+                                  fontweight='heavy')
+            full_path = os.path.join(export_path, title + '.png')
+            self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
 
-            self.raster_scan_image_view.autoRange()
-            self.raster_scan_image_view.autoLevels()
-            # self.raster_scan_image_view.getView()
-            sleep(1)
-            full_path = os.path.join(export_path,
-                                     f"Raster Scan {raster_scan.dataset_index + 1}.png")
-            ex = ImageExporter(self.raster_scan_image_view.getView())
-            ex.parameters()['width'] = EXPORT_WIDTH
-            image = ex.export(toBytes=True)
-            image.save(full_path)
-
-            for crosshair_item in all_crosshair_items:
-                self.raster_scan_image_view.getView().removeItem(crosshair_item)
-            for text_item in all_text_items:
-                self.raster_scan_image_view.getView().removeItem(text_item)
-            if self._crosshair_item is not None:
-                self.raster_scan_image_view.getView().addItem(self._crosshair_item)
-            if self._text_item is not None:
-                self.raster_scan_image_view.getView().addItem(self._text_item)
+            # if self._crosshair_item is not None:
+            #     self.raster_scan_image_view.getView().removeItem(self._crosshair_item)
+            # if self._text_item is not None:
+            #     self.raster_scan_image_view.getView().removeItem(self._text_item)
+            # all_crosshair_items = list()
+            # all_text_items = list()
+            # for part_index in raster_scan.particle_indexes:
+            #     this_particle = dataset.particles[part_index]
+            #     raw_coords = this_particle.raster_scan_coordinates
+            #     coords = (raw_coords[0] - raster_scan.x_start) / um_per_pixel, \
+            #              (raw_coords[1] - raster_scan.y_start) / um_per_pixel
+            #     crosshair_item = self.create_crosshair_item(pos=coords)
+            #     all_crosshair_items.append(crosshair_item)
+            #     text_item = self.create_text_item(text=str(this_particle.dataset_ind + 1),
+            #                                       pos=coords)
+            #     all_text_items.append(text_item)
+            #     self.raster_scan_image_view.getView().addItem(crosshair_item)
+            #     self.raster_scan_image_view.getView().addItem(text_item)
+            #
+            #     # for text_item in all_text_items:
+            #     #     text_item.setScale(0.1)
+            #
+            # self.raster_scan_image_view.autoRange()
+            # self.raster_scan_image_view.autoLevels()
+            # # self.raster_scan_image_view.getView()
+            # sleep(1)
+            # full_path = os.path.join(export_path,
+            #                          f"Raster Scan {raster_scan.dataset_index + 1}.png")
+            # ex = ImageExporter(self.raster_scan_image_view.getView())
+            # ex.parameters()['width'] = EXPORT_WIDTH
+            # image = ex.export(toBytes=True)
+            # image.save(full_path)
+            #
+            # for crosshair_item in all_crosshair_items:
+            #     self.raster_scan_image_view.getView().removeItem(crosshair_item)
+            # for text_item in all_text_items:
+            #     self.raster_scan_image_view.getView().removeItem(text_item)
+            # if self._crosshair_item is not None:
+            #     self.raster_scan_image_view.getView().addItem(self._crosshair_item)
+            # if self._text_item is not None:
+            #     self.raster_scan_image_view.getView().addItem(self._text_item)
 
         else:
+            self.raster_scan_image_view.setImage(raster_scan_data)
+
+            um_per_pixel = raster_scan.range / particle.raster_scan.pixel_per_line
+
             raw_coords = particle.raster_scan_coordinates
             coords = (raw_coords[0] - raster_scan.x_start) / um_per_pixel, \
                      (raw_coords[1] - raster_scan.y_start) / um_per_pixel
@@ -2091,9 +2431,9 @@ class RasterScanController(QObject):
                 all_text = all_text + f"x={rs_part_coord[num][0]: .1f}, " \
                                       f"y={rs_part_coord[num][1]: .1f}"
             self.list_text.setText(all_text)
-        if lock:
-            lock.release()
 
+        if lock:
+            self.main_window.lock.release()
 
 # def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
 #                    status_sig: pyqtSignal,

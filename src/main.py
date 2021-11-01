@@ -23,6 +23,7 @@ from PyQt5 import uic
 from typing import Union
 import time
 from multiprocessing import Process, freeze_support
+from threading import Lock
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController,\
     RasterScanController
@@ -234,6 +235,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.reset_gui()
         self.repaint()
+
+        self.lock = None
 
     """#######################################
     ######## GUI Housekeeping Methods ########
@@ -967,7 +970,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.frmPlot_Lifetime_Selection.setEnabled(new_value)
 
     def gui_export(self, mode: str = None):
-        export_worker = ExportWorker(mainwindow=self, mode=mode)
+        self.lock = Lock()
+        export_worker = ExportWorker(mainwindow=self, mode=mode, lock=self.lock)
         sigs = export_worker.signals
         sigs.start_progress.connect(self.start_progress)
         sigs.progress.connect(self.update_progress)
@@ -983,8 +987,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
         sigs.plot_grouping_bic_export_lock.connect(self.grouping_controller.plot_group_bic)
         sigs.plot_decay_lock.connect(self.lifetime_controller.plot_decay)
         sigs.plot_decay_export_lock.connect(self.lifetime_controller.plot_decay)
+        sigs.plot_convd_lock.connect(self.lifetime_controller.plot_convd)
         sigs.plot_convd_export_lock.connect(self.lifetime_controller.plot_convd)
         sigs.plot_decay_convd_export_lock.connect(self.lifetime_controller.plot_decay_and_convd)
+        sigs.plot_decay_convd_residuals_export_lock.connect(
+            self.lifetime_controller.plot_decay_convd_and_hist)
         sigs.show_residual_widget_lock.connect(self.lifetime_controller.show_residuals_widget)
         sigs.plot_residuals_export_lock.connect(self.lifetime_controller.plot_residuals)
         sigs.plot_spectra_export_lock.connect(self.spectra_controller.plot_spectra)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import os
 from typing import TYPE_CHECKING, List
+from time import sleep
 
 from PyQt5.QtWidgets import QFileDialog
 import numpy as np
@@ -12,7 +13,10 @@ from pyarrow import feather
 from my_logger import setup_logger
 from PyQt5.QtCore import QRunnable, pyqtSlot
 from signals import WorkerSignals
-from multiprocessing import Lock
+from threading import Lock
+# from multiprocessing import Lock
+import matplotlib
+matplotlib.use('Agg')
 
 if TYPE_CHECKING:
     from main import MainWindow
@@ -23,23 +27,32 @@ logger = setup_logger(__name__)
 
 
 class ExportWorker(QRunnable):
-    def __init__(self, mainwindow: MainWindow, mode: str = None):
+    def __init__(self, mainwindow: MainWindow,
+                 mode: str = None,
+                 lock: Lock = None):
         super(ExportWorker, self).__init__()
         self.main_window = mainwindow
         self.mode = mode
+        self.lock = lock
         self.signals = WorkerSignals()
 
     @pyqtSlot()
     def run(self) -> None:
         try:
-            export_data(mainwindow=self.main_window, mode=self.mode, signals=self.signals)
+            export_data(mainwindow=self.main_window,
+                        mode=self.mode,
+                        signals=self.signals,
+                        lock=self.lock)
         except Exception as err:
             self.signals.error.emit(err)
         finally:
             self.signals.fitting_finished.emit(self.mode)
 
 
-def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals = None):
+def export_data(mainwindow: MainWindow,
+                mode: str = None,
+                signals: WorkerSignals = None,
+                lock: Lock = None):
     assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
 
     if mode == 'current':
@@ -58,7 +71,8 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
         raster_scans_use = [part.raster_scan.dataset_index for part in particles]
         raster_scans_use = np.unique(raster_scans_use).tolist()
 
-    lock = Lock()
+    if not lock:
+        lock = Lock()
 
     ex_traces = mainwindow.chbEx_Trace.isChecked()
     ex_levels = mainwindow.chbEx_Levels.isChecked()
@@ -99,13 +113,13 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
     ex_df_grouped_levels_lifetimes = mainwindow.chbEx_DF_Grouped_Levels_Lifetimes.isChecked()
     ex_df_grouping_info = mainwindow.chbEx_DF_Grouping_Info.isChecked()
 
-    any_text_plot = any([ex_traces, ex_levels, ex_plot_intensities, ex_grouped_levels,
-                         ex_grouping_info, ex_grouping_results, ex_plot_grouping_bics,
-                         ex_lifetime, ex_hist, ex_plot_lifetimes, ex_plot_spectra,
-                         ex_plot_spectra])
+    any_particle_text_plot = any([ex_traces, ex_levels, ex_plot_intensities, ex_grouped_levels,
+                                  ex_grouping_info, ex_grouping_results, ex_plot_grouping_bics,
+                                  ex_lifetime, ex_hist, ex_plot_lifetimes, ex_plot_spectra,
+                                  ex_plot_spectra])
     if signals:
         prog_num = 0
-        if any_text_plot:
+        if any_particle_text_plot:
             prog_num = prog_num + len(particles)
         if ex_raster_scan_2d or ex_plot_raster_scans:
             prog_num = prog_num + len(raster_scans_use)
@@ -119,7 +133,7 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
         signals.start_progress.emit(prog_num)
         signals.status_message.emit(f"Exporting data for {mode} particles...")
 
-    any_text_plot = any([any_text_plot, ex_raster_scan_2d, ex_plot_raster_scans])
+    # any_particle_text_plot = any([any_particle_text_plot, ex_raster_scan_2d, ex_plot_raster_scans])
 
     def open_file(path: str):
         return open(path, 'w', newline='')
@@ -166,7 +180,7 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
             writer.writerows(rows)
 
     # Export data for levels
-    if any_text_plot:
+    if any_particle_text_plot:
         for num, p in enumerate(particles):
             if ex_traces:
                 tr_path = os.path.join(f_dir, p.name + ' trace.csv')
@@ -185,6 +199,8 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                 if signals:
                     signals.plot_trace_export_lock.emit(p, True, f_dir, lock)
                     lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
                 else:
                     mainwindow.int_controller.plot_trace(particle=p,
                                                          for_export=True,
@@ -221,8 +237,12 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                     if signals:
                         signals.plot_trace_lock.emit(p, True, lock)
                         lock.acquire()
+                        while lock.locked():
+                            sleep(0.1)
                         signals.plot_levels_export_lock.emit(p, True, f_dir, lock)
                         lock.acquire()
+                        while lock.locked():
+                            sleep(0.1)
                     else:
                         mainwindow.int_controller.plot_trace(particle=p, for_export=True)
                         mainwindow.int_controller.plot_levels(particle=p,
@@ -262,10 +282,16 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                     if signals:
                         signals.plot_trace_lock.emit(p, True, lock)
                         lock.acquire()
+                        while lock.locked():
+                            sleep(0.1)
                         signals.plot_levels_lock.emit(p, True, lock)
                         lock.acquire()
+                        while lock.locked():
+                            sleep(0.1)
                         signals.plot_group_bounds_export_lock.emit(p, True, f_dir, lock)
                         lock.acquire()
+                        while lock.locked():
+                            sleep(0.1)
                     else:
                         mainwindow.int_controller.plot_trace(particle=p, for_export=True)
                         mainwindow.int_controller.plot_levels(particle=p, for_export=True)
@@ -314,6 +340,8 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                 if signals:
                     signals.plot_grouping_bic_export_lock.emit(p, True, f_dir, lock)
                     lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
                 else:
                     mainwindow.grouping_controller.plot_group_bic(particle=p,
                                                                   for_export=True,
@@ -473,6 +501,8 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                 if signals:
                     signals.plot_decay_export_lock.emit(-1, p, False, True, f_dir, lock)
                     lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
                 else:
                     mainwindow.lifetime_controller.plot_decay(select_ind=-1, particle=p,
                                                               for_export=True,
@@ -487,6 +517,8 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                         if signals:
                             signals.plot_decay_export_lock.emit(i, p, False, True, dir_path, lock)
                             lock.acquire()
+                            while lock.locked():
+                                sleep(0.1)
                         else:
                             mainwindow.lifetime_controller.plot_decay(select_ind=i,
                                                                       particle=p,
@@ -499,18 +531,24 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                                 signals.plot_decay_export_lock.emit(i_g, p, False, True, dir_path,
                                                                     lock)
                                 lock.acquire()
+                                while lock.locked():
+                                    sleep(0.1)
                             else:
                                 mainwindow.lifetime_controller.plot_decay(select_ind=i_g,
                                                                           particle=p,
                                                                           for_export=True,
                                                                           export_path=dir_path)
 
-            if ex_plot_and_residuals or (ex_plot_lifetimes and ex_plot_with_fit):
+            if ex_plot_lifetimes and ex_plot_with_fit:
                 if signals:
                     signals.plot_decay_lock.emit(-1, p, False, True, lock)
                     lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
                     signals.plot_convd_export_lock.emit(-1, p, False, True, f_dir, lock)
                     lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
                 else:
                     mainwindow.lifetime_controller.plot_decay(select_ind=-1,
                                                               particle=p, for_export=True)
@@ -525,53 +563,38 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                 if p.has_levels:
                     signals.plot_decay_convd_export_lock.emit(p, dir_path, p.has_groups, lock)
                     lock.acquire()
+            while lock.locked():
+                sleep(0.1)
 
             if ex_plot_and_residuals:
-                was_showing = mainwindow.chbShow_Residuals.isChecked()
-                if not was_showing:
-                    if signals:
-                        signals.show_residual_widget_lock.emit(True, lock)
-                        lock.acquire()
-                    else:
-                        mainwindow.lifetime_controller.residual_widget.show()
                 if signals:
+                    signals.plot_decay_lock.emit(-1, p, False, True, lock)
+                    lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
+                    signals.plot_convd_lock.emit(-1, p, False, True, lock)
+                    lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
                     signals.plot_residuals_export_lock.emit(-1, p, True, f_dir, lock)
                     lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
                 else:
-                    mainwindow.lifetime_controller.plot_residuals(select_ind=-1, particle=p,
-                                                                  for_export=True,
-                                                                  export_path=f_dir)
+                    mainwindow.lifetime_controller.plot_decay(select_ind=-1,
+                                                              particle=p, for_export=True)
+                    mainwindow.lifetime_controller.plot_convd(select_ind=-1,
+                                                              particle=p, for_export=True,
+                                                              export_path=f_dir)
                 dir_path = os.path.join(f_dir, p.name + ' hists')
                 try:
                     os.mkdir(dir_path)
                 except FileExistsError:
                     pass
                 if p.has_levels:
-                    for i in range(p.num_levels):
-                        if signals:
-                            signals.plot_residuals_export_lock.emit(i, p, True, dir_path, lock)
-                            lock.acquire()
-                        else:
-                            mainwindow.lifetime_controller.plot_residuals(select_ind=i,
-                                                                          particle=p,
-                                                                          for_export=True,
-                                                                          export_path=dir_path)
-                    if p.has_groups:
-                        for i in range(p.num_groups):
-                            i_g = i + p.num_levels
-                            if signals:
-                                signals.plot_residuals_export_lock.emit(i_g, p, True, dir_path,
-                                                                        lock)
-                                lock.acquire()
-                            else:
-                                mainwindow.lifetime_controller.plot_residuals(select_ind=i_g,
-                                                                              particle=p,
-                                                                              for_export=True,
-                                                                              export_path=dir_path)
-                if not was_showing:
-                    if signals:
-                        signals.show_residual_widget.emit(False)
-                    mainwindow.lifetime_controller.residual_widget.hide()
+                    signals.plot_decay_convd_residuals_export_lock\
+                        .emit(p, dir_path, p.has_groups, lock)
+                    lock.acquire()
 
             if ex_spectra_2d:
                 spectra_2d_path = os.path.join(f_dir, p.name + ' spectra-2D.csv')
@@ -596,6 +619,8 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                 if signals:
                     signals.plot_spectra_export_lock.emit(p, True, f_dir, lock)
                     lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
                 else:
                     mainwindow.spectra_controller.plot_spectra(particle=p, for_export=True,
                                                                export_path=f_dir)
@@ -605,40 +630,45 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
                 signals.progress.emit()
             p.has_exported = True
 
-        if ex_raster_scan_2d:
-            dataset = mainwindow.current_dataset
-            for raster_scan_index in raster_scans_use:
-                raster_scan = dataset.all_raster_scans[raster_scan_index]
+        # if ex_raster_scan_2d:
+        #     dataset = mainwindow.current_dataset
+        #     for raster_scan_index in raster_scans_use:
+        #         raster_scan = dataset.all_raster_scans[raster_scan_index]
+        #         if signals:
+        #             signals.progress.emit()
+
+    if ex_raster_scan_2d or ex_plot_raster_scans:
+        dataset = mainwindow.current_dataset
+        for raster_scan_index in raster_scans_use:
+            raster_scan = dataset.all_raster_scans[raster_scan_index]
+            rs_part_ind = raster_scan.particle_indexes[0]
+            p = dataset.particles[rs_part_ind]
+            if ex_raster_scan_2d:
+                raster_scan_2d_path = \
+                    os.path.join(f_dir, f"Raster Scan {raster_scan.dataset_index + 1} data.csv")
+                top_row = [np.NaN, *raster_scan.x_axis_pos]
+                y_and_data = np.column_stack((raster_scan.y_axis_pos, raster_scan.dataset[:]))
+                x_y_data = np.insert(y_and_data, 0, top_row, axis=0)
+                with open_file(raster_scan_2d_path) as f:
+                    f.write('Rows = X-Axis (um)')
+                    f.write('Columns = Y-Axis (um)')
+                    f.write('')
+                    writer = csv.writer(f, dialect=csv.excel)
+                    writer.writerows(x_y_data)
+
+            if ex_plot_raster_scans:
                 if signals:
-                    signals.progress.emit()
+                    # with lock:
+                    signals.plot_raster_scan_export_lock.emit(p, raster_scan, True, f_dir, True)
+                    lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
+                mainwindow.raster_scan_controller.plot_raster_scan(
+                    raster_scan=raster_scan, for_export=True,
+                    export_path=f_dir)
 
-        if ex_raster_scan_2d or ex_plot_raster_scans:
-            dataset = mainwindow.current_dataset
-            for raster_scan_index in raster_scans_use:
-                raster_scan = dataset.all_raster_scans[raster_scan_index]
-                if ex_raster_scan_2d:
-                    raster_scan_2d_path = \
-                        os.path.join(f_dir, f"Raster Scan {raster_scan.dataset_index + 1} data.csv")
-                    top_row = [np.NaN, *raster_scan.x_axis_pos]
-                    y_and_data = np.column_stack((raster_scan.y_axis_pos, raster_scan.dataset[:]))
-                    x_y_data = np.insert(y_and_data, 0, top_row, axis=0)
-                    with open_file(raster_scan_2d_path) as f:
-                        f.write('Rows = X-Axis (um)')
-                        f.write('Columns = Y-Axis (um)')
-                        f.write('')
-                        writer = csv.writer(f, dialect=csv.excel)
-                        writer.writerows(x_y_data)
-
-                if ex_plot_raster_scans:
-                    if signals:
-                        signals.plot_raster_scan_export_lock.emit(p, raster_scan, True, f_dir, lock)
-                        lock.acquire()
-                    mainwindow.raster_scan_controller.plot_raster_scan(
-                        raster_scan=raster_scan, for_export=True,
-                        export_path=f_dir)
-
-                if signals:
-                    signals.progress.emit()
+            if signals:
+                signals.progress.emit()
 
     ## DataFrame compilation and writing to Feather files
     if any([ex_df_levels, ex_df_grouped_levels, ex_df_grouping_info]):
@@ -711,7 +741,6 @@ def export_data(mainwindow: MainWindow, mode: str = None, signals: WorkerSignals
             feather.write_feather(df=df_grouping_info, dest=grouping_info_df_path)
             if signals:
                 signals.progress.emit()
-
 
     if signals:
         signals.end_progress.emit()
