@@ -835,7 +835,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         irf = colorshift(irf, shift)
         convd = scipy.signal.convolve(irf, model)
         convd = convd[:np.size(irf)]
-        convd = convd / convd.max()
+        convd = convd / convd.sum()
 
         try:
             if self.mainwindow.current_particle.level_selected is None:
@@ -848,7 +848,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     group = level - self.mainwindow.current_particle.num_levels
                     histogram = self.mainwindow.current_particle.groups[group].histogram
             decay = histogram.decay
-            decay = decay / decay.max()
+            decay = decay / decay.sum()
             t = histogram.t
 
             # decay, t = start_at_value(decay, t)
@@ -870,7 +870,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             plot_pen.setCosmetic(True)
 
             plot_item.clear()
-            plot_item.plot(x=t, y=np.clip(decay, a_min=0.001, a_max=None), pen=plot_pen,
+            plot_item.plot(x=t, y=np.clip(decay, a_min=0.000001, a_max=None), pen=plot_pen,
                            symbol=None)
 
             plot_pen = QPen()
@@ -878,7 +878,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             plot_pen.setJoinStyle(Qt.RoundJoin)
             plot_pen.setCosmetic(True)
             plot_pen.setColor(QColor('dark blue'))
-            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.001, a_max=None), pen=plot_pen,
+            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.000001, a_max=None), pen=plot_pen,
                            symbol=None)
             # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
             plot_item.getAxis('bottom').setLabel('Decay time (ns)')
