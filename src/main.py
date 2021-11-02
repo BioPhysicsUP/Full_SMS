@@ -196,7 +196,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_DF_Grouped_Levels.stateChanged.connect(self.set_export_options)
         self.btnSelectAllExport.clicked.connect(self.select_all_export_options)
         self.btnSelectAllExport_Plots.clicked.connect(self.select_all_plots_export_options)
-        self.btnSelectAllExport.clicked.connect(self.select_all_dataframes_export_options)
+        self.btnSelectAllExport_DataFrames.clicked.connect(
+            self.select_all_dataframes_export_options)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()

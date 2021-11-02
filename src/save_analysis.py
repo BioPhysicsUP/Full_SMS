@@ -43,7 +43,7 @@ def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSi
         signals.status_message.emit("Saving analysis...")
         signals.start_progress.emit(0)
 
-    copy_dataset = copy.copy(dataset)
+    copy_dataset = copy.deepcopy(dataset)
     copy_dataset.save_version = SAVING_VERSION
     copy_dataset.file = None
     for particle in copy_dataset.particles:
