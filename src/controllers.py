@@ -1493,6 +1493,10 @@ class LifetimeController(QObject):
                 decay_ax.semilogy(t, convd)
                 _, max_y = decay_ax.get_ylim()
                 min_y = min(convd)
+                if min_y <= 0:
+                    min_y = 1E-1
+                if not min_y < max_y:
+                    max_y = min_y + 10
                 decay_ax.set_ylim(min_y, max_y)
 
             if for_export and export_path is not None:
@@ -1514,7 +1518,11 @@ class LifetimeController(QObject):
                                                for_export=True, str_return=True)
                 decay_ax.text(0.8, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes)
                 self.temp_fig.suptitle(title_str)
-                self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+                if EXPORT_MPL_DPI > 50:
+                    export_dpi = 50
+                else:
+                    export_dpi = EXPORT_MPL_DPI
+                self.temp_fig.savefig(full_path, dpi=export_dpi)
                 sleep(1)
 
                 # export_plot_item(plot_item=plot_item, path=full_path, text=text_str)

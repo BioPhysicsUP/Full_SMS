@@ -158,6 +158,8 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
     main_window.add_all_nodes(all_nodes=all_nodes)
     for i, node in enumerate(main_window.part_nodes):
         node.setChecked(loaded_dataset.save_selected[i])
+    num_checked = sum([node.checked() for node in main_window.part_nodes])
+    main_window.lblNum_Selected.setText(str(num_checked))
 
     main_window.data_loaded = True
     if signals:

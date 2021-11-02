@@ -195,6 +195,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_DF_Levels.stateChanged.connect(self.set_export_options)
         self.chbEx_DF_Grouped_Levels.stateChanged.connect(self.set_export_options)
         self.btnSelectAllExport.clicked.connect(self.select_all_export_options)
+        self.btnSelectAllExport_Plots.clicked.connect(self.select_all_plots_export_options)
+        self.btnSelectAllExport.clicked.connect(self.select_all_dataframes_export_options)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()
@@ -483,27 +485,38 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 for part_node in self.part_nodes:
                     part_node.setChecked(root_node_checked)
                 self._root_was_checked = root_node_checked
-                self.treeViewParticles.viewport().repaint()
+            if root_node_checked:
+                self.lblNum_Selected.setText(str(len(self.part_nodes)))
+            else:
+                self.lblNum_Selected.setText('0')
+            self.treeViewParticles.viewport().repaint()
         else:
-            all_checked = all([node.checked() for node in self.part_nodes])
+            checked_list = [node.checked() for node in self.part_nodes]
+            all_checked = all(checked_list)
             self.dataset_node.setChecked(all_checked)
+            num_checked = sum(checked_list)
+            self.lblNum_Selected.setText(str(num_checked))
             self.treeViewParticles.viewport().repaint()
 
     def act_select_all(self, *args, **kwargs):
         if self.data_loaded:
             for node in self.part_nodes:
                 node.setChecked(True)
+            self.lblNum_Selected.setText(str(len(self.part_nodes)))
 
     def act_invert_selection(self, *args, **kwargs):
         if self.data_loaded:
             for node in self.part_nodes:
                 node.setChecked(not node.checked())
+            num_checked = sum([node.checked() for node in self.part_nodes])
+            self.lblNum_Selected.setText(str(num_checked))
             self.treeViewParticles.viewport().repaint()
 
     def act_deselect_all(self, *args, **kwargs):
         if self.data_loaded:
             for node in self.part_nodes:
                 node.setChecked(False)
+            self.lblNum_Selected.setText('0')
 
     def tab_change(self, active_tab_index: int):
         if self.data_loaded and hasattr(self, 'current_particle'):
@@ -872,6 +885,34 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_Plot_Spectra.setChecked(self.chbEx_Plot_Spectra.isEnabled())
         self.chbEx_Raster_Scan_2D.setChecked(self.chbEx_Raster_Scan_2D.isEnabled())
         self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
+        self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
+        self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
+        self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
+        self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
+            self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
+        self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
+
+    def select_all_plots_export_options(self):
+        self.chbEx_Plot_Intensity.setChecked(self.chbEx_Plot_Intensity.isEnabled())
+        self.rdbInt_Only.setChecked(self.rdbInt_Only.isEnabled())
+        self.rdbWith_Levels.setChecked(self.rdbWith_Levels.isEnabled())
+        self.rdbAnd_Groups.setChecked(self.rdbAnd_Groups.isEnabled())
+        self.chbEx_Plot_Group_BIC.setChecked(self.chbEx_Plot_Group_BIC.isEnabled())
+        self.chbEx_Plot_Lifetimes.setChecked(self.chbEx_Plot_Lifetimes.isEnabled())
+        self.rdbHist_Only.setChecked(self.rdbHist_Only.isEnabled())
+        self.rdbWith_Fit.setChecked(self.rdbWith_Fit.isEnabled())
+        self.rdbAnd_Residuals.setChecked(self.rdbAnd_Residuals.isEnabled())
+        self.chbEx_Plot_Spectra.setChecked(self.chbEx_Plot_Spectra.isEnabled())
+        self.chbEx_Raster_Scan_2D.setChecked(self.chbEx_Raster_Scan_2D.isEnabled())
+        self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
+
+    def select_all_dataframes_export_options(self):
+        self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
+        self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
+        self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
+        self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
+            self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
+        self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
 
     @pyqtSlot(Exception)
     def open_file_error(self, err: Exception):
@@ -1038,6 +1079,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
                     if is_checked != node.checked():
                         node.setChecked(is_checked)
+                num_checked = sum([node.checked() for node in self.part_nodes])
+                self.lblNum_Selected.setText(str(num_checked))
 
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
