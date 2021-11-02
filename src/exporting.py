@@ -102,6 +102,7 @@ def export_data(mainwindow: MainWindow,
                 ex_plot_with_fit = True
             else:
                 ex_plot_and_residuals = True
+        ex_plot_lifetimes_only_groups = mainwindow.chbEx_Plot_Lifetimes_Only_Groups.isChecked()
     ex_spectra_2d = mainwindow.chbEx_Spectra_2D.isChecked()
     ex_plot_spectra = mainwindow.chbEx_Plot_Spectra.isChecked()
     ex_raster_scan_2d = mainwindow.chbEx_Raster_Scan_2D.isChecked()
@@ -197,7 +198,7 @@ def export_data(mainwindow: MainWindow,
 
             if ex_plot_intensities and ex_plot_int_only:
                 if signals:
-                    signals.plot_trace_export_lock.emit(p, True, f_dir, lock)
+                    signals.plot_trace_export_lock.emit(p, True, f_dir, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
@@ -235,11 +236,11 @@ def export_data(mainwindow: MainWindow,
             if ex_plot_intensities and ex_plot_with_levels:
                 if p.has_levels:
                     if signals:
-                        signals.plot_trace_lock.emit(p, True, lock)
+                        signals.plot_trace_lock.emit(p, True, True)
                         lock.acquire()
                         while lock.locked():
                             sleep(0.1)
-                        signals.plot_levels_export_lock.emit(p, True, f_dir, lock)
+                        signals.plot_levels_export_lock.emit(p, True, f_dir, True)
                         lock.acquire()
                         while lock.locked():
                             sleep(0.1)
@@ -280,15 +281,15 @@ def export_data(mainwindow: MainWindow,
             if ex_plot_intensities and ex_plot_and_groups:
                 if p.has_groups:
                     if signals:
-                        signals.plot_trace_lock.emit(p, True, lock)
+                        signals.plot_trace_lock.emit(p, True, True)
                         lock.acquire()
                         while lock.locked():
                             sleep(0.1)
-                        signals.plot_levels_lock.emit(p, True, lock)
+                        signals.plot_levels_lock.emit(p, True, True)
                         lock.acquire()
                         while lock.locked():
                             sleep(0.1)
-                        signals.plot_group_bounds_export_lock.emit(p, True, f_dir, lock)
+                        signals.plot_group_bounds_export_lock.emit(p, True, f_dir, True)
                         lock.acquire()
                         while lock.locked():
                             sleep(0.1)
@@ -338,7 +339,7 @@ def export_data(mainwindow: MainWindow,
 
             if ex_plot_grouping_bics:
                 if signals:
-                    signals.plot_grouping_bic_export_lock.emit(p, True, f_dir, lock)
+                    signals.plot_grouping_bic_export_lock.emit(p, True, f_dir, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
@@ -499,7 +500,7 @@ def export_data(mainwindow: MainWindow,
 
             if ex_plot_lifetimes and ex_plot_hist_only:
                 if signals:
-                    signals.plot_decay_export_lock.emit(-1, p, False, True, f_dir, lock)
+                    signals.plot_decay_export_lock.emit(-1, p, False, True, f_dir, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
@@ -513,23 +514,25 @@ def export_data(mainwindow: MainWindow,
                 except FileExistsError:
                     pass
                 if p.has_levels:
-                    for i in range(p.num_levels):
-                        if signals:
-                            signals.plot_decay_export_lock.emit(i, p, False, True, dir_path, lock)
-                            lock.acquire()
-                            while lock.locked():
-                                sleep(0.1)
-                        else:
-                            mainwindow.lifetime_controller.plot_decay(select_ind=i,
-                                                                      particle=p,
-                                                                      for_export=True,
-                                                                      export_path=dir_path)
+                    if not ex_plot_lifetimes_only_groups:
+                        for i in range(p.num_levels):
+                            if signals:
+                                signals.plot_decay_export_lock.emit(i, p, False, True,
+                                                                    dir_path, True)
+                                lock.acquire()
+                                while lock.locked():
+                                    sleep(0.1)
+                            else:
+                                mainwindow.lifetime_controller.plot_decay(select_ind=i,
+                                                                          particle=p,
+                                                                          for_export=True,
+                                                                          export_path=dir_path)
                     if p.has_groups:
                         for i in range(p.num_groups):
                             i_g = i + p.num_levels
                             if signals:
                                 signals.plot_decay_export_lock.emit(i_g, p, False, True, dir_path,
-                                                                    lock)
+                                                                    True)
                                 lock.acquire()
                                 while lock.locked():
                                     sleep(0.1)
@@ -541,11 +544,11 @@ def export_data(mainwindow: MainWindow,
 
             if ex_plot_lifetimes and ex_plot_with_fit:
                 if signals:
-                    signals.plot_decay_lock.emit(-1, p, False, True, lock)
+                    signals.plot_decay_lock.emit(-1, p, False, True, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
-                    signals.plot_convd_export_lock.emit(-1, p, False, True, f_dir, lock)
+                    signals.plot_convd_export_lock.emit(-1, p, False, True, f_dir, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
@@ -561,22 +564,23 @@ def export_data(mainwindow: MainWindow,
                 except FileExistsError:
                     pass
                 if p.has_levels:
-                    signals.plot_decay_convd_export_lock.emit(p, dir_path, p.has_groups, lock)
+                    signals.plot_decay_convd_export_lock.emit(p, dir_path, p.has_groups,
+                                                              ex_plot_lifetimes_only_groups, True)
                     lock.acquire()
-            while lock.locked():
-                sleep(0.1)
+                    while lock.locked():
+                        sleep(0.1)
 
             if ex_plot_and_residuals:
                 if signals:
-                    signals.plot_decay_lock.emit(-1, p, False, True, lock)
+                    signals.plot_decay_lock.emit(-1, p, False, True, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
-                    signals.plot_convd_lock.emit(-1, p, False, True, lock)
+                    signals.plot_convd_lock.emit(-1, p, False, True, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
-                    signals.plot_residuals_export_lock.emit(-1, p, True, f_dir, lock)
+                    signals.plot_residuals_export_lock.emit(-1, p, True, f_dir, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
@@ -593,8 +597,10 @@ def export_data(mainwindow: MainWindow,
                     pass
                 if p.has_levels:
                     signals.plot_decay_convd_residuals_export_lock\
-                        .emit(p, dir_path, p.has_groups, lock)
+                        .emit(p, dir_path, p.has_groups, ex_plot_lifetimes_only_groups, True)
                     lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
 
             if ex_spectra_2d:
                 spectra_2d_path = os.path.join(f_dir, p.name + ' spectra-2D.csv')
@@ -617,7 +623,7 @@ def export_data(mainwindow: MainWindow,
 
             if ex_plot_spectra:
                 if signals:
-                    signals.plot_spectra_export_lock.emit(p, True, f_dir, lock)
+                    signals.plot_spectra_export_lock.emit(p, True, f_dir, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
@@ -723,6 +729,7 @@ def export_data(mainwindow: MainWindow,
 
         if ex_df_levels:
             df_levels = pd.DataFrame(data=data_levels, columns=levels_cols)
+            df_levels['particle'] = df_levels.particle.astype('category')
             levels_df_path = os.path.join(f_dir, 'levels.df')
             feather.write_feather(df=df_levels, dest=levels_df_path)
             if signals:
@@ -730,6 +737,7 @@ def export_data(mainwindow: MainWindow,
 
         if ex_df_grouped_levels:
             df_grouped_levels = pd.DataFrame(data=data_grouped_levels, columns=grouped_levels_cols)
+            df_grouped_levels['particle'] = df_grouped_levels.particle.astype('category')
             grouped_levels_df_path = os.path.join(f_dir, 'grouped levels.df')
             feather.write_feather(df=df_grouped_levels, dest=grouped_levels_df_path)
             if signals:

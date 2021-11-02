@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 EXPORT_WIDTH = 1500
 EXPORT_MPL_WIDTH = 10
 EXPORT_MPL_HEIGHT = 4.5
-EXPORT_MPL_DPI = 100
+EXPORT_MPL_DPI = 300
 
 logger = setup_logger(__name__)
 
@@ -411,7 +411,7 @@ class IntController(QObject):
                         self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
                     else:
                         self.temp_fig.clf()
-                    gs = self.temp_fig.add_gridspec(nrows=1, ncols=7, wspace=0, left=0.07,
+                    gs = self.temp_fig.add_gridspec(nrows=1, ncols=5, wspace=0, left=0.07,
                                                     right=0.98)
                     int_ax = self.temp_fig.add_subplot(gs[0, :-1])
                     hist_ax = self.temp_fig.add_subplot(gs[0, -1])
@@ -675,6 +675,8 @@ class IntController(QObject):
             if not particle.has_groups \
                     or particle.ahca.best_step.single_level \
                     or particle.ahca.selected_step.num_groups < 2:
+                if lock:
+                    self.mainwindow.lock.release()
                 return
             try:
                 groups = particle.groups
@@ -1204,18 +1206,20 @@ class LifetimeController(QObject):
     def plot_decay_and_convd(self, particle: Particle,
                              export_path: str,
                              has_groups: bool,
+                             only_groups: bool = False,
                              lock: bool = False):
-        for i in range(particle.num_levels):
-            self.plot_decay(select_ind=i,
-                            particle=particle,
-                            remove_empty=False,
-                            for_export=True,
-                            export_path=None)
-            self.plot_convd(select_ind=i,
-                            particle=particle,
-                            remove_empty=False,
-                            for_export=True,
-                            export_path=export_path)
+        if not only_groups:
+            for i in range(particle.num_levels):
+                self.plot_decay(select_ind=i,
+                                particle=particle,
+                                remove_empty=False,
+                                for_export=True,
+                                export_path=None)
+                self.plot_convd(select_ind=i,
+                                particle=particle,
+                                remove_empty=False,
+                                for_export=True,
+                                export_path=export_path)
         if has_groups:
             for i in range(particle.num_groups):
                 i_g = i + particle.num_levels
@@ -1235,22 +1239,24 @@ class LifetimeController(QObject):
     def plot_decay_convd_and_hist(self, particle: Particle,
                                   export_path: str,
                                   has_groups: bool,
+                                  only_groups: bool = False,
                                   lock: bool = False):
-        for i in range(particle.num_levels):
-            self.plot_decay(select_ind=i,
-                            particle=particle,
-                            remove_empty=False,
-                            for_export=True,
-                            export_path=None)
-            self.plot_convd(select_ind=i,
-                            particle=particle,
-                            remove_empty=False,
-                            for_export=True,
-                            export_path=None)
-            self.plot_residuals(select_ind=i,
+        if not only_groups:
+            for i in range(particle.num_levels):
+                self.plot_decay(select_ind=i,
                                 particle=particle,
+                                remove_empty=False,
                                 for_export=True,
-                                export_path=export_path)
+                                export_path=None)
+                self.plot_convd(select_ind=i,
+                                particle=particle,
+                                remove_empty=False,
+                                for_export=True,
+                                export_path=None)
+                self.plot_residuals(select_ind=i,
+                                    particle=particle,
+                                    for_export=True,
+                                    export_path=export_path)
         if has_groups:
             for i in range(particle.num_groups):
                 i_g = i + particle.num_levels
@@ -1341,7 +1347,7 @@ class LifetimeController(QObject):
             else:
                 self.first = 0
             unit = f'ns with {particle.channelwidth: .3g} ns bins'
-            max_t = self.mainwindow.current_particle.histogram.t[-1]
+            max_t = particle.histogram.t[-1]
 
             if not for_export:
                 life_hist_plot = self.life_hist_plot
@@ -1581,7 +1587,7 @@ class LifetimeController(QObject):
             if for_export and export_path is not None:
                 if select_ind is None:
                     type_str = ' residuals (whole trace).png'
-                    title_str = f'{particle.name} Decay Trace,Fit and Residuals'
+                    title_str = f'{particle.name} Decay Trace, Fit and Residuals'
                 elif group_ind is None:
                     type_str = f' residuals (level {select_ind + 1} with residuals).png'
                     title_str = f'{particle.name},' \
@@ -1889,7 +1895,7 @@ class GroupingController(QObject):
                 self.bic_scatter_plot.clear()
                 # self.bic_plot_widget.getPlotItem().clear()
                 self.bic_scatter_plot.addItem(scat_plot_item)
-            else:
+            elif particle.has_groups:
                 # grouping_bics = particle.grouping_bics.copy()
                 # grouping_selected_ind = particle.grouping_selected_ind
                 # best_grouping_ind = particle.best_grouping_ind
@@ -1909,7 +1915,9 @@ class GroupingController(QObject):
                 self.temp_ax.tick_params(axis='y', right=False)
 
                 norm_points = [[grouping_num_groups[i], bic] for i, bic in enumerate(grouping_bics)\
-                               if (i != best_grouping_ind or i != grouping_selected_ind)]
+                               if (i != best_grouping_ind
+                                   or i != grouping_selected_ind
+                                   or grouping_num_groups[i] == 1)]
                 norm_points = np.array(norm_points)
 
                 marker_size = 70
@@ -2194,11 +2202,11 @@ class SpectraController(QObject):
         else:
             if self.temp_fig is None:
                 self.temp_fig = plt.figure()
-                gs = self.temp_fig.add_gridspec(1, 1, left=0.1, right=0.99)
-                self.temp_ax = self.temp_fig.add_subplot(gs[0, 0])
-                self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
             else:
                 self.temp_fig.clf()
+            gs = self.temp_fig.add_gridspec(1, 1, left=0.1, right=0.99)
+            self.temp_ax = self.temp_fig.add_subplot(gs[0, 0])
+            self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
             spectra_data = np.flip(spectra_data, axis=1)
             spectra_data = spectra_data.transpose()
             avg_int = np.mean(spectra_data[1:5, :])

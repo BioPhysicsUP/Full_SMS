@@ -835,6 +835,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_Plot_Lifetimes.setEnabled(all_have_lifetimes)
         self.rdbWith_Fit.setEnabled(all_have_lifetimes)
         self.rdbAnd_Residuals.setEnabled(all_have_lifetimes)
+        self.chbEx_Plot_Lifetimes_Only_Groups.setEnabled(all_have_lifetimes)
 
         self.chbEx_Plot_Spectra.setEnabled(all_have_spectra)
 
