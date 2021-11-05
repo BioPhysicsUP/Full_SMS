@@ -139,6 +139,8 @@ class ClusteringStep:
 
         self._num_prev_groups = len(self._seed_groups)
 
+        self.groups_have_hists = False
+
     @property
     def group_ints(self) -> List[float]:
         if self.groups is not None:
@@ -445,7 +447,8 @@ class AHCA:
         assert 0 <= step_ind < self.num_steps, "AHCA: Provided step index out of range."
         self.selected_step_ind = step_ind
         if not all([lvl.histogram is not None for lvl in self.steps[step_ind].group_levels]):
-            self._particle.makelevelhists(force_group_levels=True)
+            if not self.selected_step.groups_have_hists:
+                self._particle.makelevelhists(force_group_levels=True)
         if not all([group.histogram is not None for group in self.steps[step_ind].groups]):
             self._particle.makegrouphists()
 

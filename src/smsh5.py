@@ -560,11 +560,19 @@ class Particle:
             for level in levels:
                 level.histogram = Histogram(self, level, self.startpoint, channel=channel)
 
+    def makegrouplevelhists(self):
+        if self.has_groups and self.ahca.selected_step.groups_have_hists:
+            groups = self.groups
+            for group_level in self.ahca.selected_step.group_levels:
+                g_ind = group_level.group_ind
+                group_level.histogram = groups[g_ind].histogram
+
     def makegrouphists(self, channel=True):
 
         if self.has_groups:
             for group in self.groups:
                 group.histogram = Histogram(self, group.lvls_inds, self.startpoint, channel=channel)
+            self.ahca.selected_step.groups_have_hists = True
 
     def binints(self, binsize):
         """Bin the absolute times into a trace using binsize"""
@@ -807,7 +815,7 @@ class ParticleAllHists:
         self.has_level_hists = particle.has_levels
         self.level_hists = list()
         if particle.has_levels:
-            for level in particle.levels:
+            for level in particle.cpts.levels:
                 if hasattr(level, 'histogram') and level.histogram is not None:
                     self.level_hists.append(level.histogram)
 

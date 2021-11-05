@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Full SMS"
-#define MyAppVersion "0.3.1"
+#define MyAppVersion "0.3.2"
 #define MyInstallerName "Full_SMS_v" + MyAppVersion + "_Win10_64-bit"
 #define MyAppPublisher "University of Pretoria"
 #define MyAppURL "https://www.up.ac.za/"
@@ -29,14 +29,14 @@ DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 LicenseFile={#MyLicenseFile}
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
-;PrivilegesRequired=lowest
+PrivilegesRequired=lowest
 OutputDir={#MyOutputFolder}
 OutputBaseFilename={#MyInstallerName}
 SetupIconFile={#MyIconFile}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequired=admin
+;PrivilegesRequired=admin
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

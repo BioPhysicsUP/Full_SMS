@@ -1309,13 +1309,13 @@ class LifetimeController(QObject):
                     logger.error('No Decay!')
                     return
         elif select_ind < particle.num_levels:
-            if particle.levels[select_ind].histogram.fitted:
+            if particle.cpts.levels[select_ind].histogram.fitted:
                 decay = particle.levels[select_ind].histogram.fit_decay
-                t = particle.levels[select_ind].histogram.convd_t
+                t = particle.cpts.levels[select_ind].histogram.convd_t
             else:
                 try:
-                    decay = particle.levels[select_ind].histogram.decay
-                    t = particle.levels[select_ind].histogram.t
+                    decay = particle.cpts.levels[select_ind].histogram.decay
+                    t = particle.cpts.levels[select_ind].histogram.t
                 except ValueError:
                     return
         else:
@@ -1703,7 +1703,7 @@ class LifetimeController(QObject):
                 any_successful_fit = [result.new_task_obj.part_hist.fitted]
 
                 for i, res_hist in enumerate(result.new_task_obj.level_hists):
-                    target_level = target_particle.levels[i]
+                    target_level = target_particle.cpts.levels[i]
                     target_level_microtimes = target_level.microtimes
 
                     res_hist._particle = target_particle
@@ -2056,7 +2056,7 @@ class GroupingController(QObject):
         try:
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
-                new_part = self.mainwindow.tree2particle(result_part_ind)
+                new_part = self.mainwindow.current_dataset.particles[result_part_ind]
                 new_part.level_selected = None
 
                 result_ahca = result.new_task_obj
@@ -2076,10 +2076,11 @@ class GroupingController(QObject):
 
                 new_part.ahca = result_ahca
                 if new_part.has_groups:
-                    new_part.using_group_levels = True
-                    new_part.makelevelhists()
-                    new_part.using_group_levels = False
                     new_part.makegrouphists()
+                    new_part.makegrouplevelhists()
+                    # new_part.using_group_levels = True
+                    # new_part.makelevelhists()
+                    # new_part.using_group_levels = False
 
             # self.results_gathered = True
         except ValueError as e:

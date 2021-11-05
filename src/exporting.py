@@ -678,11 +678,14 @@ def export_data(mainwindow: MainWindow,
 
     ## DataFrame compilation and writing to Feather files
     if any([ex_df_levels, ex_df_grouped_levels, ex_df_grouping_info]):
-        life_cols_add = ['tau_1_ns', 'tau_2_ns', 'tau_3_ns', 'amp_1', 'amp_2', 'amp_3',
-                         'irf_shift_ns', 'decay_bg', 'irf_bg',
+        max_numexp = max([p.numexp for p in particles])
+        tau_cols = [f'tau_{i + 1}' for i in range(max_numexp)]
+        amp_cols = [f'amp_{i + 1}' for i in range(max_numexp)]
+        life_cols_add = [*tau_cols, *amp_cols,
+                         'irf_shift', 'decay_bg', 'irf_bg',
                          'chi_squared']
         if ex_df_levels or ex_df_grouped_levels:
-            levels_cols = ['particle', 'level', 'start_s', 'end_s', 'dwell_s', 'int_cps',
+            levels_cols = ['particle', 'level', 'start', 'end', 'dwell', 'int',
                            'num_photons']
             grouped_levels_cols = levels_cols.copy()
             grouped_levels_cols[1] = 'grouped_level'
@@ -697,7 +700,7 @@ def export_data(mainwindow: MainWindow,
                 data_grouped_levels = list()
 
         if ex_df_grouping_info:
-            grouping_info_cols = ['particle', 'group', 'total_dwell_s', 'int_cps', 'num_levels',
+            grouping_info_cols = ['particle', 'group', 'total_dwell', 'int', 'num_levels',
                                   'num_photons', 'num_steps', 'is_best_step']
             data_grouping_info = list()
 
@@ -706,7 +709,8 @@ def export_data(mainwindow: MainWindow,
             if ex_df_levels:
                 for l_num, l in enumerate(p.cpts.levels):
                     row = [p.name, l_num + 1,
-                           *get_level_data(l, incl_lifetimes=ex_df_levels_lifetimes)]
+                           *get_level_data(l, incl_lifetimes=ex_df_levels_lifetimes,
+                                           max_numexp=max_numexp)]
                     data_levels.append(row)
 
             if ex_df_grouped_levels:
@@ -728,8 +732,10 @@ def export_data(mainwindow: MainWindow,
                     data_grouping_info.append(row)
 
         if ex_df_levels:
+
             df_levels = pd.DataFrame(data=data_levels, columns=levels_cols)
-            df_levels['particle'] = df_levels.particle.astype('category')
+            df_levels['file'] = df_levels['file'].astype('category')
+            df_levels['particle'] = df_levels['particle'].astype('category')
             levels_df_path = os.path.join(f_dir, 'levels.df')
             feather.write_feather(df=df_levels, dest=levels_df_path)
             if signals:
@@ -755,21 +761,26 @@ def export_data(mainwindow: MainWindow,
         signals.status_message.emit("Done")
 
 
-def get_level_data(level: Level, incl_lifetimes: bool = False) -> List:
+def get_level_data(level: Level, incl_lifetimes: bool = False, max_numexp: int = 3) -> List:
     data = [*level.times_s, level.dwell_time_s, level.int_p_s, level.num_photons]
     if incl_lifetimes:
         h = level.histogram
         if h.fitted:
-            taus = list(h.tau)
-            taus.extend([np.NaN] * (3 - h.numexp))
+            if h.numexp == 1:
+                taus = [h.tau]
+                amps = [h.amp]
+            else:
+                taus = list(h.tau)
+                amps = list(h.amp)
+
+            taus.extend([np.NaN] * (max_numexp - h.numexp))
             data.extend(taus)
 
-            amps = list(h.amp)
-            amps.extend([np.NaN] * (3 - h.numexp))
+            amps.extend([np.NaN] * (max_numexp - h.numexp))
             data.extend(amps)
 
             data.extend([h.shift, h.bg, h.irfbg, h.chisq])
         else:
-            data.extend([np.NaN]*10)
+            data.extend([np.NaN]*(5 + max_numexp))
 
     return data

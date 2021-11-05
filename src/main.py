@@ -891,7 +891,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
         self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
             self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
-        self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
+        self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
 
     def select_all_plots_export_options(self):
         self.chbEx_Plot_Intensity.setChecked(self.chbEx_Plot_Intensity.isEnabled())
@@ -904,7 +904,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.rdbWith_Fit.setChecked(self.rdbWith_Fit.isEnabled())
         self.rdbAnd_Residuals.setChecked(self.rdbAnd_Residuals.isEnabled())
         self.chbEx_Plot_Spectra.setChecked(self.chbEx_Plot_Spectra.isEnabled())
-        self.chbEx_Raster_Scan_2D.setChecked(self.chbEx_Raster_Scan_2D.isEnabled())
         self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
 
     def select_all_dataframes_export_options(self):
@@ -913,7 +912,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
         self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
             self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
-        self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
+        self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
 
     @pyqtSlot(Exception)
     def open_file_error(self, err: Exception):
