@@ -1181,6 +1181,9 @@ class LifetimeController(QObject):
         if not for_export:
             info = info + f'\nDecay BG = {histogram.bg: .3g}'
             info = info + f'\nIRF BG = {histogram.irfbg: .3g}'
+        if histogram.fwhm is not None:
+            info = info + f'\nSim. IRF FWHM = {histogram.fwhm: .3g}'
+
         info = info + f'\nChi-Sq = {histogram.chisq: .3g}'
         if not for_export:
             info = info + f'\n(0.8 <- 1 -> 1.3)'

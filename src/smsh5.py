@@ -775,6 +775,7 @@ class Histogram:
             self.shift = fit.shift
             self.bg = fit.bg
             self.irfbg = fit.irfbg
+            self.fwhm = fit.fwhm
             self.chisq = fit.chisq
             self.residuals = fit.residuals
             self.fitted = True

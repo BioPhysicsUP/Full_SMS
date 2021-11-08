@@ -222,11 +222,12 @@ class FluoFit:
     """
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, ploton=False):
+                 startpoint=None, endpoint=None, ploton=False, simulate_irf=False):
 
         self.channelwidth = channelwidth
         # self.init = init
         self.ploton = ploton
+        self.simulate_irf = simulate_irf
         self.t = t
 
         self.tau = []
@@ -238,6 +239,9 @@ class FluoFit:
         self.shift = None
         self.shiftmin = None
         self.shiftmax = None
+        self.fwhm = None
+        self.fwhmmin = None
+        self.fwhmmax = None
         self.setup_params(amp, shift, tau)
 
         self.bg = None
@@ -407,6 +411,10 @@ class FluoFit:
             self.shift = shift
             self.shiftmin = -2000
             self.shiftmax = 2000
+        if self.simulate_irf:
+            self.fwhm = 0.4
+            self.fwhmmin = 0.05
+            self.fwhmmax = 2.0
 
     @staticmethod
     def df_len(test_obj) -> int:
@@ -417,7 +425,7 @@ class FluoFit:
             df_num = 1
         return df_num
 
-    def results(self, tau, dtau, shift, amp=1):
+    def results(self, tau, dtau, shift, amp=1, fwhm=None):
         """Handle results after fitting
 
         After fitting, the results are processed. Chi-squared is calculated
@@ -440,6 +448,7 @@ class FluoFit:
         self.dtau = dtau
         self.amp = amp
         self.shift = shift*self.channelwidth
+        self.fwhm = fwhm
 
         param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
 
@@ -483,7 +492,7 @@ class FluoFit:
             ax1.set_ylabel('Number of photons in channel')
             plt.show()
 
-    def makeconvd(self, shift, model):
+    def makeconvd(self, shift, model, fwhm=None):
         """Makes a convolved decay using IRF and exponential model
 
         Parameters:
@@ -496,7 +505,16 @@ class FluoFit:
 
         """
 
-        irf = self.irf
+        if fwhm is None:
+            irf = self.irf
+        else:  # Simulate gaussian irf with max at max of measured data
+            fwhm = fwhm / self.channelwidth
+            c = fwhm / 2.35482
+            t = np.arange(np.size(self.measured))
+            maxind = np.argmax(self.measured)
+            gauss = np.exp(-(t - maxind) ** 2 / (2 * c ** 2))
+            irf = gauss * self.measured.max() / gauss.max()
+
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
         convd = convd / convd.sum()
@@ -508,17 +526,24 @@ class OneExp(FluoFit):
     """"Single exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False):
+                 startpoint=None, endpoint=None, addopt=None, ploton=False, simulate_irf=True):
 
         if tau is None:
             tau = 5
         if amp is None:
             amp = 1
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+                         simulate_irf)
 
-        paramin = [self.taumin[0], self.ampmin, self.shiftmin]
-        paramax = [self.taumax[0], self.ampmax, self.shiftmax]
-        paraminit = [self.tau[0], self.amp, self.shift]
+        if self.simulate_irf:
+            paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
+            paramax = [self.taumax[0], self.ampmax, self.shiftmax, self.fwhmmax]
+            paraminit = [self.tau[0], self.amp, self.shift, self.fwhm]
+        else:
+            paramin = [self.taumin[0], self.ampmin, self.shiftmin]
+            paramax = [self.taumax[0], self.ampmax, self.shiftmax]
+            paraminit = [self.tau[0], self.amp, self.shift]
+
         if addopt is None:
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
         else:
@@ -529,32 +554,44 @@ class OneExp(FluoFit):
         shift = param[2]
         dtau = np.sqrt(pcov[0, 0])
 
-        self.convd = self.fitfunc(self.t, tau, amp, shift)
-        self.results(tau, dtau, shift)
+        if self.simulate_irf:
+            fwhm = param[3]
+        else:
+            fwhm = None
 
-    def fitfunc(self, t, tau1, a, shift):
+        self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
+        self.results(tau, dtau, shift, amp=1, fwhm=fwhm)
+
+    def fitfunc(self, t, tau1, a, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
 
         model = a * np.exp(-t/tau1)
-        return self.makeconvd(shift, model)
+        return self.makeconvd(shift, model, fwhm)
 
 
 class TwoExp(FluoFit):
     """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False):
+                 startpoint=None, endpoint=None, addopt=None, ploton=False, simulate_irf=True):
 
         if tau is None:
             tau = [1, 5]
         if amp is None:
             amp = [1, 1]
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+                         simulate_irf)
 
-        paramin = self.taumin + self.ampmin + [self.shiftmin]
-        paramax = self.taumax + self.ampmax + [self.shiftmax]
-        paraminit = self.tau + self.amp + [self.shift]
+        if self.simulate_irf:
+            paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
+            paramax = self.taumax + self.ampmax + [self.shiftmax] + [self.fwhmmax]
+            paraminit = self.tau + self.amp + [self.shift] + [self.fwhm]
+        else:
+            paramin = self.taumin + self.ampmin + [self.shiftmin]
+            paramax = self.taumax + self.ampmax + [self.shiftmax]
+            paraminit = self.tau + self.amp + [self.shift]
+
         if addopt is None:
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
             # sigma=np.sqrt(np.abs(self.measured)))
@@ -567,47 +604,67 @@ class TwoExp(FluoFit):
         shift = param[4]
         dtau = np.sqrt(np.diag(pcov[0:2]))
 
-        self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift)
-        self.results(tau, dtau, shift, amp)
+        if self.simulate_irf:
+            fwhm = param[5]
+        else:
+            fwhm = None
 
-    def fitfunc(self, t, tau1, tau2, a1, a2, shift):
+        self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
+        self.results(tau, dtau, shift, amp, fwhm)
+
+    def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
 
         model = a1 * np.exp(-t / tau1) + (1 - a1) * np.exp(-t / tau2)
-        return self.makeconvd(shift, model)
+        return self.makeconvd(shift, model, fwhm)
 
 
 class ThreeExp(FluoFit):
     """"Triple exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, ploton=False):
+                 startpoint=None, endpoint=None, addopt=None, ploton=False, simulate_irf=True):
 
         if tau is None:
             tau = [0.1, 1, 5]
         if amp is None:
             amp = [1, 1, 1]
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+                         simulate_irf)
 
-        paramin = self.taumin + self.ampmin + [self.shiftmin]
-        paramax = self.taumax + self.ampmax + [self.shiftmax]
-        paraminit = self.tau + self.amp + [self.shift]
-        param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+        if self.simulate_irf:
+            paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
+            paramax = self.taumax + self.ampmax + [self.shiftmax] + [self.fwhmmax]
+            paraminit = self.tau + self.amp + [self.shift] + [self.fwhm]
+        else:
+            paramin = self.taumin + self.ampmin + [self.shiftmin]
+            paramax = self.taumax + self.ampmax + [self.shiftmax]
+            paraminit = self.tau + self.amp + [self.shift]
+
+        if addopt is None:
+            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+        else:
+            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
 
         tau = param[0:3]
         amp = param[3:6]
         shift = param[6]
         dtau = np.diag(pcov[0:3])
 
-        self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift)
-        self.results(tau, dtau, shift, amp)
+        if self.simulate_irf:
+            fwhm = param[7]
+        else:
+            fwhm = None
 
-    def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift):
+        self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
+        self.results(tau, dtau, shift, amp, fwhm)
+
+    def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
 
         model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + a3 * np.exp(-t / tau3)
-        return self.makeconvd(shift, model)
+        return self.makeconvd(shift, model, fwhm)
 
 
 class FittingParameters:
