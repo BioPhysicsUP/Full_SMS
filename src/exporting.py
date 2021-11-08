@@ -716,7 +716,8 @@ def export_data(mainwindow: MainWindow,
             if ex_df_grouped_levels:
                 for g_l_num, g_l in enumerate(p.ahca.selected_step.group_levels):
                     row = [p.name, g_l_num + 1, g_l.group_ind + 1,
-                           *get_level_data(g_l, incl_lifetimes=ex_df_grouped_levels_lifetimes)]
+                           *get_level_data(g_l, incl_lifetimes=ex_df_grouped_levels_lifetimes,
+                                           max_numexp=max_numexp)]
                     data_grouped_levels.append(row)
 
             if ex_df_grouping_info:
@@ -732,9 +733,7 @@ def export_data(mainwindow: MainWindow,
                     data_grouping_info.append(row)
 
         if ex_df_levels:
-
             df_levels = pd.DataFrame(data=data_levels, columns=levels_cols)
-            df_levels['file'] = df_levels['file'].astype('category')
             df_levels['particle'] = df_levels['particle'].astype('category')
             levels_df_path = os.path.join(f_dir, 'levels.df')
             feather.write_feather(df=df_levels, dest=levels_df_path)

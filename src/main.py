@@ -1114,6 +1114,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             enable_fitting = self.lifetime_controller.irf_loaded
         else:
             enable_fitting = new_state
+        self.chbHasIRF.setChecked(self.lifetime_controller.irf_loaded)
         self.btnFitCurrent.setEnabled(enable_fitting)
         self.btnFit.setEnabled(enable_fitting)
         self.btnFitAll.setEnabled(enable_fitting)

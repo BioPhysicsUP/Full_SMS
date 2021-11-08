@@ -1702,30 +1702,36 @@ class LifetimeController(QObject):
                 target_particle.histogram = result.new_task_obj.part_hist
                 any_successful_fit = [result.new_task_obj.part_hist.fitted]
 
-                for i, res_hist in enumerate(result.new_task_obj.level_hists):
-                    target_level = target_particle.cpts.levels[i]
-                    target_level_microtimes = target_level.microtimes
+                if result.new_task_obj.has_level_hists:
+                    for i, res_hist in enumerate(result.new_task_obj.level_hists):
+                        target_level = target_particle.cpts.levels[i]
+                        target_level_microtimes = target_level.microtimes
 
-                    res_hist._particle = target_particle
-                    res_hist.microtimes = target_level_microtimes
-                    res_hist.level = target_level
+                        res_hist._particle = target_particle
+                        res_hist.microtimes = target_level_microtimes
+                        res_hist.level = target_level
 
-                    target_level.histogram = res_hist
-                    any_successful_fit.append(res_hist.fitted)
+                        target_level.histogram = res_hist
+                        any_successful_fit.append(res_hist.fitted)
 
-                for i, res_group_hist in enumerate(result.new_task_obj.group_hists):
-                    target_group_lvls_inds = target_particle.groups[i].lvls_inds
-                    target_g_lvls_microtimes = np.array([])
-                    for lvls_ind in target_group_lvls_inds:
-                        m_times = target_particle.cpts.levels[lvls_ind].microtimes
-                        target_g_lvls_microtimes = np.append(target_g_lvls_microtimes, m_times)
+                if result.new_task_obj.has_group_hists:
+                    for i, res_group_hist in enumerate(result.new_task_obj.group_hists):
+                        target_group_lvls_inds = target_particle.groups[i].lvls_inds
+                        target_g_lvls_microtimes = np.array([])
+                        for lvls_ind in target_group_lvls_inds:
+                            m_times = target_particle.cpts.levels[lvls_ind].microtimes
+                            target_g_lvls_microtimes = np.append(target_g_lvls_microtimes, m_times)
 
-                    res_group_hist._particle = target_particle
-                    res_group_hist.microtimes = target_g_lvls_microtimes
-                    res_group_hist.level = target_group_lvls_inds
+                        res_group_hist._particle = target_particle
+                        res_group_hist.microtimes = target_g_lvls_microtimes
+                        res_group_hist.level = target_group_lvls_inds
 
-                    target_particle.groups[i].histogram = res_group_hist
-                    any_successful_fit.append(res_group_hist.fitted)
+                        target_particle.groups[i].histogram = res_group_hist
+                        any_successful_fit.append(res_group_hist.fitted)
+
+                    group_hists = [g.histogram for g in target_particle.groups]
+                    for g_l in target_particle.ahca.selected_step.group_levels:
+                        g_l.histogram = group_hists[g_l.group_ind]
 
                 if any(any_successful_fit):
                     target_particle.has_fit_a_lifetime = True

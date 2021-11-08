@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from main import MainWindow
 
 
-SAVING_VERSION = '1.03'
+SAVING_VERSION = '1.04'
 
 
 class SaveAnalysisWorker(QRunnable):
@@ -155,6 +155,7 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
         main_window.lifetime_controller.fitparam.irf = loaded_dataset.irf
         main_window.lifetime_controller.fitparam.irft = loaded_dataset.irf_t
         main_window.lifetime_controller.irf_loaded = True
+        main_window.chbHasIRF.setChecked(True)
     main_window.add_all_nodes(all_nodes=all_nodes)
     for i, node in enumerate(main_window.part_nodes):
         node.setChecked(loaded_dataset.save_selected[i])
