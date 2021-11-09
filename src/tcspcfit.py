@@ -761,6 +761,8 @@ class FittingParameters:
         if self.fpd.checkSimIRF.isChecked():
             self.fwhm = [self.get_from_gui(i) for i in [self.fpd.fwhmInit, self.fpd.fwhmMin,
                                                         self.fpd.fwhmMax, self.fpd.checkfwhmFix]]
+        else:
+            self.fwhm = None
 
     # @staticmethod
     def get_from_gui(self, guiobj):
