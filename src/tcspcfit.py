@@ -222,13 +222,17 @@ class FluoFit:
     """
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, ploton=False, simulate_irf=False):
+                 startpoint=None, endpoint=None, ploton=False, fwhm=None):
 
         self.channelwidth = channelwidth
         # self.init = init
         self.ploton = ploton
-        self.simulate_irf = simulate_irf
         self.t = t
+
+        if fwhm is not None:
+            self.simulate_irf = True
+        else:
+            self.simulate_irf = False
 
         self.tau = []
         self.taumin = []
@@ -242,7 +246,7 @@ class FluoFit:
         self.fwhm = None
         self.fwhmmin = None
         self.fwhmmax = None
-        self.setup_params(amp, shift, tau)
+        self.setup_params(amp, shift, tau, fwhm)
 
         self.bg = None
         self.irfbg = None
@@ -343,7 +347,7 @@ class FluoFit:
         else:
             self.bg = bg
 
-    def setup_params(self, amp, shift, tau):
+    def setup_params(self, amp, shift, tau, fwhm=None):
         """Setup fitting parameters
 
         This method handles the input of initial parameters for fitting. The
@@ -359,6 +363,8 @@ class FluoFit:
             IRF colour shift
         tau : list or float
             Lifetime(s)
+        fwhm : list or float
+            simulated IRF fwhm
 
         """
         try:
@@ -412,9 +418,18 @@ class FluoFit:
             self.shiftmin = -2000
             self.shiftmax = 2000
         if self.simulate_irf:
-            self.fwhm = 0.4
-            self.fwhmmin = 0.05
-            self.fwhmmax = 2.0
+            try:
+                self.fwhm = fwhm[0]
+                if fwhm[-1]:
+                    self.fwhmmin = fwhm[0] - 0.0001
+                    self.fwhmmax = fwhm[0] + 0.0001
+                else:
+                    self.fwhmmin = fwhm[1]
+                    self.fwhmmax = fwhm[2]
+            except (TypeError, IndexError) as e:  # If fwhm is not a list
+                self.fwhm = fwhm
+                self.fwhmmin = 0.05
+                self.fwhmmax = 2
 
     @staticmethod
     def df_len(test_obj) -> int:
@@ -526,14 +541,14 @@ class OneExp(FluoFit):
     """"Single exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, simulate_irf=True):
+                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = 5
         if amp is None:
             amp = 1
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
-                         simulate_irf)
+                         fwhm)
 
         if self.simulate_irf:
             paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
@@ -573,7 +588,7 @@ class TwoExp(FluoFit):
     """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, simulate_irf=True):
+                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = [1, 5]
@@ -581,7 +596,7 @@ class TwoExp(FluoFit):
             amp = [1, 1]
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
-                         simulate_irf)
+                         fwhm)
 
         if self.simulate_irf:
             paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
@@ -623,7 +638,7 @@ class ThreeExp(FluoFit):
     """"Triple exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, simulate_irf=True):
+                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = [0.1, 1, 5]
@@ -631,7 +646,7 @@ class ThreeExp(FluoFit):
             amp = [1, 1, 1]
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
-                         simulate_irf)
+                         fwhm)
 
         if self.simulate_irf:
             paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
@@ -682,6 +697,7 @@ class FittingParameters:
         self.end = None
         self.numexp = None
         self.addopt = None
+        self.fwhm = None
 
     def getfromdialog(self):
         self.numexp = int(self.fpd.combNumExp.currentText())
@@ -736,19 +752,15 @@ class FittingParameters:
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
         self.start = self.get_from_gui(self.fpd.lineStartTime)
         self.end = self.get_from_gui(self.fpd.lineEndTime)
-        # try:
-        #     self.start = int(self.get_from_gui(self.fpd.lineStartTime))
-        # except TypeError:
-        #     self.start = self.get_from_gui(self.fpd.lineStartTime)
-        # try:
-        #     self.end = int(self.get_from_gui(self.fpd.lineEndTime))
-        # except TypeError:
-        #     self.end = self.get_from_gui(self.fpd.lineEndTime)
 
         if self.fpd.lineAddOpt.text() != '':
             self.addopt = self.fpd.lineAddOpt.text()
         else:
             self.addopt = None
+
+        if self.fpd.checkSimIRF.isChecked():
+            self.fwhm = [self.get_from_gui(i) for i in [self.fpd.fwhmInit, self.fpd.fwhmMin,
+                                                        self.fpd.fwhmMax, self.fpd.checkfwhmFix]]
 
     # @staticmethod
     def get_from_gui(self, guiobj):
@@ -797,6 +809,8 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.mainwindow = mainwindow
         self.lifetime_controller = lifetime_controller
         self.pgFitParam.setBackground(background=None)
+
+        self.checkSimIRF.stateChanged.connect(self.enable_sim_vals)
 
         self.tau_edits = [self.line1Init, self.line2Init1, self.line2Init2, self.line3Init1,
                           self.line3Init2, self.line3Init3]
@@ -855,6 +869,12 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         # self.lineStartTime.setValidator(QIntValidator())
         # self.lineEndTime.setValidator(QIntValidator())
+
+    def enable_sim_vals(self, enable):
+        self.fwhmInit.setEnabled(enable)
+        self.fwhmMin.setEnabled(enable)
+        self.fwhmMax.setEnabled(enable)
+        self.checkfwhmFix.setEnabled(enable)
 
     def updateplot(self, *args):
         if not hasattr(self.lifetime_controller, 'fitparam'):

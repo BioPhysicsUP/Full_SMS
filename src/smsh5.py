@@ -734,7 +734,7 @@ class Histogram:
     def t(self, value):
         self._t = value
 
-    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, shiftfix):
+    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, shiftfix, fwhm=None):
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
@@ -750,14 +750,14 @@ class Histogram:
         try:
             if numexp == 1:
                 fit = tcspcfit.OneExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                      tauparam, None, shift, decaybg, irfbg, start, end, addopt)
+                                      tauparam, None, shift, decaybg, irfbg, start, end, addopt, fwhm=fwhm)
             elif numexp == 2:
                 fit = tcspcfit.TwoExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                      tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt)
+                                      tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, fwhm=fwhm)
             elif numexp == 3:
                 fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self._particle.channelwidth,
                                         tauparam, ampparam, shift, decaybg,
-                                        irfbg, start, end, addopt)
+                                        irfbg, start, end, addopt, fwhm=fwhm)
         except Exception as e:
             trace_string = ''
             for trace_part in traceback.format_tb(e.__traceback__):
@@ -832,7 +832,7 @@ class ParticleAllHists:
                 if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
                                 fit_param.shift / channelwidth, fit_param.decaybg,
                                 fit_param.irfbg, start, end, fit_param.addopt,
-                                fit_param.irf, fit_param.shiftfix):
+                                fit_param.irf, fit_param.shiftfix, fit_param.fwhm):
                     pass  # fit unsuccessful
             except AttributeError:
                 print("No decay")

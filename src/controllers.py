@@ -1107,7 +1107,7 @@ class LifetimeController(QObject):
             if not histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
                                  shift, self.fitparam.decaybg, self.fitparam.irfbg,
                                  start, end, self.fitparam.addopt,
-                                 self.fitparam.irf, self.fitparam.shiftfix):
+                                 self.fitparam.irf, self.fitparam.shiftfix, self.fitparam.fwhm):
                 return  # fit unsuccessful
             else:
                 cp.has_fit_a_lifetime = True
