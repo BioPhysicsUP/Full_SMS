@@ -156,7 +156,7 @@ def export_data(mainwindow: MainWindow,
         rows = list()
         rows.append(['Particle #'] + taucol + ampcol +
                     ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
-                     'Chi Squared'])
+                     'Chi Squared', 'Sim. IRF FWHM (ns)'])
         for i, p in enumerate(particles):
             if p.histogram.fitted:
                 if p.histogram.tau is None or p.histogram.amp is None:  # Problem with fitting the level
@@ -171,8 +171,8 @@ def export_data(mainwindow: MainWindow,
                         tauexp = [str(tau) for tau in p.histogram.tau]
                         ampexp = [str(amp) for amp in p.histogram.amp]
                     other_exp = [str(p.histogram.avtau), str(p.histogram.shift),
-                                 str(p.histogram.bg),
-                                 str(p.histogram.irfbg), str(p.histogram.chisq)]
+                                 str(p.histogram.bg), str(p.histogram.irfbg),
+                                 str(p.histogram.chisq), str(p.histogram.fwhm)]
 
                 rows.append([str(i + 1)] + tauexp + ampexp + other_exp)
 
@@ -367,7 +367,7 @@ def export_data(mainwindow: MainWindow,
                                  'Dwell Time (/s)', 'Int (counts/s)',
                                  'Num of Photons'] + taucol + ampcol +
                                 ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG',
-                                 'IRF BG', 'Chi Squared'])
+                                 'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)'])
                     for i, l in enumerate(p.levels):
                         if l.histogram.fitted:
                             # Problem with fitting the level
@@ -383,8 +383,8 @@ def export_data(mainwindow: MainWindow,
                                     tauexp = [str(tau) for tau in l.histogram.tau]
                                     ampexp = [str(amp) for amp in l.histogram.amp]
                                 other_exp = [str(l.histogram.avtau), str(l.histogram.shift),
-                                             str(l.histogram.bg),
-                                             str(l.histogram.irfbg), str(l.histogram.chisq)]
+                                             str(l.histogram.bg), str(l.histogram.irfbg),
+                                             str(l.histogram.chisq), str(l.histogram.fwhm)]
 
                             rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                          str(l.dwell_time_s), str(l.int_p_s),
@@ -401,7 +401,7 @@ def export_data(mainwindow: MainWindow,
                         rows.append(['Group #', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
                                     ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
-                                     'Chi Squared'])
+                                     'Chi Squared', 'Sim. IRF FWHM'])
                         for i, g in enumerate(p.groups):
                             if g.histogram.fitted:
                                 # Problem with fitting the level
@@ -417,8 +417,8 @@ def export_data(mainwindow: MainWindow,
                                         tauexp = [str(tau) for tau in g.histogram.tau]
                                         ampexp = [str(amp) for amp in g.histogram.amp]
                                     other_exp = [str(g.histogram.avtau), str(g.histogram.shift),
-                                                 str(g.histogram.bg),
-                                                 str(g.histogram.irfbg), str(g.histogram.chisq)]
+                                                 str(g.histogram.bg), str(g.histogram.irfbg),
+                                                 str(g.histogram.chisq), str(g.histogram.fwhm)]
 
                                 rows.append(
                                     [str(i + 1), str(g.dwell_time_s), str(g.int_p_s),
