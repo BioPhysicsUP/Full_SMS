@@ -742,12 +742,9 @@ class Histogram:
     def t(self, value):
         self._t = value
 
-    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, shiftfix, fwhm=None):
+    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, fwhm=None):
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
-
-        if shiftfix:
-            shift = [shift, 1]
 
         if start is None:
             start = 0
@@ -834,13 +831,16 @@ class ParticleAllHists:
         all_hists = [self.part_hist]
         all_hists.extend(self.level_hists)
         all_hists.extend(self.group_hists)
+        shift = fit_param.shift[:-1] / channelwidth
+        shiftfix = fit_param.shift[-1]
+        shift = [*shift, shiftfix]
 
         for hist in all_hists:
             try:
                 if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-                                fit_param.shift / channelwidth, fit_param.decaybg,
+                                shift, fit_param.decaybg,
                                 fit_param.irfbg, start, end, fit_param.addopt,
-                                fit_param.irf, fit_param.shiftfix, fit_param.fwhm):
+                                fit_param.irf, fit_param.fwhm):
                     pass  # fit unsuccessful
             except AttributeError:
                 print("No decay")

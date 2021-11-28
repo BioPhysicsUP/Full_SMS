@@ -1094,8 +1094,9 @@ class LifetimeController(QObject):
                 histogram = cp.groups[selected_group].histogram
         try:
             channelwidth = self.mainwindow.current_particle.channelwidth
-            shift = self.fitparam.shift / channelwidth
-            # shift = self.fitparam.shift
+            shift = self.fitparam.shift[:-1] / channelwidth
+            shiftfix = self.fitparam.shift[-1]
+            shift = [*shift, shiftfix]
             if self.fitparam.start is not None:
                 start = int(self.fitparam.start / channelwidth)
             else:
@@ -1107,7 +1108,7 @@ class LifetimeController(QObject):
             if not histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
                                  shift, self.fitparam.decaybg, self.fitparam.irfbg,
                                  start, end, self.fitparam.addopt,
-                                 self.fitparam.irf, self.fitparam.shiftfix, self.fitparam.fwhm):
+                                 self.fitparam.irf, self.fitparam.fwhm):
                 return  # fit unsuccessful
             else:
                 cp.has_fit_a_lifetime = True

@@ -417,6 +417,7 @@ class FluoFit:
             self.shift = shift
             self.shiftmin = -2000
             self.shiftmax = 2000
+
         if self.simulate_irf:
             try:
                 self.fwhm = fwhm[0]
@@ -690,7 +691,6 @@ class FittingParameters:
         self.tau = None
         self.amp = None
         self.shift = None
-        self.shiftfix = None
         self.decaybg = None
         self.irfbg = None
         self.start = None
@@ -746,8 +746,8 @@ class FittingParameters:
                           self.fpd.check3AmpFix3]]]
             self.amp[2][0] = 1 - self.amp[0][0] - self.amp[1][0]
 
-        self.shift = self.get_from_gui(self.fpd.lineShift)
-        self.shiftfix = self.get_from_gui(self.fpd.checkFixIRF)
+        self.shift = [self.get_from_gui(i) for i in [self.fpd.lineShift, self.fpd.lineShiftMin, self.fpd.lineShiftMax,
+                                                     self.fpd.checkFixIRF]]
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
         self.start = self.get_from_gui(self.fpd.lineStartTime)
@@ -831,7 +831,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.bg_edits = [self.lineDecayBG, self.lineIRFBG]
         self.time_edits = [self.lineStartTime, self.lineEndTime]
 
-        self.irf_shift_edit = self.lineShift
+        self.irf_shift_edits = [self.lineShift, self.lineShiftMin, self.lineShiftMax]
 
         reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
         reg_val = QRegExpValidator(reg_exp)
@@ -857,8 +857,10 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             time_edit.setValidator(self._reg_exp_validator)
             time_edit.textChanged.connect(self.updateplot)
 
-        self.irf_shift_edit.setValidator(self._reg_exp_validator)
-        self.irf_shift_edit.textChanged.connect(self.updateplot)
+        for irf_shift_edit in self.irf_shift_edits:
+            irf_shift_edit.setValidator(self._reg_exp_validator)
+            irf_shift_edit.textChanged.connect(self.updateplot)
+
         self.combNumExp.currentIndexChanged.connect(self.updateplot)
 
         # for widget in self.findChildren(QLineEdit):
@@ -989,7 +991,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
     def getparams(self):
         fp = self.lifetime_controller.fitparam
         irf = fp.irf
-        shift = fp.shift
+        shift = fp.shift[0]
         if shift is None:
             shift = 0
         decaybg = fp.decaybg
