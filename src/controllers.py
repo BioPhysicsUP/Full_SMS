@@ -1170,12 +1170,14 @@ class LifetimeController(QObject):
 
         tau = histogram.tau
         amp = histogram.amp
+        avtau = np.dot(histogram.amp, histogram.tau)
         try:
             info = info + 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
             info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
         except TypeError:  # only one component
             info = info + 'Tau = {:#.3g} ns'.format(tau)
             info = info + '\nAmp = {:#.3g}'.format(amp)
+        info = info + '\nAverage Tau = {:#.3g}'.format(avtau)
 
         info = info + f'\n\nShift = {histogram.shift: .3g} ns'
         if not for_export:
