@@ -273,6 +273,7 @@ class FluoFit:
         self.dtau = None
         self.chisq = None
         self.residuals = None
+        self.dw = None
         self.convd = None
 
     def calculate_boundaries(self, endpoint, measured, startpoint):
@@ -482,6 +483,7 @@ class FluoFit:
         self.chisq = chisquared
         self.t = self.t[self.startpoint:self.endpoint]
         self.residuals = residuals
+        self.dw = np.sum(np.diff(residuals) ** 2) / np.sum(residuals ** 2)  # Durbin-Watson parameter
 
         if self.ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
