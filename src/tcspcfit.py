@@ -269,6 +269,7 @@ class FluoFit:
         meas_std = np.sqrt(np.abs(measured))
         measured = measured / self.meas_max  # Normalize measured
         meas_std = meas_std / self.meas_max
+        self.measured_unbounded = measured
         self.measured = measured[self.startpoint:self.endpoint]
         self.meas_std = meas_std[self.startpoint:self.endpoint]
         self.dtau = None
@@ -532,10 +533,10 @@ class FluoFit:
         else:  # Simulate gaussian irf with max at max of measured data
             fwhm = fwhm / self.channelwidth
             c = fwhm / 2.35482
-            t = np.arange(np.size(self.measured))
-            maxind = np.argmax(self.measured)
+            t = np.arange(np.size(self.measured_unbounded))
+            maxind = np.argmax(self.measured_unbounded)
             gauss = np.exp(-(t - maxind) ** 2 / (2 * c ** 2))
-            irf = gauss * self.measured.max() / gauss.max()
+            irf = gauss * self.measured_unbounded.max() / gauss.max()
 
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
