@@ -222,8 +222,9 @@ class FluoFit:
     """
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, ploton=False, fwhm=None):
+                 startpoint=None, endpoint=None, ploton=False, fwhm=None, numexp=None):
 
+        self.numexp = numexp
         self.channelwidth = channelwidth
         # self.init = init
         self.ploton = ploton
@@ -274,6 +275,7 @@ class FluoFit:
         self.chisq = None
         self.residuals = None
         self.dw = None
+        self.dw_bound = None
         self.convd = None
 
     def calculate_boundaries(self, endpoint, measured, startpoint):
@@ -484,6 +486,8 @@ class FluoFit:
         self.t = self.t[self.startpoint:self.endpoint]
         self.residuals = residuals
         self.dw = np.sum(np.diff(residuals) ** 2) / np.sum(residuals ** 2)  # Durbin-Watson parameter
+        self.dw_bound = self.durbinwatson()
+        print(np.size(residuals))
 
         if self.ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
@@ -539,6 +543,37 @@ class FluoFit:
         convd = convd[self.startpoint:self.endpoint]
         return convd
 
+    def durbinwatson(self):
+        """Calculates Durbin-Watson lower bound.
+
+        Based on Turner 2020 https://doi.org/10.1080/13504851.2019.1691711
+        We use 5% critical bound for lower bound d_L of DW parameter.
+        """
+        numpoints = np.size(self.residuals)
+        if self.numexp == 1:  # 2 params = lifetime + shift
+            beta1 = -3.312097
+            beta2 = -3.332536
+            beta3 = -3.632166
+            beta4 = 19.31135
+        elif self.numexp == 2:  # 4 params = lifetimes + shift + amplitude 1
+            beta1 = -3.447993
+            beta2 = -4.229294
+            beta3 = -28.91627
+            beta4 = 80.00972
+        elif self.numexp == 3:  # 6 params = lifetimes + shift + amplitudes 1+2
+            # Currently we use the values for 5 parameters since Turner only computed for max 5!
+            # The difference between 4 and 5 is not big for large n so between 5 and 6 should not be large either.
+            # It's straightforward to compute values for 6 parameters but will just take some time.
+            beta1 = -3.535331
+            beta2 = -4.085190
+            beta3 = -47.63654
+            beta4 = 127.7127
+
+        dw = 2 + beta1 / np.sqrt(numpoints) + beta2 / numpoints + \
+             beta3 / (np.sqrt(numpoints) ** 3) + beta4 / numpoints ** 2
+        dw = np.round(dw, 3)
+        return dw
+
 
 class OneExp(FluoFit):
     """"Single exponential fit. Takes exact same arguments as Fluofit"""
@@ -551,7 +586,7 @@ class OneExp(FluoFit):
         if amp is None:
             amp = 1
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
-                         fwhm)
+                         fwhm, numexp=1)
 
         if self.simulate_irf:
             paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
@@ -599,7 +634,7 @@ class TwoExp(FluoFit):
             amp = [1, 1]
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
-                         fwhm)
+                         fwhm, numexp=2)
 
         if self.simulate_irf:
             paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
@@ -649,7 +684,7 @@ class ThreeExp(FluoFit):
             amp = [1, 1, 1]
 
         FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
-                         fwhm)
+                         fwhm, numexp=3)
 
         if self.simulate_irf:
             paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]

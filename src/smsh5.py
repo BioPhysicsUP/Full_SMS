@@ -736,6 +736,7 @@ class Histogram:
         self.fwhm = None
         self.chisq = None
         self.dw = None
+        self.dw_bound = None
 
     @property
     def t(self):
@@ -786,6 +787,7 @@ class Histogram:
             self.fwhm = fit.fwhm
             self.chisq = fit.chisq
             self.dw = fit.dw
+            self.dw_bound = fit.dw_bound
             self.residuals = fit.residuals
             self.fitted = True
             if numexp == 1:

@@ -1192,7 +1192,7 @@ class LifetimeController(QObject):
             info = info + f'\n(0.8 <- 1 -> 1.3)'
         info = info + f'\nDurbin-Watson = {histogram.dw: .3g}'
         if not for_export:
-            info = info + f'\n(Single exp: DW > 1.65 \nDouble exp: DW > 1.75 \nTriple exp: DW > 1.8)'
+            info = info + f'\n(DW > {histogram.dw_bound: .4g})'
 
         if is_group:
             group = particle.groups[group_ind]
