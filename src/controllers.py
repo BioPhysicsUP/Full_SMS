@@ -1097,7 +1097,9 @@ class LifetimeController(QObject):
             shift = self.fitparam.shift[:-1] / channelwidth
             shiftfix = self.fitparam.shift[-1]
             shift = [*shift, shiftfix]
-            if self.fitparam.start is not None:
+            if self.fitparam.autostart:
+                start = None
+            elif self.fitparam.start is not None:
                 start = int(self.fitparam.start / channelwidth)
             else:
                 start = None

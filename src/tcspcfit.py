@@ -531,18 +531,24 @@ class FluoFit:
         if fwhm is None:
             irf = self.irf
         else:  # Simulate gaussian irf with max at max of measured data
-            fwhm = fwhm / self.channelwidth
-            c = fwhm / 2.35482
-            t = np.arange(np.size(self.measured_unbounded))
-            maxind = np.argmax(self.measured_unbounded)
-            gauss = np.exp(-(t - maxind) ** 2 / (2 * c ** 2))
-            irf = gauss * self.measured_unbounded.max() / gauss.max()
+            irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured_unbounded)
 
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
         convd = convd / convd.sum()
         convd = convd[self.startpoint:self.endpoint]
         return convd
+
+    @staticmethod
+    def sim_irf(channelwidth, fwhm, measured):
+        fwhm = fwhm / channelwidth
+        c = fwhm / 2.35482
+        t = np.arange(np.size(measured))
+        maxind = np.argmax(measured)
+        gauss = np.exp(-(t - maxind) ** 2 / (2 * c ** 2))
+        irf = gauss * measured.max() / gauss.max()
+        irft = t * channelwidth
+        return irf, irft
 
     def durbinwatson(self):
         """Calculates Durbin-Watson lower bound.
@@ -732,6 +738,7 @@ class FittingParameters:
         self.decaybg = None
         self.irfbg = None
         self.start = None
+        self.autostart = False
         self.end = None
         self.numexp = None
         self.addopt = None
@@ -789,6 +796,7 @@ class FittingParameters:
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
         self.start = self.get_from_gui(self.fpd.lineStartTime)
+        self.autostart = bool(self.get_from_gui(self.fpd.checkAutoStart))
         self.end = self.get_from_gui(self.fpd.lineEndTime)
 
         if self.fpd.lineAddOpt.text() != '':
@@ -900,6 +908,9 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             irf_shift_edit.textChanged.connect(self.updateplot)
 
         self.combNumExp.currentIndexChanged.connect(self.updateplot)
+        #  TODO: regexvalidator for sim irf parameters
+
+        self.checkAutoStart.stateChanged.connect(self.updateplot)
 
         # for widget in self.findChildren(QLineEdit):
         #     widget.textChanged.connect(self.text_changed)
@@ -917,6 +928,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.fwhmMin.setEnabled(enable)
         self.fwhmMax.setEnabled(enable)
         self.checkfwhmFix.setEnabled(enable)
+        self.updateplot()
 
     def updateplot(self, *args):
         if not hasattr(self.lifetime_controller, 'fitparam'):
@@ -936,26 +948,10 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             logger.error('Error Occured: ' + str(err))
             return
 
-        fp = self.lifetime_controller.fitparam
-        try:
-            irf = fp.irf
-            irft = fp.irft
-        except AttributeError:
-            logger.error('No IRF!')
-            return
-
-        shift, decaybg, irfbg, start, end = self.getparams()
-
         channelwidth = self.mainwindow.current_particle.channelwidth
-        shift = shift / channelwidth
-        start = int(start / channelwidth)
-        end = int(end / channelwidth)
-        # irf = tcspcfit.colorshift(irf, shift)
-        irf = colorshift(irf, shift)
-        convd = scipy.signal.convolve(irf, model)
-        convd = convd[:np.size(irf)]
-        convd = convd / convd.sum()
+        fp = self.lifetime_controller.fitparam
 
+#  TODO: try should contain as little code as possible
         try:
             if self.mainwindow.current_particle.level_selected is None:
                 histogram = self.mainwindow.current_particle.histogram
@@ -970,15 +966,41 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             decay = decay / decay.sum()
             t = histogram.t
 
+        except AttributeError:
+            logger.error('No Decay!')
+        else:
+            try:
+                if fp.fwhm is None:
+                    irf = fp.irf
+                    irft = fp.irft
+                else:
+                    irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], decay)
+            except AttributeError:
+                logger.error('No IRF!')
+                return
+
+            shift, decaybg, irfbg, start, autostart, end = self.getparams()
+
+            shift = shift / channelwidth
+            # irf = tcspcfit.colorshift(irf, shift)
+            irf = colorshift(irf, shift)
+            convd = scipy.signal.convolve(irf, model)
+            convd = convd[:np.size(irf)]
+            convd = convd / convd.sum()
+
+            if autostart:
+                start = np.argmax(convd)
+            else:
+                start = int(start / channelwidth)
+            self.lineStartTime.setText(f'{start * channelwidth: .3g}')
+            end = int(end / channelwidth)
+
             # decay, t = start_at_value(decay, t)
             end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
 
             convd = convd[irft > 0]
             irft = irft[irft > 0]
 
-        except AttributeError:
-            logger.error('No Decay!')
-        else:
             plot_item = self.pgFitParam.getPlotItem()
 
             plot_item.setLogMode(y=True)
@@ -1041,10 +1063,11 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         start = fp.start
         if start is None:
             start = 0
+        autostart = fp.autostart
         end = fp.end
         if end is None:
             end = np.size(irf)
-        return shift, decaybg, irfbg, start, end
+        return shift, decaybg, irfbg, start, autostart, end
 
     def make_model(self):
         fp = self.lifetime_controller.fitparam
