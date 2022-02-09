@@ -750,9 +750,6 @@ class Histogram:
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
-        if start is None:
-            start = 0
-
         self.numexp = numexp
 
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)

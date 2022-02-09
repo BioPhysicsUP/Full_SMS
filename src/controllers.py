@@ -1066,7 +1066,6 @@ class LifetimeController(QObject):
         # self.fitparam.irfdata = irfdata
         self.irf_loaded = True
         self.mainwindow.set_startpoint(irf_data=irfdata)
-        self.mainwindow.reset_gui
         self.mainwindow.dataset_node.dataobj.irf = decay
         self.mainwindow.dataset_node.dataobj.irf_t = t
         self.mainwindow.dataset_node.dataobj.has_irf = True
@@ -1077,6 +1076,9 @@ class LifetimeController(QObject):
 
         if self.fitparamdialog.exec():
             self.fitparam.getfromdialog()
+            if self.fitparam.fwhm is not None:
+                self.irf_loaded = True
+                self.mainwindow.reset_gui()
 
     def gui_fit_current(self):
         """ Fits the currently selected level's decay curve using the provided settings. """

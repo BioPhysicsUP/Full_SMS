@@ -253,9 +253,10 @@ class FluoFit:
         self.irfbg = None
         self.calculate_bg(bg, irf, irfbg, measured)
 
-        self.irf = irf - self.irfbg
-        # self.irf = self.irf / np.sum(self.irf)  # Normalize IRF
-        self.irf = self.irf / self.irf.max()  # Normalize IRF
+        if not self.simulate_irf:
+            self.irf = irf - self.irfbg
+            # self.irf = self.irf / np.sum(self.irf)  # Normalize IRF
+            self.irf = self.irf / self.irf.max()  # Normalize IRF
 
         measured = measured - self.bg
 
@@ -329,14 +330,17 @@ class FluoFit:
             Measured decay data
         """
         if irfbg is None:
-            maxind = np.argmax(irf)
-            for i in range(maxind):
-                reverse = maxind - i
-                if np.int(irf[reverse]) == np.int(np.mean(irf[:20])):
-                    bglim = reverse
-                    break
+            if self.simulate_irf:
+                self.irfbg = 0
+            else:
+                maxind = np.argmax(irf)
+                for i in range(maxind):
+                    reverse = maxind - i
+                    if np.int(irf[reverse]) == np.int(np.mean(irf[:20])):
+                        bglim = reverse
+                        break
 
-            self.irfbg = np.mean(irf[:bglim])
+                self.irfbg = np.mean(irf[:bglim])
         else:
             self.irfbg = irfbg
         if bg is None:
