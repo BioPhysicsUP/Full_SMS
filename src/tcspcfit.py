@@ -258,15 +258,15 @@ class FluoFit:
             # self.irf = self.irf / np.sum(self.irf)  # Normalize IRF
             self.irf = self.irf / self.irf.max()  # Normalize IRF
 
-        measured = measured - self.bg
-
         self.startpoint = None
         self.endpoint = None
         self.calculate_boundaries(endpoint, measured, startpoint)
 
+        measured = measured - self.bg
+
         # self.meas_max = measured.max()
         # measured = measured / self.meas_max  # Normalize measured
-        self.meas_max = measured.sum()
+        self.meas_max = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
         measured = measured / self.meas_max  # Normalize measured
         meas_std = meas_std / self.meas_max
@@ -299,15 +299,22 @@ class FluoFit:
 
         """
         if startpoint is None:
-            self.startpoint = np.argmax(measured)
+            maxpoint = measured.max()
+            if not np.isnan(maxpoint):
+                close_to_max, = np.where(measured > 0.80 * maxpoint)
+                self.startpoint = close_to_max[0]
+            else:
+                self.startpoint = 0
         else:
             self.startpoint = startpoint
         if endpoint is None:
-            great_than_bg, = np.where(measured > 10 * self.bg)
-            hundredth_of_peak, = np.where(measured > 0.01 * measured.max())
-            max1 = great_than_bg.max()
-            max2 = hundredth_of_peak.max()
-            self.endpoint = max(max1, max2)
+            minval = max(20 * self.bg, 0.01 * measured.max())
+            if not np.isnan(minval):
+                great_than_bg, = np.where(measured > minval)
+                max1 = great_than_bg.max()
+                self.endpoint = max1
+            else:
+                self.endpoint = measured.size
         else:
             self.endpoint = endpoint
 
@@ -332,7 +339,7 @@ class FluoFit:
         if irfbg is None:
             if self.simulate_irf:
                 self.irfbg = 0
-            else:
+            else: # TODO: replace with estimate_bg
                 maxind = np.argmax(irf)
                 for i in range(maxind):
                     reverse = maxind - i
@@ -344,16 +351,25 @@ class FluoFit:
         else:
             self.irfbg = irfbg
         if bg is None:
-            maxind = np.argmax(measured)
-            for i in range(maxind):
-                reverse = maxind - i
-                if measured[reverse] == np.int(np.mean(measured[:20])):
-                    bglim = reverse
-                    break
-
-            self.bg = np.mean(measured[:bglim])
+            bg_est = self.estimate_bg(measured)
+            self.bg = bg_est
         else:
             self.bg = bg
+
+    @staticmethod
+    def estimate_bg(measured):
+        meas_real_start = np.nonzero(measured)[0][0]
+        maxind = np.argmax(measured)
+        for i in range(maxind):
+            reverse = maxind - i
+            if measured[reverse] == np.int(np.mean(measured[meas_real_start:meas_real_start + 20])):
+                bglim = reverse
+                break
+        bg_est = np.mean(measured[meas_real_start:bglim])
+        bg_est = min(bg_est, measured.max() / 100)  # bg shouldn't be more than 1% of measured max
+        if np.isnan(bg_est):  # bg also shouldn't be NaN
+            bg_est = 0
+        return bg_est
 
     def setup_params(self, amp, shift, tau, fwhm=None):
         """Setup fitting parameters
@@ -492,7 +508,6 @@ class FluoFit:
         self.residuals = residuals
         self.dw = np.sum(np.diff(residuals) ** 2) / np.sum(residuals ** 2)  # Durbin-Watson parameter
         self.dw_bound = self.durbinwatson()
-        print(np.size(residuals))
 
         if self.ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
@@ -561,29 +576,52 @@ class FluoFit:
         We use 5% critical bound for lower bound d_L of DW parameter.
         """
         numpoints = np.size(self.residuals)
-        if self.numexp == 1:  # 2 params = lifetime + shift
-            beta1 = -3.312097
-            beta2 = -3.332536
-            beta3 = -3.632166
-            beta4 = 19.31135
-        elif self.numexp == 2:  # 4 params = lifetimes + shift + amplitude 1
-            beta1 = -3.447993
-            beta2 = -4.229294
-            beta3 = -28.91627
-            beta4 = 80.00972
-        elif self.numexp == 3:  # 6 params = lifetimes + shift + amplitudes 1+2
-            # Currently we use the values for 5 parameters since Turner only computed for max 5!
-            # The difference between 4 and 5 is not big for large n so between 5 and 6 should not be large either.
-            # It's straightforward to compute values for 6 parameters but will just take some time.
-            beta1 = -3.535331
-            beta2 = -4.085190
-            beta3 = -47.63654
-            beta4 = 127.7127
+        for conf in [1, 5]:
+            if self.numexp == 1:  # 2 params = lifetime + shift
+                if conf == 5:
+                    beta1 = -3.312097
+                    beta2 = -3.332536
+                    beta3 = -3.632166
+                    beta4 = 19.31135
+                else:
+                    beta1 = -4.642915
+                    beta2 = -4.052984
+                    beta3 = 5.966592
+                    beta4 = 14.91894
+            elif self.numexp == 2:  # 4 params = lifetimes + shift + amplitude 1
+                if conf == 5:
+                    beta1 = -3.447993
+                    beta2 = -4.229294
+                    beta3 = -28.91627
+                    beta4 = 80.00972
+                else:
+                    beta1 = -4.655069
+                    beta2 = -7.296073
+                    beta3 = -5.300441
+                    beta4 = 60.11130
+            elif self.numexp == 3:  # 6 params = lifetimes + shift + amplitudes 1+2
+                # Currently we use the values for 5 parameters since Turner only computed for max 5!
+                # The difference between 4 and 5 is not big for large n so between 5 and 6 should not be large either.
+                # It's straightforward to compute values for 6 parameters but will just take some time.
+                if conf == 5:
+                    beta1 = -3.535331
+                    beta2 = -4.085190
+                    beta3 = -47.63654
+                    beta4 = 127.7127
+                else:
+                    beta1 = -4.675041
+                    beta2 = -8.518908
+                    beta3 = -15.25711
+                    beta4 = 96.32291
 
-        dw = 2 + beta1 / np.sqrt(numpoints) + beta2 / numpoints + \
-             beta3 / (np.sqrt(numpoints) ** 3) + beta4 / numpoints ** 2
-        dw = np.round(dw, 3)
-        return dw
+            dw = 2 + beta1 / np.sqrt(numpoints) + beta2 / numpoints + \
+                 beta3 / (np.sqrt(numpoints) ** 3) + beta4 / numpoints ** 2
+            dw = np.round(dw, 3)
+            if conf == 5:
+                dw5 = dw
+            else:
+                dw1 = dw
+        return dw5, dw1
 
 
 class OneExp(FluoFit):
@@ -744,6 +782,7 @@ class FittingParameters:
         self.start = None
         self.autostart = False
         self.end = None
+        self.autoend = False
         self.numexp = None
         self.addopt = None
         self.fwhm = None
@@ -802,6 +841,7 @@ class FittingParameters:
         self.start = self.get_from_gui(self.fpd.lineStartTime)
         self.autostart = bool(self.get_from_gui(self.fpd.checkAutoStart))
         self.end = self.get_from_gui(self.fpd.lineEndTime)
+        self.autoend = bool(self.get_from_gui(self.fpd.checkAutoEnd))
 
         if self.fpd.lineAddOpt.text() != '':
             self.addopt = self.fpd.lineAddOpt.text()
@@ -905,16 +945,17 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             bg_edit.setValidator(self._reg_exp_validator)
         for time_edit in self.time_edits:
             time_edit.setValidator(self._reg_exp_validator)
-            time_edit.textChanged.connect(self.updateplot)
+            time_edit.textEdited.connect(self.updateplot)
 
         for irf_shift_edit in self.irf_shift_edits:
             irf_shift_edit.setValidator(self._reg_exp_validator)
-            irf_shift_edit.textChanged.connect(self.updateplot)
+            irf_shift_edit.textEdited.connect(self.updateplot)
 
         self.combNumExp.currentIndexChanged.connect(self.updateplot)
         #  TODO: regexvalidator for sim irf parameters
 
         self.checkAutoStart.stateChanged.connect(self.updateplot)
+        self.checkAutoEnd.stateChanged.connect(self.updateplot)
 
         # for widget in self.findChildren(QLineEdit):
         #     widget.textChanged.connect(self.text_changed)
@@ -983,7 +1024,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 logger.error('No IRF!')
                 return
 
-            shift, decaybg, irfbg, start, autostart, end = self.getparams()
+            shift, decaybg, irfbg, start, autostart, end, autoend = self.getparams()
 
             shift = shift / channelwidth
             # irf = tcspcfit.colorshift(irf, shift)
@@ -993,11 +1034,24 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             convd = convd / convd.sum()
 
             if autostart:
-                start = np.argmax(convd)
+                # start = np.argmax(decay)
+                maxpoint = decay.max()
+                close_to_max, = np.where(decay > 0.80 * maxpoint)
+                start = close_to_max[0]
+                self.lineStartTime.setText(f'{start * channelwidth: .3g}')
             else:
                 start = int(start / channelwidth)
-            self.lineStartTime.setText(f'{start * channelwidth: .3g}')
-            end = int(end / channelwidth)
+            if autoend:
+                bg = FluoFit.estimate_bg(decay)
+                minval = max(20 * bg, 0.01 * decay.max())
+                greater_than_bg, = np.where(decay > minval)
+                if not greater_than_bg.size == 0:
+                    end = greater_than_bg.max()
+                else:
+                    end = decay.size
+                self.lineEndTime.setText(f'{end * channelwidth: .3g}')
+            else:
+                end = int(end / channelwidth)
 
             # decay, t = start_at_value(decay, t)
             end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
@@ -1069,9 +1123,10 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             start = 0
         autostart = fp.autostart
         end = fp.end
+        autoend = fp.autoend
         if end is None:
             end = np.size(irf)
-        return shift, decaybg, irfbg, start, autostart, end
+        return shift, decaybg, irfbg, start, autostart, end, autoend
 
     def make_model(self):
         fp = self.lifetime_controller.fitparam

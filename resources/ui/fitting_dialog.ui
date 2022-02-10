@@ -485,11 +485,32 @@
             <number>0</number>
            </property>
            <layout class="QGridLayout" name="gridLayout_8">
-            <item row="1" column="3">
-             <widget class="QLineEdit" name="lineEndTime"/>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_33">
+              <property name="text">
+               <string>Decay Background</string>
+              </property>
+             </widget>
             </item>
-            <item row="2" column="3">
-             <widget class="QLineEdit" name="lineAddOpt"/>
+            <item row="0" column="1">
+             <widget class="QLineEdit" name="lineDecayBG"/>
+            </item>
+            <item row="0" column="2">
+             <widget class="QLabel" name="label_35">
+              <property name="text">
+               <string>Start Time</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="3">
+             <widget class="QLineEdit" name="lineStartTime"/>
+            </item>
+            <item row="0" column="4">
+             <widget class="QCheckBox" name="checkAutoStart">
+              <property name="text">
+               <string>Auto</string>
+              </property>
+             </widget>
             </item>
             <item row="1" column="0">
              <widget class="QLabel" name="label_34">
@@ -498,12 +519,8 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="0">
-             <widget class="QLabel" name="label_33">
-              <property name="text">
-               <string>Decay Background</string>
-              </property>
-             </widget>
+            <item row="1" column="1">
+             <widget class="QLineEdit" name="lineIRFBG"/>
             </item>
             <item row="1" column="2">
              <widget class="QLabel" name="label_36">
@@ -512,10 +529,13 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="2">
-             <widget class="QLabel" name="label_35">
+            <item row="1" column="3">
+             <widget class="QLineEdit" name="lineEndTime"/>
+            </item>
+            <item row="1" column="4">
+             <widget class="QCheckBox" name="checkAutoEnd">
               <property name="text">
-               <string>Start Time</string>
+               <string>Auto</string>
               </property>
              </widget>
             </item>
@@ -529,21 +549,8 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="1">
-             <widget class="QLineEdit" name="lineDecayBG"/>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLineEdit" name="lineIRFBG"/>
-            </item>
-            <item row="0" column="3">
-             <widget class="QLineEdit" name="lineStartTime"/>
-            </item>
-            <item row="0" column="4">
-             <widget class="QCheckBox" name="checkAutoStart">
-              <property name="text">
-               <string>Auto</string>
-              </property>
-             </widget>
+            <item row="2" column="3">
+             <widget class="QLineEdit" name="lineAddOpt"/>
             </item>
            </layout>
           </widget>
@@ -933,7 +940,7 @@
          <item row="2" column="2">
           <widget class="QLineEdit" name="lineShiftMin">
            <property name="text">
-            <string>-1</string>
+            <string>-2</string>
            </property>
           </widget>
          </item>

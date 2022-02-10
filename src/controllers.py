@@ -1096,23 +1096,26 @@ class LifetimeController(QObject):
                 histogram = cp.groups[selected_group].histogram
         try:
             channelwidth = self.mainwindow.current_particle.channelwidth
-            shift = self.fitparam.shift[:-1] / channelwidth
-            shiftfix = self.fitparam.shift[-1]
+            f_p = self.fitparam
+            shift = f_p.shift[:-1] / channelwidth
+            shiftfix = f_p.shift[-1]
             shift = [*shift, shiftfix]
-            if self.fitparam.autostart:
+            if f_p.autostart:
                 start = None
-            elif self.fitparam.start is not None:
-                start = int(self.fitparam.start / channelwidth)
+            elif f_p.start is not None:
+                start = int(f_p.start / channelwidth)
             else:
                 start = None
-            if self.fitparam.end is not None:
-                end = int(self.fitparam.end / channelwidth)
+            if f_p.autoend:
+                end = None
+            elif f_p.end is not None:
+                end = int(f_p.end / channelwidth)
             else:
                 end = None
-            if not histogram.fit(self.fitparam.numexp, self.fitparam.tau, self.fitparam.amp,
-                                 shift, self.fitparam.decaybg, self.fitparam.irfbg,
-                                 start, end, self.fitparam.addopt,
-                                 self.fitparam.irf, self.fitparam.fwhm):
+            if not histogram.fit(f_p.numexp, f_p.tau, f_p.amp,
+                                 shift, f_p.decaybg, f_p.irfbg,
+                                 start, end, f_p.addopt,
+                                 f_p.irf, f_p.fwhm):
                 return  # fit unsuccessful
             else:
                 cp.has_fit_a_lifetime = True
@@ -1196,7 +1199,8 @@ class LifetimeController(QObject):
             info = info + f'\n(0.8 <- 1 -> 1.3)'
         info = info + f'\nDurbin-Watson = {histogram.dw: .3g}'
         if not for_export:
-            info = info + f'\n(DW > {histogram.dw_bound: .4g})'
+            info = info + f'\n(DW (5%) > {histogram.dw_bound[0]: .4g})'
+            info = info + f'\n(DW (1%) > {histogram.dw_bound[1]: .4g})'
 
         if is_group:
             group = particle.groups[group_ind]
@@ -1660,14 +1664,19 @@ class LifetimeController(QObject):
 
         f_p = self.fitparam
         channelwidth = particles[0].channelwidth
-        if f_p.start is None:
+
+        if f_p.autostart:
             start = None
-        else:
+        elif f_p.start is not None:
             start = int(f_p.start / channelwidth)
-        if f_p.end is None:
-            end = None
         else:
+            start = None
+        if f_p.autoend:
+            end = None
+        elif f_p.end is not None:
             end = int(f_p.end / channelwidth)
+        else:
+            end = None
 
         part_hists = list()
         for part in particles:
