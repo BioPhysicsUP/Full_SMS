@@ -796,6 +796,6 @@ def get_level_data(level: Level, total_dwelltime:float,
             data.extend([h.shift, h.bg, h.irfbg, h.chisq, h.dw, h.dw_bound[0],
             h.dw_bound[1]])
         else:
-            data.extend([np.NaN]*(9 + max_numexp))
+            data.extend([np.NaN]*(8 + max_numexp))
 
     return data

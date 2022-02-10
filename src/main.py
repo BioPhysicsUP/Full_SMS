@@ -213,7 +213,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # Connect the tree selection to data display
         self.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
         self.treeViewParticles.clicked.connect(self.tree_view_clicked)
-        self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
+        # self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
         self._root_was_checked = False
 
         self.part_nodes = list()

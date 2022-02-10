@@ -174,6 +174,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         self.spbCPA_min_boundary_off.setValue(settings.cpa_min_boundary_offset)
         self.dsbPB_min_dwell_time.setValue(settings.pb_min_dwell_time)
         self.rdbPB_use_sigma.setChecked(settings.pb_use_sigma_thresh)
+        self.rdbPB_use_sigma.setChecked(not settings.pb_use_sigma_thresh)
         self.dsbPB_sigma_int_thresh.setValue(settings.pb_sigma_int_thresh)
         self.spbPB_defined_int_thresh.setValue(settings.pb_defined_int_thresh)
 
