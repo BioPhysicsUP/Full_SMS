@@ -562,10 +562,13 @@ class Particle:
 
     def makegrouplevelhists(self):
         if self.has_groups and self.ahca.selected_step.groups_have_hists:
-            groups = self.groups
-            for group_level in self.ahca.selected_step.group_levels:
-                g_ind = group_level.group_ind
-                group_level.histogram = groups[g_ind].histogram
+            if self.ahca.num_steps == 1:
+                self.groups[0].histogram = self.ahca.steps[0].groups[0].histogram
+            else:
+                groups = self.groups
+                for group_level in self.ahca.selected_step.group_levels:
+                    g_ind = group_level.group_ind
+                    group_level.histogram = groups[g_ind].histogram
 
     def makegrouphists(self, channel=True):
 

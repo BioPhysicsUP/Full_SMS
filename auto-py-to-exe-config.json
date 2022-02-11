@@ -42,6 +42,18 @@
    "value": false
   },
   {
+   "optionDest": "disable_windowed_traceback",
+   "value": false
+  },
+  {
+   "optionDest": "version_file",
+   "value": "C:/Google Drive/Current_Projects/Full_SMS/versionfile.txt"
+  },
+  {
+   "optionDest": "embed_manifest",
+   "value": true
+  },
+  {
    "optionDest": "uac_admin",
    "value": false
   },
@@ -62,16 +74,40 @@
    "value": false
   },
   {
-   "optionDest": "disable_windowed_traceback",
-   "value": false
-  },
-  {
    "optionDest": "datas",
    "value": "C:/Google Drive/Current_Projects/Full_SMS/resources;resources/"
   },
   {
    "optionDest": "hiddenimports",
    "value": "icons_rc"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "numba"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "progressbar2"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "jupyter"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "dfply"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "auto-py-to-exe"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "Pympler"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "pyinstaller-versionfile"
   }
  ],
  "nonPyinstallerOptions": {

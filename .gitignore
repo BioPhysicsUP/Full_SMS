@@ -160,3 +160,14 @@ test_data/export/
 /src/analysis/results/
 /log.txt
 /poetry.lock
+.vs/PythonSettings.json
+.vs/slnx.sqlite
+.vs/VSWorkspaceState.json
+.vs/Full_SMS/project-colors.json
+.vs/Full_SMS/v17/.suo
+test_data/levels.df
+test_data/Particle 5 trace.png
+test_data/analysis/grouped levels.df
+test_data/analysis/grouping info.df
+test_data/analysis/levels.df
+test_data/analysis/test_analysis.ipynb

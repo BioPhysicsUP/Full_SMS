@@ -382,9 +382,13 @@ def export_data(mainwindow: MainWindow,
                                 else:
                                     tauexp = [str(tau) for tau in l.histogram.tau]
                                     ampexp = [str(amp) for amp in l.histogram.amp]
+                                if hasattr(l.histogram, 'fwhm'):
+                                    sim_irf_fwhm = str(l.histogram.fwhm)
+                                else:
+                                    sim_irf_fwhm = ''
                                 other_exp = [str(l.histogram.avtau), str(l.histogram.shift),
                                              str(l.histogram.bg), str(l.histogram.irfbg),
-                                             str(l.histogram.chisq), str(l.histogram.fwhm)]
+                                             str(l.histogram.chisq), sim_irf_fwhm]
 
                             rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                          str(l.dwell_time_s), str(l.int_p_s),
@@ -685,10 +689,10 @@ def export_data(mainwindow: MainWindow,
                          'irf_shift', 'decay_bg', 'irf_bg',
                          'chi_squared']
         if ex_df_levels or ex_df_grouped_levels:
-            levels_cols = ['particle', 'level', 'start', 'end', 'dwell', 'int',
+            levels_cols = ['particle', 'level', 'start', 'end', 'dwell', 'dwell_frac', 'int',
                            'num_photons']
             grouped_levels_cols = levels_cols.copy()
-            grouped_levels_cols[1] = 'grouped_level'
+            # grouped_levels_cols[1] = 'grouped_level'
             grouped_levels_cols.insert(2, 'group_index')
             if ex_df_levels_lifetimes:
                 levels_cols.extend(life_cols_add)
@@ -709,14 +713,16 @@ def export_data(mainwindow: MainWindow,
             if ex_df_levels:
                 for l_num, l in enumerate(p.cpts.levels):
                     row = [p.name, l_num + 1,
-                           *get_level_data(l, incl_lifetimes=ex_df_levels_lifetimes,
+                           *get_level_data(l, p.dwell_time,
+                                           incl_lifetimes=ex_df_levels_lifetimes,
                                            max_numexp=max_numexp)]
                     data_levels.append(row)
 
             if ex_df_grouped_levels:
                 for g_l_num, g_l in enumerate(p.ahca.selected_step.group_levels):
                     row = [p.name, g_l_num + 1, g_l.group_ind + 1,
-                           *get_level_data(g_l, incl_lifetimes=ex_df_grouped_levels_lifetimes,
+                           *get_level_data(g_l, p.dwell_time,
+                                           incl_lifetimes=ex_df_grouped_levels_lifetimes,
                                            max_numexp=max_numexp)]
                     data_grouped_levels.append(row)
 
@@ -760,8 +766,10 @@ def export_data(mainwindow: MainWindow,
         signals.status_message.emit("Done")
 
 
-def get_level_data(level: Level, incl_lifetimes: bool = False, max_numexp: int = 3) -> List:
-    data = [*level.times_s, level.dwell_time_s, level.int_p_s, level.num_photons]
+def get_level_data(level: Level, total_dwelltime:float,
+                   incl_lifetimes: bool = False, max_numexp: int = 3) -> List:
+    data = [*level.times_s, level.dwell_time_s, level.dwell_time_s/total_dwelltime, level.int_p_s,
+            level.num_photons]
     if incl_lifetimes:
         h = level.histogram
         if h.fitted:
@@ -780,6 +788,6 @@ def get_level_data(level: Level, incl_lifetimes: bool = False, max_numexp: int =
 
             data.extend([h.shift, h.bg, h.irfbg, h.chisq])
         else:
-            data.extend([np.NaN]*(5 + max_numexp))
+            data.extend([np.NaN]*(6 + max_numexp))
 
     return data

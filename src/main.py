@@ -48,6 +48,9 @@ from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
+SMS_VERSION = "0.3.4"
+
+
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
 sys.setrecursionlimit(1000 * 10)
@@ -1172,6 +1175,21 @@ def main():
 
 
 if __name__ == '__main__':
+
+    # Create version file for distribution. Or use the command bellow:
+    # create-version-file version.yml --outfile versionfile.txt --version SMS_VERSION
+    if '--dev' in sys.argv:
+        try:
+            # noinspection PyUnresolvedReferences
+            import pyinstaller_versionfile
+
+            pyinstaller_versionfile.create_versionfile_from_input_file(
+                output_file="versionfile.txt",
+                input_file="version.yml",
+                version=SMS_VERSION)
+        except ImportError as e:
+            pass
+
     if '--debug' not in sys.argv:
         freeze_support()
         Process(target=main).start()
