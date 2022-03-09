@@ -649,11 +649,11 @@ class ChangePointAnalysis:
             if len(self.cpt_inds) == 0:
                 if last_photon_ind >= prev_end_ind + 800:
                     next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
-                elif last_photon_ind - prev_end_ind >= 10:  # Next segment needs to be at least 10 photons large.
+                elif last_photon_ind - prev_end_ind >= MIN_PHOTONS:  # Next segment needs to be at least 10 photons large.
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
                 else:
                     next_start_ind, next_end_ind = None, None
-                    dbg.p("Warning, last photon segment smaller than 10 photons and was not tested", "Change Point")
+                    dbg.p(f"Warning, last photon segment smaller than {MIN_PHOTONS} photons and was not tested", "Change Point")
             elif side is not None:  # or prev_start_ind < self.cpts[-1] < prev_end_ind
                 if side is not None:
                     assert side in ['left',

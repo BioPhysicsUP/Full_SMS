@@ -938,8 +938,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
             msgbx = TimedMessageBox(30, parent=self)
             msgbx.setIcon(QMessageBox.Question)
             msgbx.setText("Would you like to remove the photon bursts?")
-            msgbx.set_timeout_text(message_pretime="(Removing photon bursts in ",
-                                   message_posttime=" seconds)")
+            msgbx.set_timeout_text(
+                message_pretime="(Removing photon bursts in ",
+                message_posttime=" seconds)")
             msgbx.setWindowTitle("Photon bursts detected")
             msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
             msgbx.setDefaultButton(QMessageBox.Yes)

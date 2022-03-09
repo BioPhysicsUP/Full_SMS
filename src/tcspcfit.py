@@ -647,7 +647,7 @@ class OneExp(FluoFit):
             paraminit = [self.tau[0], self.amp, self.shift]
 
         if addopt is None:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p1=paraminit)
         else:
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
 

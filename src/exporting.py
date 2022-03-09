@@ -4,6 +4,11 @@ import csv
 import os
 from typing import TYPE_CHECKING, List
 from time import sleep
+import sys
+
+if '--debug' in sys.argv:
+    import ptvsd
+
 
 from PyQt5.QtWidgets import QFileDialog
 import numpy as np
@@ -53,6 +58,8 @@ def export_data(mainwindow: MainWindow,
                 mode: str = None,
                 signals: WorkerSignals = None,
                 lock: Lock = None):
+    if "--debug" in sys.argv:
+        ptvsd.debug_this_thread()
     assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
 
     if mode == 'current':
@@ -62,7 +69,7 @@ def export_data(mainwindow: MainWindow,
     else:
         particles = mainwindow.current_dataset.particles
 
-    f_dir = QFileDialog.getExistingDirectory(mainwindow)
+    f_dir = QFileDialog.getExistingDirectory()
     f_dir = os.path.abspath(f_dir)
 
     if not f_dir:
@@ -687,7 +694,7 @@ def export_data(mainwindow: MainWindow,
         amp_cols = [f'amp_{i + 1}' for i in range(max_numexp)]
         life_cols_add = [*tau_cols, *amp_cols,
                          'irf_shift', 'decay_bg', 'irf_bg',
-                         'chi_squared']
+                         'chi_squared', 'dw', 'dw_5', 'dw_1']
         if ex_df_levels or ex_df_grouped_levels:
             levels_cols = ['particle', 'level', 'start', 'end', 'dwell', 'dwell_frac', 'int',
                            'num_photons']
@@ -749,14 +756,14 @@ def export_data(mainwindow: MainWindow,
         if ex_df_grouped_levels:
             df_grouped_levels = pd.DataFrame(data=data_grouped_levels, columns=grouped_levels_cols)
             df_grouped_levels['particle'] = df_grouped_levels.particle.astype('category')
-            grouped_levels_df_path = os.path.join(f_dir, 'grouped levels.df')
+            grouped_levels_df_path = os.path.join(f_dir, 'grouped_levels.df')
             feather.write_feather(df=df_grouped_levels, dest=grouped_levels_df_path)
             if signals:
                 signals.progress.emit()
 
         if ex_df_grouping_info:
             df_grouping_info = pd.DataFrame(data=data_grouping_info, columns=grouping_info_cols)
-            grouping_info_df_path = os.path.join(f_dir, 'grouping info.df')
+            grouping_info_df_path = os.path.join(f_dir, 'grouping_info.df')
             feather.write_feather(df=df_grouping_info, dest=grouping_info_df_path)
             if signals:
                 signals.progress.emit()
@@ -786,8 +793,9 @@ def get_level_data(level: Level, total_dwelltime:float,
             amps.extend([np.NaN] * (max_numexp - h.numexp))
             data.extend(amps)
 
-            data.extend([h.shift, h.bg, h.irfbg, h.chisq])
+            data.extend([h.shift, h.bg, h.irfbg, h.chisq, h.dw, h.dw_bound[0],
+            h.dw_bound[1]])
         else:
-            data.extend([np.NaN]*(6 + max_numexp))
+            data.extend([np.NaN]*(9 + max_numexp))
 
     return data
