@@ -31,6 +31,7 @@ from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
 import save_analysis
+from settings_dialog import SettingsDialog
 
 try:
     import pkg_resources.py2_warn
@@ -175,6 +176,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
                                  list_text=self.txtRaster_Scan_List)
 
+        self.settings_dialong = SettingsDialog(self)
+
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
         self.actionOpen_h5.triggered.connect(self.act_open_h5)
@@ -189,6 +192,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
         self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
         self.actionRange_Selection.triggered.connect(self.range_selection)
+        self.actionSettings.triggered.connect(self.act_open_settings_dialog)
 
         self.btnEx_Current.clicked.connect(self.gui_export_current)
         self.btnEx_Selected.clicked.connect(self.gui_export_selected)
@@ -299,6 +303,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def set_bin_size(self, bin_size: int):
         self.spbBinSize.setValue(bin_size)
+    
+    def act_open_settings_dialog(self):
+        self.settings_dialong.exec()
 
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """

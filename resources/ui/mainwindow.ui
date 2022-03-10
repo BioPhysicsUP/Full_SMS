@@ -3962,6 +3962,8 @@
     <addaction name="actionDeselect_All"/>
     <addaction name="separator"/>
     <addaction name="actionRange_Selection"/>
+    <addaction name="separator"/>
+    <addaction name="actionSettings"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -4100,6 +4102,11 @@
    </property>
    <property name="text">
     <string>Range Selection</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings</string>
    </property>
   </action>
  </widget>
