@@ -2,10 +2,10 @@
 name = "full_sms"
 version = "0.2.1"
 description = "Application to display and analyse single-molecule spectroscopy measurements."
-authors = ["Josh <Joshua.Botha@up.ac.za>"]
+authors = ["Josh <jbotha1951@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8.10"
+python = ">=3.8.10, <3.10.0"
 h5py = "^3.1.0"
 scipy = "^1.5.4"
 PyQt5-stubs = "^5.14.2"
