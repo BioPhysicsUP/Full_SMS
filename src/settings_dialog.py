@@ -11,6 +11,7 @@ import os
 import copy
 import json
 from typing import Union, Any
+import file_manager as fm
 
 if "--debug" in sys.argv:
     import ptvsd
@@ -62,18 +63,39 @@ class Settings:
     def get(self, setting_name: str) -> Any:
         return self.get_all_dict()[setting_name]
     
-    def save_settings_to_file(self, file_or_path: Union[String, Path]): 
+    def save_settings_to_file(self, file_or_path: str): 
+        created_file = False
         if type(file_or_path) is str:
             assert os.path.exists(file_or_path), "Path provided does not exist."
             assert os.path.isdir(file_or_path), "Path provided is not valid directory."
             file = open(file_or_path, mode="w")
-            file
+            created_file = True
         else:
             file = file_or_path
             assert file.closed != True, "File provided is not open."
         
         settings_dict = self.get_all_dict()
-        file.write(json.dumps(settings_dict))
+        file.write(json.dumps(settings_dict, indent=4))
+
+        if created_file:
+            file.close()
+
+    def load_settings_from_file(self, file_or_path: str)
+        opened_file = False
+        if type(file_or_path) is str:
+            assert os.path.exists(file_or_path), "Path provided does not exist."
+            assert os.path.isdir(file_or_path), "Path provided is not valid directory."
+            file = open(file_or_path, mode="w")
+            opened_file = True
+        else:
+            file = file_or_path
+            assert file.closed != True, "File provided is not open."
+        
+        loaded_settings_dict = json.load(file)
+        self.set_all_dict(settings_dict=loaded_settings_dict)
+
+        if opened_file:
+            file.close()
 
 
 class SettingsDialog(QDialog, UI_Settings_Dialog):
@@ -90,23 +112,18 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
             ptvsd.debug_this_thread()
 
         if current_settings == None:
-            self.settings = Settings(self.get_dialog_settings(update_settings=False))
+            self.settings = self.get_dialog_settings()
         else:
             self.settings = current_settings
 
-        self.default_settings = self.settings.get_all_dict
+        self.default_settings = copy.deepcopy(self.settings)
 
         self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(
             self.reset_to_default)
         self.buttonBox.accepted.connect(self.accepted_callback)
         self.buttonBox.rejected.connect(self.rejected_callback)
 
-
-    def reset_to_default(self) -> None:
-        self.set_dialog_settings(settings = self.default_settings)
-        self.settings.set_all_dict(settings_dict = self.default_settings)
-
-    def get_dialog_settings(self, update_settings: bool = True) -> dict:
+    def get_dialog_settings(self) -> Settings:
         cpa_min_num_photons = self.spbCPA_min_num_photons.value()
         cpa_min_boundary_offset = self.spbCPA_min_boundary_off.value()
         pb_min_dwell_time = self.dsbPB_min_dwell_time.value()
@@ -114,7 +131,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         pb_sigma_int_thresh = self.dsbPB_sigma_int_thresh.value()
         pb_defined_int_thresh = self.spbPB_defined_int_thresh.value()
 
-        settings_dict = {
+        new_settings_dict = {
                     "change_point_analysis": {
                         "min_num_photons": cpa_min_num_photons,
                         "min_boundary_offset": cpa_min_boundary_offset,
@@ -126,14 +143,13 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
                         "defined_int_thresh": pb_defined_int_thresh
                     }
                 }
+        new_settings = Settings(settings_dict=new_settings_dict)
 
-        if update_settings:
-            self.settings.set_all_dict(settings_dict=settings_dict)
+        return new_settings
 
-        return settings_dict
-
-    def set_dialog_settings(self, settings: Settings) -> None:
-        # settings_dict = settings.get_all_dict()
+    def set_dialog_settings(self, settings: Settings = None) -> None:
+        if settings is None:
+            settings = self.settings
         self.spbCPA_min_num_photons.setValue(settings.cpa_min_num_photons)
         self.spbCPA_min_boundary_off.setValue(settings.cpa_min_boundary_offset)
         self.dsbPB_min_dwell_time.setValue(settings.pb_min_dwell_time)
@@ -141,13 +157,28 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         self.dsbPB_sigma_int_thresh.setValue(settings.pb_sigma_int_thresh)
         self.spbPB_defined_int_thresh.setValue(settings.pb_defined_int_thresh)
 
-    def update_settings_from_dialog(self):
+    def update_settings_from_dialog(self) -> None:
         self.settings = self.get_dialog_settings()
+
+    def load_settings(self, settings: Settings):
+        self.settings = settings
+        self.set_dialog_settings()
+
+    def save_settings_to_file(self):
+        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+        with open(settings_file_path, 'w') as settings_file:
+            self.settings.save_settings_to_file(file_or_path=settings_file)
+
+    def reset_to_default(self) -> None:
+        self.settings = copy.deepcopy(self.default_settings)
+        self.set_dialog_settings()
+        self.save_settings_to_file()
     
     def accepted_callback(self):
-        self.get_dialog_settings(update_settings=True)
+        self.update_settings_from_dialog()
+        self.save_settings_to_file()
         self.close()
 
     def rejected_callback(self):
-        self.reset_to_default()
+        self.set_dialog_settings()
         self.close()

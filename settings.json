@@ -1,0 +1,12 @@
+{
+    "change_point_analysis": {
+        "min_num_photons": 20,
+        "min_boundary_offset": 11
+    },
+    "photon_bursts": {
+        "min_level_dwell_time": 0.0015000000000000002,
+        "use_sigma_int_thresh": true,
+        "sigma_int_thresh": 3.5000000000000004,
+        "defined_int_thresh": 5000
+    }
+}
