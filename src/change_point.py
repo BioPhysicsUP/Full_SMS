@@ -21,15 +21,21 @@ from statsmodels.stats.weightstats import DescrStatsW
 import dbg
 import file_manager as fm
 from my_logger import setup_logger
+from settings_dialog import Settings
+import sys
 
 if TYPE_CHECKING:
     from smsh5 import Particle
     from generate_sums import CPSums
 
-MIN_PHOTONS = 20
-MIN_EDGE_PHOTONS = 7
-BURST_MIN_DWELL = 0.001  # Seconds
-BURST_INT_SIGMA = 3
+if "--debug" in sys.argv:
+    import ptvsd
+
+# replaced by settings_dialog
+# MIN_PHOTONS = 20
+# MIN_EDGE_PHOTONS = 7
+# BURST_MIN_DWELL = 0.001  # Seconds
+# BURST_INT_SIGMA = 3
 
 logger = setup_logger(__name__)
 
@@ -223,6 +229,10 @@ class ChangePoints:
         end_time_s
         """
 
+        if '--debug' in sys.argv:
+            ptvsd.debug_this_thread()
+        
+
         if run_levels is not None:
             self._run_levels = run_levels
         if confidence is not None:
@@ -252,11 +262,22 @@ class ChangePoints:
         self._particle.int_std_weighted = weighted_stats.std
 
     def check_burst(self):  # , intensities: np.ndarray = None, dwell_times: list = None
+        # settings
+        min_dwell_time = self._cpa.settings.pb_min_dwell_time
+        use_sigma = self._cpa.settings.pb_use_sigma_thresh
+        sigam_int_thresh = self._cpa.settings.pb_sigma_int_thresh
+        defined_int_thresh = self._cpa.settings.pb_defined_int_thresh
+
         assert self._particle.has_levels, "ChangePoints\tNeeds to have levels to check photon bursts."
         # if intensities is None or dwell_times is None:
             # intensities, dwell_times = np.array([(level.int_p_s, level.dwell_time_s) for level in self._particle.levels])
-        burst_def = self._particle.avg_int_weighted + (self._particle.int_std_weighted * BURST_INT_SIGMA)
-        burst_bools = np.logical_and(self.level_ints > burst_def, np.array(self.level_dwelltimes) < BURST_MIN_DWELL)
+        if use_sigma:
+            burst_def = self._particle.avg_int_weighted + \
+                (self._particle.int_std_weighted * sigam_int_thresh)
+        else:
+            burst_def = defined_int_thresh
+        burst_bools = np.logical_or(self.level_ints > burst_def,
+                                    np.array(self.level_dwelltimes) < min_dwell_time)
         burst_levels = np.where(burst_bools)[0]
         if len(burst_levels):
             self.has_burst = True
@@ -485,6 +506,13 @@ class ChangePointAnalysis:
         self._i = None
         if confidence is not None:
             self._tau = TauData(self.confidence)
+        self.settings = Settings()
+
+    def load_settings(self):
+        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+        with open(settings_file_path, 'r') as settings_file:
+            self.settings.load_settings_from_file(file_or_path=settings_file)
+        
 
     def reset(self, confidence: float = None):
         self.has_run = False
@@ -542,11 +570,15 @@ class ChangePointAnalysis:
             The index of the change point, if one was detected.
         """
 
+        # settings
+        min_num_photons = self.settings.cpa_min_num_photons
+        min_boundary_offset = self.settings.cpa_min_boundary_offset
+
         assert type(seg_inds) is tuple, 'ChangePointAnalysis:\tSegment index\'s not given.'
         start_ind, end_ind = seg_inds
         n = end_ind - start_ind
         assert n <= 1000, "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
-        if n < MIN_PHOTONS:
+        if n < self.settings.cpa_min_num_photons:
             cpt_found = False
             return cpt_found, None
         time_data = self._abstimes[start_ind:end_ind]
@@ -587,7 +619,7 @@ class ChangePointAnalysis:
         max_ind_local = int(wlr.argmax())
 
         cpt = None
-        if max_ind_local >= MIN_EDGE_PHOTONS and n - max_ind_local >= MIN_EDGE_PHOTONS and\
+        if max_ind_local >= min_boundary_offset and n - max_ind_local >= min_boundary_offset and\
                 wlr[max_ind_local] >= self._tau.get_tau_a(n):
             cpt = max_ind_local + start_ind
             self.cpt_inds = np.append(self.cpt_inds, max_ind_local + start_ind)
@@ -649,11 +681,11 @@ class ChangePointAnalysis:
             if len(self.cpt_inds) == 0:
                 if last_photon_ind >= prev_end_ind + 800:
                     next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
-                elif last_photon_ind - prev_end_ind >= MIN_PHOTONS:  # Next segment needs to be at least 10 photons large.
+                elif last_photon_ind - prev_end_ind >= min_num_photons:  # Next segment needs to be at least 10 photons large.
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
                 else:
                     next_start_ind, next_end_ind = None, None
-                    dbg.p(f"Warning, last photon segment smaller than {MIN_PHOTONS} photons and was not tested", "Change Point")
+                    dbg.p(f"Warning, last photon segment smaller than {min_num_photons} photons and was not tested", "Change Point")
             elif side is not None:  # or prev_start_ind < self.cpts[-1] < prev_end_ind
                 if side is not None:
                     assert side in ['left',
@@ -866,6 +898,7 @@ class ChangePointAnalysis:
         dt_uncertainty: ndarray
             Array of uncertainty in time corresonding to confidence interval
         """
+        self.load_settings()
         if confidence is not None:
             assert confidence in [0.99, 0.95, 0.90, 0.69], "ChangePointAnalysis:\tConfidence value given not valid."
             self.confidence = confidence

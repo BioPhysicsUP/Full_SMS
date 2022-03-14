@@ -22,7 +22,10 @@ UI_Settings_Dialog, _ = uic.loadUiType(settings_dialog_file)
 
 class Settings:
 
-    def __init__(self, settings_dict: dict = None):
+    def __init__(self, 
+                 save_file_or_path: str = None,
+                 settings_dict: dict = None,
+                 load_file_or_path: str = None):
         self.cpa_min_num_photons = None
         self.cpa_min_boundary_offset = None
         self.pb_min_dwell_time = None
@@ -30,8 +33,13 @@ class Settings:
         self.pb_sigma_int_thresh = None
         self.pb_defined_int_thresh = None
 
-        if settings_dict:
+        if load_file_or_path:
+            self.load_settings_from_file(file_or_path=load_file_or_path)
+        elif settings_dict:
             self.set_all_dict(settings_dict)
+        
+        if save_file_or_path:
+            self.save_settings_to_file(file_or_path=save_file_or_path)
     
     def set_all_dict(self, settings_dict: dict):
         self.cpa_min_num_photons = settings_dict["change_point_analysis"]["min_num_photons"]
@@ -80,12 +88,12 @@ class Settings:
         if created_file:
             file.close()
 
-    def load_settings_from_file(self, file_or_path: str)
+    def load_settings_from_file(self, file_or_path: str):
         opened_file = False
         if type(file_or_path) is str:
             assert os.path.exists(file_or_path), "Path provided does not exist."
-            assert os.path.isdir(file_or_path), "Path provided is not valid directory."
-            file = open(file_or_path, mode="w")
+            assert os.path.isfile(file_or_path), "Path provided is not valid file."
+            file = open(file_or_path, mode="r")
             opened_file = True
         else:
             file = file_or_path
@@ -110,11 +118,18 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
 
         if "--debug" in sys.argv:
             ptvsd.debug_this_thread()
+        
+        self.rdbPB_use_sigma.toggled.connect(self.pb_use_changed)
+        self.rdbPB_use_defined_int.toggled.connect(self.pb_use_changed)
 
         if current_settings == None:
             self.settings = self.get_dialog_settings()
         else:
             self.settings = current_settings
+        
+        save_settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+        with open(save_settings_file_path, 'w') as save_settings_file:
+            self.settings.save_settings_to_file(file_or_path=save_settings_file)
 
         self.default_settings = copy.deepcopy(self.settings)
 
@@ -122,6 +137,11 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
             self.reset_to_default)
         self.buttonBox.accepted.connect(self.accepted_callback)
         self.buttonBox.rejected.connect(self.rejected_callback)
+    
+    def pb_use_changed(self):
+        pb_use_sigma = self.rdbPB_use_sigma.isChecked()
+        self.dsbPB_sigma_int_thresh.setEnabled(pb_use_sigma)
+        self.spbPB_defined_int_thresh.setEnabled(not pb_use_sigma)
 
     def get_dialog_settings(self) -> Settings:
         cpa_min_num_photons = self.spbCPA_min_num_photons.value()
