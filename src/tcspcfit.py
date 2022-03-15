@@ -573,9 +573,10 @@ class FluoFit:
         """Calculates Durbin-Watson lower bound.
 
         Based on Turner 2020 https://doi.org/10.1080/13504851.2019.1691711
-        We use 5% critical bound for lower bound d_L of DW parameter.
+        We use 1% or 5% critical bound for lower bound d_L of DW parameter.
         """
         numpoints = np.size(self.residuals)
+        # for 5% and 1% calculate lower bound on critical value.
         for conf in [1, 5]:
             if self.numexp == 1:  # 2 params = lifetime + shift
                 if conf == 5:
@@ -621,7 +622,14 @@ class FluoFit:
                 dw5 = dw
             else:
                 dw1 = dw
-        return dw5, dw1
+
+        # For < 1% use normal distribution
+        var = (4 * numpoints ** 2 * (numpoints - 2)) / ((numpoints + 1) * (numpoints - 1) ** 3)
+        std = np.sqrt(var)
+        dw03 = 2 - 3 * std
+        dw01 = 2 - 3.28 * std
+
+        return dw5, dw1, dw03, dw01
 
 
 class OneExp(FluoFit):

@@ -1201,6 +1201,8 @@ class LifetimeController(QObject):
         if not for_export:
             info = info + f'\n(DW (5%) > {histogram.dw_bound[0]: .4g})'
             info = info + f'\n(DW (1%) > {histogram.dw_bound[1]: .4g})'
+            info = info + f'\n(DW (0.3%) > {histogram.dw_bound[2]: .4g})'
+            info = info + f'\n(DW (0.1%) > {histogram.dw_bound[3]: .4g})'
 
         if is_group:
             group = particle.groups[group_ind]

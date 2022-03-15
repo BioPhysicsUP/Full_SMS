@@ -694,7 +694,7 @@ def export_data(mainwindow: MainWindow,
         amp_cols = [f'amp_{i + 1}' for i in range(max_numexp)]
         life_cols_add = [*tau_cols, *amp_cols,
                          'irf_shift', 'decay_bg', 'irf_bg',
-                         'chi_squared', 'dw', 'dw_5', 'dw_1']
+                         'chi_squared', 'dw', 'dw_5', 'dw_1', 'dw_03', 'dw_01']
         if ex_df_levels or ex_df_grouped_levels:
             levels_cols = ['particle', 'level', 'start', 'end', 'dwell', 'dwell_frac', 'int',
                            'num_photons']
@@ -794,7 +794,7 @@ def get_level_data(level: Level, total_dwelltime:float,
             data.extend(amps)
 
             data.extend([h.shift, h.bg, h.irfbg, h.chisq, h.dw, h.dw_bound[0],
-            h.dw_bound[1]])
+                        h.dw_bound[1], h.dw_bound[2], h.dw_bound[3]])
         else:
             data.extend([np.NaN]*(9 + max_numexp))
 
