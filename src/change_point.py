@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from smsh5 import Particle
     from generate_sums import CPSums
 
-if "--debug" in sys.argv:
+if "--vscode" in sys.argv:
     import ptvsd
 
 # replaced by settings_dialog
@@ -229,7 +229,7 @@ class ChangePoints:
         end_time_s
         """
 
-        if '--debug' in sys.argv:
+        if '--vscode' in sys.argv:
             ptvsd.debug_this_thread()
         
 

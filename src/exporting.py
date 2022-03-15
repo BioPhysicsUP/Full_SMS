@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List
 from time import sleep
 import sys
 
-if '--debug' in sys.argv:
+if '--vscode' in sys.argv:
     import ptvsd
 
 
@@ -58,7 +58,7 @@ def export_data(mainwindow: MainWindow,
                 mode: str = None,
                 signals: WorkerSignals = None,
                 lock: Lock = None):
-    if "--debug" in sys.argv:
+    if "--vscode" in sys.argv:
         ptvsd.debug_this_thread()
     assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
 

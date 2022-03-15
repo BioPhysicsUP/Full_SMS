@@ -31,7 +31,7 @@ from controllers import IntController, LifetimeController, GroupingController, S
 from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
-import save_analysis
+# import save_analysis
 from settings_dialog import SettingsDialog
 
 try:
@@ -199,6 +199,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnEx_All.clicked.connect(self.gui_export_all)
         self.chbEx_Plot_Intensity.clicked.connect(self.gui_plot_intensity_clicked)
         self.chbEx_Plot_Lifetimes.clicked.connect(self.gui_plot_lifetime_clicked)
+        self.chbEx_DF_Traces.stateChanged.connect(self.set_export_options)
         self.chbEx_DF_Levels.stateChanged.connect(self.set_export_options)
         self.chbEx_DF_Grouped_Levels.stateChanged.connect(self.set_export_options)
         self.btnSelectAllExport.clicked.connect(self.select_all_export_options)
@@ -212,6 +213,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # Connect the tree selection to data display
         self.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
         self.treeViewParticles.clicked.connect(self.tree_view_clicked)
+        self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
         self._root_was_checked = False
 
         self.part_nodes = list()
@@ -504,6 +506,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
             num_checked = sum(checked_list)
             self.lblNum_Selected.setText(str(num_checked))
             self.treeViewParticles.viewport().repaint()
+
+    def tree_view_key_press(self, event):
+        print('here')
 
     def act_select_all(self, *args, **kwargs):
         if self.data_loaded:
@@ -848,6 +853,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.rdbWith_Levels.setEnabled(all_have_levels)
         self.rdbAnd_Groups.setEnabled(all_have_groups)
 
+        # Always able to export traces
+        self.chbEx_DF_Traces.setEnabled(True)
+
         # self.chbEx_Hist.setEnabled(all_have_lifetimes)  # Shouldn't this be true always?
 
         self.chbEx_Plot_Group_BIC.setEnabled(all_have_groups)
@@ -866,11 +874,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_Trace.setChecked(self.chbEx_Trace.isEnabled())
         self.chbEx_Levels.setChecked(self.chbEx_Levels.isEnabled())
         self.chbEx_Grouped_Levels.setChecked(self.chbEx_Grouped_Levels.isEnabled())
-        self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
-        self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
-        self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
-        self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
-            self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
         self.chbEx_Grouping_Info.setChecked(self.chbEx_Grouping_Info.isEnabled())
         self.chbEx_Grouping_Results.setChecked(self.chbEx_Grouping_Results.isEnabled())
         self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
@@ -892,6 +895,16 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_Plot_Spectra.setChecked(self.chbEx_Plot_Spectra.isEnabled())
         self.chbEx_Raster_Scan_2D.setChecked(self.chbEx_Raster_Scan_2D.isEnabled())
         self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
+
+        # Not sure if there is only duplication of below
+        # self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
+        # self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
+        # self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
+        # self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
+        #     self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
+        # self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
+
+        self.chbEx_DF_Traces.setChecked(self.chbEx_DF_Traces.isEnabled())
         self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
         self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
         self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
@@ -913,6 +926,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
 
     def select_all_dataframes_export_options(self):
+        self.chbEx_DF_Traces.setChecked(self.chbEx_DF_Traces.isEnabled())
         self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
         self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
         self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
