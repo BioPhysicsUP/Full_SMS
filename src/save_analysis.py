@@ -68,7 +68,7 @@ def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSi
         for raster_scan in copy_dataset.all_raster_scans:
             raster_scan.dataset = None
     copy_dataset.save_selected = [node.checked() for node in main_window.part_nodes]
-    copy_dataset.settings = main_window.settings_dialong.settings
+    copy_dataset.settings = main_window.settings_dialog.settings
 
     save_file_name = copy_dataset.name[:-2] + 'smsa'
     # with open(save_file_name, 'wb') as f:
@@ -164,7 +164,7 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
     main_window.lblNum_Selected.setText(str(num_checked))
 
     if hasattr(loaded_dataset, 'settings'):
-        main_window.settings_dialong.load_settings(loaded_dataset.settings)
+        main_window.settings_dialog.load_settings(loaded_dataset.settings)
 
     main_window.data_loaded = True
     if signals:

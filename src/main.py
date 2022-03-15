@@ -6,6 +6,7 @@ University of Pretoria
 """
 
 from __future__ import annotations
+
 __docformat__ = 'NumPy'
 
 # import csv
@@ -15,9 +16,9 @@ from platform import system
 import ctypes
 
 from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot
-from PyQt5.QtGui import QIcon  #, QResizeEvent
+from PyQt5.QtGui import QIcon  # , QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
-    QApplication, QStyleFactory  #, QTreeWidget
+    QApplication, QStyleFactory  # , QTreeWidget
 from PyQt5 import uic
 import pyqtgraph as pg
 from typing import Union
@@ -25,7 +26,7 @@ import time
 from multiprocessing import Process, freeze_support
 from threading import Lock
 
-from controllers import IntController, LifetimeController, GroupingController, SpectraController,\
+from controllers import IntController, LifetimeController, GroupingController, SpectraController, \
     RasterScanController
 from thread_tasks import OpenFile
 from threads import ProcessThread
@@ -50,7 +51,6 @@ from selection import RangeSelectionDialog
 import smsh5_file_reader
 
 SMS_VERSION = "0.3.4"
-
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -176,7 +176,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
                                  list_text=self.txtRaster_Scan_List)
 
-        self.settings_dialong = SettingsDialog(self)
+        self.settings_dialog = SettingsDialog(self)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
@@ -264,16 +264,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
         pass
 
     # def resizeEvent(self, a0: QResizeEvent):
-        # if self.tabSpectra.size().height() <= self.tabSpectra.size().width():
-        #     self.pgSpectra.resize(self.tabSpectra.size().height(),
-        #                           self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
-        # else:
-        #     self.pgSpectra.resize(self.tabSpectra.size().width(),
-        #                           self.tabSpectra.size().width() - 40)
-        # pass
+    # if self.tabSpectra.size().height() <= self.tabSpectra.size().width():
+    #     self.pgSpectra.resize(self.tabSpectra.size().height(),
+    #                           self.tabSpectra.size().height() - self.btnSubBackground.size().height() - 40)
+    # else:
+    #     self.pgSpectra.resize(self.tabSpectra.size().width(),
+    #                           self.tabSpectra.size().width() - 40)
+    # pass
 
     def sums_file_check(self) -> bool:
-
         should_calc = False
         sums_path = fm.path(name="all_sums.pickle", file_type=fm.Type.Data)
         if (not os.path.exists(sums_path)) and \
@@ -303,9 +302,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def set_bin_size(self, bin_size: int):
         self.spbBinSize.setValue(bin_size)
-    
+
     def act_open_settings_dialog(self):
-        self.settings_dialong.exec()
+        self.settings_dialog.exec()
 
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
@@ -327,12 +326,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 load_analysis_worker.signals.start_progress.connect(self.start_progress)
                 load_analysis_worker.signals.end_progress.connect(self.end_progress)
                 load_analysis_worker.signals.error.connect(self.error_handler)
-                load_analysis_worker.signals.\
+                load_analysis_worker.signals. \
                     openfile_finished.connect(self.open_file_thread_complete)
-                load_analysis_worker.signals.save_file_version_outdated.\
+                load_analysis_worker.signals.save_file_version_outdated. \
                     connect(self.open_save_file_version_outdated)
-                load_analysis_worker.signals.show_residual_widget.\
-                    connect( self.lifetime_controller.show_residuals_widget)
+                load_analysis_worker.signals.show_residual_widget. \
+                    connect(self.lifetime_controller.show_residuals_widget)
                 self.threadpool.start(load_analysis_worker)
                 loading_analysis = True
                 # save_analysis.load_analysis(main_window=self,
@@ -429,19 +428,16 @@ class MainWindow(QMainWindow, UI_Main_Window):
         print("act_trim")
 
     def act_switch_all(self):
-
         self.switching_frequency(all_selected='all')
 
     def act_switch_selected(self):
-
         self.switching_frequency(all_selected='selected')
 
     def act_set_startpoint(self):
-
         start, ok = QInputDialog.getInt(self, 'Input Dialog', 'Enter startpoint:')
         self.set_startpoint(start)
 
-    def set_startpoint(self, irf_data = None, start=None):
+    def set_startpoint(self, irf_data=None, start=None):
         if start is None:
             start = self.lifetime_controller.startpoint
         try:
@@ -467,7 +463,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.current_dataset = dataset_node.dataobj
 
     def add_node(self, particle_node, num):
-        index = self.treemodel.addChild(particle_node, self.dataset_index)  #, progress_sig)
+        index = self.treemodel.addChild(particle_node, self.dataset_index)  # , progress_sig)
         if num == 0:
             self.treeViewParticles.expand(self.dataset_index)
             self.treeViewParticles.setCurrentIndex(index)
@@ -688,7 +684,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             The number of iterations or steps that the complete process is made up of.
         """
 
-        assert type(progress_value) is int,\
+        assert type(progress_value) is int, \
             "MainWindow:\tThe type of the 'max_num' parameter is not int."
         self.progress.setValue(progress_value)
 
@@ -704,7 +700,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         if self.progress.isVisible():
             self.current_progress += value
-            new_show_value = int(self.current_progress//1)
+            new_show_value = int(self.current_progress // 1)
             self.progress.setValue(new_show_value)
             # print(self.current_progress)
             if self.current_progress >= self.progress.maximum():

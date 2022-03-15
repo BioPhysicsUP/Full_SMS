@@ -13,7 +13,7 @@ import json
 from typing import Union, Any
 import file_manager as fm
 
-if "--debug" in sys.argv:
+if "--vscode" in sys.argv:
     import ptvsd
 
 settings_dialog_file = fm.path(name="settings_dialog.ui", file_type=fm.Type.UI)
@@ -116,7 +116,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         self.mainwindow = mainwindow
         self.parent = mainwindow
 
-        if "--debug" in sys.argv:
+        if "--vscode" in sys.argv:
             ptvsd.debug_this_thread()
         
         self.rdbPB_use_sigma.toggled.connect(self.pb_use_changed)

@@ -211,7 +211,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -1990,7 +1990,7 @@
               <property name="maximumSize">
                <size>
                 <width>180</width>
-                <height>200</height>
+                <height>16777215</height>
                </size>
               </property>
              </widget>
@@ -1999,6 +1999,9 @@
              <spacer name="verticalSpacer_3">
               <property name="orientation">
                <enum>Qt::Vertical</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -3962,6 +3965,7 @@
     <addaction name="actionDeselect_All"/>
     <addaction name="separator"/>
     <addaction name="actionRange_Selection"/>
+    <addaction name="actionSave_Selection"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
    </widget>
@@ -4107,6 +4111,14 @@
   <action name="actionSettings">
    <property name="text">
     <string>Settings</string>
+   </property>
+  </action>
+  <action name="actionSave_Selection">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Save Selection</string>
    </property>
   </action>
  </widget>
