@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List
 from time import sleep
 import sys
 
-if '--debug' in sys.argv:
+if '--vscode' in sys.argv:
     import ptvsd
 
 
@@ -58,7 +58,7 @@ def export_data(mainwindow: MainWindow,
                 mode: str = None,
                 signals: WorkerSignals = None,
                 lock: Lock = None):
-    if "--debug" in sys.argv:
+    if "--vscode" in sys.argv:
         ptvsd.debug_this_thread()
     assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
 
@@ -796,6 +796,6 @@ def get_level_data(level: Level, total_dwelltime:float,
             data.extend([h.shift, h.bg, h.irfbg, h.chisq, h.dw, h.dw_bound[0],
                         h.dw_bound[1], h.dw_bound[2], h.dw_bound[3]])
         else:
-            data.extend([np.NaN]*(9 + max_numexp))
+            data.extend([np.NaN]*(8 + max_numexp))
 
     return data

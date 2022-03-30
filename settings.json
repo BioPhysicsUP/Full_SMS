@@ -5,8 +5,8 @@
     },
     "photon_bursts": {
         "min_level_dwell_time": 0.001,
-        "use_sigma_int_thresh": true,
+        "use_sigma_int_thresh": false,
         "sigma_int_thresh": 3.0,
-        "defined_int_thresh": 5000
+        "defined_int_thresh": 3800
     }
 }
