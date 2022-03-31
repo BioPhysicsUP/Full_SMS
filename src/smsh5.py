@@ -161,7 +161,10 @@ class H5dataset:
         if remove_zeros:
             maxim = 0
             for particle in self.particles:
-                maxim = max(particle.histogram.decaystart, maxim)
+                try:
+                    maxim = max(particle.histogram.decaystart, maxim)
+                except AttributeError:  # no photons
+                    pass
             for particle in self.particles:
                 particle.histogram.decay = particle.histogram.decay[maxim:]
                 particle.histogram.t = particle.histogram.t[maxim:]
@@ -630,7 +633,10 @@ class Trace:
         data = particle.abstimes[:]
 
         binsize_ns = binsize * 1E6  # Convert ms to ns
-        endbin = np.int(np.max(data) / binsize_ns)
+        if not data.size == 0:
+            endbin = np.int(np.max(data) / binsize_ns)
+        else:
+            endbin = 0
 
         binned = np.zeros(endbin + 1, dtype=np.int)
         for step in range(endbin):
