@@ -108,6 +108,12 @@ def spectra(particle: Particle) -> h5pickle.Dataset:
     return particle.datadict["Spectra (counts\s)"]
 
 
+def int_trace(particle: Particle) -> h5pickle.Dataset:
+    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03']:
+        return particle.datadict["Intensity Trace (cps)"]
+    else:
+        return None
+
 # Raster Scan Attributes
 def __get_rs_dataset(part_or_rs: Union[Particle, RasterScan]) -> h5pickle.Dataset:
     if str(type(part_or_rs)) in ["<class 'smsh5.Particle'>", "<class 'h5pickle.Dataset'>"]:
