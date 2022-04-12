@@ -117,7 +117,10 @@ class OpenFile:
             for particle in dataset.particles:
                 # Find max, then search backward for first zero to find the best startpoint
                 decay = particle.histogram.decay
-                histmax_ind = np.argmax(decay)
+                try:
+                    histmax_ind = np.argmax(decay)
+                except ValueError:  # Usually when no photons in decay
+                    histmax_ind = 0
                 reverse = decay[:histmax_ind][::-1]
                 zeros_rev = np.where(reverse == 0)[0]
                 if len(zeros_rev) != 0:
@@ -138,7 +141,10 @@ class OpenFile:
                     starttime = 0
                 starttimes.append(starttime)
 
-                tmin = np.min(particle.histogram.microtimes)
+                try:
+                    tmin = np.min(particle.histogram.microtimes)
+                except ValueError:  # usually when too few photons in particle
+                    tmin = 0
                 tmins.append(tmin)
 
             av_start = np.average(starttimes)
