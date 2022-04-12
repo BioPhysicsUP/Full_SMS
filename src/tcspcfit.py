@@ -626,8 +626,8 @@ class FluoFit:
         # For < 1% use normal distribution
         var = (4 * numpoints ** 2 * (numpoints - 2)) / ((numpoints + 1) * (numpoints - 1) ** 3)
         std = np.sqrt(var)
-        dw03 = 2 - 3 * std
-        dw01 = 2 - 3.28 * std
+        dw03 = np.round(2 - 3 * std)
+        dw01 = np.round(2 - 3.28 * std)
 
         return dw5, dw1, dw03, dw01
 
