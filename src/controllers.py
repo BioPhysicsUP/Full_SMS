@@ -135,6 +135,8 @@ class IntController(QObject):
         level_info_palette.setColor(QPalette.Base, mw_bg_colour)
         self.level_info_text.viewport().setPalette(level_info_palette)
 
+        self.show_exp_trace = self.mainwindow.chbInt_Exp_Trace.isChecked()
+
         self.int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
         self.groups_int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
         self.lifetime_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
@@ -244,6 +246,13 @@ class IntController(QObject):
         else:
             self.int_level_info_container.hide()
             self.int_level_line.hide()
+
+    def exp_trace_chb_changed(self):
+
+        self.show_exp_trace = self.mainwindow.chbInt_Exp_Trace.isChecked()
+        self.mainwindow.display_data()
+        self.mainwindow.repaint()
+        logger.info('Show experimental trace')
 
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
@@ -371,8 +380,12 @@ class IntController(QObject):
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             if particle is None:
                 particle = self.mainwindow.current_particle
-            trace = particle.binnedtrace.intdata
-            times = particle.binnedtrace.inttimes / 1E3
+            if self.show_exp_trace and particle.int_trace is not None:
+                    trace = particle.int_trace[:]
+                    times = np.arange(0, np.size(trace) * 0.1, 0.1)
+            else:
+                trace = particle.binnedtrace.intdata
+                times = particle.binnedtrace.inttimes / 1E3
         except AttributeError:
             logger.error('No trace!')
         else:

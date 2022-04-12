@@ -135,6 +135,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbInt_Show_Hist.stateChanged.connect(i_c.hist_chb_changed)
         self.chbInt_Show_Level_Info.stateChanged.connect(i_c.level_info_chb_changed)
         self.chbInt_Show_Groups.stateChanged.connect(i_c.plot_all)
+        self.chbInt_Exp_Trace.stateChanged.connect(i_c.exp_trace_chb_changed)
         self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
         self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
         self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
