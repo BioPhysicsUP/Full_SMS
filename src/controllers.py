@@ -99,6 +99,10 @@ class IntController(QObject):
 
         self.int_widget = int_widget
         self.int_plot = int_widget.getPlotItem()
+
+        # Tesing Linear Reagion Item
+        self.int_linear_region = pg.LinearRegionItem([1, 30])
+
         self.setup_widget(self.int_widget)
         self.setup_plot(self.int_plot)
 
@@ -402,9 +406,13 @@ class IntController(QObject):
                     plot_pen.setJoinStyle(Qt.RoundJoin)
 
                     plot_item.clear()
+                    # TODO: Add checkbox
+                    if True:
+                        plot_item.addItem(self.int_linear_region)
                     plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
                     plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                     plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
+
                 else:
                     if self.temp_fig is None:
                         self.temp_fig = plt.figure()
