@@ -247,7 +247,7 @@ class IntController(QObject):
 
     def roi_chb_changed(self):
         roi_chb = self.mainwindow.chbInt_Show_ROI
-        chb_text = 'No ROI'
+        chb_text = 'Hide ROI'
         if roi_chb.checkState() == 1:
             chb_text = 'Show ROI'
         elif roi_chb.checkState() == 2:
@@ -455,7 +455,7 @@ class IntController(QObject):
 
                     plot_item.clear()
                     if roi_state != 'none':
-                        if roi_state == 'edit':
+                        if roi_state == 'edit' and cur_tab_name == 'tabIntensity':
                             self.int_ROI.setMovable(True)
                             self.int_ROI.setBounds((0, times[-1]))
                         else:
@@ -937,7 +937,13 @@ class IntController(QObject):
                 particles = self.mainwindow.current_dataset.particles
 
             for particle in particles:
-                particle.trim_trace(min_level_int=dialog)
+                if dialog.rdbManual.isChecked():
+                    trimmed = particle.trim_trace(min_level_int=dialog.spbManual_Min_Int.value(),
+                                                  min_level_dwell_time=dialog.dsbManual_Min_Time.value(),
+                                                  reset_roi=dialog.chbReset_ROI.isChecked())
+                    if trimmed is False and dialog.chbUncheck_If_Not_Valid.isChecked():
+                        self.mainwindow.set_particle_check_state(particle.dataset_ind, False)
+            self.plot_all()
 
     def gui_reset_roi_current(self):
         self.reset_roi(mode='current')
@@ -958,6 +964,7 @@ class IntController(QObject):
 
         for particle in particles:
             particle.roi_region = (0, particle.abstimes[-1])
+        self.plot_all()
 
     def any_int_plot_double_click(self, event: MouseClickEvent):
         if event.double():

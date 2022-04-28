@@ -7,8 +7,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1074</width>
-    <height>706</height>
+    <width>1073</width>
+    <height>697</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -64,7 +64,7 @@
       <item>
        <widget class="QTreeView" name="treeViewParticles">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -77,7 +77,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>200</width>
+          <width>300</width>
           <height>16777215</height>
          </size>
         </property>
@@ -158,7 +158,7 @@
       <item>
        <widget class="QTextBrowser" name="txtDescription">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
@@ -171,7 +171,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>200</width>
+          <width>300</width>
           <height>150</height>
          </size>
         </property>
@@ -566,7 +566,7 @@
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>No ROI</string>
+               <string>Hide ROI</string>
               </property>
               <property name="iconSize">
                <size>
@@ -1201,6 +1201,9 @@
              <layout class="QHBoxLayout" name="horizontalLayout_7">
               <item>
                <widget class="QCheckBox" name="chbGroup_Use_ROI">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -1225,7 +1228,7 @@
                  </size>
                 </property>
                 <property name="checked">
-                 <bool>true</bool>
+                 <bool>false</bool>
                 </property>
                 <property name="tristate">
                  <bool>false</bool>
@@ -1681,7 +1684,7 @@
              </size>
             </property>
             <property name="text">
-             <string>Fit Current Hist</string>
+             <string>Fit Hist</string>
             </property>
             <property name="icon">
              <iconset resource="../icons.qrc">
@@ -1980,14 +1983,14 @@
               <item>
                <widget class="QPushButton" name="btnWholeTrace">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
                 <property name="maximumSize">
                  <size>
-                  <width>75</width>
+                  <width>150</width>
                   <height>27</height>
                  </size>
                 </property>
@@ -2059,7 +2062,7 @@
                  <enum>Qt::LeftToRight</enum>
                 </property>
                 <property name="text">
-                 <string>Jump To Groups</string>
+                 <string>To Groups</string>
                 </property>
                </widget>
               </item>
@@ -4002,7 +4005,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1074</width>
+     <width>1073</width>
      <height>21</height>
     </rect>
    </property>
@@ -4021,6 +4024,9 @@
      <string>Tools</string>
     </property>
     <widget class="QMenu" name="menuIntensity">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="title">
       <string>Intensity</string>
      </property>
@@ -4043,6 +4049,9 @@
      <addaction name="menuRegion_of_Interest"/>
     </widget>
     <widget class="QMenu" name="menuLifetime">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="title">
       <string>Lifetime</string>
      </property>
@@ -4059,6 +4068,9 @@
      <string>Analysis</string>
     </property>
     <widget class="QMenu" name="menuSwitching_Rates">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="title">
       <string>Switching Rates...</string>
      </property>
@@ -4117,6 +4129,9 @@
    </property>
   </action>
   <action name="actionReset_Analysis">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Reset Analysis</string>
    </property>
@@ -4192,23 +4207,38 @@
    </property>
   </action>
   <action name="actionInvert_Selection">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Invert Selection</string>
    </property>
   </action>
   <action name="actionDeselect_All">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Deselect All</string>
    </property>
   </action>
   <action name="actionSelect_All">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Select All</string>
    </property>
   </action>
   <action name="actionSave_Analysis">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Save Analysis</string>
+   </property>
+   <property name="iconVisibleInMenu">
+    <bool>false</bool>
    </property>
   </action>
   <action name="actionRange_Selection">
@@ -4263,6 +4293,9 @@
    </property>
   </action>
   <action name="actionInt_Trim_Traces">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Trim Traces</string>
    </property>

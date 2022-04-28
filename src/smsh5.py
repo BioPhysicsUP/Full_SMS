@@ -335,6 +335,9 @@ class Particle:
         self.level_selected = None
         self.using_group_levels = False
 
+        self.use_roi_for_grouping = False
+        self.grouped_with_roi = False
+
         self.has_fit_a_lifetime = False
         self.has_exported = False
 
@@ -418,6 +421,20 @@ class Particle:
             return self.ahca.selected_step.group_num_levels
         else:
             return self.cpts.num_levels
+
+    @property
+    def first_level_ind_in_roi(self):
+        start_times = np.array([level.times_s[0] for level in self.levels])
+        return np.where(start_times > self.roi_region[0])[0][0]
+    @property
+    def last_level_ind_in_roi(self):
+        end_times = np.array([level.times_s[1] for level in self.levels])
+        return np.where(end_times > self.roi_region[1])[0][0]
+
+    @property
+    def num_levels_in_roi(self):
+        if self.using_group_levels:
+            return self.last_level_ind_in_roi - self.first_level_ind_in_roi
 
     @property
     def dwell_time(self):
@@ -582,8 +599,32 @@ class Particle:
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
 
-    def trim_trace(self, min_level_dwell_time: float, min_level_int: float):
-        print('here')
+    def trim_trace(self, min_level_dwell_time: float, min_level_int: int, reset_roi: bool = True):
+        trimmed = None
+        if self.has_levels and self.level_ints[-1] < min_level_int:
+            trimmed = False
+            trim_time_total = 0
+            last_valid_ind = None
+            for ind_reverse in reversed(range(0, self.num_levels)):
+                if self.level_ints[ind_reverse] <= min_level_int:
+                    trim_time_total += self.level_dwelltimes[ind_reverse]
+                    last_valid_ind = ind_reverse
+                else:
+                    break
+            if trim_time_total >= min_level_dwell_time and last_valid_ind > 1:
+                last_active_time = self.levels[last_valid_ind-1].times_s[1]
+                min_time = 0
+                if not reset_roi:
+                    if last_active_time > self.roi_region[0] and last_active_time - self.roi_region[0] > 0.5:
+                        min_time = self.roi_region[0]
+                    else:
+                        min_time = last_active_time - 0.5
+                    if last_active_time > self.roi_region[1]:
+                        last_active_time = self.roi_region[1]
+                if min_time >= 0:
+                    self.roi_region = (min_time, last_active_time)
+                    trimmed = True
+        return trimmed
 
     # def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
     #     if not self.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
@@ -742,6 +783,7 @@ class Histogram:
         self.chisq = None
         self.dw = None
         self.dw_bound = None
+
 
     @property
     def t(self):

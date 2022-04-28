@@ -103,7 +103,12 @@ class ClusteringStep:
                  single_level: bool = False):
 
         self._particle = particle
-        self._num_levels = particle.cpts.num_levels
+        self._use_roi = self._particle.use_roi_for_grouping
+        self._particle.grouped_with_roi = self._use_roi
+        if not self._use_roi:
+            self._num_levels = particle.cpts.num_levels
+        else:
+
         self.first = first
         self.single_level = single_level
         self.last = False or single_level

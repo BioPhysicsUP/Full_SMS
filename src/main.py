@@ -199,6 +199,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionRange_Selection.triggered.connect(self.range_selection)
         self.actionSettings.triggered.connect(self.act_open_settings_dialog)
 
+        self.chbGroup_Use_ROI.stateChanged.connect(self.gui_group_use_roi)
         self.btnEx_Current.clicked.connect(self.gui_export_current)
         self.btnEx_Selected.clicked.connect(self.gui_export_selected)
         self.btnEx_All.clicked.connect(self.gui_export_all)
@@ -312,6 +313,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def act_open_settings_dialog(self):
         self.settings_dialog.exec()
+
+    def gui_group_use_roi(self):
+        if self.data_loaded:
+            use_roi = self.chbGroup_Use_ROI.isChecked()
+            for particle in self.current_dataset.particles:
+                particle.use_roi_for_grouping = use_roi
 
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
@@ -513,7 +520,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.treeViewParticles.viewport().repaint()
 
     def tree_view_key_press(self, event):
-        print('here')
+        pass
+        # print('here')
 
     def act_select_all(self, *args, **kwargs):
         if self.data_loaded:
@@ -777,7 +785,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
             any_spectra = any([part.has_spectra for part in self.current_dataset.particles])
             if any_spectra:
                 self.current_dataset.has_spectra = True
-            self.display_data()
 
             if not any([p.has_levels for p in self.current_dataset.particles]):
                 msgbx = TimedMessageBox(30, parent=self)
@@ -802,17 +809,29 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.cmbConfIndex.setCurrentIndex(index)
                     self.int_controller.start_resolve_thread('all')
 
-        if self.data_loaded:
-            self.chbInt_Show_ROI.setEnabled(True)
-            self.chbEx_Trace.setEnabled(True)
-            self.chbEx_Hist.setEnabled(True)
-            self.chbEx_Plot_Intensity.setEnabled(True)
-            self.rdbInt_Only.setEnabled(True)
-            self.chbEx_Plot_Lifetimes.setEnabled(True)
-            self.rdbHist_Only.setEnabled(True)
-            self.actionRange_Selection.setEnabled(True)
-            self.set_export_options()
-            self.reset_gui()
+            if self.data_loaded:
+                self.actionSave_Analysis.setEnabled(True)
+                self.actionSelect_All.setEnabled(True)
+                self.actionInvert_Selection.setEnabled(True)
+                self.actionDeselect_All.setEnabled(True)
+                self.actionRange_Selection.setEnabled(True)
+                self.menuIntensity.setEnabled(True)
+                self.menuLifetime.setEnabled(True)
+                self.chbInt_Show_ROI.setEnabled(True)
+                self.chbGroup_Use_ROI.setEnabled(True)
+                self.chbEx_Trace.setEnabled(True)
+                self.chbEx_Hist.setEnabled(True)
+                self.chbEx_Plot_Intensity.setEnabled(True)
+                self.rdbInt_Only.setEnabled(True)
+                self.chbEx_Plot_Lifetimes.setEnabled(True)
+                self.rdbHist_Only.setEnabled(True)
+                self.actionRange_Selection.setEnabled(True)
+                self.set_export_options()
+                self.reset_gui()
+
+                self.chbInt_Show_ROI.setCheckState(1)
+                self.display_data()
+
             logger.info('File opened')
 
     def set_export_options(self):
@@ -1027,6 +1046,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if self.part_nodes[ind].checked():
                 checked_particles.append(self.tree2particle(ind))
         return checked_particles
+
+    def set_particle_check_state(self, particle_number: int, set_checked: bool):
+        self.part_nodes[particle_number].setChecked(set_checked)
 
     def set_level_resolved(self):
         self.current_dataset.level_resolved = True
