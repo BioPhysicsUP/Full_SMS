@@ -582,6 +582,9 @@ class Particle:
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
 
+    def trim_trace(self, min_level_dwell_time: float, min_level_int: float):
+        print('here')
+
     # def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
     #     if not self.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
     #                               fit_param.shift / channelwidth, fit_param.decaybg, fit_param.irfbg,

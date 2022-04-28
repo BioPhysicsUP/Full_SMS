@@ -937,7 +937,7 @@ class IntController(QObject):
                 particles = self.mainwindow.current_dataset.particles
 
             for particle in particles:
-                print('here')
+                particle.trim_trace(min_level_int=dialog)
 
     def gui_reset_roi_current(self):
         self.reset_roi(mode='current')
