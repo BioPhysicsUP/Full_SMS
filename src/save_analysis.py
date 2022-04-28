@@ -133,6 +133,8 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
                 level.microtimes._dataset = particle.microtimes
         if particle.has_spectra:
             particle.spectra.data = h5_fr.spectra(particle=particle)
+        if not hasattr(particle, 'roi_region'):
+            particle.roi_region = (0, particle.abstimes[-1])
 
     if loaded_dataset.has_raster_scans:
         for raster_scan in loaded_dataset.all_raster_scans:

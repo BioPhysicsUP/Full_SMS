@@ -8,7 +8,7 @@
     <x>0</x>
     <y>0</y>
     <width>1074</width>
-    <height>642</height>
+    <height>706</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -211,7 +211,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>5</number>
+       <number>1</number>
       </property>
       <property name="iconSize">
        <size>
@@ -550,6 +550,39 @@
              </spacer>
             </item>
             <item>
+             <widget class="QCheckBox" name="chbInt_Show_ROI">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>10</pointsize>
+               </font>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::RightToLeft</enum>
+              </property>
+              <property name="text">
+               <string>No ROI</string>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>16</width>
+                <height>16</height>
+               </size>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+              <property name="tristate">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QCheckBox" name="chbInt_Show_Groups">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
@@ -566,7 +599,7 @@
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>Show Groups</string>
+               <string>Groups</string>
               </property>
               <property name="iconSize">
                <size>
@@ -596,7 +629,7 @@
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>Show Level Info</string>
+               <string>Level Info</string>
               </property>
               <property name="iconSize">
                <size>
@@ -626,7 +659,7 @@
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>Show Hist</string>
+               <string>Hist</string>
               </property>
               <property name="iconSize">
                <size>
@@ -1006,6 +1039,19 @@
           <property name="spacing">
            <number>0</number>
           </property>
+          <item row="1" column="4">
+           <widget class="Line" name="lineGroups_5">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="0" colspan="4">
            <widget class="PlotWidget" name="pgGroups_Int_PlotWidget">
             <property name="enabled">
@@ -1016,32 +1062,6 @@
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="Line" name="lineGroups_1">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="Line" name="lineGroups_3">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>
@@ -1058,8 +1078,21 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="4">
-           <widget class="Line" name="lineGroups_5">
+          <item row="1" column="0">
+           <widget class="Line" name="lineGroups_1">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="Line" name="lineGroups_2">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -1107,8 +1140,8 @@
             </item>
            </layout>
           </item>
-          <item row="1" column="1">
-           <widget class="Line" name="lineGroups_2">
+          <item row="1" column="2">
+           <widget class="Line" name="lineGroups_3">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -1165,6 +1198,59 @@
              <number>6</number>
             </property>
             <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_7">
+              <item>
+               <widget class="QCheckBox" name="chbGroup_Use_ROI">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="font">
+                 <font>
+                  <pointsize>10</pointsize>
+                 </font>
+                </property>
+                <property name="layoutDirection">
+                 <enum>Qt::RightToLeft</enum>
+                </property>
+                <property name="text">
+                 <string>Use ROI</string>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>16</width>
+                  <height>16</height>
+                 </size>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+                <property name="tristate">
+                 <bool>false</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="horizontalSpacer_14">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeType">
+                 <enum>QSizePolicy::Minimum</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>5</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+            <item>
              <spacer name="spcGroup_Buttons_Top">
               <property name="orientation">
                <enum>Qt::Vertical</enum>
@@ -1174,8 +1260,8 @@
               </property>
               <property name="sizeHint" stdset="0">
                <size>
-                <width>20</width>
-                <height>0</height>
+                <width>17</width>
+                <height>13</height>
                </size>
               </property>
              </spacer>
@@ -3938,17 +4024,23 @@
      <property name="title">
       <string>Intensity</string>
      </property>
-     <widget class="QMenu" name="menuResolve_Limit_Time">
+     <widget class="QMenu" name="menuRegion_of_Interest">
       <property name="title">
-       <string>Resolve - Limit Time</string>
+       <string>Region of Interest</string>
       </property>
-      <addaction name="actionTime_Resolve_Current"/>
-      <addaction name="actionTime_Resolve_Selected"/>
-      <addaction name="actionTime_Resolve_All"/>
+      <widget class="QMenu" name="menuReset">
+       <property name="title">
+        <string>Reset</string>
+       </property>
+       <addaction name="actionInt_Reset_ROI_Current"/>
+       <addaction name="actionInt_Reset_ROI_Selected"/>
+       <addaction name="actionInt_Reset_ROI_All"/>
+      </widget>
+      <addaction name="actionInt_Trim_Traces"/>
+      <addaction name="separator"/>
+      <addaction name="menuReset"/>
      </widget>
-     <addaction name="actionTrim_Dead_Traces"/>
-     <addaction name="separator"/>
-     <addaction name="menuResolve_Limit_Time"/>
+     <addaction name="menuRegion_of_Interest"/>
     </widget>
     <widget class="QMenu" name="menuLifetime">
      <property name="title">
@@ -4138,6 +4230,41 @@
    </property>
    <property name="text">
     <string>Save Selection</string>
+   </property>
+  </action>
+  <action name="actionInt_Trim_Traces_Current">
+   <property name="text">
+    <string>Current</string>
+   </property>
+  </action>
+  <action name="actionInt_Trim_Traces_Selected">
+   <property name="text">
+    <string>Selected</string>
+   </property>
+  </action>
+  <action name="actionInt_Trim_Traces_All">
+   <property name="text">
+    <string>All</string>
+   </property>
+  </action>
+  <action name="actionInt_Reset_ROI_Current">
+   <property name="text">
+    <string>Current</string>
+   </property>
+  </action>
+  <action name="actionInt_Reset_ROI_Selected">
+   <property name="text">
+    <string>Selected</string>
+   </property>
+  </action>
+  <action name="actionInt_Reset_ROI_All">
+   <property name="text">
+    <string>All</string>
+   </property>
+  </action>
+  <action name="actionInt_Trim_Traces">
+   <property name="text">
+    <string>Trim Traces</string>
    </property>
   </action>
  </widget>

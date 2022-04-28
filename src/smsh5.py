@@ -262,8 +262,6 @@ class BICPlotData:
         self._selected_spot = None
 
 
-
-
 class Particle:
     """
     Class for particle in H5dataset.
@@ -331,6 +329,7 @@ class Particle:
         self.histogram = None
         self.binnedtrace = None
         self.bin_size = None
+        self.roi_region = (0, self.abstimes[-1])
 
         self.startpoint = None
         self.level_selected = None

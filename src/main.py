@@ -132,12 +132,17 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnResolve.clicked.connect(i_c.gui_resolve)
         self.btnResolve_Selected.clicked.connect(i_c.gui_resolve_selected)
         self.btnResolveAll.clicked.connect(i_c.gui_resolve_all)
+        self.chbInt_Show_ROI.stateChanged.connect(i_c.roi_chb_changed)
         self.chbInt_Show_Hist.stateChanged.connect(i_c.hist_chb_changed)
         self.chbInt_Show_Level_Info.stateChanged.connect(i_c.level_info_chb_changed)
         self.chbInt_Show_Groups.stateChanged.connect(i_c.plot_all)
-        self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
-        self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
-        self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
+        self.actionInt_Trim_Traces.triggered.connect(i_c.gui_trim_traces)
+        self.actionInt_Reset_ROI_Current.triggered.connect(i_c.gui_reset_roi_current)
+        self.actionInt_Reset_ROI_Selected.triggered.connect(i_c.gui_reset_roi_selected)
+        self.actionInt_Reset_ROI_All.triggered.connect(i_c.gui_reset_roi_all)
+        # self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
+        # self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
+        # self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
 
         self.lifetime_controller = \
             LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
@@ -798,6 +803,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.int_controller.start_resolve_thread('all')
 
         if self.data_loaded:
+            self.chbInt_Show_ROI.setEnabled(True)
             self.chbEx_Trace.setEnabled(True)
             self.chbEx_Hist.setEnabled(True)
             self.chbEx_Plot_Intensity.setEnabled(True)

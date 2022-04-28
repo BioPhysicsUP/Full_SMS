@@ -10,7 +10,7 @@ import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from PyQt5.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QPen, QColor, QPalette, QFont
+from PyQt5.QtGui import QPen, QColor, QPalette, QFont, QBrush
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
 import pickle
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 from my_logger import setup_logger
 from smsh5 import H5dataset, Particle, ParticleAllHists, RasterScan
 from tcspcfit import FittingParameters, FittingDialog
+from trim_traces_dialog import TrimTracesDialog
 from threads import ProcessThread, ProcessTaskResult, WorkerBinAll
 from thread_tasks import OpenFile, BinAll, bin_all
 import matplotlib.pyplot as plt
@@ -100,9 +101,6 @@ class IntController(QObject):
         self.int_widget = int_widget
         self.int_plot = int_widget.getPlotItem()
 
-        # Tesing Linear Reagion Item
-        self.int_linear_region = pg.LinearRegionItem([1, 30])
-
         self.setup_widget(self.int_widget)
         self.setup_plot(self.int_plot)
 
@@ -146,6 +144,34 @@ class IntController(QObject):
         self.temp_fig = None
         self.temp_ax = None
         self.temp_bins = None
+
+        # Setup and addition of Linear Region Item for ROI
+        pen = QPen()
+        pen.setCosmetic(True)
+        pen.setWidthF(1)
+        pen.setStyle(Qt.DashLine)
+        pen.setColor(QColor('grey'))
+
+        hover_pen = QPen()
+        hover_pen.setCosmetic(True)
+        hover_pen.setWidthF(2)
+        hover_pen.setStyle(Qt.DashLine)
+        hover_pen.setColor(QColor('red'))
+
+        brush_color = QColor('lightgreen')
+        brush_color.setAlpha(20)
+        brush = QBrush()
+        brush.setStyle(Qt.SolidPattern)
+        brush.setColor(brush_color)
+
+        hover_brush_color = QColor('lightgreen')
+        hover_brush_color.setAlpha(80)
+        hover_brush = QBrush()
+        hover_brush.setStyle(Qt.SolidPattern)
+        hover_brush.setColor(hover_brush_color)
+
+        self.int_ROI = pg.LinearRegionItem(brush=brush, hoverBrush=hover_brush, pen=pen, hoverPen=hover_pen)
+        self.int_ROI.sigRegionChangeFinished.connect(self.roi_region_changed)
 
         # Setup axes and limits
         # self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
@@ -218,6 +244,22 @@ class IntController(QObject):
             else:
                 self.int_hist_container.hide()
                 self.int_hist_line.hide()
+
+    def roi_chb_changed(self):
+        roi_chb = self.mainwindow.chbInt_Show_ROI
+        chb_text = 'No ROI'
+        if roi_chb.checkState() == 1:
+            chb_text = 'Show ROI'
+        elif roi_chb.checkState() == 2:
+            chb_text = 'Edit ROI'
+        roi_chb.setText(chb_text)
+        self.plot_all()
+
+    def roi_region_changed(self):
+        if self.mainwindow.chbInt_Show_ROI.checkState() == 2:
+            current_particle = self.mainwindow.current_particle
+            if current_particle is not None:
+                current_particle.roi_region = self.int_ROI.getRegion()
 
     def hist_chb_changed(self):
 
@@ -319,48 +361,48 @@ class IntController(QObject):
         self.plot_trace()
         logger.info('Binnig all levels complete')
 
-    def ask_end_time(self):
-        """ Prompts the user to supply an end time."""
-
-        end_time_s, ok = QInputDialog.getDouble(self.mainwindow, 'End Time',
-                                                'Provide end time in seconds', 0, 1, 10000, 3)
-        return end_time_s, ok
-
-    def time_resolve_current(self):
-        """ Resolves the levels of the current particle to an end time asked of the user."""
-
-        end_time_s, ok = self.ask_end_time()
-        if ok:
-            self.gui_resolve(end_time_s=end_time_s)
-
-    def time_resolve_selected(self):
-        """ Resolves the levels of the selected particles to an end time asked of the user."""
-
-        end_time_s, ok = self.ask_end_time()
-        if ok:
-            self.gui_resolve_selected(end_time_s=end_time_s)
-
-    def time_resolve_all(self):
-        """ Resolves the levels of all the particles to an end time asked of the user."""
-
-        end_time_s, ok = self.ask_end_time()
-        if ok:
-            self.gui_resolve_all(end_time_s=end_time_s)
-
-    def gui_resolve(self, end_time_s=None):
+    # def ask_end_time(self):
+    #     """ Prompts the user to supply an end time."""
+    #
+    #     end_time_s, ok = QInputDialog.getDouble(self.mainwindow, 'End Time',
+    #                                             'Provide end time in seconds', 0, 1, 10000, 3)
+    #     return end_time_s, ok
+    #
+    # def time_resolve_current(self):
+    #     """ Resolves the levels of the current particle to an end time asked of the user."""
+    #
+    #     end_time_s, ok = self.ask_end_time()
+    #     if ok:
+    #         self.gui_resolve(end_time_s=end_time_s)
+    #
+    # def time_resolve_selected(self):
+    #     """ Resolves the levels of the selected particles to an end time asked of the user."""
+    #
+    #     end_time_s, ok = self.ask_end_time()
+    #     if ok:
+    #         self.gui_resolve_selected(end_time_s=end_time_s)
+    #
+    # def time_resolve_all(self):
+    #     """ Resolves the levels of all the particles to an end time asked of the user."""
+    #
+    #     end_time_s, ok = self.ask_end_time()
+    #     if ok:
+    #         self.gui_resolve_all(end_time_s=end_time_s)
+    #
+    def gui_resolve(self):  #, end_time_s=None):
         """ Resolves the levels of the current particle and displays it. """
 
-        self.start_resolve_thread(mode='current', end_time_s=end_time_s)
+        self.start_resolve_thread(mode='current')  #, end_time_s=end_time_s)
 
-    def gui_resolve_selected(self, end_time_s=None):
+    def gui_resolve_selected(self):  #, end_time_s=None):
         """ Resolves the levels of the selected particles and displays the levels of the current particle. """
 
-        self.start_resolve_thread(mode='selected', end_time_s=end_time_s)
+        self.start_resolve_thread(mode='selected')  #, end_time_s=end_time_s)
 
-    def gui_resolve_all(self, end_time_s=None):
+    def gui_resolve_all(self):  #, end_time_s=None):
         """ Resolves the levels of the all the particles and then displays the levels of the current particle. """
 
-        self.start_resolve_thread(mode='all', end_time_s=end_time_s)
+        self.start_resolve_thread(mode='all')  #, end_time_s=end_time_s)
 
     def plot_trace(self, particle: Particle = None,
                    for_export: bool = False,
@@ -382,6 +424,12 @@ class IntController(QObject):
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
+            roi_chb_value = self.mainwindow.chbInt_Show_ROI.checkState()
+            roi_state = 'none'
+            if roi_chb_value == 1:
+                roi_state = 'show'
+            elif roi_chb_value == 2:
+                roi_state = 'edit'
             if for_export:
                 cur_tab_name = 'tabIntensity'
             else:
@@ -406,9 +454,14 @@ class IntController(QObject):
                     plot_pen.setJoinStyle(Qt.RoundJoin)
 
                     plot_item.clear()
-                    # TODO: Add checkbox
-                    if True:
-                        plot_item.addItem(self.int_linear_region)
+                    if roi_state != 'none':
+                        if roi_state == 'edit':
+                            self.int_ROI.setMovable(True)
+                            self.int_ROI.setBounds((0, times[-1]))
+                        else:
+                            self.int_ROI.setMovable(False)
+                        self.int_ROI.setRegion(particle.roi_region)
+                        plot_item.addItem(self.int_ROI)
                     plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
                     plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                     plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
@@ -871,6 +924,40 @@ class IntController(QObject):
 
         return [self.mainwindow.cmbConfIndex.currentIndex(),
                 self.confidence_index[self.mainwindow.cmbConfIndex.currentIndex()]]
+
+    def gui_trim_traces(self, mode: str):
+        dialog = TrimTracesDialog(mainwindow=self)
+        dialog.exec()
+        if dialog.should_trim_traces:
+            if dialog.rdbCurrent.isChecked():
+                particles = [self.mainwindow.current_particle]
+            elif dialog.rdbSelected.isChecked():
+                particles = self.mainwindow.get_checked_particles()
+            elif dialog.rdbAll.isChecked():
+                particles = self.mainwindow.current_dataset.particles
+
+            for particle in particles:
+                print('here')
+
+    def gui_reset_roi_current(self):
+        self.reset_roi(mode='current')
+
+    def gui_reset_roi_selected(self):
+        self.reset_roi(mode='selected')
+
+    def gui_reset_roi_all(self):
+        self.reset_roi(mode='all')
+
+    def reset_roi(self, mode= str):
+        if mode == 'current':
+            particles = [self.mainwindow.current_particle]
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        elif mode == 'all':
+            particles = self.mainwindow.current_dataset.particles
+
+        for particle in particles:
+            particle.roi_region = (0, particle.abstimes[-1])
 
     def any_int_plot_double_click(self, event: MouseClickEvent):
         if event.double():
