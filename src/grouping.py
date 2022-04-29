@@ -47,7 +47,10 @@ class Group:
         self.histogram = None
 
         if self.lvls_inds is not None and particle is not None:
-            self.lvls = [particle.cpts.levels[i] for i in self.lvls_inds]
+            if not particle.use_roi_for_grouping:
+                self.lvls = [particle.cpts.levels[i] for i in self.lvls_inds]
+            else:
+                self.lvls = [particle.levels_roi[i] for i in self.lvls_inds]
 
     @property
     def num_photons(self) -> int_p_s:
@@ -76,24 +79,6 @@ class Group:
         return microtimes
 
 
-# class Solution:
-#
-#     def __init__(self, clustering_step: ClusteringStep):
-#         self._c_step = clustering_step
-#
-#     @property
-#     def groups(self) -> List[Group]:
-#         return self._c_step._seed_groups
-#
-#     @property
-#     def num_groups(self) -> int:
-#         return self._c_step._num_prev_groups
-#
-#     @property
-#     def num_levels(self) -> int:
-#         return self._c_step._num_levels
-
-
 class ClusteringStep:
 
     def __init__(self,
@@ -108,7 +93,7 @@ class ClusteringStep:
         if not self._use_roi:
             self._num_levels = particle.cpts.num_levels
         else:
-
+            self._num_levels = particle.num_levels_roi
         self.first = first
         self.single_level = single_level
         self.last = False or single_level
@@ -233,14 +218,20 @@ class ClusteringStep:
 
         p_mj = self._ahc_p_mj.copy()
         prev_p_mj = p_mj.copy()
-        levels = self._particle.cpts.levels
+        if not self._particle.use_roi_for_grouping:
+            levels = self._particle.cpts.levels
+        else:
+            levels = self._particle.levels_roi
 
         i = 0
         diff_p_mj = 1
         while diff_p_mj > 1E-5 and i < 50:
 
             i += 1
-            cap_t = self._particle.dwell_time
+            if not self._particle.use_roi_for_grouping:
+                cap_t = self._particle.dwell_time
+            else:
+                cap_t = self._particle.dwell_time_roi
 
             t_hat = np.zeros(shape=(self._num_prev_groups - 1,))
             n_hat = np.zeros_like(t_hat)
@@ -311,7 +302,10 @@ class ClusteringStep:
         self.bic = 2 * self._em_log_l - (2 * num_g - 1) * np.log(num_cp) - num_cp * np.log(self._particle.num_photons)
 
     def group_2_levels(self):
-        part_levels = self._particle.cpts.levels
+        if not self._particle.use_roi_for_grouping:
+            part_levels = self._particle.cpts.levels
+        else:
+            part_levels = self._particle.levels_roi
         abs_times = self._particle.abstimes
         micro_times = self._particle.microtimes
 

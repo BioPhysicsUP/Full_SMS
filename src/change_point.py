@@ -511,8 +511,9 @@ class ChangePointAnalysis:
     def load_settings(self):
         settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
         with open(settings_file_path, 'r') as settings_file:
+            if not hasattr(self, 'settings'):
+                self.settings = Settings()
             self.settings.load_settings_from_file(file_or_path=settings_file)
-        
 
     def reset(self, confidence: float = None):
         self.has_run = False

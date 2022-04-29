@@ -351,6 +351,16 @@ class Particle:
     #         return self.dataset.all_raster_scans[self._raster_scan_dataset_index]
 
     @property
+    def first_level_ind_in_roi(self):
+        start_times = np.array([level.times_s[0] for level in self.levels])
+        return np.where(start_times > self.roi_region[0])[0][0]
+
+    @property
+    def last_level_ind_in_roi(self):
+        end_times = np.array([level.times_s[1] for level in self.levels])
+        return np.where(end_times > self.roi_region[1])[0][0]
+
+    @property
     def raster_scan_coordinates(self) -> tuple:
         particle_attr_keys = self.datadict.attrs.keys()
         if self.has_raster_scan:
@@ -416,6 +426,15 @@ class Particle:
             return self.cpts.levels
 
     @property
+    def levels_roi(self):
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_levels
+        else:
+            first_ind = self.first_level_ind_in_roi
+            last_ind = self.last_level_ind_in_roi
+            return self.cpts.levels[first_ind: last_ind]
+
+    @property
     def num_levels(self):
         if self.using_group_levels:
             return self.ahca.selected_step.group_num_levels
@@ -423,22 +442,16 @@ class Particle:
             return self.cpts.num_levels
 
     @property
-    def first_level_ind_in_roi(self):
-        start_times = np.array([level.times_s[0] for level in self.levels])
-        return np.where(start_times > self.roi_region[0])[0][0]
-    @property
-    def last_level_ind_in_roi(self):
-        end_times = np.array([level.times_s[1] for level in self.levels])
-        return np.where(end_times > self.roi_region[1])[0][0]
-
-    @property
-    def num_levels_in_roi(self):
-        if self.using_group_levels:
+    def num_levels_roi(self):
             return self.last_level_ind_in_roi - self.first_level_ind_in_roi
 
     @property
     def dwell_time(self):
         return (self.abstimes[-1] - self.abstimes[0]) / 1E9
+
+    @property
+    def dwell_time_roi(self):
+        return self.levels_roi[-1].times_s[1] - self.levels_roi[0].times_s[0]
 
     @property
     def level_ints(self):
@@ -448,11 +461,25 @@ class Particle:
             return self.cpts.level_ints
 
     @property
+    def level_ints_roi(self):
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_level_ints
+        else:
+            return self.cpts.level_ints[self.first_level_ind_in_roi:self.last_level_ind_in_roi]
+
+    @property
     def level_dwelltimes(self):
         if self.using_group_levels:
             return self.ahca.selected_step.group_level_dwelltimes
         else:
             return self.cpts.level_dwelltimes
+
+    @property
+    def level_dwelltimes_roi(self):
+        if self.using_group_levels:
+            return self.ahca.selected_step.group_level_dwelltimes
+        else:
+            return self.cpts.level_dwelltimes[self.first_level_ind_in_roi:self.last_level_ind_in_roi]
 
     @property
     def has_burst(self) -> bool:
@@ -478,7 +505,7 @@ class Particle:
     # def icon(self):
     #     return ParticleIcons.test_icon
 
-    def levels2data(self, use_grouped: bool = None) -> [np.ndarray, np.ndarray]:
+    def levels2data(self, use_grouped: bool = None, use_roi: bool = False) -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
@@ -495,7 +522,10 @@ class Particle:
         levels = self.levels
         if use_grouped is not None:
             if not use_grouped:
-                levels = self.cpts.levels
+                if not use_roi:
+                    levels = self.cpts.levels
+                else:
+                    levels = self.levels_roi
             else:
                 levels = self.ahca.selected_step.group_levels
 
@@ -512,7 +542,7 @@ class Particle:
 
         return levels_data, times
 
-    def current2data(self, num, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
+    def current2data(self, level_ind: int, use_roi: bool = False) -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for plotting level num.
         Parameters
@@ -526,28 +556,19 @@ class Particle:
         # TODO: Cleanup this function anc the one above it
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
 
-        # ############## Old, for Matplotlib ##############
-        # levels_data = np.empty(shape=self.num_levels+1)
-        # times = np.empty(shape=self.num_levels+1)
-        # accum_time = 0
-        # for num, level in enumerate(self.levels):
-        #     times[num] = accum_time
-        #     accum_time += level.dwell_time/1E9
-        #     levels_data[num] = level.int
-        #     if num+1 == self.num_levels:
-        #         levels_data[num+1] = accum_time
-        #         times[num+1] = level.int
-
-        level = self.levels[num]
+        if not use_roi:
+            level = self.levels[level_ind]
+        else:
+            level = self.levels_roi[level_ind]
         times = np.array(level.times_ns) / 1E9
         levels_data = np.array([level.int_p_s, level.int_p_s])
 
         return levels_data, times
 
-    def current_group2data(self, num: int) -> [np.ndarray, np.ndarray]:
+    def current_group2data(self, group_ind: int) -> [np.ndarray, np.ndarray]:
         assert self.has_groups, 'ChangePointAnalysis:\tNo groups to convert to data.'
 
-        group = self.groups[num]
+        group = self.groups[group_ind]
         times = np.array([self.abstimes[0], self.abstimes[-1]]) /1E9
         group_int = np.array([group.int_p_s, group.int_p_s])
         return group_int, times
@@ -625,35 +646,6 @@ class Particle:
                     self.roi_region = (min_time, last_active_time)
                     trimmed = True
         return trimmed
-
-    # def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
-    #     if not self.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-    #                               fit_param.shift / channelwidth, fit_param.decaybg, fit_param.irfbg,
-    #                               start, end, fit_param.addopt, fit_param.irf, fit_param.shiftfix):
-    #         pass  # fit unsuccessful
-    #     self.numexp = fit_param.numexp
-    #     # progress_sig.emit()
-    #     if not self.has_levels:
-    #         return
-    #     levels = self.cpts.levels
-    #     if self.has_groups:
-    #         levels.extend(self.ahca.selected_step.group_levels)
-    #         for group in self.ahca.selected_step.groups:
-    #             if group.hist is None:
-    #                 group.hist = Histogram(particle=self, level=group.lvls_inds,
-    #                                        startpoint=self.startpoint)
-    #     for level in levels:
-    #         if not hasattr(level, 'histogram'):
-    #             level.histogram = Histogram()
-    #         try:
-    #             if not level.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-    #                                        fit_param.shift / channelwidth, fit_param.decaybg,
-    #                                        fit_param.irfbg,
-    #                                        start, end, fit_param.addopt,
-    #                                        fit_param.irf, fit_param.shiftfix):
-    #                 pass  # fit unsuccessful
-    #         except AttributeError:
-    #             print("No decay")
 
 
 class Trace:
