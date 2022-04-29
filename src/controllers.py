@@ -1999,6 +1999,9 @@ class GroupingController(QObject):
                 self.all_bic_plots = [None] * num_parts
                 self.all_last_solutions = [None] * num_parts
 
+            if particle.ahca.plots_need_to_be_updated:
+                self.all_bic_plots[particle.dataset_ind] = None
+                self.all_last_solutions[particle.dataset_ind] = None
             scat_plot_item = self.all_bic_plots[particle.dataset_ind]
             if scat_plot_item is None:
                 spot_other_pen = pg.mkPen(width=1, color='k')
@@ -2231,6 +2234,21 @@ class GroupingController(QObject):
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
         self.mainwindow.reset_gui()
+        export_group_roi_label = None
+        label_color = 'black'
+        all_grouped_with_roi = [p.grouped_with_roi for p in self.mainwindow.current_dataset.particles]
+        if any(all_grouped_with_roi):
+            export_group_roi_label = 'Some grouping done with ROI'
+            label_color = 'red'
+        if all(all_grouped_with_roi):
+            export_group_roi_label = 'All grouped with ROI'
+
+        if export_group_roi_label is None:
+            self.mainwindow.lblGrouping_ROI.setVisible(False)
+        else:
+            self.mainwindow.lblGrouping_ROI.setVisible(True)
+            self.mainwindow.lblGrouping_ROI.setText(export_group_roi_label)
+            self.mainwindow.lblGrouping_ROI.setColor(QColor(label_color))
         logger.info('Grouping levels complete')
 
     def apply_groups(self, mode: str = 'current'):

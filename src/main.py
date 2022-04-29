@@ -213,6 +213,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnSelectAllExport_DataFrames.clicked.connect(
             self.select_all_dataframes_export_options)
 
+        self.lblGrouping_ROI.setVisible(False)
+
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()
         self.treeViewParticles.setModel(self.treemodel)

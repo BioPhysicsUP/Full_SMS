@@ -7,8 +7,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1073</width>
-    <height>697</height>
+    <width>1077</width>
+    <height>706</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -211,7 +211,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>5</number>
       </property>
       <property name="iconSize">
        <size>
@@ -2800,6 +2800,30 @@
                      <number>10</number>
                     </property>
                     <item>
+                     <widget class="QLabel" name="lblGrouping_ROI">
+                      <property name="enabled">
+                       <bool>true</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string/>
+                      </property>
+                      <property name="alignment">
+                       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+                      </property>
+                      <property name="wordWrap">
+                       <bool>true</bool>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
                      <widget class="QCheckBox" name="chbEx_Grouping_Info">
                       <property name="enabled">
                        <bool>false</bool>
@@ -4005,7 +4029,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1073</width>
+     <width>1077</width>
      <height>21</height>
     </rect>
    </property>

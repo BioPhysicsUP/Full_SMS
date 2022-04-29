@@ -365,6 +365,7 @@ class AHCA:
         particle: smsh5.Particle
         """
 
+        self.backup = None
         self.has_groups = False
         self._particle = particle
         self.uuid = self._particle.uuid
@@ -373,6 +374,7 @@ class AHCA:
         self.bics = None
         self.selected_step_ind = None
         self.num_steps = None
+        self.plots_need_to_be_updated = False
 
 
     @property
@@ -395,6 +397,34 @@ class AHCA:
         if self.has_groups:
             return [step.num_groups for step in self.steps]
 
+    def clear_and_backup_results(self) -> None:
+        if self.has_groups:
+            backup = dict()
+            self.has_groups = False
+            backup['best_step_ind'] = self.best_step_ind
+            self.best_step_ind = None
+            backup['bics'] = self.bics
+            self.bics = None
+            backup['num_steps'] = self.num_steps
+            self.num_steps = None
+            backup['selected_step'] = self.selected_step_ind
+            self.selected_step_ind = None
+            backup['steps'] = self.steps
+            self.steps = None
+
+            self.backup = backup
+
+    def restore_and_delete_backup(self) -> None:
+        if self.backup is not None:
+            self.best_step_ind = self.backup['best_step_ind']
+            self.bics = self.backup['bics']
+            self.num_steps = self.backup['num_steps']
+            self.selected_step_ind = self.backup['selected_step']
+            self.steps = self.backup['steps']
+
+            self.has_groups = True
+            self.backup = None
+
     def run_grouping(self):
         """
         Run grouping
@@ -405,6 +435,8 @@ class AHCA:
         """
 
         try:
+            if self.has_groups:
+                self.clear_and_backup_results()
             if self._particle.has_levels:
 
                 steps = []
@@ -435,10 +467,15 @@ class AHCA:
                     self.best_step_ind = np.argmax(self.bics)
                     self.selected_step_ind = self.best_step_ind
                     self.has_groups = True
+                    self._particle.grouped_with_roi = self._particle.use_roi_for_grouping
+                    if self.backup is not None:
+                        self.backup = None
+                        self.plots_need_to_be_updated = True
                     logger.info(f"{self._particle.name} levels grouped")
             else:
                 logger.info(f"{self._particle.name} has no levels to group")
         except Exception as e:
+            self.restore_and_delete_backup()
             logger.error(e)
             pass
 
