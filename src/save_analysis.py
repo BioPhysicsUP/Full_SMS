@@ -134,11 +134,11 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
         if particle.has_spectra:
             particle.spectra.data = h5_fr.spectra(particle=particle)
         if not hasattr(particle, 'roi_region'):
-            particle.roi_region = (0, particle.abstimes[-1])
+            particle.roi_region = (0, particle.abstimes[-1]/1E9)
         if not hasattr(particle, 'use_roi_for_grouping'):
-            particle.use_roi_for_grouping = False
+            particle.ahca.use_roi_for_grouping = False
         if not hasattr(particle, 'grouped_with_roi'):
-            particle.grouped_with_roi = False
+            particle.ahca.grouped_with_roi = False
         if not hasattr(particle.ahca, 'backup'):
             particle.ahca.backup = None
         if not hasattr(particle.ahca, 'plots_need_to_be_updated'):

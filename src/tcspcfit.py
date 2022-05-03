@@ -1004,7 +1004,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         channelwidth = self.mainwindow.current_particle.channelwidth
         fp = self.lifetime_controller.fitparam
 
-#  TODO: try should contain as little code as possible
+        #  TODO: try should contain as little code as possible
         try:
             if self.mainwindow.current_particle.level_selected is None:
                 histogram = self.mainwindow.current_particle.histogram
@@ -1022,97 +1022,98 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         except AttributeError:
             logger.error('No Decay!')
         else:
-            try:
-                if fp.fwhm is None:
-                    irf = fp.irf
-                    irft = fp.irft
+            if fp.irf is not None:
+                try:
+                    if fp.fwhm is None:
+                        irf = fp.irf
+                        irft = fp.irft
+                    else:
+                        irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], decay)
+                except AttributeError:
+                    logger.error('No IRF!')
+                    return
+
+                shift, decaybg, irfbg, start, autostart, end, autoend = self.getparams()
+
+                shift = shift / channelwidth
+                # irf = tcspcfit.colorshift(irf, shift)
+                irf = colorshift(irf, shift)
+                convd = scipy.signal.convolve(irf, model)
+                convd = convd[:np.size(irf)]
+                convd = convd / convd.sum()
+
+                if autostart:
+                    # start = np.argmax(decay)
+                    maxpoint = decay.max()
+                    close_to_max, = np.where(decay > 0.80 * maxpoint)
+                    start = close_to_max[0]
+                    self.lineStartTime.setText(f'{start * channelwidth: .3g}')
                 else:
-                    irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], decay)
-            except AttributeError:
-                logger.error('No IRF!')
-                return
-
-            shift, decaybg, irfbg, start, autostart, end, autoend = self.getparams()
-
-            shift = shift / channelwidth
-            # irf = tcspcfit.colorshift(irf, shift)
-            irf = colorshift(irf, shift)
-            convd = scipy.signal.convolve(irf, model)
-            convd = convd[:np.size(irf)]
-            convd = convd / convd.sum()
-
-            if autostart:
-                # start = np.argmax(decay)
-                maxpoint = decay.max()
-                close_to_max, = np.where(decay > 0.80 * maxpoint)
-                start = close_to_max[0]
-                self.lineStartTime.setText(f'{start * channelwidth: .3g}')
-            else:
-                start = int(start / channelwidth)
-            if autoend:
-                bg = FluoFit.estimate_bg(decay)
-                minval = max(20 * bg, 0.01 * decay.max())
-                greater_than_bg, = np.where(decay > minval)
-                if not greater_than_bg.size == 0:
-                    end = greater_than_bg.max()
+                    start = int(start / channelwidth)
+                if autoend:
+                    bg = FluoFit.estimate_bg(decay)
+                    minval = max(20 * bg, 0.01 * decay.max())
+                    greater_than_bg, = np.where(decay > minval)
+                    if not greater_than_bg.size == 0:
+                        end = greater_than_bg.max()
+                    else:
+                        end = decay.size
+                    self.lineEndTime.setText(f'{end * channelwidth: .3g}')
                 else:
-                    end = decay.size
-                self.lineEndTime.setText(f'{end * channelwidth: .3g}')
-            else:
-                end = int(end / channelwidth)
+                    end = int(end / channelwidth)
 
-            # decay, t = start_at_value(decay, t)
-            end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
+                # decay, t = start_at_value(decay, t)
+                end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
 
-            convd = convd[irft > 0]
-            irft = irft[irft > 0]
+                convd = convd[irft > 0]
+                irft = irft[irft > 0]
 
-            plot_item = self.pgFitParam.getPlotItem()
+                plot_item = self.pgFitParam.getPlotItem()
 
-            plot_item.setLogMode(y=True)
-            plot_pen = QPen()
-            plot_pen.setWidthF(1.5)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setColor(QColor('blue'))
-            plot_pen.setCosmetic(True)
+                plot_item.setLogMode(y=True)
+                plot_pen = QPen()
+                plot_pen.setWidthF(1.5)
+                plot_pen.setJoinStyle(Qt.RoundJoin)
+                plot_pen.setColor(QColor('blue'))
+                plot_pen.setCosmetic(True)
 
-            plot_item.clear()
-            plot_item.plot(x=t, y=np.clip(decay, a_min=0.000001, a_max=None), pen=plot_pen,
-                           symbol=None)
+                plot_item.clear()
+                plot_item.plot(x=t, y=np.clip(decay, a_min=0.000001, a_max=None), pen=plot_pen,
+                               symbol=None)
 
-            plot_pen = QPen()
-            plot_pen.setWidthF(2)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setCosmetic(True)
-            plot_pen.setColor(QColor('dark blue'))
-            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.000001, a_max=None), pen=plot_pen,
-                           symbol=None)
-            # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
-            plot_item.getAxis('bottom').setLabel('Decay time (ns)')
-            # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
-            # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
-            # self.MW_fitparam.axes.clear()
-            # self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
-            # self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
-            # self.MW_fitparam.axes.set_ylim(bottom=1e-2)
+                plot_pen = QPen()
+                plot_pen.setWidthF(2)
+                plot_pen.setJoinStyle(Qt.RoundJoin)
+                plot_pen.setCosmetic(True)
+                plot_pen.setColor(QColor('dark blue'))
+                plot_item.plot(x=irft, y=np.clip(convd, a_min=0.000001, a_max=None), pen=plot_pen,
+                               symbol=None)
+                # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+                plot_item.getAxis('bottom').setLabel('Decay time (ns)')
+                # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
+                # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+                # self.MW_fitparam.axes.clear()
+                # self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
+                # self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
+                # self.MW_fitparam.axes.set_ylim(bottom=1e-2)
 
-        try:
-            plot_pen = QPen()
-            plot_pen.setWidthF(2.5)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setCosmetic(True)
-            plot_pen.setColor(QColor('gray'))
-            startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
-            endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
-            plot_item.addItem(startline)
-            plot_item.addItem(endline)
-            # self.MW_fitparam.axes.axvline(t[start])
-            # self.MW_fitparam.axes.axvline(t[end])
-        except IndexError:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Warning)
-            msg.setText('Value out of bounds!')
-            msg.exec_()
+                try:
+                    plot_pen = QPen()
+                    plot_pen.setWidthF(2.5)
+                    plot_pen.setJoinStyle(Qt.RoundJoin)
+                    plot_pen.setCosmetic(True)
+                    plot_pen.setColor(QColor('gray'))
+                    startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
+                    endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
+                    plot_item.addItem(startline)
+                    plot_item.addItem(endline)
+                    # self.MW_fitparam.axes.axvline(t[start])
+                    # self.MW_fitparam.axes.axvline(t[end])
+                except IndexError:
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Warning)
+                    msg.setText('Value out of bounds!')
+                    msg.exec_()
 
     def getparams(self):
         fp = self.lifetime_controller.fitparam

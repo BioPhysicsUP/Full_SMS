@@ -260,6 +260,7 @@ class IntController(QObject):
             current_particle = self.mainwindow.current_particle
             if current_particle is not None:
                 current_particle.roi_region = self.int_ROI.getRegion()
+                self.mainwindow.lifetime_controller.test_need_roi_apply(particle=current_particle)
 
     def hist_chb_changed(self):
 
@@ -954,7 +955,7 @@ class IntController(QObject):
     def gui_reset_roi_all(self):
         self.reset_roi(mode='all')
 
-    def reset_roi(self, mode= str):
+    def reset_roi(self, mode=str):
         if mode == 'current':
             particles = [self.mainwindow.current_particle]
         elif mode == 'selected':
@@ -1024,6 +1025,7 @@ class LifetimeController(QObject):
                  lifetime_hist_widget: pg.PlotWidget,
                  residual_widget: pg.PlotWidget):
         super().__init__()
+        self.all_should_apply = None
         self.mainwindow = mainwindow
 
         self.lifetime_hist_widget = lifetime_hist_widget
@@ -1241,6 +1243,35 @@ class LifetimeController(QObject):
         """ Fits the all the levels decay curves for the current particle. """
 
         self.start_fitting_thread()
+
+    def gui_use_roi(self):
+        use_roi = self.mainwindow.chbLifetime_Use_ROI.isChecked()
+        for particle in self.mainwindow.current_dataset.particles:
+            particle.use_roi_for_histogram = use_roi
+        if use_roi:
+            self.test_need_roi_apply()
+
+    def test_need_roi_apply(self, particle: Particle = None):
+        new_list = False
+        if self.all_should_apply is None:
+            new_list = True
+            self.all_should_apply = []
+            particle = None
+        if particle is not None:
+            region_same = particle.roi_region == particle.histogram_roi.roi_region_used
+            self.all_should_apply[particle.dataset_ind] = region_same
+        else:
+            for part_ind, part in enumerate(self.mainwindow.current_dataset.particles):
+                region_same = part.roi_region == part.histogram_roi.roi_region_used
+                if new_list:
+                    self.all_should_apply.append(region_same)
+                else:
+                    self.all_should_apply[part_ind] = region_same
+
+        style_sheet_color = ""
+        if self.mainwindow.chbLifetime_Use_ROI.isChecked() and any(self.all_should_apply):
+            style_sheet_color = "background-color: red"
+        self.mainwindow.btnLifetime_Apply_ROI.setStyleSheet(style_sheet_color)
 
     def plot_all(self):
         self.mainwindow.display_data()
@@ -2234,22 +2265,48 @@ class GroupingController(QObject):
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
         self.mainwindow.reset_gui()
-        export_group_roi_label = None
-        label_color = 'black'
-        all_grouped_with_roi = [p.grouped_with_roi for p in self.mainwindow.current_dataset.particles]
-        if any(all_grouped_with_roi):
-            export_group_roi_label = 'Some grouping done with ROI'
-            label_color = 'red'
-        if all(all_grouped_with_roi):
-            export_group_roi_label = 'All grouped with ROI'
+        self.check_rois_and_set_label()
+        logger.info('Grouping levels complete')
 
-        if export_group_roi_label is None:
+    def check_rois_and_set_label(self):
+        export_group_roi_label = ''
+        label_color = 'black'
+        all_has_groups = np.array([p.has_groups for p in self.mainwindow.current_dataset.particles])
+        if any(all_has_groups):
+            all_grouped_with_roi = np.array([p.grouped_with_roi for p in self.mainwindow.current_dataset.particles])
+            all_grouped_and_with_roi = all_grouped_with_roi[all_has_groups]
+            if all(all_grouped_and_with_roi):
+                export_group_roi_label = 'All have ROI\n'
+            elif any(all_grouped_and_with_roi):
+                export_group_roi_label = 'Some have ROI\n'
+                label_color = 'red'
+
+            checked_particles = self.mainwindow.get_checked_particles()
+            if len(checked_particles) > 0:
+                all_checked_has_groups = np.array([p.has_groups for p in checked_particles])
+                all_checked_grouped_with_roi = np.array([p.grouped_with_roi for p in checked_particles])
+                all_checked_grouped_and_with_roi = all_checked_grouped_with_roi[all_checked_has_groups]
+                if all(all_checked_grouped_and_with_roi):
+                    export_group_roi_label += 'All selected have ROI\n'
+                elif any(all_checked_grouped_and_with_roi):
+                    export_group_roi_label += 'Some selected have ROI\n'
+                else:
+                    export_group_roi_label += 'None selected have ROI\n'
+
+            if self.mainwindow.current_particle.has_groups:
+                if self.mainwindow.current_particle.grouped_with_roi:
+                    export_group_roi_label += 'Current has ROI'
+                else:
+                    export_group_roi_label += 'Current doesn\'t have ROI'
+
+        if export_group_roi_label == '':
             self.mainwindow.lblGrouping_ROI.setVisible(False)
         else:
+            if export_group_roi_label[-1] == '\n':
+                export_group_roi_label = export_group_roi_label[:-1]
             self.mainwindow.lblGrouping_ROI.setVisible(True)
             self.mainwindow.lblGrouping_ROI.setText(export_group_roi_label)
-            self.mainwindow.lblGrouping_ROI.setColor(QColor(label_color))
-        logger.info('Grouping levels complete')
+            self.mainwindow.lblGrouping_ROI.setStyleSheet(f"color: {label_color}")
 
     def apply_groups(self, mode: str = 'current'):
         if mode == 'current':

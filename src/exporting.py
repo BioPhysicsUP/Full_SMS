@@ -81,6 +81,8 @@ def export_data(mainwindow: MainWindow,
     if not lock:
         lock = Lock()
 
+    use_roi = mainwindow.chbEx_Use_ROI.isChecked()
+
     ex_traces = mainwindow.chbEx_Trace.isChecked()
     ex_levels = mainwindow.chbEx_Levels.isChecked()
     ex_plot_intensities = mainwindow.chbEx_Plot_Intensity.isChecked()
@@ -203,6 +205,20 @@ def export_data(mainwindow: MainWindow,
                     writer = csv.writer(f, dialect=csv.excel)
                     writer.writerows(rows)
 
+                if use_roi:
+                    tr_path = os.path.join(f_dir, p.name + ' trace (ROI).csv')
+                    roi_filter = (p.roi_region[0] > times) ^ (times <= p.roi_region[1])
+                    roi_ints = ints[roi_filter]
+                    roi_times = times[roi_filter]
+                    rows = list()
+                    rows.append(['Bin #', 'Bin Time (s)', f'Bin Int (counts/{p.bin_size}ms)'])
+                    for i in range(len(roi_ints)):
+                        rows.append([str(i + 1), str(roi_times[i]), str(roi_ints[i])])
+
+                    with open_file(tr_path) as f:
+                        writer = csv.writer(f, dialect=csv.excel)
+                        writer.writerows(rows)
+
             if ex_plot_intensities and ex_plot_int_only:
                 if signals:
                     signals.plot_trace_export_lock.emit(p, True, f_dir, True)
@@ -225,6 +241,16 @@ def export_data(mainwindow: MainWindow,
                     with open_file(lvl_tr_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
+                    if use_roi:
+                        lvl_tr_path = os.path.join(f_dir, p.name + ' levels-plot (ROI).csv')
+                        ints, times = p.levels2data(use_grouped=False, use_roi=use_roi)
+                        rows = list()
+                        rows.append(['Level #', 'Time (s)', 'Int (counts/s)'])
+                        for i in range(len(ints)):
+                            rows.append([str((i // 2) + 1), str(times[i]), str(ints[i])])
+                        with open_file(lvl_tr_path) as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
 
                     lvl_path = os.path.join(f_dir, p.name + ' levels.csv')
                     rows = list()
@@ -235,10 +261,23 @@ def export_data(mainwindow: MainWindow,
                             [str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                              str(l.dwell_time_s),
                              str(l.int_p_s), str(l.num_photons)])
-
                     with open_file(lvl_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
+
+                    if use_roi:
+                        lvl_path = os.path.join(f_dir, p.name + ' levels (ROI).csv')
+                        rows = list()
+                        rows.append(['Level #', 'Start Time (s)', 'End Time (s)', 'Dwell Time (/s)',
+                                     'Int (counts/s)', 'Num of Photons'])
+                        for i, l in enumerate(p.levels_roi):
+                            rows.append(
+                                [str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
+                                 str(l.dwell_time_s),
+                                 str(l.int_p_s), str(l.num_photons)])
+                        with open_file(lvl_path) as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
 
             if ex_plot_intensities and ex_plot_with_levels:
                 if p.has_levels:
@@ -259,18 +298,25 @@ def export_data(mainwindow: MainWindow,
 
             if ex_grouped_levels:
                 if p.has_groups:
-                    grp_lvl_tr_path = os.path.join(f_dir, p.name + ' levels-grouped-plot.csv')
+                    grp_lvl_tr_path = os.path.join(f_dir, p.name + ' levels-grouped-plot')
+                    if not p.grouped_with_roi:
+                        grp_lvl_tr_path += '.csv'
+                    else:
+                        grp_lvl_tr_path += ' (ROI).csv'
                     ints, times = p.levels2data(use_grouped=True)
                     rows = list()
                     rows.append(['Grouped Level #', 'Time (s)', 'Int (counts/s)'])
                     for i in range(len(ints)):
                         rows.append([str((i // 2) + 1), str(times[i]), str(ints[i])])
-
                     with open_file(grp_lvl_tr_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
 
-                    grp_lvl_path = os.path.join(f_dir, p.name + ' levels-grouped.csv')
+                    grp_lvl_path = os.path.join(f_dir, p.name + ' levels-grouped')
+                    if not p.grouped_with_roi:
+                        grp_lvl_path += '.csv'
+                    else:
+                        grp_lvl_path += ' (ROI).csv'
                     rows = list()
                     rows.append(['Grouped Level #', 'Start Time (s)', 'End Time (s)',
                                  'Dwell Time (/s)', 'Int (counts/s)', 'Num of Photons',
@@ -280,7 +326,6 @@ def export_data(mainwindow: MainWindow,
                             [str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                              str(l.dwell_time_s),
                              str(l.int_p_s), str(l.num_photons), str(l.group_ind + 1)])
-
                     with open_file(grp_lvl_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
@@ -309,7 +354,11 @@ def export_data(mainwindow: MainWindow,
 
             if ex_grouping_info:
                 if p.has_groups:
-                    group_info_path = os.path.join(f_dir, p.name + ' groups-info.csv')
+                    group_info_path = os.path.join(f_dir, p.name + ' groups-info')
+                    if not p.grouped_with_roi:
+                        group_info_path += '.csv'
+                    else:
+                        group_info_path += ' (ROI).csv'
                     with open_file(group_info_path) as f:
                         f.write(f"# of Groups:,{p.ahca.best_step.num_groups}\n")
                         if p.ahca.best_step_ind == p.ahca.selected_step_ind:
@@ -330,8 +379,12 @@ def export_data(mainwindow: MainWindow,
 
             if ex_grouping_results:
                 if p.has_groups:
-                    group_info_path = os.path.join(f_dir, p.name + ' grouping-results.csv')
-                    with open_file(group_info_path) as f:
+                    grouping_results_path = os.path.join(f_dir, p.name + ' grouping-results')
+                    if not p.grouped_with_roi:
+                        grouping_results_path += '.csv'
+                    else:
+                        grouping_results_path += ' (ROI).csv'
+                    with open_file(grouping_results_path) as f:
                         f.write(f"# of Steps:,{p.ahca.num_steps}\n")
                         f.write(f"Step with highest BIC value:,{p.ahca.best_step.bic}\n")
                         f.write(f"Step selected:,{p.ahca.selected_step_ind}\n\n")
@@ -400,14 +453,17 @@ def export_data(mainwindow: MainWindow,
                             rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                          str(l.dwell_time_s), str(l.int_p_s),
                                          str(l.num_photons)] + tauexp + ampexp + other_exp)
-
                     with open_file(lvl_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
 
                     all_fitted_grps = [grp.histogram.fitted for grp in p.groups]
                     if p.has_groups and any(all_fitted_grps):
-                        group_path = os.path.join(f_dir, p.name + ' groups-lifetimes.csv')
+                        group_path = os.path.join(f_dir, p.name + ' groups-lifetimes')
+                        if not p.grouped_with_roi:
+                            group_path += '.csv'
+                        else:
+                            group_path += ' (ROI).csv'
                         rows = list()
                         rows.append(['Group #', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
@@ -434,8 +490,45 @@ def export_data(mainwindow: MainWindow,
                                 rows.append(
                                     [str(i + 1), str(g.dwell_time_s), str(g.int_p_s),
                                      str(g.num_photons)] + tauexp + ampexp + other_exp)
-
                     with open_file(group_path) as f:
+                        writer = csv.writer(f, dialect=csv.excel)
+                        writer.writerows(rows)
+
+                all_fitted_lvls_roi = [lvl.histogram.fitted for lvl in p.levels_roi]
+                if p.has_levels and any(all_fitted_lvls_roi):
+                    lvl_path = os.path.join(f_dir, p.name + ' levels-lifetimes (ROI).csv')
+                    rows = list()
+                    rows.append(['Level #', 'Start Time (s)', 'End Time (s)',
+                                 'Dwell Time (/s)', 'Int (counts/s)',
+                                 'Num of Photons'] + taucol + ampcol +
+                                ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG',
+                                 'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)'])
+                    for i, l in enumerate(p.levels_roi):
+                        if l.histogram.fitted:
+                            # Problem with fitting the level
+                            if l.histogram.tau is None or l.histogram.amp is None:
+                                tauexp = ['0' for i in range(p.numexp)]
+                                ampexp = ['0' for i in range(p.numexp)]
+                                other_exp = ['0', '0', '0', '0']
+                            else:
+                                if p.numexp == 1:
+                                    tauexp = [str(l.histogram.tau)]
+                                    ampexp = [str(l.histogram.amp)]
+                                else:
+                                    tauexp = [str(tau) for tau in l.histogram.tau]
+                                    ampexp = [str(amp) for amp in l.histogram.amp]
+                                if hasattr(l.histogram, 'fwhm'):
+                                    sim_irf_fwhm = str(l.histogram.fwhm)
+                                else:
+                                    sim_irf_fwhm = ''
+                                other_exp = [str(l.histogram.avtau), str(l.histogram.shift),
+                                             str(l.histogram.bg), str(l.histogram.irfbg),
+                                             str(l.histogram.chisq), sim_irf_fwhm]
+
+                            rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
+                                         str(l.dwell_time_s), str(l.int_p_s),
+                                         str(l.num_photons)] + tauexp + ampexp + other_exp)
+                    with open_file(lvl_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
 

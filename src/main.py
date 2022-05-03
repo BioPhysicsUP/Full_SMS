@@ -320,7 +320,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if self.data_loaded:
             use_roi = self.chbGroup_Use_ROI.isChecked()
             for particle in self.current_dataset.particles:
-                particle.use_roi_for_grouping = use_roi
+                particle.ahca.use_roi_for_grouping = use_roi
 
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
@@ -502,6 +502,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def tree_view_clicked(self, model_index):
         if type(self.treemodel.data(model_index, Qt.UserRole)) is smsh5.Particle:
             self.set_export_options()
+            self.grouping_controller.check_rois_and_set_label()
         if self.treemodel.data(model_index, Qt.UserRole) is self.dataset_node.dataobj:
             root_node_checked = self.dataset_node.checked()
             if all([node.checked() for node in self.part_nodes]) != root_node_checked:
@@ -819,6 +820,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.actionRange_Selection.setEnabled(True)
                 self.menuIntensity.setEnabled(True)
                 self.menuLifetime.setEnabled(True)
+                self.chbEx_Use_ROI.setEnabled(True)
                 self.chbInt_Show_ROI.setEnabled(True)
                 self.chbGroup_Use_ROI.setEnabled(True)
                 self.chbEx_Trace.setEnabled(True)
@@ -906,7 +908,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
         self.chbEx_Hist.setChecked(self.chbEx_Hist.isEnabled())
         self.chbEx_Lifetimes.setChecked(self.chbEx_Lifetimes.isEnabled())
-        self.chbEx_DF_Lifetimes.setChecked(self.chbEx_DF_Lifetimes.isEnabled())
         self.chbEx_Spectra_2D.setChecked(self.chbEx_Spectra_2D.isEnabled())
         # self.chbEx_Spectra_Fitting.setChecked(self.chbEx_Spectra_Fitting.isEnabled())
         # self.chbEx_Sptecra_Traces.setChecked(self.chbEx_Sptecra_Traces.isEnabled())

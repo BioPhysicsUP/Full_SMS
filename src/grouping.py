@@ -88,9 +88,7 @@ class ClusteringStep:
                  single_level: bool = False):
 
         self._particle = particle
-        self._use_roi = self._particle.use_roi_for_grouping
-        self._particle.grouped_with_roi = self._use_roi
-        if not self._use_roi:
+        if not self._particle.use_roi_for_grouping:
             self._num_levels = particle.cpts.num_levels
         else:
             self._num_levels = particle.num_levels_roi
@@ -376,6 +374,8 @@ class AHCA:
         self.num_steps = None
         self.plots_need_to_be_updated = False
 
+        self.use_roi_for_grouping = False
+        self.grouped_with_roi = False
 
     @property
     def selected_step(self) -> ClusteringStep:
@@ -467,7 +467,7 @@ class AHCA:
                     self.best_step_ind = np.argmax(self.bics)
                     self.selected_step_ind = self.best_step_ind
                     self.has_groups = True
-                    self._particle.grouped_with_roi = self._particle.use_roi_for_grouping
+                    self.grouped_with_roi = self.use_roi_for_grouping
                     if self.backup is not None:
                         self.backup = None
                         self.plots_need_to_be_updated = True
