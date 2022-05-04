@@ -1250,6 +1250,7 @@ class LifetimeController(QObject):
             particle.use_roi_for_histogram = use_roi
         if use_roi:
             self.test_need_roi_apply()
+            self.plot_all()
 
     def test_need_roi_apply(self, particle: Particle = None):
         new_list = False
@@ -1258,20 +1259,26 @@ class LifetimeController(QObject):
             self.all_should_apply = []
             particle = None
         if particle is not None:
-            region_same = particle.roi_region == particle.histogram_roi.roi_region_used
+            region_same = particle.roi_region == particle._histogram_roi.roi_region_used
             self.all_should_apply[particle.dataset_ind] = region_same
         else:
             for part_ind, part in enumerate(self.mainwindow.current_dataset.particles):
-                region_same = part.roi_region == part.histogram_roi.roi_region_used
+                region_same = part.roi_region == part._histogram_roi.roi_region_used
                 if new_list:
-                    self.all_should_apply.append(region_same)
+                    self.all_should_apply.append(not region_same)
                 else:
-                    self.all_should_apply[part_ind] = region_same
+                    self.all_should_apply[part_ind] = not region_same
 
-        style_sheet_color = ""
+        style_sheet_color = "None"
         if self.mainwindow.chbLifetime_Use_ROI.isChecked() and any(self.all_should_apply):
-            style_sheet_color = "background-color: red"
-        self.mainwindow.btnLifetime_Apply_ROI.setStyleSheet(style_sheet_color)
+            style_sheet_color = "red"
+        self.mainwindow.btnLifetime_Apply_ROI.setStyleSheet(f"background-color: {style_sheet_color}")
+
+    def gui_apply_roi(self):
+        particles = self.mainwindow.current_dataset.particles
+        for part_ind, should_apply in enumerate(self.all_should_apply):
+            if should_apply:
+                particles[part_ind].histogram_roi.update_roi()
 
     def plot_all(self):
         self.mainwindow.display_data()

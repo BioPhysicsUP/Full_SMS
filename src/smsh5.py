@@ -326,8 +326,8 @@ class Particle:
         self.t = None
         self.ignore = False
         self.bg = False
-        self.histogram = None
-        self.histogram_roi = None
+        self._histogram = None
+        self._histogram_roi = None
         self.use_roi_for_histogram = False
         self.binnedtrace = None
         self.bin_size = None
@@ -339,6 +339,20 @@ class Particle:
 
         self.has_fit_a_lifetime = False
         self.has_exported = False
+
+    @property
+    def histogram(self) -> Histogram:
+        if not self.use_roi_for_histogram:
+            hist = self._histogram
+        else:
+            hist = self._histogram_roi
+        return hist
+
+    def set_histgram(self, histogram: Histogram) -> None:
+        self._histogram = histogram
+
+    def set_histgram_roi(self, histogram: Histogram) -> None:
+        self._histogram_roi = histogram
 
     @property
     def use_roi_for_grouping(self) -> bool:
@@ -368,7 +382,7 @@ class Particle:
                 first_ind = where_start[0][0]
             else:
                 first_ind = 0
-        where_end = np.where(self.roi_region[1] >= times)
+        where_end = np.where(self.roi_region[1] <= times)
         if len(where_end[0]):
             last_ind = where_end[0][0] + 1
         else:
@@ -605,9 +619,9 @@ class Particle:
     def makehistogram(self, channel=True, add_roi: bool = False):
         """Put the arrival times into a histogram"""
 
-        self.histogram = Histogram(self, start_point=self.startpoint, channel=channel)
+        self._histogram = Histogram(self, start_point=self.startpoint, channel=channel)
         if add_roi:
-            self.histogram_roi = Histogram(self, start_point=self.startpoint, channel=channel, use_roi=True)
+            self._histogram_roi = Histogram(self, start_point=self.startpoint, channel=channel, use_roi=True)
         # print(np.max(self.histogram.decay))
 
     def makelevelhists(self, channel: bool = True,
@@ -776,7 +790,8 @@ class Histogram:
             self.decay = np.empty(1)
             self.t = np.empty(1)
         else:
-            tmin = min(self._particle.tmin, self.microtimes.min())
+            tmin = self.microtimes.min()
+            # tmin = min(self._particle.tmin, self.microtimes.min())
             tmax = max(self._particle.tmax, self.microtimes.max())
             if start_point is None:
                 pass

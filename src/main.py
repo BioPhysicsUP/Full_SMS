@@ -153,6 +153,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnWholeTrace.clicked.connect(l_c.gui_whole_trace)
         self.chbLifetime_Show_Groups.stateChanged.connect(l_c.plot_all)
         self.chbShow_Residuals.stateChanged.connect(l_c.gui_show_hide_residuals)
+        self.chbLifetime_Use_ROI.stateChanged.connect(l_c.gui_use_roi)
+        self.btnLifetime_Apply_ROI.clicked.connect(l_c.gui_apply_roi)
         self.btnJumpToGroups.clicked.connect(l_c.gui_jump_to_groups)
         self.btnLoadIRF.clicked.connect(l_c.gui_load_irf)
         self.btnFitParameters.clicked.connect(l_c.gui_fit_param)
