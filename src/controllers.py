@@ -1259,11 +1259,11 @@ class LifetimeController(QObject):
             self.all_should_apply = []
             particle = None
         if particle is not None:
-            region_same = particle.roi_region == particle._histogram_roi.roi_region_used
+            region_same = particle.roi_region[0:2] == particle._histogram_roi.roi_region_used[0:2]
             self.all_should_apply[particle.dataset_ind] = region_same
         else:
             for part_ind, part in enumerate(self.mainwindow.current_dataset.particles):
-                region_same = part.roi_region == part._histogram_roi.roi_region_used
+                region_same = part.roi_region[0:2] == part._histogram_roi.roi_region_used[0:2]
                 if new_list:
                     self.all_should_apply.append(not region_same)
                 else:
@@ -1278,7 +1278,10 @@ class LifetimeController(QObject):
         particles = self.mainwindow.current_dataset.particles
         for part_ind, should_apply in enumerate(self.all_should_apply):
             if should_apply:
-                particles[part_ind].histogram_roi.update_roi()
+                particles[part_ind]._histogram_roi.update_roi()
+                self.all_should_apply[part_ind] = False
+        self.test_need_roi_apply()
+        self.plot_all()
 
     def plot_all(self):
         self.mainwindow.display_data()

@@ -400,11 +400,14 @@ class Particle:
 
     @property
     def last_level_ind_in_roi(self):
-        last_ind = self.num_levels
-        end_times = np.array([level.times_s[1] for level in self.levels])
-        where_larger_end = np.where(end_times >= self.roi_region[1])
-        if len(where_larger_end[0]) > 0:
-            last_ind = where_larger_end[0][0]
+        if len(self.roi_region) == 3:
+            last_ind = self.roi_region[2]
+        else:
+            last_ind = self.num_levels
+            end_times = np.array([level.times_s[1] for level in self.levels])
+            where_larger_end = np.where(end_times >= self.roi_region[1])
+            if len(where_larger_end[0]) > 0:
+                last_ind = where_larger_end[0][0]
         return last_ind
 
     @property
@@ -477,7 +480,7 @@ class Particle:
         if self.using_group_levels:
             return self.ahca.selected_step.group_levels
         else:
-            return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi]  # + 1]
+            return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi + 1]
 
     @property
     def num_levels(self):
@@ -488,7 +491,7 @@ class Particle:
 
     @property
     def num_levels_roi(self):
-        return self.last_level_ind_in_roi - self.first_level_ind_in_roi
+        return (self.last_level_ind_in_roi - self.first_level_ind_in_roi) + 1
 
     @property
     def dwell_time(self):
@@ -670,15 +673,16 @@ class Particle:
         if self.has_levels and self.level_ints[-1] < min_level_int:
             trimmed = False
             trim_time_total = 0
-            last_valid_ind = None
+            first_valid_reversed_ind = None
             for ind_reverse in reversed(range(0, self.num_levels)):
                 if self.level_ints[ind_reverse] <= min_level_int:
                     trim_time_total += self.level_dwelltimes[ind_reverse]
-                    last_valid_ind = ind_reverse
+                    first_valid_reversed_ind = ind_reverse
                 else:
+                    first_valid_reversed_ind = ind_reverse
                     break
-            if trim_time_total >= min_level_dwell_time and last_valid_ind > 1:
-                last_active_time = self.levels[last_valid_ind-1].times_s[1]
+            if trim_time_total >= min_level_dwell_time and first_valid_reversed_ind > 1:
+                last_active_time = self.levels[first_valid_reversed_ind].times_s[1]
                 min_time = 0
                 if not reset_roi:
                     if last_active_time > self.roi_region[0] and last_active_time - self.roi_region[0] > 0.5:
@@ -688,7 +692,7 @@ class Particle:
                     if last_active_time > self.roi_region[1]:
                         last_active_time = self.roi_region[1]
                 if min_time >= 0:
-                    self.roi_region = (min_time, last_active_time)
+                    self.roi_region = (min_time, last_active_time, first_valid_reversed_ind)
                     trimmed = True
         return trimmed
 

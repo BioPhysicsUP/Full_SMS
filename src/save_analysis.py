@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from main import MainWindow
 
 
-SAVING_VERSION = '1.04'
+SAVING_VERSION = '1.05'
 
 
 class SaveAnalysisWorker(QRunnable):
