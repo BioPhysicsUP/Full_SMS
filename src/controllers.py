@@ -957,6 +957,7 @@ class IntController(QObject):
                                                   reset_roi=dialog.chbReset_ROI.isChecked())
                     if trimmed is False and dialog.chbUncheck_If_Not_Valid.isChecked():
                         self.mainwindow.set_particle_check_state(particle.dataset_ind, False)
+            self.mainwindow.lifetime_controller.test_need_roi_apply()
             self.plot_all()
 
     def gui_reset_roi_current(self):
@@ -1900,7 +1901,10 @@ class LifetimeController(QObject):
                 result.new_task_obj.part_hist._particle = target_particle
                 result.new_task_obj.part_hist.microtimes = target_microtimes
 
-                target_particle.histogram = result.new_task_obj.part_hist
+                if not result.new_task_obj.part_hist.is_for_roi:
+                    target_particle._histogram = result.new_task_obj.part_hist
+                else:
+                    target_particle._histogram_roi = result.new_task_obj.part_hist
                 any_successful_fit = [result.new_task_obj.part_hist.fitted]
 
                 if result.new_task_obj.has_level_hists:

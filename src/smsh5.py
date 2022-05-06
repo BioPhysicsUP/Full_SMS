@@ -624,7 +624,7 @@ class Particle:
 
         self._histogram = Histogram(self, start_point=self.startpoint, channel=channel)
         if add_roi:
-            self._histogram_roi = Histogram(self, start_point=self.startpoint, channel=channel, use_roi=True)
+            self._histogram_roi = Histogram(self, start_point=self.startpoint, channel=channel, is_for_roi=True)
         # print(np.max(self.histogram.decay))
 
     def makelevelhists(self, channel: bool = True,
@@ -735,9 +735,9 @@ class Histogram:
                  start_point: float = None,
                  channel: bool = True,
                  trim_start: bool = False,
-                 use_roi: bool = False):
-        assert not (level is not None and use_roi), "ROI can't be used for a Level"
-        self.use_roi = use_roi
+                 is_for_roi: bool = False):
+        assert not (level is not None and is_for_roi), "ROI can't be used for a Level"
+        self.is_for_roi = is_for_roi
         self.fitted_with_roi = None
         self.roi_region_used = None
         no_sort = False
@@ -746,7 +746,7 @@ class Histogram:
         self.original_kwargs = {'start_point': start_point,
                                 'channel': channel,
                                 'trim_start': trim_start}
-        self.setup(level=level, use_roi=use_roi, **self.original_kwargs)
+        self.setup(level=level, use_roi=is_for_roi, **self.original_kwargs)
 
         self.convd = None
         self.convd_t = None

@@ -360,6 +360,7 @@ class FluoFit:
     def estimate_bg(measured):
         meas_real_start = np.nonzero(measured)[0][0]
         maxind = np.argmax(measured)
+        bglim = meas_real_start + 1
         for i in range(maxind):
             reverse = maxind - i
             if measured[reverse] == np.int(np.mean(measured[meas_real_start:meas_real_start + 20])):

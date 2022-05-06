@@ -149,42 +149,78 @@ def export_data(mainwindow: MainWindow,
         return open(path, 'w', newline='')
 
     # Export fits of whole traces
-    all_fitted = [part.histogram.fitted for part in particles]
+    lifetime_path = os.path.join(f_dir, 'Whole trace lifetimes.csv')
+    all_fitted = [part._histogram.fitted for part in particles]
     if ex_lifetime and any(all_fitted):
         p = particles[0]
-        if p.numexp == 1:
+        if p._histogram.numexp == 1:
             taucol = ['Lifetime (ns)']
             ampcol = ['Amp']
-        elif p.numexp == 2:
+        elif p._histogram.numexp == 2:
             taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
             ampcol = ['Amp 1', 'Amp 2']
-        elif p.numexp == 3:
+        elif p._histogram.numexp == 3:
             taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
             ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
-        lifetime_path = os.path.join(f_dir, 'Whole trace lifetimes.csv')
         rows = list()
         rows.append(['Particle #'] + taucol + ampcol +
                     ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
                      'Chi Squared', 'Sim. IRF FWHM (ns)'])
         for i, p in enumerate(particles):
-            if p.histogram.fitted:
-                if p.histogram.tau is None or p.histogram.amp is None:  # Problem with fitting the level
-                    tauexp = ['0' for i in range(p.numexp)]
-                    ampexp = ['0' for i in range(p.numexp)]
+            if p._histogram.fitted:
+                if p._histogram.tau is None or p._histogram.amp is None:  # Problem with fitting the level
+                    tauexp = ['0' for i in range(p._histogram.numexp)]
+                    ampexp = ['0' for i in range(p._histogram.numexp)]
                     other_exp = ['0', '0', '0', '0']
                 else:
                     if p.numexp == 1:
-                        tauexp = [str(p.histogram.tau)]
-                        ampexp = [str(p.histogram.amp)]
+                        tauexp = [str(p._histogram.tau)]
+                        ampexp = [str(p._histogram.amp)]
                     else:
-                        tauexp = [str(tau) for tau in p.histogram.tau]
-                        ampexp = [str(amp) for amp in p.histogram.amp]
-                    other_exp = [str(p.histogram.avtau), str(p.histogram.shift),
-                                 str(p.histogram.bg), str(p.histogram.irfbg),
-                                 str(p.histogram.chisq), str(p.histogram.fwhm)]
-
+                        tauexp = [str(tau) for tau in p._histogram.tau]
+                        ampexp = [str(amp) for amp in p._histogram.amp]
+                    other_exp = [str(p._histogram.avtau), str(p._histogram.shift),
+                                 str(p._histogram.bg), str(p._histogram.irfbg),
+                                 str(p._histogram.chisq), str(p._histogram.fwhm)]
                 rows.append([str(i + 1)] + tauexp + ampexp + other_exp)
+        with open_file(lifetime_path) as f:
+            writer = csv.writer(f, dialect=csv.excel)
+            writer.writerows(rows)
 
+    lifetime_path = os.path.join(f_dir, 'Whole trace lifetimes (ROI).csv')
+    all_fitted = [part._histogram_roi.fitted for part in particles]
+    if ex_lifetime and any(all_fitted):
+        p = particles[0]
+        if p._histogram_roi.numexp == 1:
+            taucol = ['Lifetime (ns)']
+            ampcol = ['Amp']
+        elif p._histogram_roi.numexp == 2:
+            taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
+            ampcol = ['Amp 1', 'Amp 2']
+        elif p._histogram_roi.numexp == 3:
+            taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
+            ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
+        rows = list()
+        rows.append(['Particle #'] + taucol + ampcol +
+                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
+                     'Chi Squared', 'Sim. IRF FWHM (ns)'])
+        for i, p in enumerate(particles):
+            if p._histogram_roi.fitted:
+                if p._histogram_roi.tau is None or p._histogram_roi.amp is None:  # Problem with fitting the level
+                    tauexp = ['0' for i in range(p._histogram_roi.numexp)]
+                    ampexp = ['0' for i in range(p._histogram_roi.numexp)]
+                    other_exp = ['0', '0', '0', '0']
+                else:
+                    if p.numexp == 1:
+                        tauexp = [str(p._histogram_roi.tau)]
+                        ampexp = [str(p._histogram_roi.amp)]
+                    else:
+                        tauexp = [str(tau) for tau in p._histogram_roi.tau]
+                        ampexp = [str(amp) for amp in p._histogram_roi.amp]
+                    other_exp = [str(p._histogram_roi.avtau), str(p._histogram_roi.shift),
+                                 str(p._histogram_roi.bg), str(p._histogram_roi.irfbg),
+                                 str(p._histogram_roi.chisq), str(p._histogram_roi.fwhm)]
+                rows.append([str(i + 1)] + tauexp + ampexp + other_exp)
         with open_file(lifetime_path) as f:
             writer = csv.writer(f, dialect=csv.excel)
             writer.writerows(rows)
@@ -534,9 +570,9 @@ def export_data(mainwindow: MainWindow,
 
             if ex_hist:
                 tr_path = os.path.join(f_dir, p.name + ' hist.csv')
-                if not p.histogram.fitted:
-                    decay = p.histogram.decay
-                    times = p.histogram.t
+                if not p._histogram.fitted:
+                    decay = p._histogram.decay
+                    times = p._histogram.t
                     rows = ['Times (ns)', 'Decay']
                     for i, time in enumerate(times):
                         rows.append([str(time), str(decay[i])])
@@ -544,11 +580,36 @@ def export_data(mainwindow: MainWindow,
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
                 else:
-                    times = p.histogram.convd_t
+                    times = p._histogram.convd_t
                     if times is not None:
-                        decay = p.histogram.fit_decay
-                        convd = p.histogram.convd
-                        residual = p.histogram.residuals
+                        decay = p._histogram.fit_decay
+                        convd = p._histogram.convd
+                        residual = p._histogram.residuals
+                        rows = list()
+                        rows.append(['Time (ns)', 'Decay', 'Fitted', 'Residual'])
+                        for i, time in enumerate(times):
+                            rows.append([str(time), str(decay[i]), str(convd[i]), str(residual[i])])
+
+                        with open_file(tr_path) as f:
+                            writer = csv.writer(f, dialect=csv.excel)
+                            writer.writerows(rows)
+
+                tr_path = os.path.join(f_dir, p.name + ' hist (ROI).csv')
+                if not p._histogram_roi.fitted:
+                    decay = p._histogram_roi.decay
+                    times = p._histogram_roi.t
+                    rows = ['Times (ns)', 'Decay']
+                    for i, time in enumerate(times):
+                        rows.append([str(time), str(decay[i])])
+                    with open_file(tr_path) as f:
+                        writer = csv.writer(f, dialect=csv.excel)
+                        writer.writerows(rows)
+                else:
+                    times = p._histogram_roi.convd_t
+                    if times is not None:
+                        decay = p._histogram_roi.fit_decay
+                        convd = p._histogram_roi.convd
+                        residual = p._histogram_roi.residuals
                         rows = list()
                         rows.append(['Time (ns)', 'Decay', 'Fitted', 'Residual'])
                         for i, time in enumerate(times):
@@ -583,6 +644,25 @@ def export_data(mainwindow: MainWindow,
                             writer.writerows(rows)
 
                     if p.has_groups:
+                        for i, g in enumerate(p.ahca.selected_step.group_levels):
+                            hist_path = os.path.join(dir_path,
+                                                     'group level' + str(i + 1) + ' hist.csv')
+                            times = g.histogram.convd_t
+                            if times is None:
+                                continue
+                            decay = g.histogram.fit_decay
+                            convd = g.histogram.convd
+                            residual = g.histogram.residuals
+                            rows = list()
+                            rows.append(['Time (ns)', 'Decay', 'Fitted', 'Residual'])
+                            for j, time in enumerate(times):
+                                rows.append([str(time), str(decay[j]), str(convd[j]),
+                                             str(residual[j])])
+
+                            with open_file(hist_path) as f:
+                                writer = csv.writer(f, dialect=csv.excel)
+                                writer.writerows(rows)
+
                         for i, g in enumerate(p.groups):
                             hist_path = os.path.join(dir_path,
                                                      'group ' + str(i + 1) + ' hist.csv')
