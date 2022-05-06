@@ -153,8 +153,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnWholeTrace.clicked.connect(l_c.gui_whole_trace)
         self.chbLifetime_Show_Groups.stateChanged.connect(l_c.plot_all)
         self.chbShow_Residuals.stateChanged.connect(l_c.gui_show_hide_residuals)
-        self.chbLifetime_Use_ROI.stateChanged.connect(l_c.gui_use_roi)
-        self.btnLifetime_Apply_ROI.clicked.connect(l_c.gui_apply_roi)
+        self.chbLifetime_Use_ROI.stateChanged.connect(l_c.gui_use_roi_changed)
+        self.btnLifetime_Apply_ROI.clicked.connect(l_c.gui_apply_roi_current)
+        self.btnLifetime_Apply_ROI_Selected.clicked.connect(l_c.gui_apply_roi_selected)
+        self.btnLifetime_Apply_ROI_All.clicked.connect(l_c.gui_apply_roi_all)
         self.btnJumpToGroups.clicked.connect(l_c.gui_jump_to_groups)
         self.btnLoadIRF.clicked.connect(l_c.gui_load_irf)
         self.btnFitParameters.clicked.connect(l_c.gui_fit_param)
@@ -505,6 +507,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if type(self.treemodel.data(model_index, Qt.UserRole)) is smsh5.Particle:
             self.set_export_options()
             self.grouping_controller.check_rois_and_set_label()
+            self.lifetime_controller.update_apply_roi_button_colors()
         if self.treemodel.data(model_index, Qt.UserRole) is self.dataset_node.dataobj:
             root_node_checked = self.dataset_node.checked()
             if all([node.checked() for node in self.part_nodes]) != root_node_checked:
@@ -618,6 +621,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.lifetime_controller.plot_convd()
                     self.lifetime_controller.plot_residuals()
                     self.lifetime_controller.update_results()
+                    self.lifetime_controller.update_apply_roi_button_colors()
 
                 if self.current_particle.has_groups:
                     self.int_controller.plot_group_bounds()

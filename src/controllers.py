@@ -258,9 +258,16 @@ class IntController(QObject):
     def roi_region_changed(self):
         if self.mainwindow.chbInt_Show_ROI.checkState() == 2:
             current_particle = self.mainwindow.current_particle
-            if current_particle is not None:
-                current_particle.roi_region = self.int_ROI.getRegion()
-                self.mainwindow.lifetime_controller.test_need_roi_apply(particle=current_particle)
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+            if current_particle is not None and cur_tab_name == 'tabIntensity':
+                new_region = self.int_ROI.getRegion()
+                old_region = current_particle.roi_region[0:2]
+                significant_start_change = np.abs(new_region[0] - old_region[0]) > 0.1
+                significant_end_change = np.abs(new_region[1] - old_region[1]) > 0.1
+                if significant_start_change or significant_end_change:
+                    current_particle.roi_region = self.int_ROI.getRegion()
+                    self.mainwindow.lifetime_controller.test_need_roi_apply(particle=current_particle,
+                                                                            update_buttons=False)
 
     def hist_chb_changed(self):
 
@@ -461,7 +468,13 @@ class IntController(QObject):
                             self.int_ROI.setBounds((0, times[-1]))
                         else:
                             self.int_ROI.setMovable(False)
-                        self.int_ROI.setRegion(particle.roi_region)
+
+                        new_region = self.int_ROI.getRegion()
+                        old_region = particle.roi_region[0:2]
+                        significant_start_change = np.abs(new_region[0] - old_region[0]) > 0.01
+                        significant_end_change = np.abs(new_region[1] - old_region[1]) > 0.01
+                        if significant_start_change or significant_end_change:
+                            self.int_ROI.setRegion(particle.roi_region)
                         plot_item.addItem(self.int_ROI)
                     plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
                     plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
@@ -1244,44 +1257,65 @@ class LifetimeController(QObject):
 
         self.start_fitting_thread()
 
-    def gui_use_roi(self):
+    def gui_use_roi_changed(self):
         use_roi = self.mainwindow.chbLifetime_Use_ROI.isChecked()
         for particle in self.mainwindow.current_dataset.particles:
             particle.use_roi_for_histogram = use_roi
         if use_roi:
             self.test_need_roi_apply()
-            self.plot_all()
-
-    def test_need_roi_apply(self, particle: Particle = None):
-        new_list = False
-        if self.all_should_apply is None:
-            new_list = True
-            self.all_should_apply = []
-            particle = None
-        if particle is not None:
-            region_same = particle.roi_region[0:2] == particle._histogram_roi.roi_region_used[0:2]
-            self.all_should_apply[particle.dataset_ind] = region_same
         else:
-            for part_ind, part in enumerate(self.mainwindow.current_dataset.particles):
-                region_same = part.roi_region[0:2] == part._histogram_roi.roi_region_used[0:2]
-                if new_list:
-                    self.all_should_apply.append(not region_same)
-                else:
-                    self.all_should_apply[part_ind] = not region_same
+            self.update_apply_roi_button_colors()
+        self.plot_all()
 
-        style_sheet_color = "None"
-        if self.mainwindow.chbLifetime_Use_ROI.isChecked() and any(self.all_should_apply):
-            style_sheet_color = "red"
-        self.mainwindow.btnLifetime_Apply_ROI.setStyleSheet(f"background-color: {style_sheet_color}")
+    def test_need_roi_apply(self, particle: Particle = None, update_buttons: bool = True):
+        if self.all_should_apply is None:
+            self.all_should_apply = np.empty(self.mainwindow.current_dataset.num_parts)
+            particle = None
 
-    def gui_apply_roi(self):
-        particles = self.mainwindow.current_dataset.particles
-        for part_ind, should_apply in enumerate(self.all_should_apply):
-            if should_apply:
-                particles[part_ind]._histogram_roi.update_roi()
-                self.all_should_apply[part_ind] = False
+        if particle is not None:
+            particles_to_check = [particle]
+        else:
+            particles_to_check = self.mainwindow.current_dataset.particles
+        for part in particles_to_check:
+            part_ind = part.dataset_ind
+            region_same = part.roi_region[0:2] == part._histogram_roi.roi_region_used[0:2]
+            self.all_should_apply[part_ind] = not region_same
+
+        if update_buttons:
+            self.update_apply_roi_button_colors()
+
+    def update_apply_roi_button_colors(self):
+        use_roi_checked = self.mainwindow.chbLifetime_Use_ROI.isChecked()
+        color_current = "None"
+        color_selected = "None"
+        color_all = "None"
+        if use_roi_checked:
+            if self.all_should_apply[self.mainwindow.current_particle.dataset_ind]:
+                color_current = "red"
+            if any(self.all_should_apply[[part.dataset_ind for part in self.mainwindow.get_checked_particles()]]):
+                color_selected = "red"
+            if any(self.all_should_apply):
+                color_all = "red"
+        self.mainwindow.btnLifetime_Apply_ROI.setStyleSheet(f"background-color: {color_current}")
+        self.mainwindow.btnLifetime_Apply_ROI_Selected.setStyleSheet(f"background-color: {color_selected}")
+        self.mainwindow.btnLifetime_Apply_ROI_All.setStyleSheet(f"background-color: {color_all}")
+
+    def apply_roi(self, particles: list):
+        for part in particles:
+            if self.all_should_apply[part.dataset_ind]:
+                part._histogram_roi.update_roi()
+                self.all_should_apply[part.dataset_ind] = False
         self.test_need_roi_apply()
         self.plot_all()
+
+    def gui_apply_roi_current(self):
+        self.apply_roi(particles=[self.mainwindow.current_particle])
+
+    def gui_apply_roi_selected(self):
+        self.apply_roi(particles=self.mainwindow.get_checked_particles())
+
+    def gui_apply_roi_all(self):
+        self.apply_roi(particles=self.mainwindow.current_dataset.particles)
 
     def plot_all(self):
         self.mainwindow.display_data()
