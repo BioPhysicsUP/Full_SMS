@@ -794,8 +794,8 @@ class Histogram:
             self.decay = np.empty(1)
             self.t = np.empty(1)
         else:
-            tmin = self.microtimes.min()
-            # tmin = min(self._particle.tmin, self.microtimes.min())
+            # tmin = self.microtimes.min()
+            tmin = min(self._particle.tmin, self.microtimes.min())
             tmax = max(self._particle.tmax, self.microtimes.max())
             if start_point is None:
                 pass

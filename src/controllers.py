@@ -1051,6 +1051,8 @@ class LifetimeController(QObject):
         self.setup_widget(self.residual_widget)
         self.residual_widget.hide()
 
+        self.residual_plot.vb.setXLink(self.life_hist_plot.vb)
+
         self.setup_plot(self.life_hist_plot)
         self.setup_plot(self.residual_plot, is_residuals=True)
 
@@ -1081,8 +1083,8 @@ class LifetimeController(QObject):
             plot.getAxis('bottom').setLabel('Decay time', 'ns')
             plot.getViewBox().setLimits(xMin=0, yMin=0)
         else:
-            plot.getAxis('left').setLabel('Weighted residual')
-            plot.getAxis('bottom').setLabel('Time (ns)')
+            plot.getAxis('left').setLabel('Weighted residual', 'au')
+            plot.getAxis('bottom').setLabel('Time', 'ns')
             plot.getViewBox().setLimits(xMin=0)
 
     @staticmethod

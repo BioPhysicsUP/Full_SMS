@@ -260,15 +260,17 @@ class FluoFit:
 
         self.startpoint = None
         self.endpoint = None
-        self.calculate_boundaries(endpoint, measured, startpoint)
+        self.calculate_boundaries(endpoint, measured, startpoint, find_endpoint=False)
 
-        measured = measured - self.bg
+        measured = measured - self.bg  # This will result in negative counts, and can't see where it's delt with
+        measured[measured <= 0] = 0
 
         # self.meas_max = measured.max()
         # measured = measured / self.meas_max  # Normalize measured
         self.meas_max = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
         measured = measured / self.meas_max  # Normalize measured
+        self.bg_n = self.bg / self.meas_max  # Normalized background
         meas_std = meas_std / self.meas_max
         self.measured_unbounded = measured
         self.measured = measured[self.startpoint:self.endpoint]
@@ -279,8 +281,9 @@ class FluoFit:
         self.dw = None
         self.dw_bound = None
         self.convd = None
+        self.is_fit = False
 
-    def calculate_boundaries(self, endpoint, measured, startpoint):
+    def calculate_boundaries(self, endpoint, measured, startpoint, find_endpoint: bool = False):
         """Set the start and endpoints
 
         Sets the values to the given ones or automatically find good ones.
@@ -290,6 +293,8 @@ class FluoFit:
 
         Parameters
         ----------
+        find_endpoint : bool
+            Set to True if endpoint should be calculated instead of set to last time index
         endpoint : int
                 End of fitting range
         measured : ndarray
@@ -308,13 +313,13 @@ class FluoFit:
         else:
             self.startpoint = startpoint
         if endpoint is None:
-            minval = max(20 * self.bg, 0.01 * measured.max())
-            if not np.isnan(minval):
-                great_than_bg, = np.where(measured > minval)
-                max1 = great_than_bg.max()
-                self.endpoint = max1
-            else:
-                self.endpoint = measured.size
+            self.endpoint = measured.size
+            if find_endpoint:
+                minval = max(20 * self.bg, 0.01 * measured.max())
+                if not np.isnan(minval):
+                    great_than_bg, = np.where(measured > minval)
+                    max1 = great_than_bg.max()
+                    self.endpoint = max1
         else:
             self.endpoint = endpoint
 
@@ -339,7 +344,7 @@ class FluoFit:
         if irfbg is None:
             if self.simulate_irf:
                 self.irfbg = 0
-            else: # TODO: replace with estimate_bg
+            else:  # TODO: replace with estimate_bg
                 maxind = np.argmax(irf)
                 for i in range(maxind):
                     reverse = maxind - i
@@ -360,7 +365,6 @@ class FluoFit:
     def estimate_bg(measured):
         meas_real_start = np.nonzero(measured)[0][0]
         maxind = np.argmax(measured)
-        bglim = meas_real_start + 1
         for i in range(maxind):
             reverse = maxind - i
             if measured[reverse] == np.int(np.mean(measured[meas_real_start:meas_real_start + 20])):
@@ -497,7 +501,7 @@ class FluoFit:
         # residuals = residuals / np.sqrt(np.abs(self.measured))
         measured = self.measured
         if any(measured == 0):
-            measured[measured == 0] = 1E-10
+            measured[measured == 0] = self.bg_n
         residuals = (self.convd - measured) * self.meas_max
         residuals = residuals / np.sqrt(np.abs(measured * self.meas_max))
         residualsnotinf = np.abs(residuals) != np.inf
@@ -655,23 +659,28 @@ class OneExp(FluoFit):
             paramax = [self.taumax[0], self.ampmax, self.shiftmax]
             paraminit = [self.tau[0], self.amp, self.shift]
 
-        if addopt is None:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+        try:
+            if addopt is None:
+                param, pcov = curve_fit(self.fitfunc, self.t[self.startpoint: self.endpoint],
+                                        self.measured, bounds=(paramin, paramax), p0=paraminit)
+            else:
+                param, pcov = curve_fit(self.fitfunc, self.t[self.startpoint: self.endpoint],
+                                        self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
+        except ValueError as error:
+            logger.error('Fitting failed')
         else:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
+            tau = param[0]
+            amp = param[1]
+            shift = param[2]
+            dtau = np.sqrt(pcov[0, 0])
 
-        tau = param[0]
-        amp = param[1]
-        shift = param[2]
-        dtau = np.sqrt(pcov[0, 0])
+            if self.simulate_irf:
+                fwhm = param[3]
+            else:
+                fwhm = None
 
-        if self.simulate_irf:
-            fwhm = param[3]
-        else:
-            fwhm = None
-
-        self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
-        self.results(tau, dtau, shift, amp=1, fwhm=fwhm)
+            self.convd = self.fitfunc(self.t[self.startpoint: endpoint], tau, amp, shift, fwhm)
+            self.results(tau, dtau, shift, amp=1, fwhm=fwhm)
 
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
