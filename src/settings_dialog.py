@@ -4,7 +4,7 @@ from matplotlib.font_manager import json_dump
 import file_manager as fm
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog
-from PyQt5.QtGui import QDialogButtonBox
+from PyQt5.QtWidgets import QDialogButtonBox
 from my_logger import setup_logger
 import sys
 import os

@@ -222,7 +222,7 @@ class FluoFit:
     """
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, ploton=False, fwhm=None, numexp=None):
+                 boundaries=None, ploton=False, fwhm=None, numexp=None):
 
         self.numexp = numexp
         self.channelwidth = channelwidth
@@ -260,8 +260,9 @@ class FluoFit:
 
         self.startpoint = None
         self.endpoint = None
-        self.calculate_boundaries(endpoint, measured, startpoint, find_endpoint=False)
+        self.calculate_boundaries(measured, boundaries)
 
+        self.meas_bef_bg = measured
         measured = measured - self.bg  # This will result in negative counts, and can't see where it's delt with
         measured[measured <= 0] = 0
 
@@ -283,7 +284,7 @@ class FluoFit:
         self.convd = None
         self.is_fit = False
 
-    def calculate_boundaries(self, endpoint, measured, startpoint, find_endpoint: bool = False):
+    def calculate_boundaries(self, measured, boundaries):
         """Set the start and endpoints
 
         Sets the values to the given ones or automatically find good ones.
@@ -303,25 +304,36 @@ class FluoFit:
                 Start of fitting range
 
         """
-        if startpoint is None:
+        if boundaries is None:
+            boundaries = [None, None, False, False]
+
+        startpoint = boundaries[0]
+        endpoint = boundaries[1]
+        autostart = boundaries[2]
+        autoend = boundaries[3]
+
+        if autostart:
             maxpoint = measured.max()
             if not np.isnan(maxpoint):
                 close_to_max, = np.where(measured > 0.80 * maxpoint)
                 self.startpoint = close_to_max[0]
             else:
                 self.startpoint = 0
-        else:
+        elif startpoint is not None:
             self.startpoint = startpoint
-        if endpoint is None:
-            self.endpoint = measured.size
-            if find_endpoint:
-                minval = max(20 * self.bg, 0.01 * measured.max())
-                if not np.isnan(minval):
-                    great_than_bg, = np.where(measured > minval)
-                    max1 = great_than_bg.max()
-                    self.endpoint = max1
         else:
-            self.endpoint = endpoint
+            self.startpoint = 0
+
+        if autoend:
+            minval = max(20 * self.bg, 0.01 * measured.max())
+            if not np.isnan(minval):
+                great_than_bg, = np.where(measured > minval)
+                max1 = great_than_bg.max()
+                self.endpoint = max1
+        elif endpoint is not None:
+            self.endpoint = max(endpoint, measured.size)
+        else:
+            self.endpoint = measured.size
 
     def calculate_bg(self, bg, irf, irfbg, measured):
         """Calculate decay and IRF background values
@@ -499,11 +511,23 @@ class FluoFit:
 
         # residuals = self.convd - self.measured
         # residuals = residuals / np.sqrt(np.abs(self.measured))
-        measured = self.measured
-        if any(measured == 0):
-            measured[measured == 0] = self.bg_n
-        residuals = (self.convd - measured) * self.meas_max
-        residuals = residuals / np.sqrt(np.abs(measured * self.meas_max))
+
+        # measured = self.measured
+        measured = self.meas_bef_bg / self.meas_max
+        measured = measured[self.startpoint:self.endpoint]
+
+        # if any(measured == 0):
+        #     measured[measured == 0] = self.bg_n
+
+        convd = self.convd + self.bg_n
+        # convd = self.convd
+
+        # residuals = (self.convd - measured) * self.meas_max
+        residuals = (convd - measured) * self.meas_max
+
+        # residuals = residuals / np.sqrt(np.abs(measured * self.meas_max))
+        residuals = residuals / np.sqrt(np.abs(convd * self.meas_max))
+
         residualsnotinf = np.abs(residuals) != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
         chisquared = np.sum((residuals ** 2)) / (np.size(measured) - param_df - 1)
@@ -631,8 +655,8 @@ class FluoFit:
         # For < 1% use normal distribution
         var = (4 * numpoints ** 2 * (numpoints - 2)) / ((numpoints + 1) * (numpoints - 1) ** 3)
         std = np.sqrt(var)
-        dw03 = np.round(2 - 3 * std)
-        dw01 = np.round(2 - 3.28 * std)
+        dw03 = np.round(2 - 3 * std, 3)
+        dw01 = np.round(2 - 3.28 * std, 3)
 
         return dw5, dw1, dw03, dw01
 
@@ -641,13 +665,13 @@ class OneExp(FluoFit):
     """"Single exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
+                 boundaries=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = 5
         if amp is None:
             amp = 1
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
                          fwhm, numexp=1)
 
         if self.simulate_irf:
@@ -661,7 +685,7 @@ class OneExp(FluoFit):
 
         try:
             if addopt is None:
-                param, pcov = curve_fit(self.fitfunc, self.t[self.startpoint: self.endpoint],
+                param, pcov = curve_fit(self.fitfunc, self.t,#, self.t[self.startpoint: self.endpoint],
                                         self.measured, bounds=(paramin, paramax), p0=paraminit)
             else:
                 param, pcov = curve_fit(self.fitfunc, self.t[self.startpoint: self.endpoint],
@@ -679,7 +703,8 @@ class OneExp(FluoFit):
             else:
                 fwhm = None
 
-            self.convd = self.fitfunc(self.t[self.startpoint: endpoint], tau, amp, shift, fwhm)
+            # self.convd = self.fitfunc(self.t[self.startpoint:self.endpoint], tau, amp, shift, fwhm)
+            self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
             self.results(tau, dtau, shift, amp=1, fwhm=fwhm)
 
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
@@ -693,14 +718,14 @@ class TwoExp(FluoFit):
     """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
+                 boundaries=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = [1, 5]
         if amp is None:
             amp = [1, 1]
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
                          fwhm, numexp=2)
 
         if self.simulate_irf:
@@ -729,6 +754,7 @@ class TwoExp(FluoFit):
         else:
             fwhm = None
 
+        # self.convd = self.fitfunc(self.t[self.startpoint:self.endpoint], tau[0], tau[1], amp[0], amp[1], shift, fwhm)
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
         self.results(tau, dtau, shift, amp, fwhm)
 
@@ -743,14 +769,14 @@ class ThreeExp(FluoFit):
     """"Triple exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
+                 boundaries=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = [0.1, 1, 5]
         if amp is None:
             amp = [1, 1, 1]
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
                          fwhm, numexp=3)
 
         if self.simulate_irf:
@@ -1057,7 +1083,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     maxpoint = decay.max()
                     close_to_max, = np.where(decay > 0.80 * maxpoint)
                     start = close_to_max[0]
-                    self.lineStartTime.setText(f'{start * channelwidth: .3g}')
+                    self.lineStartTime.setText(f'{start * channelwidth:.3g}')
                 else:
                     start = int(start / channelwidth)
                 if autoend:
@@ -1068,7 +1094,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                         end = greater_than_bg.max()
                     else:
                         end = decay.size
-                    self.lineEndTime.setText(f'{end * channelwidth: .3g}')
+                    self.lineEndTime.setText(f'{end * channelwidth:.3g}')
                 else:
                     end = int(end / channelwidth)
 
