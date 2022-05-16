@@ -1,0 +1,7 @@
+Version: 0.0.0 # To be replaced by invoking --version when calling pyinstaller-versionfile
+CompanyName: University of Pretoria
+FileDescription: Full SMS
+InternalName: Full SMS
+LegalCopyright: GNU GPLv3
+OriginalFilename: Full_SMS.exe
+ProductName: Full SMS

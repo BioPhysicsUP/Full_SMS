@@ -1,0 +1,117 @@
+{
+ "version": "auto-py-to-exe-configuration_v1",
+ "pyinstallerOptions": [
+  {
+   "optionDest": "noconfirm",
+   "value": true
+  },
+  {
+   "optionDest": "filenames",
+   "value": "C:/Google Drive/Current_Projects/Full_SMS/src/main.py"
+  },
+  {
+   "optionDest": "onefile",
+   "value": false
+  },
+  {
+   "optionDest": "console",
+   "value": true
+  },
+  {
+   "optionDest": "icon_file",
+   "value": "C:/Google Drive/Current_Projects/Full_SMS/resources/icons/Full-SMS.ico"
+  },
+  {
+   "optionDest": "name",
+   "value": "Full_SMS"
+  },
+  {
+   "optionDest": "ascii",
+   "value": false
+  },
+  {
+   "optionDest": "clean_build",
+   "value": false
+  },
+  {
+   "optionDest": "strip",
+   "value": false
+  },
+  {
+   "optionDest": "noupx",
+   "value": false
+  },
+  {
+   "optionDest": "disable_windowed_traceback",
+   "value": false
+  },
+  {
+   "optionDest": "version_file",
+   "value": "C:/Google Drive/Current_Projects/Full_SMS/versionfile.txt"
+  },
+  {
+   "optionDest": "embed_manifest",
+   "value": true
+  },
+  {
+   "optionDest": "uac_admin",
+   "value": false
+  },
+  {
+   "optionDest": "uac_uiaccess",
+   "value": false
+  },
+  {
+   "optionDest": "win_private_assemblies",
+   "value": false
+  },
+  {
+   "optionDest": "win_no_prefer_redirects",
+   "value": false
+  },
+  {
+   "optionDest": "bootloader_ignore_signals",
+   "value": false
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Google Drive/Current_Projects/Full_SMS/resources;resources/"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "icons_rc"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "numba"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "progressbar2"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "jupyter"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "dfply"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "auto-py-to-exe"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "Pympler"
+  },
+  {
+   "optionDest": "excludes",
+   "value": "pyinstaller-versionfile"
+  }
+ ],
+ "nonPyinstallerOptions": {
+  "increaseRecursionLimit": true,
+  "manualArguments": ""
+ }
+}
