@@ -266,16 +266,13 @@ class FluoFit:
         measured = measured - self.bg  # This will result in negative counts, and can't see where it's delt with
         measured[measured <= 0] = 0
 
-        # self.meas_max = measured.max()
-        # measured = measured / self.meas_max  # Normalize measured
+        self.measured_unbounded = measured
+        measured = measured[self.startpoint:self.endpoint]
         self.meas_max = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
-        measured = measured / self.meas_max  # Normalize measured
+        self.measured = measured / self.meas_max  # Normalize measured
         self.bg_n = self.bg / self.meas_max  # Normalized background
-        meas_std = meas_std / self.meas_max
-        self.measured_unbounded = measured
-        self.measured = measured[self.startpoint:self.endpoint]
-        self.meas_std = meas_std[self.startpoint:self.endpoint]
+        self.meas_std = meas_std / self.meas_max
         self.dtau = None
         self.chisq = None
         self.residuals = None
@@ -509,23 +506,14 @@ class FluoFit:
 
         param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
 
-        # residuals = self.convd - self.measured
-        # residuals = residuals / np.sqrt(np.abs(self.measured))
-
-        # measured = self.measured
-        measured = self.meas_bef_bg / self.meas_max
+        measured = self.meas_bef_bg
         measured = measured[self.startpoint:self.endpoint]
-
-        # if any(measured == 0):
-        #     measured[measured == 0] = self.bg_n
+        measured = measured / self.meas_max
 
         convd = self.convd + self.bg_n
-        # convd = self.convd
 
-        # residuals = (self.convd - measured) * self.meas_max
         residuals = (convd - measured) * self.meas_max
 
-        # residuals = residuals / np.sqrt(np.abs(measured * self.meas_max))
         residuals = residuals / np.sqrt(np.abs(convd * self.meas_max))
 
         residualsnotinf = np.abs(residuals) != np.inf
@@ -583,8 +571,8 @@ class FluoFit:
 
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
-        convd = convd / convd.sum()
         convd = convd[self.startpoint:self.endpoint]
+        convd = convd / convd.sum()
         return convd
 
     @staticmethod
