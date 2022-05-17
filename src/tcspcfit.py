@@ -331,7 +331,7 @@ class FluoFit:
                 max1 = great_than_bg.max()
                 self.endpoint = max1
         elif endpoint is not None:
-            self.endpoint = max(endpoint, measured.size)
+            self.endpoint = min(endpoint, measured.size)
         else:
             self.endpoint = measured.size
 
@@ -1058,7 +1058,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         except AttributeError:
             logger.error('No Decay!')
         else:
-            if fp.irf is not None:
+            if fp.irf is not None or fp.fwhm is not None:
                 try:
                     if fp.fwhm is None:
                         irf = fp.irf

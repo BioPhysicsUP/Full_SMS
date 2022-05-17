@@ -1226,6 +1226,7 @@ class LifetimeController(QObject):
                 start = int(f_p.start / channelwidth)
             else:
                 start = None
+            print(f_p.autoend, f_p.end)
             if f_p.autoend:
                 end = None
             elif f_p.end is not None:
