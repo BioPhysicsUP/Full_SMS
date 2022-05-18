@@ -262,15 +262,17 @@ class FluoFit:
         self.endpoint = None
         self.calculate_boundaries(endpoint, measured, startpoint, find_endpoint=False)
 
-        measured = measured - self.bg  # This will result in negative counts, and can't see where it's delt with
-        measured[measured <= 0] = 0
 
         # self.meas_max = measured.max()
         # measured = measured / self.meas_max  # Normalize measured
+        self.measured_with_bg = measured
+        measured = measured - self.bg  # This will result in negative counts, and can't see where it's delt with
+        measured[measured <= 0] = 0
         self.meas_max = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
         measured = measured / self.meas_max  # Normalize measured
         self.bg_n = self.bg / self.meas_max  # Normalized background
+        self.measured_with_bg_n = measured / self.meas_max
         meas_std = meas_std / self.meas_max
         self.measured_unbounded = measured
         self.measured = measured[self.startpoint:self.endpoint]
@@ -371,7 +373,7 @@ class FluoFit:
                 bglim = reverse
                 break
         bg_est = np.mean(measured[meas_real_start:bglim])
-        bg_est = min(bg_est, measured.max() / 100)  # bg shouldn't be more than 1% of measured max
+        bg_est = min(bg_est, 5 * measured.max() / 100)  # bg shouldn't be more than 5% of measured max
         if np.isnan(bg_est):  # bg also shouldn't be NaN
             bg_est = 0
         return bg_est
@@ -502,7 +504,7 @@ class FluoFit:
         measured = self.measured
         if any(measured == 0):
             measured[measured == 0] = self.bg_n
-        residuals = (self.convd - measured) * self.meas_max
+        residuals = ((self.convd + self.bg_n) - (measured + self.bg_n)) * self.meas_max
         residuals = residuals / np.sqrt(np.abs(measured * self.meas_max))
         residualsnotinf = np.abs(residuals) != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works

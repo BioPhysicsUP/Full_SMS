@@ -1357,14 +1357,24 @@ class LifetimeController(QObject):
             info = fit_name + f"\n{len(fit_name) * '*'}\n"
 
         tau = histogram.tau
+        if type(tau) is not list:
+            tau = [tau]
         amp = histogram.amp
+        if type(amp) is not list:
+            amp = [amp]
+
         avtau = np.dot(histogram.amp, histogram.tau)
-        try:
-            info = info + 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
-            info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
-        except TypeError:  # only one component
-            info = info + 'Tau = {:#.3g} ns'.format(tau)
-            info = info + '\nAmp = {:#.3g}'.format(amp)
+        info = info + 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
+        info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
+
+        # try:
+        #     info = info + 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
+        #     info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
+        # except TypeError:  # only one component
+        #     info = info + 'Tau = {:#.3g} ns'.format(tau)
+        #     info = info + '\nAmp = {:#.3g}'.format(amp)
+        if type(avtau) is list or type(avtau) is np.ndarray:
+            avtau = avtau[0]
         info = info + '\nAverage Tau = {:#.3g}'.format(avtau)
 
         info = info + f'\n\nShift = {histogram.shift: .3g} ns'
