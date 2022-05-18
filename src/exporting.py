@@ -69,8 +69,11 @@ def export_data(mainwindow: MainWindow,
     else:
         particles = mainwindow.current_dataset.particles
 
-    f_dir = QFileDialog.getExistingDirectory()
+    print('bug')
+    f_dir = QFileDialog.getExistingDirectory(mainwindow)
+    print('bugg')
     f_dir = os.path.abspath(f_dir)
+    print('buggy')
 
     if not f_dir:
         return

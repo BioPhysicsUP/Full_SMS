@@ -855,7 +855,7 @@ class Histogram:
     def t(self, value):
         self._t = value
 
-    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, fwhm=None):
+    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, boundaries, addopt, irf, fwhm=None):
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
@@ -865,14 +865,14 @@ class Histogram:
         try:
             if numexp == 1:
                 fit = tcspcfit.OneExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                      tauparam, None, shift, decaybg, irfbg, start, end, addopt, fwhm=fwhm)
+                                      tauparam, None, shift, decaybg, irfbg, boundaries, addopt, fwhm=fwhm)
             elif numexp == 2:
                 fit = tcspcfit.TwoExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                      tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, fwhm=fwhm)
+                                      tauparam, ampparam, shift, decaybg, irfbg, boundaries, addopt, fwhm=fwhm)
             elif numexp == 3:
                 fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self._particle.channelwidth,
                                         tauparam, ampparam, shift, decaybg,
-                                        irfbg, start, end, addopt, fwhm=fwhm)
+                                        irfbg, boundaries, addopt, fwhm=fwhm)
         except Exception as e:
             trace_string = ''
             for trace_part in traceback.format_tb(e.__traceback__):
@@ -946,12 +946,13 @@ class ParticleAllHists:
         shift = fit_param.shift[:-1] / channelwidth
         shiftfix = fit_param.shift[-1]
         shift = [*shift, shiftfix]
+        boundaries = [start, end, fit_param.autostart, fit_param.autoend]
 
         for hist in all_hists:
             try:
                 if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
                                 shift, fit_param.decaybg,
-                                fit_param.irfbg, start, end, fit_param.addopt,
+                                fit_param.irfbg, boundaries, fit_param.addopt,
                                 fit_param.irf, fit_param.fwhm):
                     pass  # fit unsuccessful
             except AttributeError:
