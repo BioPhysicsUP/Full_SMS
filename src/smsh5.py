@@ -9,7 +9,7 @@ import ast
 import os
 import re
 import traceback
-from typing import List, Union, TYPE_CHECKING
+from typing import List, Union, TYPE_CHECKING, Tuple
 from uuid import uuid1
 
 import h5pickle
@@ -363,6 +363,25 @@ class Particle:
         return self.ahca.grouped_with_roi
 
     @property
+    def roi_region_photon_inds(self) -> Tuple[int, int]:
+        first_photon = 0
+        last_photon = self.num_photons - 1
+        roi_start = self.roi_region[0]
+        roi_end = self.roi_region[1]
+        epsilon_t = 0.1
+        end_t = self.abstimes[-1]/1E9
+        if roi_start >= 0 + epsilon_t/2 or not roi_end - epsilon_t/2 <= end_t <= roi_end + epsilon_t/2:
+            times = self.abstimes[:]/1E9
+            first_photon = np.argmin(roi_start > times)
+            last_photon = np.argmin(roi_end > times)
+        return first_photon, last_photon
+
+    @property
+    def num_photons_roi(self) -> int:
+        first_photon, last_photon = self.roi_region_photon_inds
+        return last_photon - first_photon
+
+    @property
     def has_spectra(self) -> bool:
         return self.spectra._has_spectra
 
@@ -391,12 +410,13 @@ class Particle:
 
     @property
     def first_level_ind_in_roi(self):
-        first_ind = 0
-        start_times = np.array([level.times_s[0] for level in self.levels])
-        where_larger_start = np.where(start_times > self.roi_region[0])
-        if len(where_larger_start[0]) >= 0:
-            first_ind = where_larger_start[0][0]
-        return first_ind
+        if self.has_levels:
+            first_ind = 0
+            start_times = np.array([level.times_s[0] for level in self.levels])
+            where_larger_start = np.where(start_times > self.roi_region[0])
+            if len(where_larger_start[0]) >= 0:
+                first_ind = where_larger_start[0][0]
+            return first_ind
 
     @property
     def last_level_ind_in_roi(self):
@@ -499,7 +519,11 @@ class Particle:
 
     @property
     def dwell_time_roi(self):
-        return self.levels_roi[-1].times_s[1] - self.levels_roi[0].times_s[0]
+        if self.has_levels:
+            return self.levels_roi[-1].times_s[1] - self.levels_roi[0].times_s[0]
+        else:
+            first_photon_ind, last_photon_ind = self.roi_region_photon_inds
+            return (self.abstimes[last_photon_ind] - self.abstimes[first_photon_ind])/1E9
 
     @property
     def level_ints(self):

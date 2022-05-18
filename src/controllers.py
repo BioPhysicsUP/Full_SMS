@@ -268,6 +268,9 @@ class IntController(QObject):
                     current_particle.roi_region = self.int_ROI.getRegion()
                     self.mainwindow.lifetime_controller.test_need_roi_apply(particle=current_particle,
                                                                             update_buttons=False)
+                    self.plot_hist()
+                if self.mainwindow.chbInt_Show_Level_Info.isChecked():
+                    self.update_level_info()
 
     def hist_chb_changed(self):
 
@@ -593,6 +596,16 @@ class IntController(QObject):
         except AttributeError:
             logger.error('No trace!')
         else:
+            if self.mainwindow.chbInt_Show_ROI.isChecked():
+                roi_start = particle.roi_region[0]
+                roi_end = particle.roi_region[1]
+                time_ind_start = np.argmax(roi_start < particle.binnedtrace.inttimes/1E3)
+                end_test = roi_end <= particle.binnedtrace.inttimes/1E3
+                if any(end_test):
+                    time_ind_end = np.argmax(end_test)
+                else:
+                    time_ind_end = len(int_data)
+                int_data = int_data[time_ind_start:time_ind_end+1]
             plot_pen = QPen()
             plot_pen.setColor(QColor(0, 0, 0, 0))
 
@@ -634,10 +647,13 @@ class IntController(QObject):
                 hist_ax.set_ylim(self.temp_ax['int_ax'].get_ylim())
 
             if particle.has_levels:
-                level_ints = particle.level_ints
+                if not self.mainwindow.chbInt_Show_ROI.isChecked():
+                    level_ints = particle.level_ints
+                    dwell_times = [level.dwell_time_s for level in particle.levels]
+                else:
+                    level_ints = particle.level_ints_roi
+                    dwell_times = particle.level_dwelltimes_roi
                 level_ints *= particle.bin_size / 1000
-                dwell_times = [level.dwell_time_s for level in
-                               particle.levels]
                 if not for_export:
                     level_freq, level_hist_bins = np.histogram(np.negative(level_ints),
                                                                bins=bin_edges,
@@ -714,6 +730,17 @@ class IntController(QObject):
                     info = info + f"\n# of Groups = {particle.num_groups}"
                 if particle.has_levels:
                     info = info + f"\nHas Photon Bursts = {particle.has_burst}"
+
+                if self.mainwindow.chbInt_Show_ROI.isChecked:
+                    info += f"\n\nWhole Trace (ROI)\n{'*' * len('Whole Trace (ROI)')}"
+                    info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time_roi: .3g}"
+                    info = info + f"\n# of Photons = {particle.num_photons_roi}"
+                    if particle.has_levels:
+                        info = info + f"\n# of Levels = {particle.num_levels_roi}"
+                    if particle.has_groups:
+                        info = info + f"\n# of Groups = {particle.num_groups}"
+                    if particle.has_levels:
+                        info = info + f"\nHas Photon Bursts = {particle.has_burst}"
             elif particle.has_levels:
                 is_group_level = False
                 if particle.level_selected <= particle.num_levels - 1:
