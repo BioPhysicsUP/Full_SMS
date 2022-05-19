@@ -260,10 +260,10 @@ class FluoFit:
 
         self.startpoint = None
         self.endpoint = None
-        self.calculate_boundaries(measured, boundaries)
+        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg)
 
         self.meas_bef_bg = measured
-        measured = measured - self.bg  # This will result in negative counts, and can't see where it's delt with
+        measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
         measured[measured <= 0] = 0
 
         self.measured_unbounded = measured
@@ -281,56 +281,64 @@ class FluoFit:
         self.convd = None
         self.is_fit = False
 
-    def calculate_boundaries(self, measured, boundaries):
+    @staticmethod
+    def calculate_boundaries(measured, boundaries, bg):
         """Set the start and endpoints
 
         Sets the values to the given ones or automatically find good ones.
-        The start value is chosen as the maximum point of the IRF, and the end
+        The start value is chosen as earliest point that is at least 80%
+        of the maximum point of the measured decay, and the end
         value is chosen as either the point where the decay is 1 % of
         maximum or 10 times the background value, whichever is highest.
 
         Parameters
         ----------
-        find_endpoint : bool
-            Set to True if endpoint should be calculated instead of set to last time index
-        endpoint : int
-                End of fitting range
         measured : ndarray
             The measured decay data
-        startpoint : int
-                Start of fitting range
+        boundaries : list
+                [startpoint, endpoint, autostart, autoend]
 
         """
         if boundaries is None:
-            boundaries = [None, None, False, False]
+            boundaries = [None, None, 'Manual', False]
 
         startpoint = boundaries[0]
         endpoint = boundaries[1]
         autostart = boundaries[2]
         autoend = boundaries[3]
 
-        if autostart:
-            maxpoint = measured.max()
-            if not np.isnan(maxpoint):
-                close_to_max, = np.where(measured > 0.80 * maxpoint)
-                self.startpoint = close_to_max[0]
-            else:
-                self.startpoint = 0
-        elif startpoint is not None:
-            self.startpoint = startpoint
+        if autostart == 'Manual':
+            if startpoint is None:
+                startpoint = 0
         else:
-            self.startpoint = 0
+            maxpoint = measured.max()
+            close_to_max, = np.where(measured > 0.80 * maxpoint)
+            startmax = close_to_max[0]
+            startmin = FluoFit.estimate_bg(measured, return_bglim=True)
+            if autostart == '(Close to) max':
+                startpoint = startmax
+            if autostart == 'Rise middle':
+                startpoint = int(0.5 * (startmin + startmax))
+            if autostart == 'Rise start':
+                startpoint = startmin
 
         if autoend:
-            minval = max(20 * self.bg, 0.01 * measured.max())
+            minval = max(20 * bg, 0.01 * measured.max())
             if not np.isnan(minval):
                 great_than_bg, = np.where(measured > minval)
-                max1 = great_than_bg.max()
-                self.endpoint = max1
+                if great_than_bg[-1] == measured.size - 1:
+                    great_than_bg = great_than_bg[:-1]
+                if not great_than_bg.size == 0:
+                    max1 = great_than_bg.max()
+                    endpoint = max1
+                else:
+                    endpoint = measured.size
         elif endpoint is not None:
-            self.endpoint = min(endpoint, measured.size)
+            endpoint = min(endpoint, measured.size)
         else:
-            self.endpoint = measured.size
+            endpoint = measured.size
+
+        return startpoint, endpoint
 
     def calculate_bg(self, bg, irf, irfbg, measured):
         """Calculate decay and IRF background values
@@ -371,7 +379,20 @@ class FluoFit:
             self.bg = bg
 
     @staticmethod
-    def estimate_bg(measured):
+    def estimate_bg(measured, return_bglim=False):
+        """Estimate decay background
+
+        Optionally returns only the index of rise start.
+
+        Parameters
+        ----------
+
+        measured : ndarray
+            measured decay data
+        return_bglim : bool
+            whether to return index of rise start instead of bg
+
+        """
         meas_real_start = np.nonzero(measured)[0][0]
         maxind = np.argmax(measured)
         for i in range(maxind):
@@ -383,7 +404,10 @@ class FluoFit:
         bg_est = min(bg_est, measured.max() / 100)  # bg shouldn't be more than 1% of measured max
         if np.isnan(bg_est):  # bg also shouldn't be NaN
             bg_est = 0
-        return bg_est
+        if return_bglim:
+            return bglim
+        else:
+            return bg_est
 
     def setup_params(self, amp, shift, tau, fwhm=None):
         """Setup fitting parameters
@@ -871,7 +895,7 @@ class FittingParameters:
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
         self.start = self.get_from_gui(self.fpd.lineStartTime)
-        self.autostart = bool(self.get_from_gui(self.fpd.checkAutoStart))
+        self.autostart = self.get_from_gui(self.fpd.comboAutoStart)
         self.end = self.get_from_gui(self.fpd.lineEndTime)
         self.autoend = bool(self.get_from_gui(self.fpd.checkAutoEnd))
 
@@ -920,6 +944,8 @@ class FittingParameters:
                     return invalid
         elif type(guiobj) == QCheckBox:
             return float(guiobj.isChecked())
+        elif type(guiobj) == QComboBox:
+            return guiobj.currentText()
 
 
 class FittingDialog(QDialog, UI_Fitting_Dialog):
@@ -986,7 +1012,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.combNumExp.currentIndexChanged.connect(self.updateplot)
         #  TODO: regexvalidator for sim irf parameters
 
-        self.checkAutoStart.stateChanged.connect(self.updateplot)
+        self.comboAutoStart.currentTextChanged.connect(self.updateplot)
         self.checkAutoEnd.stateChanged.connect(self.updateplot)
 
         # for widget in self.findChildren(QLineEdit):
@@ -1066,28 +1092,13 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 convd = convd[:np.size(irf)]
                 convd = convd / convd.sum()
 
-                if autostart:
-                    # start = np.argmax(decay)
-                    maxpoint = decay.max()
-                    close_to_max, = np.where(decay > 0.80 * maxpoint)
-                    start = close_to_max[0]
+                bg = FluoFit.estimate_bg(decay)
+                start, end = int(start / channelwidth), int(end / channelwidth)
+                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend], bg)
+                if autostart != 'Manual':
                     self.lineStartTime.setText(f'{start * channelwidth:.3g}')
-                else:
-                    start = int(start / channelwidth)
                 if autoend:
-                    bg = FluoFit.estimate_bg(decay)
-                    minval = max(20 * bg, 0.01 * decay.max())
-                    greater_than_bg, = np.where(decay > minval)
-                    if not greater_than_bg.size == 0:
-                        end = greater_than_bg.max()
-                    else:
-                        end = decay.size
                     self.lineEndTime.setText(f'{end * channelwidth:.3g}')
-                else:
-                    end = int(end / channelwidth)
-
-                # decay, t = start_at_value(decay, t)
-                end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
 
                 convd = convd[irft > 0]
                 irft = irft[irft > 0]

@@ -1521,19 +1521,6 @@
          <layout class="QVBoxLayout" name="verticalLayout_4">
           <item>
            <layout class="QGridLayout" name="gridLayout_7">
-            <item row="0" column="6">
-             <widget class="QCheckBox" name="checkAutoStart">
-              <property name="maximumSize">
-               <size>
-                <width>70</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Auto</string>
-              </property>
-             </widget>
-            </item>
             <item row="1" column="4">
              <widget class="QLabel" name="label_36">
               <property name="sizePolicy">
@@ -1563,32 +1550,6 @@
               </property>
              </spacer>
             </item>
-            <item row="0" column="1">
-             <widget class="QLabel" name="label_33">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>Decay Background</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLabel" name="label_34">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="text">
-               <string>IRF Background</string>
-              </property>
-             </widget>
-            </item>
             <item row="0" column="4">
              <widget class="QLabel" name="label_35">
               <property name="sizePolicy">
@@ -1604,39 +1565,6 @@
             </item>
             <item row="0" column="5">
              <widget class="QLineEdit" name="lineStartTime">
-              <property name="maximumSize">
-               <size>
-                <width>70</width>
-                <height>16777215</height>
-               </size>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="5">
-             <widget class="QLineEdit" name="lineEndTime">
-              <property name="maximumSize">
-               <size>
-                <width>70</width>
-                <height>16777215</height>
-               </size>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="6">
-             <widget class="QCheckBox" name="checkAutoEnd">
-              <property name="maximumSize">
-               <size>
-                <width>70</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>Auto</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="2">
-             <widget class="QLineEdit" name="lineDecayBG">
               <property name="maximumSize">
                <size>
                 <width>70</width>
@@ -1670,6 +1598,89 @@
                </size>
               </property>
              </spacer>
+            </item>
+            <item row="1" column="5">
+             <widget class="QLineEdit" name="lineEndTime">
+              <property name="maximumSize">
+               <size>
+                <width>70</width>
+                <height>16777215</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QLineEdit" name="lineDecayBG">
+              <property name="maximumSize">
+               <size>
+                <width>70</width>
+                <height>16777215</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="label_33">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Decay Background</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="label_34">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>IRF Background</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="6">
+             <widget class="QCheckBox" name="checkAutoEnd">
+              <property name="maximumSize">
+               <size>
+                <width>70</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>Auto</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="6">
+             <widget class="QComboBox" name="comboAutoStart">
+              <item>
+               <property name="text">
+                <string>Manual</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>(Close to) max</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Rise middle</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Rise start</string>
+               </property>
+              </item>
+             </widget>
             </item>
            </layout>
           </item>
