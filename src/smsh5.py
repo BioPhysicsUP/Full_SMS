@@ -593,7 +593,7 @@ class Particle:
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
         if not use_grouped:
             if not use_roi:
-                levels = self.levels
+                levels = self.cpts.levels
             else:
                 levels = self.levels_roi
         else:

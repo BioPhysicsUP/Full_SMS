@@ -930,7 +930,7 @@ class IntController(QObject):
                 result.new_task_obj._particle = target_particle
                 result.new_task_obj._cpa._particle = target_particle
                 target_particle.cpts = result.new_task_obj
-                target_particle
+                # target_particle
             self.results_gathered = True
         except ValueError as e:
             logger.error(e)
@@ -1321,7 +1321,7 @@ class LifetimeController(QObject):
         color_current = "None"
         color_selected = "None"
         color_all = "None"
-        if use_roi_checked:
+        if use_roi_checked and self.all_should_apply is not None:
             if self.all_should_apply[self.mainwindow.current_particle.dataset_ind]:
                 color_current = "red"
             if any(self.all_should_apply[[part.dataset_ind for part in self.mainwindow.get_checked_particles()]]):
@@ -1335,6 +1335,8 @@ class LifetimeController(QObject):
     def apply_roi(self, particles: list):
         for part in particles:
             if self.all_should_apply[part.dataset_ind]:
+                if self.mainwindow.chbLifetime_Use_ROI.isChecked() and not part.use_roi_for_histogram:
+                    part.use_roi_for_histogram = True
                 part._histogram_roi.update_roi()
                 self.all_should_apply[part.dataset_ind] = False
         self.test_need_roi_apply()
@@ -1534,11 +1536,13 @@ class LifetimeController(QObject):
         if particle is None:
             particle = self.mainwindow.current_particle
 
+        min_t = 0
         group_ind = None
         if select_ind is None:
             if particle.histogram.fitted:
                 decay = particle.histogram.fit_decay
                 t = particle.histogram.convd_t
+                min_t = particle.histogram.convd_t[0]
             else:
                 try:
                     decay = particle.histogram.decay
@@ -1550,6 +1554,7 @@ class LifetimeController(QObject):
             if particle.cpts.levels[select_ind].histogram.fitted:
                 decay = particle.levels[select_ind].histogram.fit_decay
                 t = particle.cpts.levels[select_ind].histogram.convd_t
+                min_t = t[0]
             else:
                 try:
                     decay = particle.cpts.levels[select_ind].histogram.decay
@@ -1561,6 +1566,7 @@ class LifetimeController(QObject):
             if particle.groups[group_ind].histogram.fitted:
                 decay = particle.groups[group_ind].histogram.fit_decay
                 t = particle.groups[group_ind].histogram.convd_t
+                min_t = t[0]
             else:
                 try:
                     decay = particle.groups[group_ind].histogram.decay
@@ -1605,8 +1611,8 @@ class LifetimeController(QObject):
                     life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
 
                 life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
-                life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
-                life_hist_plot.getViewBox().setRange(xRange=[0, max_t])
+                life_hist_plot.getViewBox().setLimits(xMin=min_t, yMin=0, xMax=max_t)
+                life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t])
                 self.fitparamdialog.updateplot()
             else:
                 if self.temp_fig is None:
@@ -1724,8 +1730,8 @@ class LifetimeController(QObject):
                 self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
                 unit = f'ns with {particle.channelwidth: .3g} ns bins'
                 self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
-                self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
-                self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+                # self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
+                # self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
             else:
                 decay_ax = self.temp_ax['decay_ax']
                 decay_ax.semilogy(t, convd)
@@ -1822,7 +1828,7 @@ class LifetimeController(QObject):
                 self.residual_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
                 self.residual_plot.getViewBox().setYRange(min=residuals.min(),
                                                           max=residuals.max(), padding=0)
-                self.residual_plot.getViewBox().setLimits(xMin=0, xMax=t[-1])
+                self.residual_plot.getViewBox().setLimits(xMin=t[0], xMax=t[-1])
             else:
                 residual_ax = self.temp_ax['residual_ax']
                 residual_ax.scatter(t, residuals, s=1)
@@ -2308,6 +2314,7 @@ class GroupingController(QObject):
         if type(results) is not list:
             results = [results]
         result_part_uuids = [result.new_task_obj.uuid for result in results]
+        particles_updated = []
         try:
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
@@ -2336,6 +2343,9 @@ class GroupingController(QObject):
                     # new_part.using_group_levels = True
                     # new_part.makelevelhists()
                     # new_part.using_group_levels = False
+                particles_updated.append(new_part)
+            if self.mainwindow.chbGroup_Auto_Apply.isChecked():
+                self.apply_groups(particles=particles)
 
             # self.results_gathered = True
         except ValueError as e:
@@ -2397,13 +2407,14 @@ class GroupingController(QObject):
             self.mainwindow.lblGrouping_ROI.setText(export_group_roi_label)
             self.mainwindow.lblGrouping_ROI.setStyleSheet(f"color: {label_color}")
 
-    def apply_groups(self, mode: str = 'current'):
-        if mode == 'current':
-            particles = [self.mainwindow.current_particle]
-        elif mode == 'selected':
-            particles = self.mainwindow.get_checked_particles()
-        else:
-            particles = self.mainwindow.current_dataset.particles
+    def apply_groups(self, mode: str = 'current', particles = None):
+        if particles is None:
+            if mode == 'current':
+                particles = [self.mainwindow.current_particle]
+            elif mode == 'selected':
+                particles = self.mainwindow.get_checked_particles()
+            else:
+                particles = self.mainwindow.current_dataset.particles
 
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:

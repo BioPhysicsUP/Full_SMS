@@ -166,3 +166,4 @@ Syncfolders_Database_db
 /.qt_for_python/
 /src/analysis/
 /settings.json
+/output/

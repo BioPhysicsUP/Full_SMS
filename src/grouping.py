@@ -374,7 +374,7 @@ class AHCA:
         self.num_steps = None
         self.plots_need_to_be_updated = False
 
-        self.use_roi_for_grouping = False
+        self.use_roi_for_grouping = True  # Changed default to True on GUI as well
         self.grouped_with_roi = False
 
     @property

@@ -7,7 +7,7 @@
   },
   {
    "optionDest": "filenames",
-   "value": "C:/Google Drive/Current_Projects/Full_SMS/src/main.py"
+   "value": "C:/GDrive/Current_Projects/Full_SMS/src/main.py"
   },
   {
    "optionDest": "onefile",
@@ -19,7 +19,7 @@
   },
   {
    "optionDest": "icon_file",
-   "value": "C:/Google Drive/Current_Projects/Full_SMS/resources/icons/Full-SMS.ico"
+   "value": "C:/GDrive/Current_Projects/Full_SMS/resources/icons/Full-SMS.ico"
   },
   {
    "optionDest": "name",
@@ -42,16 +42,8 @@
    "value": false
   },
   {
-   "optionDest": "disable_windowed_traceback",
-   "value": false
-  },
-  {
    "optionDest": "version_file",
-   "value": "C:/Google Drive/Current_Projects/Full_SMS/versionfile.txt"
-  },
-  {
-   "optionDest": "embed_manifest",
-   "value": true
+   "value": "C:/GDrive/Current_Projects/Full_SMS/versionfile.txt"
   },
   {
    "optionDest": "uac_admin",
@@ -74,8 +66,12 @@
    "value": false
   },
   {
+   "optionDest": "disable_windowed_traceback",
+   "value": false
+  },
+  {
    "optionDest": "datas",
-   "value": "C:/Google Drive/Current_Projects/Full_SMS/resources;resources/"
+   "value": "C:/GDrive/Current_Projects/Full_SMS/resources;resources/"
   },
   {
    "optionDest": "hiddenimports",

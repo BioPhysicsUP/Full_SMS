@@ -1,0 +1,10 @@
+1.  Run Auto-Py-To-Exe in terminal (within project environment) with > auto-py-to-exe
+2.  Scroll to bottom of wizard, and select 'Import Config From JSON File'
+3.  Confirm that all paths are valid in wizard. (They'll be red if they're not valid)
+4.  Run wizard
+5.  Ensure Inno Setup Compiler is installed (https://jrsoftware.org/isdl.php)
+6.  Run Inno Setup Compiler and open 'installer_v0.2.iss' script file
+7.  Ensure version number is correct in line -> #define MyAppVersion "0.3.5"
+8.  Ensure root folder is corrent in line -> #define MyRootFolder "C:..."
+9.  Compile (Ctrl-F9). Installer will be in root_folder\output
+10. Add milk and sugar to taste and enjoy =)

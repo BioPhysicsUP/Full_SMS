@@ -7,8 +7,8 @@ VSVersionInfo(
   ffi=FixedFileInfo(
     # filevers and prodvers should be always a tuple with four items: (1, 2, 3, 4)
     # Set not needed items to zero 0. Must always contain 4 elements.
-    filevers=(0,3,4,0),
-    prodvers=(0,3,4,0),
+    filevers=(0,3,5,0),
+    prodvers=(0,3,5,0),
     # Contains a bitmask that specifies the valid bits 'flags'r
     mask=0x3f,
     # Contains a bitmask that specifies the Boolean attributes of the file.
@@ -32,12 +32,12 @@ VSVersionInfo(
         u'040904B0',
         [StringStruct(u'CompanyName', u'University of Pretoria'),
         StringStruct(u'FileDescription', u'Full SMS'),
-        StringStruct(u'FileVersion', u'0.3.4.0'),
+        StringStruct(u'FileVersion', u'0.3.5.0'),
         StringStruct(u'InternalName', u'Full SMS'),
         StringStruct(u'LegalCopyright', u'GNU GPLv3'),
         StringStruct(u'OriginalFilename', u'Full_SMS.exe'),
         StringStruct(u'ProductName', u'Full SMS'),
-        StringStruct(u'ProductVersion', u'0.3.4.0')])
+        StringStruct(u'ProductVersion', u'0.3.5.0')])
       ]), 
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
   ]

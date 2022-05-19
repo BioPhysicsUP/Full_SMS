@@ -50,7 +50,7 @@ from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.3.4"
+SMS_VERSION = "0.3.5"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -1163,6 +1163,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if new_state:
             enable_levels = self.current_dataset.has_levels
         self.actionTrim_Dead_Traces.setEnabled(enable_levels)
+        self.chbGroup_Auto_Apply.setEnabled(enable_levels)
 
         # Lifetime
         self.tabLifetime.setEnabled(new_state)
