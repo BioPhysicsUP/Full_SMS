@@ -217,49 +217,49 @@ class H5dataset:
 
 
 # TODO: This is in the incorrect file.
-class BICPlotData:
-
-    def __init__(self):
-        self._scatter_plot_item = None
-        self._selected_spot = None
-
-    @property
-    def has_plot(self) -> bool:
-        if self._scatter_plot_item:
-            return True
-        else:
-            return False
-
-    @property
-    def has_selected_spot(self) -> bool:
-        if self._selected_spot:
-            return True
-        else:
-            return False
-
-    @property
-    def scatter_plot_item(self):
-        if self.has_plot:
-            return self._scatter_plot_item
-
-    @scatter_plot_item.setter
-    def scatter_plot_item(self, scatter_plot_item: ScatterPlotItem):
-        assert type(scatter_plot_item) == ScatterPlotItem, "scatter_plot_item not correct type."
-        self._scatter_plot_item = scatter_plot_item
-
-    @property
-    def selected_spot(self):
-        if self.has_plot:
-            return self._selected_spot
-
-    @selected_spot.setter
-    def selected_spot(self, selected_spot: SpotItem):
-        assert type(selected_spot) == SpotItem, "selected_spot is not correct type."
-        self._selected_spot = selected_spot
-
-    def clear_scatter_plot_item(self):
-        self._scatter_plot_item = None
-        self._selected_spot = None
+# class BICPlotData:
+#
+#     def __init__(self):
+#         self._scatter_plot_item = None
+#         self._selected_spot = None
+#
+#     @property
+#     def has_plot(self) -> bool:
+#         if self._scatter_plot_item:
+#             return True
+#         else:
+#             return False
+#
+#     @property
+#     def has_selected_spot(self) -> bool:
+#         if self._selected_spot:
+#             return True
+#         else:
+#             return False
+#
+#     @property
+#     def scatter_plot_item(self):
+#         if self.has_plot:
+#             return self._scatter_plot_item
+#
+#     @scatter_plot_item.setter
+#     def scatter_plot_item(self, scatter_plot_item: ScatterPlotItem):
+#         assert type(scatter_plot_item) == ScatterPlotItem, "scatter_plot_item not correct type."
+#         self._scatter_plot_item = scatter_plot_item
+#
+#     @property
+#     def selected_spot(self):
+#         if self.has_plot:
+#             return self._selected_spot
+#
+#     @selected_spot.setter
+#     def selected_spot(self, selected_spot: SpotItem):
+#         assert type(selected_spot) == SpotItem, "selected_spot is not correct type."
+#         self._selected_spot = selected_spot
+#
+#     def clear_scatter_plot_item(self):
+#         self._scatter_plot_item = None
+#         self._selected_spot = None
 
 
 class Particle:
@@ -280,10 +280,9 @@ class Particle:
         dataset: H5dataset
             The instance of the dataset to which this particle belongs
         tmin: int, Optional
-            TODO
+            TODO: Update docsring
         tmax: int, Optional
-            TODO
-        channelwidth: TODO
+        channelwidth:
         """
         self.uuid = uuid1()
         self.name = name
@@ -411,24 +410,18 @@ class Particle:
     @property
     def first_level_ind_in_roi(self):
         if self.has_levels:
-            first_ind = 0
-            start_times = np.array([level.times_s[0] for level in self.levels])
-            where_larger_start = np.where(start_times > self.roi_region[0])
-            if len(where_larger_start[0]) >= 0:
-                first_ind = where_larger_start[0][0]
-            return first_ind
+            end_times = np.array([level.times_s[1] for level in self.cpts.levels])
+            first_roi_ind = np.argmax(end_times > self.roi_region[0])
+            return int(first_roi_ind)
 
     @property
     def last_level_ind_in_roi(self):
         if len(self.roi_region) == 3:
-            last_ind = self.roi_region[2]
+            last_roi_ind = self.roi_region[2]
         else:
-            last_ind = self.num_levels
-            end_times = np.array([level.times_s[1] for level in self.levels])
-            where_larger_end = np.where(end_times >= self.roi_region[1])
-            if len(where_larger_end[0]) > 0:
-                last_ind = where_larger_end[0][0]
-        return last_ind
+            end_times = np.array([level.times_s[1] for level in self.cpts.levels])
+            last_roi_ind = np.argmax(np.round(end_times, 3) >= np.round(self.roi_region[1], 3))
+        return int(last_roi_ind)
 
     @property
     def raster_scan_coordinates(self) -> tuple:
@@ -577,20 +570,23 @@ class Particle:
     # def icon(self):
     #     return ParticleIcons.test_icon
 
-    def levels2data(self, use_grouped: bool = False, use_roi: bool = False) -> [np.ndarray, np.ndarray]:
+    def levels2data(self, use_grouped: bool = None, use_roi: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
         Parameters
         ----------
         use_grouped
-        plot_type: str, {'line', 'step'}
+        use_roi
 
         Returns
         -------
-        [np.ndarray, np.ndarray]
+        Tuple[np.ndarray, np.ndarray]
         """
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        if use_grouped is None:
+            use_grouped = self.using_group_levels
+
         if not use_grouped:
             if not use_roi:
                 levels = self.cpts.levels
@@ -599,18 +595,13 @@ class Particle:
         else:
             levels = self.ahca.selected_step.group_levels
 
-        num_levels = len(levels)
-        levels_data = np.empty(shape=num_levels * 2)
-        times = np.empty(shape=num_levels * 2)
-        accum_time = 0
-        for num, level in enumerate(levels):
-            times[num * 2] = accum_time
-            accum_time += level.dwell_time_s
-            times[num * 2 + 1] = accum_time
-            levels_data[num * 2] = level.int_p_s
-            levels_data[num * 2 + 1] = level.int_p_s
+        times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
+        times = times.flatten()
 
-        return levels_data, times
+        ints = np.array([[level.int_p_s, level.int_p_s] for level in levels])
+        ints = ints.flatten()
+
+        return ints, times
 
     def current2data(self, level_ind: int, use_roi: bool = False) -> [np.ndarray, np.ndarray]:
         """

@@ -171,8 +171,6 @@ class ProcessThread(QRunnable):
 
             num_task_left = len(self.tasks)
             single_task = num_task_left == 1
-            # tasks_todo = copy.copy(self.tasks)  #TODO: Why am I doing this? Should test.
-            # self.tasks = self.tasks  #TODO: Why am I doing this? Should test.
 
             init_num = num_used_processes + self.task_buffer_size
             rest = len(self.tasks) - init_num

@@ -307,9 +307,9 @@ class ClusteringStep:
         abs_times = self._particle.abstimes
         micro_times = self._particle.microtimes
 
-        start_ind = 0
         group_levels = []
         for i, part_level in enumerate(part_levels):
+            start_ind = part_level.level_inds[0]
             end_ind = part_level.level_inds[1]
             group_int = self.group_ints[self.level_group_ind[i]]
             if i < self._num_levels-1:
@@ -319,9 +319,9 @@ class ClusteringStep:
                                               level_inds=(start_ind, end_ind),
                                               int_p_s=group_int,
                                               group_ind=self.level_group_ind[i]))
-                    start_ind = part_levels[i+1].level_inds[0]
+                    # start_ind = part_levels[i+1].level_inds[0]
             else:
-                # TODO: Make sure it shouldn't be append
+                # TODO: Make sure it shouldn't be append. Update: Don't understand this? Haha
                 group_levels.append(Level(abs_times=abs_times,
                                           microtimes=micro_times,
                                           level_inds=(start_ind, end_ind),
@@ -448,7 +448,10 @@ class AHCA:
                     self.has_groups = True
                 else:
                     c_step = ClusteringStep(self._particle, first=True)
-                    current_num_groups = self._particle.num_levels
+                    if not self.use_roi_for_grouping:
+                        current_num_groups = self._particle.num_levels
+                    else:
+                        current_num_groups = self._particle.num_levels_roi
                     while current_num_groups != 1:
                         c_step.ahc()
                         c_step.emc()

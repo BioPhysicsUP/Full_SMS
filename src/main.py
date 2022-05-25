@@ -981,7 +981,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         else:
             particles = self.current_dataset.particles
 
-        removed_bursts = False  # TODO: Remove
+        removed_bursts = False  # TODO: Remove. Update: Why? Don't understand.
         has_burst = [particle.has_burst for particle in particles]
         if sum(has_burst):
             if not removed_bursts:

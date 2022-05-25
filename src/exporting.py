@@ -711,8 +711,7 @@ def export_data(mainwindow: MainWindow,
                     if not ex_plot_lifetimes_only_groups:
                         for i in range(p.num_levels):
                             if signals:
-                                signals.plot_decay_export_lock.emit(i, p, False, True,
-                                                                    dir_path, True)
+                                signals.plot_decay_export_lock.emit(i, p, False, True, dir_path, True)
                                 lock.acquire()
                                 while lock.locked():
                                     sleep(0.1)
@@ -884,6 +883,7 @@ def export_data(mainwindow: MainWindow,
             grouped_levels_cols = levels_cols.copy()
             # grouped_levels_cols[1] = 'grouped_level'
             grouped_levels_cols.insert(2, 'group_index')
+            levels_cols.append('is_in_roi')
             if ex_df_levels_lifetimes:
                 levels_cols.extend(life_cols_add)
             if ex_df_grouped_levels_lifetimes:
@@ -900,12 +900,15 @@ def export_data(mainwindow: MainWindow,
 
         for p in particles:
             # print(p.name)
+            roi_first_level_ind = p.first_level_ind_in_roi
+            roi_last_level_ind = p.last_level_ind_in_roi
             if ex_df_levels:
                 for l_num, l in enumerate(p.cpts.levels):
+                    level_in_roi = roi_first_level_ind >= l_num >= roi_last_level_ind
                     row = [p.name, l_num + 1,
                            *get_level_data(l, p.dwell_time,
                                            incl_lifetimes=ex_df_levels_lifetimes,
-                                           max_numexp=max_numexp)]
+                                           max_numexp=max_numexp), level_in_roi]
                     data_levels.append(row)
 
             if ex_df_grouped_levels:
