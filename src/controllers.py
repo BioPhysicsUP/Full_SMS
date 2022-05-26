@@ -1553,14 +1553,14 @@ class LifetimeController(QObject):
                     logger.error('No Decay!')
                     return
         elif select_ind < particle.num_levels:
-            if particle.cpts.levels[select_ind].histogram.fitted:
+            if particle.levels[select_ind].histogram.fitted:
                 decay = particle.levels[select_ind].histogram.fit_decay
-                t = particle.cpts.levels[select_ind].histogram.convd_t
+                t = particle.levels[select_ind].histogram.convd_t
                 min_t = t[0]
             else:
                 try:
-                    decay = particle.cpts.levels[select_ind].histogram.decay
-                    t = particle.cpts.levels[select_ind].histogram.t
+                    decay = particle.levels[select_ind].histogram.decay
+                    t = particle.levels[select_ind].histogram.t
                 except ValueError:
                     return
         else:
