@@ -123,6 +123,7 @@ class ChangePoints:
         confidence:
         run_levels
         """
+        self.bursts_deleted = None
         self._particle = particle
         self.uuid = self._particle.uuid
         # self.cpa_has_run = False
@@ -289,9 +290,10 @@ class ChangePoints:
             cpt_inds = self.cpt_inds
             conf_regions = self.conf_regions
             num_ctps_max = self.num_cpts
-            for burst_ind in np.flip(self.burst_levels):
+            photon_bursts_deleted = []
+            for ind, burst_ind in enumerate(np.flip(self.burst_levels)):
                 # print(burst_ind)
-                merge_left = bool()
+                merge_left = None
                 if burst_ind == num_ctps_max:
                     merge_left = True
                 elif burst_ind == 0:
@@ -308,14 +310,26 @@ class ChangePoints:
                 else:
                     del_ind = burst_ind
 
+                deleted_cpt = cpt_inds[del_ind]
                 cpt_inds = np.delete(cpt_inds, del_ind)
-                del(conf_regions[del_ind])
+                deleted_conf_region = conf_regions.pop(del_ind)
+                photon_bursts_deleted.append({'pos_ind': ind, 'cpt_ind': deleted_cpt, 'conf_region': deleted_conf_region})
         except IndexError as e:
             logger.error(f"Index error while removing photon burst for {self._particle}")
             logger.error(e)
         else:
             self.cpt_inds = cpt_inds
             self._cpa.conf_regions = conf_regions
+            self.num_cpts = len(self.cpt_inds)
+            self._cpa.define_levels(remove_prev=True)
+            self.bursts_deleted = photon_bursts_deleted
+
+    def restore_bursts(self):
+        if self.bursts_deleted is not None:
+            for burst in self.bursts_deleted:
+                self._cpa.cpt_inds = np.insert(self.cpt_inds, burst['pos_ind'], burst['cpt_ind'])
+                self._cpa.conf_regions.insert(burst['pos_ind'], burst['conf_region'])
+            self.bursts_deleted = None
             self.num_cpts = len(self.cpt_inds)
             self._cpa.define_levels(remove_prev=True)
 

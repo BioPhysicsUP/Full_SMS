@@ -34,6 +34,7 @@ EXPORT_MPL_WIDTH = 10
 EXPORT_MPL_HEIGHT = 4.5
 EXPORT_MPL_DPI = 300
 
+SIG_ROI_CHANGE_THRESHOLD = 0.1  # counts/s
 logger = setup_logger(__name__)
 
 
@@ -257,18 +258,21 @@ class IntController(QObject):
 
     def roi_region_changed(self):
         if self.mainwindow.chbInt_Show_ROI.checkState() == 2:
-            current_particle = self.mainwindow.current_particle
+            cur_part = self.mainwindow.current_particle
             cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
-            if current_particle is not None and cur_tab_name == 'tabIntensity':
+            if cur_part is not None and cur_tab_name == 'tabIntensity':
                 new_region = self.int_ROI.getRegion()
-                old_region = current_particle.roi_region[0:2]
-                significant_start_change = np.abs(new_region[0] - old_region[0]) > 0.1
-                significant_end_change = np.abs(new_region[1] - old_region[1]) > 0.1
+                old_region = cur_part.roi_region[0:2]
+                significant_start_change = np.abs(new_region[0] - old_region[0]) > SIG_ROI_CHANGE_THRESHOLD
+                significant_end_change = np.abs(new_region[1] - old_region[1]) > SIG_ROI_CHANGE_THRESHOLD
                 if significant_start_change or significant_end_change:
-                    current_particle.roi_region = self.int_ROI.getRegion()
-                    self.mainwindow.lifetime_controller.test_need_roi_apply(particle=current_particle,
+                    cur_part.roi_region = self.int_ROI.getRegion()
+                    self.mainwindow.lifetime_controller.test_need_roi_apply(particle=cur_part,
                                                                             update_buttons=False)
-                    self.plot_all()
+                    if cur_part.level_selected is not None:
+                        if cur_part.first_level_ind_in_roi < cur_part.level_selected > cur_part.last_level_ind_in_roi:
+                            cur_part.level_selected = None
+                self.plot_all()
                     # self.plot_hist()
                 if self.mainwindow.chbInt_Show_Level_Info.isChecked():
                     self.update_level_info()
@@ -475,8 +479,8 @@ class IntController(QObject):
 
                         new_region = self.int_ROI.getRegion()
                         old_region = particle.roi_region[0:2]
-                        significant_start_change = np.abs(new_region[0] - old_region[0]) > 0.01
-                        significant_end_change = np.abs(new_region[1] - old_region[1]) > 0.01
+                        significant_start_change = np.abs(new_region[0] - old_region[0]) > SIG_ROI_CHANGE_THRESHOLD
+                        significant_end_change = np.abs(new_region[1] - old_region[1]) > SIG_ROI_CHANGE_THRESHOLD
                         if significant_start_change or significant_end_change:
                             self.int_ROI.setRegion(particle.roi_region)
                         plot_item.addItem(self.int_ROI)

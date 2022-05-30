@@ -4285,7 +4285,31 @@
       <addaction name="separator"/>
       <addaction name="menuReset"/>
      </widget>
+     <widget class="QMenu" name="menuPhoton_Bursts">
+      <property name="title">
+       <string>Photon Bursts</string>
+      </property>
+      <widget class="QMenu" name="menuRemove">
+       <property name="title">
+        <string>Detect and Remove</string>
+       </property>
+       <addaction name="actionRemove_Bursts_Current"/>
+       <addaction name="actionRemove_Bursts_Selected"/>
+       <addaction name="actionRemove_Bursts_All"/>
+      </widget>
+      <widget class="QMenu" name="menuRestore">
+       <property name="title">
+        <string>Restore</string>
+       </property>
+       <addaction name="actionRestore_Bursts_Current"/>
+       <addaction name="actionRestore_Bursts_Selected"/>
+       <addaction name="actionRestore_Bursts_All"/>
+      </widget>
+      <addaction name="menuRemove"/>
+      <addaction name="menuRestore"/>
+     </widget>
      <addaction name="menuRegion_of_Interest"/>
+     <addaction name="menuPhoton_Bursts"/>
     </widget>
     <widget class="QMenu" name="menuLifetime">
      <property name="enabled">
@@ -4537,6 +4561,36 @@
    </property>
    <property name="text">
     <string>Trim Traces</string>
+   </property>
+  </action>
+  <action name="actionRemove_Bursts_All">
+   <property name="text">
+    <string>All</string>
+   </property>
+  </action>
+  <action name="actionRemove_Bursts_Current">
+   <property name="text">
+    <string>Current</string>
+   </property>
+  </action>
+  <action name="actionRemove_Bursts_Selected">
+   <property name="text">
+    <string>Selected</string>
+   </property>
+  </action>
+  <action name="actionRestore_Bursts_Current">
+   <property name="text">
+    <string>Current</string>
+   </property>
+  </action>
+  <action name="actionRestore_Bursts_Selected">
+   <property name="text">
+    <string>Selected</string>
+   </property>
+  </action>
+  <action name="actionRestore_Bursts_All">
+   <property name="text">
+    <string>All</string>
    </property>
   </action>
  </widget>

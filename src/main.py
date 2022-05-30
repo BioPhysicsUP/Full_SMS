@@ -202,6 +202,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
         self.actionRange_Selection.triggered.connect(self.range_selection)
         self.actionSettings.triggered.connect(self.act_open_settings_dialog)
+        self.actionRemove_Bursts_All.connect(self.act_)
 
         self.chbGroup_Use_ROI.stateChanged.connect(self.gui_group_use_roi)
         self.btnEx_Current.clicked.connect(self.gui_export_current)
@@ -313,6 +314,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def gui_export_all(self):
         self.gui_export(mode='all')
+
+    def act_restore_bursts_current(self):
+        self.restore_bursts(mode='current')
+
+    def act_restore_bursts_selected(self):
+        self.restore_bursts(mode='selected')
+
+    def act_restore_bursts_all(self):
+        self.restore_bursts(mode='all')
 
     def set_bin_size(self, bin_size: int):
         self.spbBinSize.setValue(bin_size)
@@ -1004,6 +1014,30 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.current_dataset.makehistograms()
 
             self.display_data()
+
+    def remove_bursts(self, mode: str = None) -> None:
+        if mode == 'current':
+            particles = [self.current_particle]
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        else:
+            particles = self.current_dataset.particles
+
+        for part in particles:
+            if part.has_burst:
+                part.cpts.remove_bursts()
+
+    def restore_bursts(self, mode: str = None) -> None:
+        if mode == 'current':
+            particles = [self.current_particle]
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        else:
+            particles = self.current_dataset.particles
+
+        for part in particles:
+            if part.cpts.bursts_deleted is not None:
+                part.cpts.restore_bursts()
 
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
