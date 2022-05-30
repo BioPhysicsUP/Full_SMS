@@ -956,7 +956,7 @@ class IntController(QObject):
         self.mainwindow.current_dataset.has_levels = True
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
-        self.mainwindow.check_remove_bursts(mode=self.resolve_mode)
+        self.mainwindow.remove_bursts(mode=self.resolve_mode)
         # self.mainwindow.chbEx_Levels.setEnabled(True)
         # self.mainwindow.rdbWith_Levels.setEnabled(True)
         self.mainwindow.set_startpoint()

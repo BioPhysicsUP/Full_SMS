@@ -570,6 +570,10 @@ class Particle:
     # def icon(self):
     #     return ParticleIcons.test_icon
 
+    def remove_and_reset_grouping(self):
+        self.ahca = AHCA(particle=self)
+        self.using_group_levels = False
+
     def levels2data(self, use_grouped: bool = None, use_roi: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for

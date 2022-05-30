@@ -4291,7 +4291,7 @@
       </property>
       <widget class="QMenu" name="menuRemove">
        <property name="title">
-        <string>Detect and Remove</string>
+        <string>Remove</string>
        </property>
        <addaction name="actionRemove_Bursts_Current"/>
        <addaction name="actionRemove_Bursts_Selected"/>
@@ -4305,6 +4305,17 @@
        <addaction name="actionRestore_Bursts_Selected"/>
        <addaction name="actionRestore_Bursts_All"/>
       </widget>
+      <widget class="QMenu" name="menuDetect_and_Remove">
+       <property name="title">
+        <string>Detect and Remove</string>
+       </property>
+       <addaction name="actionDetect_Remove_Bursts_Current"/>
+       <addaction name="actionDetect_Remove_Bursts_Selected"/>
+       <addaction name="actionDetect_Remove_Bursts_All"/>
+      </widget>
+      <addaction name="actionNote_Existing_Levels_will_be_lost"/>
+      <addaction name="separator"/>
+      <addaction name="menuDetect_and_Remove"/>
       <addaction name="menuRemove"/>
       <addaction name="menuRestore"/>
      </widget>
@@ -4591,6 +4602,29 @@
   <action name="actionRestore_Bursts_All">
    <property name="text">
     <string>All</string>
+   </property>
+  </action>
+  <action name="actionDetect_Remove_Bursts_Current">
+   <property name="text">
+    <string>Current</string>
+   </property>
+  </action>
+  <action name="actionDetect_Remove_Bursts_Selected">
+   <property name="text">
+    <string>Selected</string>
+   </property>
+  </action>
+  <action name="actionDetect_Remove_Bursts_All">
+   <property name="text">
+    <string>All</string>
+   </property>
+  </action>
+  <action name="actionNote_Existing_Levels_will_be_lost">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Note: Existing levels will overwritten</string>
    </property>
   </action>
  </widget>

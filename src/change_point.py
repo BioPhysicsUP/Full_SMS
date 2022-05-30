@@ -248,7 +248,6 @@ class ChangePoints:
         if self._run_levels:
             self._cpa.define_levels()
             if self.has_levels:
-                self.calc_mean_std()  # self.level_ints
                 self.check_burst()  # self.level_ints, self.level_dwelltimes
         logger.info(msg=f"{self._particle.name} levels resolved")
 
@@ -270,9 +269,10 @@ class ChangePoints:
         defined_int_thresh = self._cpa.settings.pb_defined_int_thresh
 
         assert self._particle.has_levels, "ChangePoints\tNeeds to have levels to check photon bursts."
-        # if intensities is None or dwell_times is None:
-            # intensities, dwell_times = np.array([(level.int_p_s, level.dwell_time_s) for level in self._particle.levels])
+        if self.bursts_deleted is not None:
+            self.restore_bursts()
         if use_sigma:
+            self.calc_mean_std()  # self.level_ints
             burst_def = self._particle.avg_int_weighted + \
                 (self._particle.int_std_weighted * sigam_int_thresh)
         else:
@@ -313,7 +313,7 @@ class ChangePoints:
                 deleted_cpt = cpt_inds[del_ind]
                 cpt_inds = np.delete(cpt_inds, del_ind)
                 deleted_conf_region = conf_regions.pop(del_ind)
-                photon_bursts_deleted.append({'pos_ind': ind, 'cpt_ind': deleted_cpt, 'conf_region': deleted_conf_region})
+                photon_bursts_deleted.append({'pos_ind': del_ind, 'cpt_ind': deleted_cpt, 'conf_region': deleted_conf_region})
         except IndexError as e:
             logger.error(f"Index error while removing photon burst for {self._particle}")
             logger.error(e)

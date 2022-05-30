@@ -202,7 +202,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
         self.actionRange_Selection.triggered.connect(self.range_selection)
         self.actionSettings.triggered.connect(self.act_open_settings_dialog)
-        self.actionRemove_Bursts_All.connect(self.act_)
+        self.actionDetect_Remove_Bursts_Current.triggered.connect(self.act_detect_remove_bursts_current)
+        self.actionDetect_Remove_Bursts_Selected.triggered.connect(self.act_detect_remove_bursts_selected)
+        self.actionDetect_Remove_Bursts_All.triggered.connect(self.act_detect_remove_bursts_all)
+        self.actionRemove_Bursts_Current.triggered.connect(self.act_remove_bursts_current)
+        self.actionRemove_Bursts_Selected.triggered.connect(self.act_remove_bursts_selected)
+        self.actionRemove_Bursts_All.triggered.connect(self.act_remove_bursts_all)
+        self.actionRestore_Bursts_Current.triggered.connect(self.act_restore_bursts_current)
+        self.actionRestore_Bursts_Selected.triggered.connect(self.act_restore_bursts_selected)
+        self.actionRestore_Bursts_All.triggered.connect(self.act_restore_bursts_all)
 
         self.chbGroup_Use_ROI.stateChanged.connect(self.gui_group_use_roi)
         self.btnEx_Current.clicked.connect(self.gui_export_current)
@@ -314,6 +322,24 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def gui_export_all(self):
         self.gui_export(mode='all')
+
+    def act_detect_remove_bursts_current(self):
+        self.detect_remove_bursts(mode='current')
+
+    def act_detect_remove_bursts_selected(self):
+        self.detect_remove_bursts(mode='selected')
+
+    def act_detect_remove_bursts_all(self):
+        self.detect_remove_bursts(mode='all')
+
+    def act_remove_bursts_current(self):
+        self.remove_bursts(mode='current', confirm=False)
+
+    def act_remove_bursts_selected(self):
+        self.remove_bursts(mode='selected', confirm=False)
+
+    def act_remove_bursts_all(self):
+        self.remove_bursts(mode='all', confirm=False)
 
     def act_restore_bursts_current(self):
         self.restore_bursts(mode='current')
@@ -576,6 +602,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         if cur_part.has_burst:
             self.chbInt_Disp_Photon_Bursts.show()
+            if cur_part.cpts.bursts_deleted is not None:
+                self.chbInt_Disp_Photon_Bursts.setChecked(True)
+            else:
+                self.chbInt_Disp_Photon_Bursts.setChecked(False)
         else:
             self.chbInt_Disp_Photon_Bursts.hide()
 
@@ -983,39 +1013,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # logger.error(err)
         pass
 
-    def check_remove_bursts(self, mode: str = None) -> None:
-        if mode == 'current':
-            particles = [self.current_particle]
-        elif mode == 'selected':
-            particles = self.get_checked_particles()
-        else:
-            particles = self.current_dataset.particles
-
-        removed_bursts = False  # TODO: Remove. Update: Why? Don't understand.
-        has_burst = [particle.has_burst for particle in particles]
-        if sum(has_burst):
-            if not removed_bursts:
-                removed_bursts = True
-            msgbx = TimedMessageBox(30, parent=self)
-            msgbx.setIcon(QMessageBox.Question)
-            msgbx.setText("Would you like to remove the photon bursts?")
-            msgbx.set_timeout_text(
-                message_pretime="(Removing photon bursts in ",
-                message_posttime=" seconds)")
-            msgbx.setWindowTitle("Photon bursts detected")
-            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-            msgbx.setDefaultButton(QMessageBox.Yes)
-            msgbx.show()
-            msgbx_result, _ = msgbx.exec()
-            if msgbx_result == QMessageBox.Yes:
-                for num, particle in enumerate(particles):
-                    if has_burst[num]:
-                        particle.cpts.remove_bursts()
-            self.current_dataset.makehistograms()
-
-            self.display_data()
-
-    def remove_bursts(self, mode: str = None) -> None:
+    def detect_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
             particles = [self.current_particle]
         elif mode == 'selected':
@@ -1024,8 +1022,40 @@ class MainWindow(QMainWindow, UI_Main_Window):
             particles = self.current_dataset.particles
 
         for part in particles:
-            if part.has_burst:
-                part.cpts.remove_bursts()
+            part.cpts.check_burst()
+        self.remove_bursts(mode=mode)
+
+    def remove_bursts(self, mode: str = None, confirm: bool = True) -> None:
+        if mode == 'current':
+            particles = [self.current_particle]
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        else:
+            particles = self.current_dataset.particles
+
+        has_burst = [particle.has_burst for particle in particles]
+        if sum(has_burst):
+            if confirm:
+                msgbx = TimedMessageBox(30, parent=self)
+                msgbx.setIcon(QMessageBox.Question)
+                msgbx.setText("Would you like to remove the photon bursts?")
+                msgbx.set_timeout_text(
+                    message_pretime="(Removing photon bursts in ",
+                    message_posttime=" seconds)")
+                msgbx.setWindowTitle("Photon bursts detected")
+                msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+                msgbx.setDefaultButton(QMessageBox.Yes)
+                msgbx.show()
+                msgbx_result, _ = msgbx.exec()
+            if not confirm or msgbx_result == QMessageBox.Yes:
+                for particle in particles:
+                    if particle.has_burst:
+                        particle.cpts.remove_bursts()
+                        particle.makelevelhists()
+                    if particle.has_groups:
+                        particle.remove_and_reset_grouping()
+
+            self.display_data()
 
     def restore_bursts(self, mode: str = None) -> None:
         if mode == 'current':
@@ -1038,6 +1068,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
         for part in particles:
             if part.cpts.bursts_deleted is not None:
                 part.cpts.restore_bursts()
+                part.makelevelhists()
+                if part.has_groups:
+                    part.remove_and_reset_grouping()
+
+        self.display_data()
 
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
