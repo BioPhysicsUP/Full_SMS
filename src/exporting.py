@@ -357,7 +357,7 @@ def export_data(mainwindow: MainWindow,
                     rows.append(['Grouped Level #', 'Start Time (s)', 'End Time (s)',
                                  'Dwell Time (/s)', 'Int (counts/s)', 'Num of Photons',
                                  'Group Index'])
-                    for i, l in enumerate(p.ahca.selected_step.group_levels):
+                    for i, l in enumerate(p.group_levels):
                         rows.append(
                             [str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                              str(l.dwell_time_s),
@@ -629,8 +629,16 @@ def export_data(mainwindow: MainWindow,
                         os.mkdir(dir_path)
                     except FileExistsError:
                         pass
-                    roi_tag = ' (ROI)' if use_roi else ''
-                    for i, l in enumerate(p.levels):
+                    # if not p.using_group_levels:
+                    #     roi_start_ind = p.first_level_ind_in_roi
+                    #     roi_end_ind = p.last_level_ind_in_roi
+                    # else:
+                    #     roi_start_ind = p.first_group_level_ind_in_roi
+                    #     roi_end_ind = p.last_group_level_ind_in_roi
+                    roi_start_ind = p.first_level_ind_in_roi
+                    roi_end_ind = p.last_level_ind_in_roi
+                    for i, l in enumerate(p.cpts.levels):
+                        roi_tag = ' (ROI)' if use_roi and roi_start_ind <= i <= roi_end_ind else ''
                         hist_path = os.path.join(dir_path,
                                                  'level ' + str(i + 1) + roi_tag + ' hist.csv')
                         times = l.histogram.convd_t
@@ -649,9 +657,12 @@ def export_data(mainwindow: MainWindow,
                             writer.writerows(rows)
 
                     if p.has_groups:
-                        for i, g in enumerate(p.ahca.selected_step.group_levels):
+                        roi_start_ind = p.first_group_level_ind_in_roi
+                        roi_end_ind = p.last_group_level_ind_in_roi
+                        for i, g in enumerate(p.group_levels):
+                            roi_tag = ' (ROI)' if use_roi and roi_start_ind <= i <= roi_end_ind else ''
                             hist_path = os.path.join(dir_path,
-                                                     'group level ' + str(i + 1) + ' hist.csv')
+                                                     'group level ' + str(i + 1) + roi_tag + ' hist.csv')
                             times = g.histogram.convd_t
                             if times is None:
                                 continue
@@ -883,11 +894,12 @@ def export_data(mainwindow: MainWindow,
             grouped_levels_cols = levels_cols.copy()
             # grouped_levels_cols[1] = 'grouped_level'
             grouped_levels_cols.insert(2, 'group_index')
-            levels_cols.append('is_in_roi')
             if ex_df_levels_lifetimes:
                 levels_cols.extend(life_cols_add)
             if ex_df_grouped_levels_lifetimes:
                 grouped_levels_cols.extend(life_cols_add)
+            levels_cols.append('is_in_roi')
+            grouped_levels_cols.append('is_in_roi')
 
             data_levels = list()
             if ex_df_grouped_levels:
@@ -904,7 +916,7 @@ def export_data(mainwindow: MainWindow,
             roi_last_level_ind = p.last_level_ind_in_roi
             if ex_df_levels:
                 for l_num, l in enumerate(p.cpts.levels):
-                    level_in_roi = roi_first_level_ind >= l_num >= roi_last_level_ind
+                    level_in_roi = roi_first_level_ind <= l_num <= roi_last_level_ind
                     row = [p.name, l_num + 1,
                            *get_level_data(l, p.dwell_time,
                                            incl_lifetimes=ex_df_levels_lifetimes,
@@ -912,11 +924,14 @@ def export_data(mainwindow: MainWindow,
                     data_levels.append(row)
 
             if ex_df_grouped_levels:
-                for g_l_num, g_l in enumerate(p.ahca.selected_step.group_levels):
+                roi_first_group_level_ind = p.first_group_level_ind_in_roi
+                roi_last_group_level_ind = p.last_group_level_ind_in_roi
+                for g_l_num, g_l in enumerate(p.group_levels):
+                    group_level_in_roi = roi_first_group_level_ind <= g_l_num <= roi_last_group_level_ind
                     row = [p.name, g_l_num + 1, g_l.group_ind + 1,
                            *get_level_data(g_l, p.dwell_time,
                                            incl_lifetimes=ex_df_grouped_levels_lifetimes,
-                                           max_numexp=max_numexp)]
+                                           max_numexp=max_numexp), group_level_in_roi]
                     data_grouped_levels.append(row)
 
             if ex_df_grouping_info:
