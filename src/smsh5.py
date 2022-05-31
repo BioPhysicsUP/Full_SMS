@@ -424,6 +424,23 @@ class Particle:
         return int(last_roi_ind)
 
     @property
+    def first_group_level_ind_in_roi(self):
+        if self.has_groups and self.group_levels is not None:
+            end_times = np.array([level.times_s[1] for level in self.group_levels])
+            first_group_roi_ind = np.argmax(end_times > self.roi_region[0])
+            return int(first_group_roi_ind)
+
+    @property
+    def last_group_level_ind_in_roi(self):
+        if self.has_groups and self.group_levels is not None:
+            # if len(self.roi_region) == 3:
+            #     last_roi_ind = self.roi_region[2]
+            # else:
+            end_times = np.array([level.times_s[1] for level in self.group_levels])
+            last_group_roi_ind = np.argmax(np.round(end_times, 3) >= np.round(self.roi_region[1], 3))
+            return int(last_group_roi_ind)
+
+    @property
     def raster_scan_coordinates(self) -> tuple:
         particle_attr_keys = self.datadict.attrs.keys()
         if self.has_raster_scan:
@@ -484,16 +501,27 @@ class Particle:
     @property
     def levels(self):
         if self.using_group_levels:
-            return self.ahca.selected_step.group_levels
+            return self.group_levels
         else:
             return self.cpts.levels
 
     @property
     def levels_roi(self):
         if self.using_group_levels:
-            return self.ahca.selected_step.group_levels
+            return self.group_levels
         else:
             return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi + 1]
+
+    @property
+    def group_levels(self) -> List[Level]:
+        if self.has_groups:
+            return self.ahca.selected_step.group_levels
+
+    @property
+    def group_levels_roi(self) -> List[Level]:
+        if self.has_groups:
+            group_levels = self.group_levels
+            return group_levels[self.first_group_level_ind_in_roi: self.last_group_level_ind_in_roi + 1]
 
     @property
     def num_levels(self):
@@ -597,7 +625,10 @@ class Particle:
             else:
                 levels = self.levels_roi
         else:
-            levels = self.ahca.selected_step.group_levels
+            if not use_roi:
+                levels = self.group_levels
+            else:
+                levels = self.group_levels_roi
 
         times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
         times = times.flatten()
@@ -657,7 +688,7 @@ class Particle:
                 if force_cpts_levels:
                     levels.extend(self.cpts.levels)
                 if force_group_levels:
-                    levels.extend(self.ahca.selected_step.group_levels)
+                    levels.extend(self.group_levels)
             else:
                 levels = self.levels
 
@@ -670,7 +701,7 @@ class Particle:
                 self.groups[0].histogram = self.ahca.steps[0].groups[0].histogram
             else:
                 groups = self.groups
-                for group_level in self.ahca.selected_step.group_levels:
+                for group_level in self.group_levels:
                     g_ind = group_level.group_ind
                     group_level.histogram = groups[g_ind].histogram
 
