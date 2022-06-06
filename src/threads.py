@@ -242,7 +242,7 @@ class ProcessThread(QRunnable):
                 if not self.feedback_queue.empty():
                     for _ in range(self.feedback_queue.qsize()):
                         self.check_fbk_queue()
-            if len(self._processes):
+            if process in self._processes:
                 for _ in range(num_used_processes):
                     self.task_queue.put(None)
                 for _ in range(num_used_processes):
@@ -250,10 +250,10 @@ class ProcessThread(QRunnable):
                     if result is True:
                         self.result_queue.task_done()
                         num_active_processes -= 1
-                # self.task_queue.join()
-                # self.result_queue.join()
-                # self.feedback_queue.join()
-                # self._manager.shutdown()
+                self.task_queue.join()
+                self.result_queue.join()
+                self.feedback_queue.join()
+                self._manager.shutdown()
                 while any([p.is_alive() for p in self._processes]):
                     time.sleep(1)
 

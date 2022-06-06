@@ -555,21 +555,21 @@ class Particle:
 
     @property
     def level_ints_roi(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_ints
         else:
             return self.cpts.level_ints[self.first_level_ind_in_roi:self.last_level_ind_in_roi]
 
     @property
     def level_dwelltimes(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_dwelltimes
         else:
             return self.cpts.level_dwelltimes
 
     @property
     def level_dwelltimes_roi(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_dwelltimes
         else:
             return self.cpts.level_dwelltimes[self.first_level_ind_in_roi:self.last_level_ind_in_roi]

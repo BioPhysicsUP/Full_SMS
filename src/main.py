@@ -366,7 +366,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
 
         logger.info("Performing Open H5 Action")
-        file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
+        last_opened_file = fm.path(name='last_opened.txt', file_type=fm.Type.ResourcesRoot)
+        if os.path.exists(last_opened_file) and os.path.isfile(last_opened_file):
+            with open(last_opened_file, 'r') as file:
+                last_opened_path = file.read()
+            if not os.path.isdir(last_opened_path):
+                last_opened_path = ''
+        file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', last_opened_path,
+                                                "HDF5 files (*.h5)")
+        did_open = False
         loading_analysis = False
         if os.path.exists(file_path[0][:-2] + 'smsa') and \
                 os.path.isfile(file_path[0][:-2] + 'smsa'):
@@ -390,12 +398,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     connect(self.lifetime_controller.show_residuals_widget)
                 self.threadpool.start(load_analysis_worker)
                 loading_analysis = True
-                # save_analysis.load_analysis(main_window=self,
-                #                             analysis_file=file_path[0][:-2] + 'smsa')
-                # self.data_loaded = True
-                # self.open_file_thread_complete()
-
-        # fname will equal ('', # '') if the # user canceled.
+                did_open = True
         if file_path != ('', '') and not loading_analysis:
             self.status_message(message="Opening file...")
             # logger.info("About to create ProcessThread object")
@@ -422,6 +425,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.threadpool.start(of_process_thread)
             # logger.info("Started Process Thread")
             self.active_threads.append(of_process_thread)
+            did_open = True
+        if did_open:
+            with open(last_opened_file, 'w') as file:
+                file.write(os.path.split(file_path[0])[0])
 
     def act_save_selected(self):
         """" Saves selected particles into a new HDF5 file."""
@@ -1263,12 +1270,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
 
 def display_on():
-    print("Always On")
     ctypes.windll.kernel32.SetThreadExecutionState(0x80000002)
+    logger.info('Execution State set to Always On')
 
 
 def display_reset():
     ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
+    logger.info('Execution State Reset')
     sys.exit(0)
 
 
