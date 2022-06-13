@@ -45,12 +45,12 @@ from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
 from convert_pt3 import ConvertPt3Dialog
-from exporting import export_data, ExportWorker
+from exporting import export_data, ExportWorker, DATAFRAME_FORMATS
 from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.3.6"
+SMS_VERSION = "0.3.7"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -227,6 +227,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.select_all_dataframes_export_options)
 
         self.lblGrouping_ROI.setVisible(False)
+
+        self.cmbEx_DataFrame_Format.addItems(DATAFRAME_FORMATS)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()

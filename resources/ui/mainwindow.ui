@@ -8,7 +8,7 @@
     <x>0</x>
     <y>0</y>
     <width>1200</width>
-    <height>724</height>
+    <height>755</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -217,7 +217,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>5</number>
       </property>
       <property name="iconSize">
        <size>
@@ -2684,61 +2684,20 @@
                      <number>10</number>
                     </property>
                     <item>
-                     <widget class="QCheckBox" name="chbEx_Trace">
-                      <property name="enabled">
-                       <bool>false</bool>
+                     <spacer name="verticalSpacer_7">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
                       </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Fixed</enum>
                       </property>
-                      <property name="text">
-                       <string>Binned Trace</string>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>20</width>
+                        <height>15</height>
+                       </size>
                       </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Levels">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Resolved Levels</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Grouped_Levels">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Grouped Levels</string>
-                      </property>
-                     </widget>
+                     </spacer>
                     </item>
                     <item>
                      <widget class="QGroupBox" name="gbxDFIntensity">
@@ -2901,6 +2860,79 @@
                       </layout>
                      </widget>
                     </item>
+                    <item>
+                     <spacer name="verticalSpacer_8">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Fixed</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>20</width>
+                        <height>15</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_Trace">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                        <strikeout>false</strikeout>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Binned Trace</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_Levels">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                        <strikeout>false</strikeout>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Resolved Levels</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_Grouped_Levels">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                        <strikeout>false</strikeout>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Grouped Levels</string>
+                      </property>
+                     </widget>
+                    </item>
                    </layout>
                   </widget>
                  </item>
@@ -3032,42 +3064,6 @@
                      </widget>
                     </item>
                     <item>
-                     <widget class="QCheckBox" name="chbEx_Grouping_Info">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Group Info</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Grouping_Results">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Anlysis Results</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
                      <widget class="QGroupBox" name="gbxDFGroups">
                       <property name="font">
                        <font>
@@ -3117,6 +3113,58 @@
                         </widget>
                        </item>
                       </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="verticalSpacer_11">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Fixed</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>20</width>
+                        <height>15</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_Grouping_Info">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Group Info</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_Grouping_Results">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Anlysis Results</string>
+                      </property>
                      </widget>
                     </item>
                    </layout>
@@ -3225,6 +3273,22 @@
                     <property name="spacing">
                      <number>10</number>
                     </property>
+                    <item>
+                     <spacer name="verticalSpacer_6">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Fixed</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>20</width>
+                        <height>15</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
                     <item>
                      <widget class="QCheckBox" name="chbEx_Hist">
                       <property name="enabled">
@@ -3367,6 +3431,22 @@
                     <property name="spacing">
                      <number>10</number>
                     </property>
+                    <item>
+                     <spacer name="verticalSpacer_9">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Fixed</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>20</width>
+                        <height>15</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
                     <item>
                      <widget class="QCheckBox" name="chbEx_Spectra_2D">
                       <property name="enabled">
@@ -3603,6 +3683,22 @@
                     <property name="spacing">
                      <number>1</number>
                     </property>
+                    <item>
+                     <spacer name="verticalSpacer_10">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Fixed</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>20</width>
+                        <height>15</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
                     <item>
                      <widget class="QCheckBox" name="chbEx_Plot_Intensity">
                       <property name="enabled">
@@ -4043,13 +4139,13 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>300</width>
+                <width>320</width>
                 <height>0</height>
                </size>
               </property>
               <property name="maximumSize">
                <size>
-                <width>300</width>
+                <width>320</width>
                 <height>16777215</height>
                </size>
               </property>
@@ -4063,14 +4159,60 @@
               </property>
               <property name="text">
                <string>Text-based file format: Excel friendly CSV. Plot file format: PNG.
- Pandas DataFrame serialization file format: Feather
-(Python and R friendly format. Python: import pandas.read_feather)</string>
+ Pandas DataFrame file format: multiple
+(Example: Feather -&gt; Python and R friendly format.
+Python: import pandas.read_feather)</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
               </property>
               <property name="wordWrap">
                <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="layEx_Buttons_7">
+            <property name="sizeConstraint">
+             <enum>QLayout::SetDefaultConstraint</enum>
+            </property>
+            <item>
+             <spacer name="spcEx_Buttons_Left_7">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Expanding</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>100</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QLabel" name="lblDataFrameFormat">
+              <property name="font">
+               <font>
+                <pointsize>10</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>DataFrame format</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="cmbEx_DataFrame_Format">
+              <property name="minimumSize">
+               <size>
+                <width>120</width>
+                <height>0</height>
+               </size>
               </property>
              </widget>
             </item>

@@ -250,10 +250,6 @@ class ProcessThread(QRunnable):
                     if result is True:
                         self.result_queue.task_done()
                         num_active_processes -= 1
-                self.task_queue.join()
-                self.result_queue.join()
-                self.feedback_queue.join()
-                self._manager.shutdown()
                 while any([p.is_alive() for p in self._processes]):
                     time.sleep(1)
 
@@ -261,6 +257,10 @@ class ProcessThread(QRunnable):
             self.signals.end_progress.emit()
             self.is_running = False
             self.signals.finished.emit(self)
+            # self.task_queue.join()
+            # self.result_queue.join()
+            # self.feedback_queue.join()
+            self._manager.shutdown()
 
     def check_fbk_queue(self):
         fbk_return = self.feedback_queue.get()

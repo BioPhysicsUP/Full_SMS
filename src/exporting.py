@@ -31,6 +31,15 @@ if TYPE_CHECKING:
 logger = setup_logger(__name__)
 
 
+DATAFRAME_FORMATS = {'Parquet (*.parquet)': 0,
+                     'Feather (*.ftr)': 1,
+                     'Feather (*.df)': 2,
+                     'Pickle (*.pkl)': 3,
+                     'HDF (*.h5)': 4,
+                     'Excel (*.xlsx)': 5,
+                     'CSV (*.csv)': 6}
+
+
 class ExportWorker(QRunnable):
     def __init__(self, mainwindow: MainWindow,
                  mode: str = None,
@@ -122,6 +131,8 @@ def export_data(mainwindow: MainWindow,
     ex_df_grouped_levels = mainwindow.chbEx_DF_Grouped_Levels.isChecked()
     ex_df_grouped_levels_lifetimes = mainwindow.chbEx_DF_Grouped_Levels_Lifetimes.isChecked()
     ex_df_grouping_info = mainwindow.chbEx_DF_Grouping_Info.isChecked()
+
+    ex_df_format = mainwindow.cmbEx_DataFrame_Format.currentIndex()
 
     any_particle_text_plot = any([ex_traces, ex_levels, ex_plot_intensities, ex_grouped_levels,
                                   ex_grouping_info, ex_grouping_results, ex_plot_grouping_bics,
@@ -882,22 +893,28 @@ def export_data(mainwindow: MainWindow,
 
     ## DataFrame compilation and writing to Feather files
     if any([ex_df_levels, ex_df_grouped_levels, ex_df_grouping_info]):
-        max_numexp = max([p.numexp for p in particles])
-        tau_cols = [f'tau_{i + 1}' for i in range(max_numexp)]
-        amp_cols = [f'amp_{i + 1}' for i in range(max_numexp)]
-        life_cols_add = [*tau_cols, *amp_cols,
-                         'irf_shift', 'decay_bg', 'irf_bg',
-                         'chi_squared', 'dw', 'dw_5', 'dw_1', 'dw_03', 'dw_01']
+        any_has_lifetime = any([p.has_fit_a_lifetime for p in particles])
+        if any_has_lifetime:
+            max_numexp = max([p.numexp for p in particles])
+            tau_cols = [f'tau_{i + 1}' for i in range(max_numexp)]
+            amp_cols = [f'amp_{i + 1}' for i in range(max_numexp)]
+            life_cols_add = [*tau_cols, *amp_cols,
+                             'irf_shift', 'decay_bg', 'irf_bg',
+                             'chi_squared', 'dw', 'dw_5', 'dw_1', 'dw_03', 'dw_01']
+        else:
+            life_cols_add = ['']
+            max_numexp = None
         if ex_df_levels or ex_df_grouped_levels:
             levels_cols = ['particle', 'level', 'start', 'end', 'dwell', 'dwell_frac', 'int',
                            'num_photons']
             grouped_levels_cols = levels_cols.copy()
             # grouped_levels_cols[1] = 'grouped_level'
             grouped_levels_cols.insert(2, 'group_index')
-            if ex_df_levels_lifetimes:
-                levels_cols.extend(life_cols_add)
-            if ex_df_grouped_levels_lifetimes:
-                grouped_levels_cols.extend(life_cols_add)
+            if any_has_lifetime:
+                if ex_df_levels_lifetimes:
+                    levels_cols.extend(life_cols_add)
+                if ex_df_grouped_levels_lifetimes:
+                    grouped_levels_cols.extend(life_cols_add)
             levels_cols.append('is_in_roi')
             grouped_levels_cols.append('is_in_roi')
 
@@ -917,10 +934,13 @@ def export_data(mainwindow: MainWindow,
             if ex_df_levels:
                 for l_num, l in enumerate(p.cpts.levels):
                     level_in_roi = roi_first_level_ind <= l_num <= roi_last_level_ind
-                    row = [p.name, l_num + 1,
+                    row = [p.name,
+                           l_num + 1,
                            *get_level_data(l, p.dwell_time,
-                                           incl_lifetimes=ex_df_levels_lifetimes,
-                                           max_numexp=max_numexp), level_in_roi]
+                                           incl_lifetimes=all([ex_df_levels_lifetimes,
+                                                               p.has_fit_a_lifetime]),
+                                           max_numexp=max_numexp),
+                           level_in_roi]
                     data_levels.append(row)
 
             if ex_df_grouped_levels:
@@ -929,9 +949,12 @@ def export_data(mainwindow: MainWindow,
                 for g_l_num, g_l in enumerate(p.group_levels):
                     group_level_in_roi = roi_first_group_level_ind <= g_l_num <= roi_last_group_level_ind
                     row = [p.name, g_l_num + 1, g_l.group_ind + 1,
-                           *get_level_data(g_l, p.dwell_time,
-                                           incl_lifetimes=ex_df_grouped_levels_lifetimes,
-                                           max_numexp=max_numexp), group_level_in_roi]
+                           *get_level_data(g_l,
+                                           p.dwell_time,
+                                           incl_lifetimes=all([ex_df_grouped_levels_lifetimes,
+                                                               p.has_fit_a_lifetime]),
+                                           max_numexp=max_numexp),
+                           group_level_in_roi]
                     data_grouped_levels.append(row)
 
             if ex_df_grouping_info:
@@ -949,29 +972,69 @@ def export_data(mainwindow: MainWindow,
         if ex_df_levels:
             df_levels = pd.DataFrame(data=data_levels, columns=levels_cols)
             df_levels['particle'] = df_levels['particle'].astype('category')
-            levels_df_path = os.path.join(f_dir, 'levels.df')
-            feather.write_feather(df=df_levels, dest=levels_df_path)
+            # levels_df_path = os.path.join(f_dir, 'levels.df')
+            # feather.write_feather(df=df_levels, dest=levels_df_path)
+            write_dataframe_to_file(dataframe=df_levels, path=f_dir, filename='levels',
+                                    file_type=ex_df_format)
             if signals:
                 signals.progress.emit()
 
         if ex_df_grouped_levels:
             df_grouped_levels = pd.DataFrame(data=data_grouped_levels, columns=grouped_levels_cols)
             df_grouped_levels['particle'] = df_grouped_levels.particle.astype('category')
-            grouped_levels_df_path = os.path.join(f_dir, 'grouped_levels.df')
-            feather.write_feather(df=df_grouped_levels, dest=grouped_levels_df_path)
+            # grouped_levels_df_path = os.path.join(f_dir, 'grouped_levels.df')
+            # feather.write_feather(df=df_grouped_levels, dest=grouped_levels_df_path)
+            write_dataframe_to_file(dataframe=df_levels, path=f_dir, filename='grouped_levels',
+                                    file_type=ex_df_format)
             if signals:
                 signals.progress.emit()
 
         if ex_df_grouping_info:
             df_grouping_info = pd.DataFrame(data=data_grouping_info, columns=grouping_info_cols)
-            grouping_info_df_path = os.path.join(f_dir, 'grouping_info.df')
-            feather.write_feather(df=df_grouping_info, dest=grouping_info_df_path)
+            # grouping_info_df_path = os.path.join(f_dir, 'grouping_info.df')
+            # feather.write_feather(df=df_grouping_info, dest=grouping_info_df_path)
+            write_dataframe_to_file(dataframe=df_levels, path=f_dir, filename='grouping_info',
+                                    file_type=ex_df_format)
             if signals:
                 signals.progress.emit()
 
     if signals:
         signals.end_progress.emit()
         signals.status_message.emit("Done")
+
+
+def write_dataframe_to_file(dataframe: pd.DataFrame, path: str, filename: str, file_type: dict):
+    # DATAFRAME_FORMATS = {'Parquet (*.parquet)': 0,
+    #                      'Feather (*.ftr)': 1,
+    #                      'Feather (*.df)': 2,
+    #                      'Pickle (*.pkl)': 3,
+    #                      'HDF (*.h5)': 4,
+    #                      'Excel (*.xlsx)': 5,
+    #                      'CSV (*.csv)': 6}
+    if file_type == 0:  # Parquet
+        file_path = os.path.join(path, filename + '.parquet')
+        dataframe.to_parquet(path=file_path)
+    elif file_type == 1 or file_type == 2:  # Feather
+        if file_type == 1:  # with .ftr
+            file_path = os.path.join(path, filename + '.ftr')
+        else:
+            file_path = os.path.join(path, filename + '.df')
+        feather.write_feather(df=dataframe, dest=file_path)
+    elif file_type == 3:  # Pickle
+        file_path = os.path.join(path, filename + '.pkl')
+        dataframe.to_pickle(path=file_path)
+    elif file_type == 4:  # HDF
+        file_path = os.path.join(path, filename + '.h5')
+        dataframe.to_hdf(path_or_buf=file_path, key=filename, format='table')
+    elif file_type == 5:  # Excel
+        file_path = os.path.join(path, filename + '.xlsx')
+        dataframe.to_excel(file_path)
+    elif file_type == 6:  # CSV
+        file_path = os.path.join(path, filename + '.csv')
+        dataframe.to_csv(file_path)
+    else:
+        logger.error("File type not configured yet")
+    pass
 
 
 def get_level_data(level: Level, total_dwelltime:float,

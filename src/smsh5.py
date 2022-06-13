@@ -432,7 +432,8 @@ class Particle:
 
     @property
     def last_group_level_ind_in_roi(self):
-        if self.has_groups and self.group_levels is not None:
+        # if self.has_groups and self.group_levels is not None:
+        if self.group_levels is not None:
             # if len(self.roi_region) == 3:
             #     last_roi_ind = self.roi_region[2]
             # else:
@@ -500,14 +501,14 @@ class Particle:
 
     @property
     def levels(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.group_levels
         else:
             return self.cpts.levels
 
     @property
     def levels_roi(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.group_levels
         else:
             return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi + 1]
@@ -525,7 +526,7 @@ class Particle:
 
     @property
     def num_levels(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_num_levels
         else:
             return self.cpts.num_levels
@@ -548,7 +549,7 @@ class Particle:
 
     @property
     def level_ints(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_ints
         else:
             return self.cpts.level_ints
@@ -617,7 +618,7 @@ class Particle:
         """
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
         if use_grouped is None:
-            use_grouped = self.using_group_levels
+            use_grouped = self.has_groups and self.using_group_levels
 
         if not use_grouped:
             if not use_roi:
