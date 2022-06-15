@@ -161,10 +161,7 @@ class H5dataset:
         if remove_zeros:
             maxim = 0
             for particle in self.particles:
-                try:
-                    maxim = max(particle.histogram.decaystart, maxim)
-                except AttributeError:
-                    maxim = 0
+                maxim = max(particle.histogram.decaystart, maxim)
             for particle in self.particles:
                 particle.histogram.decay = particle.histogram.decay[maxim:]
                 particle.histogram.t = particle.histogram.t[maxim:]
@@ -333,10 +330,7 @@ class Particle:
         self.use_roi_for_histogram = False
         self.binnedtrace = None
         self.bin_size = None
-        try:
-            self.roi_region = (0, self.abstimes[-1]/1E9)
-        except IndexError:
-            self.roi_region = (0, 0)
+        self.roi_region = (0, self.abstimes[-1]/1E9)
 
         self.startpoint = None
         self.level_selected = None
@@ -771,10 +765,7 @@ class Trace:
         data = particle.abstimes[:]
 
         binsize_ns = binsize * 1E6  # Convert ms to ns
-        try:
-            endbin = np.int(np.max(data) / binsize_ns)
-        except ValueError:
-            endbin = 0
+        endbin = np.int(np.max(data) / binsize_ns)
 
         binned = np.zeros(endbin + 1, dtype=np.int)
         for step in range(endbin):
