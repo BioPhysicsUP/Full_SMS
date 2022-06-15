@@ -138,10 +138,7 @@ class OpenFile:
                     starttime = 0
                 starttimes.append(starttime)
 
-                try:
-                    tmin = np.min(particle.histogram.microtimes)
-                except ValueError:
-                    tmin = 0
+                tmin = np.min(particle.histogram.microtimes)
                 tmins.append(tmin)
 
             av_start = np.average(starttimes)
