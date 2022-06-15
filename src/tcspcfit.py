@@ -782,7 +782,7 @@ class ThreeExp(FluoFit):
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
 
         tau = param[0:3]
-        amp = param[3:6]
+        amp = np.append(param[3:5], 1 - param[3] - param[4])
         shift = param[6]
         dtau = np.diag(pcov[0:3])
 
@@ -797,7 +797,7 @@ class ThreeExp(FluoFit):
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
 
-        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + a3 * np.exp(-t / tau3)
+        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + (1 - a1 - a2) * np.exp(-t / tau3)
         return self.makeconvd(shift, model, fwhm)
 
 
