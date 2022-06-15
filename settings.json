@@ -8,5 +8,11 @@
         "use_sigma_int_thresh": true,
         "sigma_int_thresh": 3.0,
         "defined_int_thresh": 5000
+    },
+    "lifetimes": {
+        "start_percent": 80,
+        "end_multiple": 20,
+        "end_percent": 1,
+        "bg_percent": 5
     }
 }

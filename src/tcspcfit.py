@@ -21,6 +21,7 @@ from scipy.signal import convolve
 import file_manager as fm
 from PyQt5 import uic
 from typing import TYPE_CHECKING
+from settings_dialog import Settings
 
 if TYPE_CHECKING:
     from controllers import LifetimeController
@@ -248,6 +249,8 @@ class FluoFit:
         self.fwhmmin = None
         self.fwhmmax = None
         self.setup_params(amp, shift, tau, fwhm)
+        self.settings = Settings()
+        self.load_settings()
 
         self.bg = None
         self.irfbg = None
@@ -260,7 +263,7 @@ class FluoFit:
 
         self.startpoint = None
         self.endpoint = None
-        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg)
+        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg, self.settings)
 
         self.meas_bef_bg = measured
         measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
@@ -281,15 +284,23 @@ class FluoFit:
         self.convd = None
         self.is_fit = False
 
+    def load_settings(self):
+        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+        with open(settings_file_path, 'r') as settings_file:
+            if not hasattr(self, 'settings'):
+                self.settings = Settings()
+            self.settings.load_settings_from_file(file_or_path=settings_file)
+
     @staticmethod
-    def calculate_boundaries(measured, boundaries, bg):
+    def calculate_boundaries(measured, boundaries, bg, settings=None):
         """Set the start and endpoints
 
         Sets the values to the given ones or automatically find good ones.
         The start value is chosen as earliest point that is at least 80%
         of the maximum point of the measured decay, and the end
         value is chosen as either the point where the decay is 1 % of
-        maximum or 10 times the background value, whichever is highest.
+        maximum or 20 times the background value, whichever is highest.
+        These values can be modified in the settings dialog.
 
         Parameters
         ----------
@@ -297,6 +308,10 @@ class FluoFit:
             The measured decay data
         boundaries : list
                 [startpoint, endpoint, autostart, autoend]
+        bg : float
+            Calculated decay background
+        settings : settings_dialog.Settings() object
+            Contains config settings
 
         """
         if boundaries is None:
@@ -312,7 +327,8 @@ class FluoFit:
                 startpoint = 0
         else:
             maxpoint = measured.max()
-            close_to_max, = np.where(measured > 0.80 * maxpoint)
+            close_percentage = settings.lt_start_percent / 100
+            close_to_max, = np.where(measured > close_percentage * maxpoint)
             startmax = close_to_max[0]
             startmin = FluoFit.estimate_bg(measured, return_bglim=True)
             if autostart == '(Close to) max':
@@ -323,7 +339,13 @@ class FluoFit:
                 startpoint = startmin
 
         if autoend:
-            minval = max(20 * bg, 0.01 * measured.max())
+            if settings is not None:
+                end_multiple = settings.lt_end_multiple
+                end_percent = settings.lt_end_percent / 100
+            else:
+                end_multiple = 20
+                end_percent = 0.01
+            minval = max(end_multiple * bg, end_percent * measured.max())
             if not np.isnan(minval):
                 great_than_bg, = np.where(measured > minval)
                 if great_than_bg[-1] == measured.size - 1:
@@ -373,13 +395,13 @@ class FluoFit:
         else:
             self.irfbg = irfbg
         if bg is None:
-            bg_est = self.estimate_bg(measured)
+            bg_est = self.estimate_bg(measured, settings=self.settings)
             self.bg = bg_est
         else:
             self.bg = bg
 
     @staticmethod
-    def estimate_bg(measured, return_bglim=False):
+    def estimate_bg(measured, return_bglim=False, settings=None):
         """Estimate decay background
 
         Optionally returns only the index of rise start.
@@ -391,6 +413,8 @@ class FluoFit:
             measured decay data
         return_bglim : bool
             whether to return index of rise start instead of bg
+        settings : settings_dialog.Settings() object
+            Contains config settings
 
         """
         meas_real_start = np.nonzero(measured)[0][0]
@@ -401,7 +425,11 @@ class FluoFit:
                 bglim = reverse
                 break
         bg_est = np.mean(measured[meas_real_start:bglim])
-        bg_est = min(bg_est, 5 * measured.max() / 100)  # bg shouldn't be more than 5% of measured max
+        if settings is not None:
+            bg_percent = settings.lt_bg_percent / 100
+        else:
+            bg_percent = 0.05
+        bg_est = min(bg_est, bg_percent * measured.max())  # bg shouldn't be more than given % of measured max
         if np.isnan(bg_est):  # bg also shouldn't be NaN
             bg_est = 0
         if return_bglim:
@@ -960,6 +988,9 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.lifetime_controller = lifetime_controller
         self.pgFitParam.setBackground(background=None)
 
+        self.settings = Settings()
+        self.load_settings()
+
         self.checkSimIRF.stateChanged.connect(self.enable_sim_vals)
 
         self.tau_edits = [self.line1Init, self.line2Init1, self.line2Init2, self.line3Init1,
@@ -1025,6 +1056,13 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         # self.lineStartTime.setValidator(QIntValidator())
         # self.lineEndTime.setValidator(QIntValidator())
+
+    def load_settings(self):
+        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+        with open(settings_file_path, 'r') as settings_file:
+            if not hasattr(self, 'settings'):
+                self.settings = Settings()
+            self.settings.load_settings_from_file(file_or_path=settings_file)
 
     def enable_sim_vals(self, enable):
         self.fwhmInit.setEnabled(enable)
@@ -1092,9 +1130,9 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 convd = convd[:np.size(irf)]
                 convd = convd / convd.sum()
 
-                bg = FluoFit.estimate_bg(decay)
+                bg = FluoFit.estimate_bg(decay, settings=self.settings)
                 start, end = int(start / channelwidth), int(end / channelwidth)
-                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend], bg)
+                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend], bg, self.settings)
                 if autostart != 'Manual':
                     self.lineStartTime.setText(f'{start * channelwidth:.3g}')
                 if autoend:
