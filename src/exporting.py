@@ -891,7 +891,7 @@ def export_data(mainwindow: MainWindow,
             if signals:
                 signals.progress.emit()
 
-    ## DataFrame compilation and writing to Feather files
+    ## DataFrame compilation and writing
     if any([ex_df_levels, ex_df_grouped_levels, ex_df_grouping_info]):
         any_has_lifetime = any([p.has_fit_a_lifetime for p in particles])
         if any_has_lifetime:
@@ -971,7 +971,7 @@ def export_data(mainwindow: MainWindow,
 
         if ex_df_levels:
             df_levels = pd.DataFrame(data=data_levels, columns=levels_cols)
-            df_levels['particle'] = df_levels['particle'].astype('category')
+            df_levels['particle'] = df_levels['particle'].astype('string')
             # levels_df_path = os.path.join(f_dir, 'levels.df')
             # feather.write_feather(df=df_levels, dest=levels_df_path)
             write_dataframe_to_file(dataframe=df_levels, path=f_dir, filename='levels',
@@ -981,7 +981,7 @@ def export_data(mainwindow: MainWindow,
 
         if ex_df_grouped_levels:
             df_grouped_levels = pd.DataFrame(data=data_grouped_levels, columns=grouped_levels_cols)
-            df_grouped_levels['particle'] = df_grouped_levels.particle.astype('category')
+            df_grouped_levels['particle'] = df_grouped_levels.particle.astype('string')
             # grouped_levels_df_path = os.path.join(f_dir, 'grouped_levels.df')
             # feather.write_feather(df=df_grouped_levels, dest=grouped_levels_df_path)
             write_dataframe_to_file(dataframe=df_levels, path=f_dir, filename='grouped_levels',
