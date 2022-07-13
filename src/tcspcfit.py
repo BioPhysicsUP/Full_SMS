@@ -21,6 +21,7 @@ from scipy.signal import convolve
 import file_manager as fm
 from PyQt5 import uic
 from typing import TYPE_CHECKING
+from settings_dialog import Settings
 
 if TYPE_CHECKING:
     from controllers import LifetimeController
@@ -222,7 +223,7 @@ class FluoFit:
     """
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, ploton=False, fwhm=None, numexp=None):
+                 boundaries=None, ploton=False, fwhm=None, numexp=None):
 
         self.numexp = numexp
         self.channelwidth = channelwidth
@@ -248,6 +249,8 @@ class FluoFit:
         self.fwhmmin = None
         self.fwhmmax = None
         self.setup_params(amp, shift, tau, fwhm)
+        self.settings = Settings()
+        self.load_settings()
 
         self.bg = None
         self.irfbg = None
@@ -260,63 +263,104 @@ class FluoFit:
 
         self.startpoint = None
         self.endpoint = None
-        self.calculate_boundaries(endpoint, measured, startpoint)
+        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg, self.settings)
 
-        measured = measured - self.bg
+        self.meas_bef_bg = measured
+        measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
+        measured[measured <= 0] = 0
 
-        # self.meas_max = measured.max()
-        # measured = measured / self.meas_max  # Normalize measured
+        self.measured_unbounded = measured
+        measured = measured[self.startpoint:self.endpoint]
         self.meas_max = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
-        measured = measured / self.meas_max  # Normalize measured
-        meas_std = meas_std / self.meas_max
-        self.measured_unbounded = measured
-        self.measured = measured[self.startpoint:self.endpoint]
-        self.meas_std = meas_std[self.startpoint:self.endpoint]
+        self.measured = measured / self.meas_max  # Normalize measured
+        self.bg_n = self.bg / self.meas_max  # Normalized background
+        self.meas_std = meas_std / self.meas_max
         self.dtau = None
         self.chisq = None
         self.residuals = None
         self.dw = None
         self.dw_bound = None
         self.convd = None
+        self.is_fit = False
 
-    def calculate_boundaries(self, endpoint, measured, startpoint):
+    def load_settings(self):
+        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+        with open(settings_file_path, 'r') as settings_file:
+            if not hasattr(self, 'settings'):
+                self.settings = Settings()
+            self.settings.load_settings_from_file(file_or_path=settings_file)
+
+    @staticmethod
+    def calculate_boundaries(measured, boundaries, bg, settings=None):
         """Set the start and endpoints
 
         Sets the values to the given ones or automatically find good ones.
-        The start value is chosen as the maximum point of the IRF, and the end
+        The start value is chosen as earliest point that is at least 80%
+        of the maximum point of the measured decay, and the end
         value is chosen as either the point where the decay is 1 % of
-        maximum or 10 times the background value, whichever is highest.
+        maximum or 20 times the background value, whichever is highest.
+        These values can be modified in the settings dialog.
 
         Parameters
         ----------
-        endpoint : int
-                End of fitting range
         measured : ndarray
             The measured decay data
-        startpoint : int
-                Start of fitting range
+        boundaries : list
+                [startpoint, endpoint, autostart, autoend]
+        bg : float
+            Calculated decay background
+        settings : settings_dialog.Settings() object
+            Contains config settings
 
         """
-        if startpoint is None:
-            maxpoint = measured.max()
-            if not np.isnan(maxpoint):
-                close_to_max, = np.where(measured > 0.80 * maxpoint)
-                self.startpoint = close_to_max[0]
-            else:
-                self.startpoint = 0
+        if boundaries is None:
+            boundaries = [None, None, 'Manual', False]
+
+        startpoint = boundaries[0]
+        endpoint = boundaries[1]
+        autostart = boundaries[2]
+        autoend = boundaries[3]
+
+        if autostart == 'Manual':
+            if startpoint is None:
+                startpoint = 0
         else:
-            self.startpoint = startpoint
-        if endpoint is None:
-            minval = max(20 * self.bg, 0.01 * measured.max())
+            maxpoint = measured.max()
+            close_percentage = settings.lt_start_percent / 100
+            close_to_max, = np.where(measured > close_percentage * maxpoint)
+            startmax = close_to_max[0]
+            startmin = FluoFit.estimate_bg(measured, return_bglim=True)
+            if autostart == '(Close to) max':
+                startpoint = startmax
+            if autostart == 'Rise middle':
+                startpoint = int(0.5 * (startmin + startmax))
+            if autostart == 'Rise start':
+                startpoint = startmin
+
+        if autoend:
+            if settings is not None:
+                end_multiple = settings.lt_end_multiple
+                end_percent = settings.lt_end_percent / 100
+            else:
+                end_multiple = 20
+                end_percent = 0.01
+            minval = max(end_multiple * bg, end_percent * measured.max())
             if not np.isnan(minval):
                 great_than_bg, = np.where(measured > minval)
-                max1 = great_than_bg.max()
-                self.endpoint = max1
-            else:
-                self.endpoint = measured.size
+                if great_than_bg[-1] == measured.size - 1:
+                    great_than_bg = great_than_bg[:-1]
+                if not great_than_bg.size == 0:
+                    max1 = great_than_bg.max()
+                    endpoint = max1
+                else:
+                    endpoint = measured.size
+        elif endpoint is not None:
+            endpoint = min(endpoint, measured.size)
         else:
-            self.endpoint = endpoint
+            endpoint = measured.size
+
+        return startpoint, endpoint
 
     def calculate_bg(self, bg, irf, irfbg, measured):
         """Calculate decay and IRF background values
@@ -339,7 +383,7 @@ class FluoFit:
         if irfbg is None:
             if self.simulate_irf:
                 self.irfbg = 0
-            else: # TODO: replace with estimate_bg
+            else:  # TODO: replace with estimate_bg
                 maxind = np.argmax(irf)
                 for i in range(maxind):
                     reverse = maxind - i
@@ -351,13 +395,28 @@ class FluoFit:
         else:
             self.irfbg = irfbg
         if bg is None:
-            bg_est = self.estimate_bg(measured)
+            bg_est = self.estimate_bg(measured, settings=self.settings)
             self.bg = bg_est
         else:
             self.bg = bg
 
     @staticmethod
-    def estimate_bg(measured):
+    def estimate_bg(measured, return_bglim=False, settings=None):
+        """Estimate decay background
+
+        Optionally returns only the index of rise start.
+
+        Parameters
+        ----------
+
+        measured : ndarray
+            measured decay data
+        return_bglim : bool
+            whether to return index of rise start instead of bg
+        settings : settings_dialog.Settings() object
+            Contains config settings
+
+        """
         meas_real_start = np.nonzero(measured)[0][0]
         maxind = np.argmax(measured)
         for i in range(maxind):
@@ -366,10 +425,17 @@ class FluoFit:
                 bglim = reverse
                 break
         bg_est = np.mean(measured[meas_real_start:bglim])
-        bg_est = min(bg_est, measured.max() / 100)  # bg shouldn't be more than 1% of measured max
+        if settings is not None:
+            bg_percent = settings.lt_bg_percent / 100
+        else:
+            bg_percent = 0.05
+        bg_est = min(bg_est, bg_percent * measured.max())  # bg shouldn't be more than given % of measured max
         if np.isnan(bg_est):  # bg also shouldn't be NaN
             bg_est = 0
-        return bg_est
+        if return_bglim:
+            return bglim
+        else:
+            return bg_est
 
     def setup_params(self, amp, shift, tau, fwhm=None):
         """Setup fitting parameters
@@ -492,13 +558,16 @@ class FluoFit:
 
         param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
 
-        # residuals = self.convd - self.measured
-        # residuals = residuals / np.sqrt(np.abs(self.measured))
-        measured = self.measured
-        if any(measured == 0):
-            measured[measured == 0] = 1E-10
-        residuals = (self.convd - measured) * self.meas_max
-        residuals = residuals / np.sqrt(np.abs(measured * self.meas_max))
+        measured = self.meas_bef_bg
+        measured = measured[self.startpoint:self.endpoint]
+        measured = measured / self.meas_max
+
+        convd = self.convd + self.bg_n
+
+        residuals = (convd - measured) * self.meas_max
+
+        residuals = residuals / np.sqrt(np.abs(convd * self.meas_max))
+
         residualsnotinf = np.abs(residuals) != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way i could find that works
         chisquared = np.sum((residuals ** 2)) / (np.size(measured) - param_df - 1)
@@ -554,8 +623,8 @@ class FluoFit:
 
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
-        convd = convd / convd.sum()
         convd = convd[self.startpoint:self.endpoint]
+        convd = convd / convd.sum()
         return convd
 
     @staticmethod
@@ -626,8 +695,8 @@ class FluoFit:
         # For < 1% use normal distribution
         var = (4 * numpoints ** 2 * (numpoints - 2)) / ((numpoints + 1) * (numpoints - 1) ** 3)
         std = np.sqrt(var)
-        dw03 = 2 - 3 * std
-        dw01 = 2 - 3.28 * std
+        dw03 = np.round(2 - 3 * std, 3)
+        dw01 = np.round(2 - 3.28 * std, 3)
 
         return dw5, dw1, dw03, dw01
 
@@ -636,13 +705,13 @@ class OneExp(FluoFit):
     """"Single exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
+                 boundaries=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = 5
         if amp is None:
             amp = 1
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
                          fwhm, numexp=1)
 
         if self.simulate_irf:
@@ -654,23 +723,29 @@ class OneExp(FluoFit):
             paramax = [self.taumax[0], self.ampmax, self.shiftmax]
             paraminit = [self.tau[0], self.amp, self.shift]
 
-        if addopt is None:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+        try:
+            if addopt is None:
+                param, pcov = curve_fit(self.fitfunc, self.t,#, self.t[self.startpoint: self.endpoint],
+                                        self.measured, bounds=(paramin, paramax), p0=paraminit)
+            else:
+                param, pcov = curve_fit(self.fitfunc, self.t[self.startpoint: self.endpoint],
+                                        self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
+        except ValueError as error:
+            logger.error('Fitting failed')
         else:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
+            tau = param[0]
+            amp = param[1]
+            shift = param[2]
+            dtau = np.sqrt(pcov[0, 0])
 
-        tau = param[0]
-        amp = param[1]
-        shift = param[2]
-        dtau = np.sqrt(pcov[0, 0])
+            if self.simulate_irf:
+                fwhm = param[3]
+            else:
+                fwhm = None
 
-        if self.simulate_irf:
-            fwhm = param[3]
-        else:
-            fwhm = None
-
-        self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
-        self.results(tau, dtau, shift, amp=1, fwhm=fwhm)
+            # self.convd = self.fitfunc(self.t[self.startpoint:self.endpoint], tau, amp, shift, fwhm)
+            self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
+            self.results(tau, dtau, shift, amp=1, fwhm=fwhm)
 
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
@@ -683,14 +758,14 @@ class TwoExp(FluoFit):
     """"Double exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
+                 boundaries=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = [1, 5]
         if amp is None:
             amp = [1, 1]
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
                          fwhm, numexp=2)
 
         if self.simulate_irf:
@@ -719,6 +794,7 @@ class TwoExp(FluoFit):
         else:
             fwhm = None
 
+        # self.convd = self.fitfunc(self.t[self.startpoint:self.endpoint], tau[0], tau[1], amp[0], amp[1], shift, fwhm)
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
         self.results(tau, dtau, shift, amp, fwhm)
 
@@ -733,14 +809,14 @@ class ThreeExp(FluoFit):
     """"Triple exponential fit. Takes exact same arguments as Fluofit"""
 
     def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 startpoint=None, endpoint=None, addopt=None, ploton=False, fwhm=None):
+                 boundaries=None, addopt=None, ploton=False, fwhm=None):
 
         if tau is None:
             tau = [0.1, 1, 5]
         if amp is None:
             amp = [1, 1, 1]
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, startpoint, endpoint, ploton,
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
                          fwhm, numexp=3)
 
         if self.simulate_irf:
@@ -758,7 +834,7 @@ class ThreeExp(FluoFit):
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
 
         tau = param[0:3]
-        amp = param[3:6]
+        amp = np.append(param[3:5], 1 - param[3] - param[4])
         shift = param[6]
         dtau = np.diag(pcov[0:3])
 
@@ -773,7 +849,7 @@ class ThreeExp(FluoFit):
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
 
-        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + a3 * np.exp(-t / tau3)
+        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + (1 - a1 - a2) * np.exp(-t / tau3)
         return self.makeconvd(shift, model, fwhm)
 
 
@@ -847,7 +923,7 @@ class FittingParameters:
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
         self.start = self.get_from_gui(self.fpd.lineStartTime)
-        self.autostart = bool(self.get_from_gui(self.fpd.checkAutoStart))
+        self.autostart = self.get_from_gui(self.fpd.comboAutoStart)
         self.end = self.get_from_gui(self.fpd.lineEndTime)
         self.autoend = bool(self.get_from_gui(self.fpd.checkAutoEnd))
 
@@ -896,6 +972,8 @@ class FittingParameters:
                     return invalid
         elif type(guiobj) == QCheckBox:
             return float(guiobj.isChecked())
+        elif type(guiobj) == QComboBox:
+            return guiobj.currentText()
 
 
 class FittingDialog(QDialog, UI_Fitting_Dialog):
@@ -909,6 +987,9 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.mainwindow = mainwindow
         self.lifetime_controller = lifetime_controller
         self.pgFitParam.setBackground(background=None)
+
+        self.settings = Settings()
+        self.load_settings()
 
         self.checkSimIRF.stateChanged.connect(self.enable_sim_vals)
 
@@ -962,7 +1043,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.combNumExp.currentIndexChanged.connect(self.updateplot)
         #  TODO: regexvalidator for sim irf parameters
 
-        self.checkAutoStart.stateChanged.connect(self.updateplot)
+        self.comboAutoStart.currentTextChanged.connect(self.updateplot)
         self.checkAutoEnd.stateChanged.connect(self.updateplot)
 
         # for widget in self.findChildren(QLineEdit):
@@ -975,6 +1056,13 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         # self.lineStartTime.setValidator(QIntValidator())
         # self.lineEndTime.setValidator(QIntValidator())
+
+    def load_settings(self):
+        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+        with open(settings_file_path, 'r') as settings_file:
+            if not hasattr(self, 'settings'):
+                self.settings = Settings()
+            self.settings.load_settings_from_file(file_or_path=settings_file)
 
     def enable_sim_vals(self, enable):
         self.fwhmInit.setEnabled(enable)
@@ -1004,7 +1092,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         channelwidth = self.mainwindow.current_particle.channelwidth
         fp = self.lifetime_controller.fitparam
 
-#  TODO: try should contain as little code as possible
+        #  TODO: try should contain as little code as possible
         try:
             if self.mainwindow.current_particle.level_selected is None:
                 histogram = self.mainwindow.current_particle.histogram
@@ -1022,97 +1110,83 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         except AttributeError:
             logger.error('No Decay!')
         else:
-            try:
-                if fp.fwhm is None:
-                    irf = fp.irf
-                    irft = fp.irft
-                else:
-                    irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], decay)
-            except AttributeError:
-                logger.error('No IRF!')
-                return
+            if fp.irf is not None or fp.fwhm is not None:
+                try:
+                    if fp.fwhm is None:
+                        irf = fp.irf
+                        irft = fp.irft
+                    else:
+                        irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], decay)
+                except AttributeError:
+                    logger.error('No IRF!')
+                    return
 
-            shift, decaybg, irfbg, start, autostart, end, autoend = self.getparams()
+                shift, decaybg, irfbg, start, autostart, end, autoend = self.getparams()
 
-            shift = shift / channelwidth
-            # irf = tcspcfit.colorshift(irf, shift)
-            irf = colorshift(irf, shift)
-            convd = scipy.signal.convolve(irf, model)
-            convd = convd[:np.size(irf)]
-            convd = convd / convd.sum()
+                shift = shift / channelwidth
+                # irf = tcspcfit.colorshift(irf, shift)
+                irf = colorshift(irf, shift)
+                convd = scipy.signal.convolve(irf, model)
+                convd = convd[:np.size(irf)]
+                convd = convd / convd.sum()
 
-            if autostart:
-                # start = np.argmax(decay)
-                maxpoint = decay.max()
-                close_to_max, = np.where(decay > 0.80 * maxpoint)
-                start = close_to_max[0]
-                self.lineStartTime.setText(f'{start * channelwidth: .3g}')
-            else:
-                start = int(start / channelwidth)
-            if autoend:
-                bg = FluoFit.estimate_bg(decay)
-                minval = max(20 * bg, 0.01 * decay.max())
-                greater_than_bg, = np.where(decay > minval)
-                if not greater_than_bg.size == 0:
-                    end = greater_than_bg.max()
-                else:
-                    end = decay.size
-                self.lineEndTime.setText(f'{end * channelwidth: .3g}')
-            else:
-                end = int(end / channelwidth)
+                bg = FluoFit.estimate_bg(decay, settings=self.settings)
+                start, end = int(start / channelwidth), int(end / channelwidth)
+                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend], bg, self.settings)
+                if autostart != 'Manual':
+                    self.lineStartTime.setText(f'{start * channelwidth:.3g}')
+                if autoend:
+                    self.lineEndTime.setText(f'{end * channelwidth:.3g}')
 
-            # decay, t = start_at_value(decay, t)
-            end = min(end, np.size(t) - 1)  # Make sure endpoint is not bigger than size of t
+                convd = convd[irft > 0]
+                irft = irft[irft > 0]
 
-            convd = convd[irft > 0]
-            irft = irft[irft > 0]
+                plot_item = self.pgFitParam.getPlotItem()
 
-            plot_item = self.pgFitParam.getPlotItem()
+                plot_item.setLogMode(y=True)
+                plot_pen = QPen()
+                plot_pen.setWidthF(1.5)
+                plot_pen.setJoinStyle(Qt.RoundJoin)
+                plot_pen.setColor(QColor('blue'))
+                plot_pen.setCosmetic(True)
 
-            plot_item.setLogMode(y=True)
-            plot_pen = QPen()
-            plot_pen.setWidthF(1.5)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setColor(QColor('blue'))
-            plot_pen.setCosmetic(True)
+                plot_item.clear()
+                plot_item.plot(x=t, y=np.clip(decay, a_min=0.000001, a_max=None), pen=plot_pen,
+                               symbol=None)
 
-            plot_item.clear()
-            plot_item.plot(x=t, y=np.clip(decay, a_min=0.000001, a_max=None), pen=plot_pen,
-                           symbol=None)
+                plot_pen = QPen()
+                plot_pen.setWidthF(2)
+                plot_pen.setJoinStyle(Qt.RoundJoin)
+                plot_pen.setCosmetic(True)
+                plot_pen.setColor(QColor('dark blue'))
+                plot_item.plot(x=irft, y=np.clip(convd, a_min=0.000001, a_max=None), pen=plot_pen,
+                               symbol=None)
+                # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
+                plot_item.getAxis('bottom').setLabel('Decay time (ns)')
+                # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
+                # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+                # self.MW_fitparam.axes.clear()
+                # self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
+                # self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
+                # self.MW_fitparam.axes.set_ylim(bottom=1e-2)
 
-            plot_pen = QPen()
-            plot_pen.setWidthF(2)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setCosmetic(True)
-            plot_pen.setColor(QColor('dark blue'))
-            plot_item.plot(x=irft, y=np.clip(convd, a_min=0.000001, a_max=None), pen=plot_pen,
-                           symbol=None)
-            # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
-            plot_item.getAxis('bottom').setLabel('Decay time (ns)')
-            # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
-            # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
-            # self.MW_fitparam.axes.clear()
-            # self.MW_fitparam.axes.semilogy(t, decay, color='xkcd:dull blue')
-            # self.MW_fitparam.axes.semilogy(irft, convd, color='xkcd:marine blue', linewidth=2)
-            # self.MW_fitparam.axes.set_ylim(bottom=1e-2)
-
-        try:
-            plot_pen = QPen()
-            plot_pen.setWidthF(2.5)
-            plot_pen.setJoinStyle(Qt.RoundJoin)
-            plot_pen.setCosmetic(True)
-            plot_pen.setColor(QColor('gray'))
-            startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
-            endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
-            plot_item.addItem(startline)
-            plot_item.addItem(endline)
-            # self.MW_fitparam.axes.axvline(t[start])
-            # self.MW_fitparam.axes.axvline(t[end])
-        except IndexError:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Warning)
-            msg.setText('Value out of bounds!')
-            msg.exec_()
+                try:
+                    plot_pen = QPen()
+                    plot_pen.setWidthF(2.5)
+                    plot_pen.setJoinStyle(Qt.RoundJoin)
+                    plot_pen.setCosmetic(True)
+                    plot_pen.setColor(QColor('gray'))
+                    startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
+                    endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
+                    plot_item.addItem(startline)
+                    plot_item.addItem(endline)
+                    # self.MW_fitparam.axes.axvline(t[start])
+                    # self.MW_fitparam.axes.axvline(t[end])
+                except IndexError:
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Warning)
+                    msg.setText('Value out of bounds!')
+                    msg.exec_()
 
     def getparams(self):
         fp = self.lifetime_controller.fitparam

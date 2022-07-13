@@ -47,7 +47,10 @@ class Group:
         self.histogram = None
 
         if self.lvls_inds is not None and particle is not None:
-            self.lvls = [particle.cpts.levels[i] for i in self.lvls_inds]
+            if not particle.use_roi_for_grouping:
+                self.lvls = [particle.cpts.levels[i] for i in self.lvls_inds]
+            else:
+                self.lvls = [particle.levels_roi[i] for i in self.lvls_inds]
 
     @property
     def num_photons(self) -> int_p_s:
@@ -76,24 +79,6 @@ class Group:
         return microtimes
 
 
-# class Solution:
-#
-#     def __init__(self, clustering_step: ClusteringStep):
-#         self._c_step = clustering_step
-#
-#     @property
-#     def groups(self) -> List[Group]:
-#         return self._c_step._seed_groups
-#
-#     @property
-#     def num_groups(self) -> int:
-#         return self._c_step._num_prev_groups
-#
-#     @property
-#     def num_levels(self) -> int:
-#         return self._c_step._num_levels
-
-
 class ClusteringStep:
 
     def __init__(self,
@@ -103,7 +88,10 @@ class ClusteringStep:
                  single_level: bool = False):
 
         self._particle = particle
-        self._num_levels = particle.cpts.num_levels
+        if not self._particle.use_roi_for_grouping:
+            self._num_levels = particle.cpts.num_levels
+        else:
+            self._num_levels = particle.num_levels_roi
         self.first = first
         self.single_level = single_level
         self.last = False or single_level
@@ -228,14 +216,20 @@ class ClusteringStep:
 
         p_mj = self._ahc_p_mj.copy()
         prev_p_mj = p_mj.copy()
-        levels = self._particle.cpts.levels
+        if not self._particle.use_roi_for_grouping:
+            levels = self._particle.cpts.levels
+        else:
+            levels = self._particle.levels_roi
 
         i = 0
         diff_p_mj = 1
         while diff_p_mj > 1E-5 and i < 50:
 
             i += 1
-            cap_t = self._particle.dwell_time
+            if not self._particle.use_roi_for_grouping:
+                cap_t = self._particle.dwell_time
+            else:
+                cap_t = self._particle.dwell_time_roi
 
             t_hat = np.zeros(shape=(self._num_prev_groups - 1,))
             n_hat = np.zeros_like(t_hat)
@@ -306,25 +300,28 @@ class ClusteringStep:
         self.bic = 2 * self._em_log_l - (2 * num_g - 1) * np.log(num_cp) - num_cp * np.log(self._particle.num_photons)
 
     def group_2_levels(self):
-        part_levels = self._particle.cpts.levels
+        if not self._particle.use_roi_for_grouping:
+            part_levels = self._particle.cpts.levels
+        else:
+            part_levels = self._particle.levels_roi
         abs_times = self._particle.abstimes
         micro_times = self._particle.microtimes
 
-        start_ind = 0
         group_levels = []
+        busy_joining = False
         for i, part_level in enumerate(part_levels):
-            end_ind = part_level.level_inds[1]
-            group_int = self.group_ints[self.level_group_ind[i]]
-            if i < self._num_levels-1:
-                if self.level_group_ind[i] != self.level_group_ind[i+1]:
-                    group_levels.append(Level(abs_times=abs_times,
-                                              microtimes=micro_times,
-                                              level_inds=(start_ind, end_ind),
-                                              int_p_s=group_int,
-                                              group_ind=self.level_group_ind[i]))
-                    start_ind = part_levels[i+1].level_inds[0]
+            if not busy_joining:
+                start_ind = part_level.level_inds[0]
+            if i == len(part_levels) - 1:
+                busy_joining = False
             else:
-                # TODO: Make sure it shouldn't be append
+                if self.level_group_ind[i] == self.level_group_ind[i + 1]:
+                    busy_joining = True
+                else:
+                    busy_joining = False
+            if not busy_joining:
+                end_ind = part_level.level_inds[1]
+                group_int = self.group_ints[self.level_group_ind[i]]
                 group_levels.append(Level(abs_times=abs_times,
                                           microtimes=micro_times,
                                           level_inds=(start_ind, end_ind),
@@ -366,6 +363,7 @@ class AHCA:
         particle: smsh5.Particle
         """
 
+        self.backup = None
         self.has_groups = False
         self._particle = particle
         self.uuid = self._particle.uuid
@@ -374,7 +372,10 @@ class AHCA:
         self.bics = None
         self.selected_step_ind = None
         self.num_steps = None
+        self.plots_need_to_be_updated = False
 
+        self.use_roi_for_grouping = True  # Changed default to True on GUI as well
+        self.grouped_with_roi = False
 
     @property
     def selected_step(self) -> ClusteringStep:
@@ -396,6 +397,34 @@ class AHCA:
         if self.has_groups:
             return [step.num_groups for step in self.steps]
 
+    def clear_and_backup_results(self) -> None:
+        if self.has_groups:
+            backup = dict()
+            self.has_groups = False
+            backup['best_step_ind'] = self.best_step_ind
+            self.best_step_ind = None
+            backup['bics'] = self.bics
+            self.bics = None
+            backup['num_steps'] = self.num_steps
+            self.num_steps = None
+            backup['selected_step'] = self.selected_step_ind
+            self.selected_step_ind = None
+            backup['steps'] = self.steps
+            self.steps = None
+
+            self.backup = backup
+
+    def restore_and_delete_backup(self) -> None:
+        if self.backup is not None:
+            self.best_step_ind = self.backup['best_step_ind']
+            self.bics = self.backup['bics']
+            self.num_steps = self.backup['num_steps']
+            self.selected_step_ind = self.backup['selected_step']
+            self.steps = self.backup['steps']
+
+            self.has_groups = True
+            self.backup = None
+
     def run_grouping(self):
         """
         Run grouping
@@ -406,6 +435,8 @@ class AHCA:
         """
 
         try:
+            if self.has_groups:
+                self.clear_and_backup_results()
             if self._particle.has_levels:
 
                 steps = []
@@ -417,7 +448,10 @@ class AHCA:
                     self.has_groups = True
                 else:
                     c_step = ClusteringStep(self._particle, first=True)
-                    current_num_groups = self._particle.num_levels
+                    if not self.use_roi_for_grouping:
+                        current_num_groups = self._particle.num_levels
+                    else:
+                        current_num_groups = self._particle.num_levels_roi
                     while current_num_groups != 1:
                         c_step.ahc()
                         c_step.emc()
@@ -436,10 +470,15 @@ class AHCA:
                     self.best_step_ind = np.argmax(self.bics)
                     self.selected_step_ind = self.best_step_ind
                     self.has_groups = True
+                    self.grouped_with_roi = self.use_roi_for_grouping
+                    if self.backup is not None:
+                        self.backup = None
+                        self.plots_need_to_be_updated = True
                     logger.info(f"{self._particle.name} levels grouped")
             else:
                 logger.info(f"{self._particle.name} has no levels to group")
         except Exception as e:
+            self.restore_and_delete_backup()
             logger.error(e)
             pass
 

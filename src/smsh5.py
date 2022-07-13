@@ -9,7 +9,7 @@ import ast
 import os
 import re
 import traceback
-from typing import List, Union, TYPE_CHECKING
+from typing import List, Union, TYPE_CHECKING, Tuple
 from uuid import uuid1
 
 import h5pickle
@@ -156,15 +156,15 @@ class H5dataset:
 
         for particle in self.particles:
             particle.startpoint = startpoint
-            particle.makehistogram(channel=channel)
+            particle.makehistogram(channel=channel, add_roi=True)
             particle.makelevelhists(channel=channel)
         if remove_zeros:
             maxim = 0
             for particle in self.particles:
                 try:
                     maxim = max(particle.histogram.decaystart, maxim)
-                except AttributeError:  # no photons
-                    pass
+                except AttributeError:
+                    maxim = 0
             for particle in self.particles:
                 particle.histogram.decay = particle.histogram.decay[maxim:]
                 particle.histogram.t = particle.histogram.t[maxim:]
@@ -220,51 +220,49 @@ class H5dataset:
 
 
 # TODO: This is in the incorrect file.
-class BICPlotData:
-
-    def __init__(self):
-        self._scatter_plot_item = None
-        self._selected_spot = None
-
-    @property
-    def has_plot(self) -> bool:
-        if self._scatter_plot_item:
-            return True
-        else:
-            return False
-
-    @property
-    def has_selected_spot(self) -> bool:
-        if self._selected_spot:
-            return True
-        else:
-            return False
-
-    @property
-    def scatter_plot_item(self):
-        if self.has_plot:
-            return self._scatter_plot_item
-
-    @scatter_plot_item.setter
-    def scatter_plot_item(self, scatter_plot_item: ScatterPlotItem):
-        assert type(scatter_plot_item) == ScatterPlotItem, "scatter_plot_item not correct type."
-        self._scatter_plot_item = scatter_plot_item
-
-    @property
-    def selected_spot(self):
-        if self.has_plot:
-            return self._selected_spot
-
-    @selected_spot.setter
-    def selected_spot(self, selected_spot: SpotItem):
-        assert type(selected_spot) == SpotItem, "selected_spot is not correct type."
-        self._selected_spot = selected_spot
-
-    def clear_scatter_plot_item(self):
-        self._scatter_plot_item = None
-        self._selected_spot = None
-
-
+# class BICPlotData:
+#
+#     def __init__(self):
+#         self._scatter_plot_item = None
+#         self._selected_spot = None
+#
+#     @property
+#     def has_plot(self) -> bool:
+#         if self._scatter_plot_item:
+#             return True
+#         else:
+#             return False
+#
+#     @property
+#     def has_selected_spot(self) -> bool:
+#         if self._selected_spot:
+#             return True
+#         else:
+#             return False
+#
+#     @property
+#     def scatter_plot_item(self):
+#         if self.has_plot:
+#             return self._scatter_plot_item
+#
+#     @scatter_plot_item.setter
+#     def scatter_plot_item(self, scatter_plot_item: ScatterPlotItem):
+#         assert type(scatter_plot_item) == ScatterPlotItem, "scatter_plot_item not correct type."
+#         self._scatter_plot_item = scatter_plot_item
+#
+#     @property
+#     def selected_spot(self):
+#         if self.has_plot:
+#             return self._selected_spot
+#
+#     @selected_spot.setter
+#     def selected_spot(self, selected_spot: SpotItem):
+#         assert type(selected_spot) == SpotItem, "selected_spot is not correct type."
+#         self._selected_spot = selected_spot
+#
+#     def clear_scatter_plot_item(self):
+#         self._scatter_plot_item = None
+#         self._selected_spot = None
 
 
 class Particle:
@@ -285,10 +283,9 @@ class Particle:
         dataset: H5dataset
             The instance of the dataset to which this particle belongs
         tmin: int, Optional
-            TODO
+            TODO: Update docsring
         tmax: int, Optional
-            TODO
-        channelwidth: TODO
+        channelwidth:
         """
         self.uuid = uuid1()
         self.name = name
@@ -332,9 +329,15 @@ class Particle:
         self.t = None
         self.ignore = False
         self.bg = False
-        self.histogram = None
+        self._histogram = None
+        self._histogram_roi = None
+        self.use_roi_for_histogram = False
         self.binnedtrace = None
         self.bin_size = None
+        try:
+            self.roi_region = (0, self.abstimes[-1]/1E9)
+        except IndexError:
+            self.roi_region = (0, 0)
 
         self.startpoint = None
         self.level_selected = None
@@ -344,6 +347,47 @@ class Particle:
         self.has_exported = False
 
     @property
+    def histogram(self) -> Histogram:
+        if not self.use_roi_for_histogram:
+            hist = self._histogram
+        else:
+            hist = self._histogram_roi
+        return hist
+
+    def set_histgram(self, histogram: Histogram) -> None:
+        self._histogram = histogram
+
+    def set_histgram_roi(self, histogram: Histogram) -> None:
+        self._histogram_roi = histogram
+
+    @property
+    def use_roi_for_grouping(self) -> bool:
+        return self.ahca.use_roi_for_grouping
+
+    @property
+    def grouped_with_roi(self) -> bool:
+        return self.ahca.grouped_with_roi
+
+    @property
+    def roi_region_photon_inds(self) -> Tuple[int, int]:
+        first_photon = 0
+        last_photon = self.num_photons - 1
+        roi_start = self.roi_region[0]
+        roi_end = self.roi_region[1]
+        epsilon_t = 0.1
+        end_t = self.abstimes[-1]/1E9
+        if roi_start >= 0 + epsilon_t/2 or not roi_end - epsilon_t/2 <= end_t <= roi_end + epsilon_t/2:
+            times = self.abstimes[:]/1E9
+            first_photon = np.argmin(roi_start > times)
+            last_photon = np.argmin(roi_end > times)
+        return first_photon, last_photon
+
+    @property
+    def num_photons_roi(self) -> int:
+        first_photon, last_photon = self.roi_region_photon_inds
+        return last_photon - first_photon
+
+    @property
     def has_spectra(self) -> bool:
         return self.spectra._has_spectra
 
@@ -351,6 +395,58 @@ class Particle:
     # def raster_scan(self) -> RasterScan:
     #     if self.has_raster_scan and self.dataset is not None:
     #         return self.dataset.all_raster_scans[self._raster_scan_dataset_index]
+
+    @property
+    def mircrotimes_roi(self) -> np.ndarray:
+        times = np.array(self.abstimes)/1E9
+        if self.roi_region[0] == 0:
+            first_ind = 0
+        else:
+            where_start = np.where(self.roi_region[0] >= times)
+            if len(where_start[0]):
+                first_ind = where_start[0][0]
+            else:
+                first_ind = 0
+        where_end = np.where(self.roi_region[1] <= times)
+        if len(where_end[0]):
+            last_ind = where_end[0][0] + 1
+        else:
+            last_ind = len(times)
+        return self.microtimes[first_ind:last_ind]
+
+    @property
+    def first_level_ind_in_roi(self):
+        if self.has_levels:
+            end_times = np.array([level.times_s[1] for level in self.cpts.levels])
+            first_roi_ind = np.argmax(end_times > self.roi_region[0])
+            return int(first_roi_ind)
+
+    @property
+    def last_level_ind_in_roi(self):
+        if len(self.roi_region) == 3:
+            last_roi_ind = self.roi_region[2]
+        else:
+            end_times = np.array([level.times_s[1] for level in self.cpts.levels])
+            last_roi_ind = np.argmax(np.round(end_times, 3) >= np.round(self.roi_region[1], 3))
+        return int(last_roi_ind)
+
+    @property
+    def first_group_level_ind_in_roi(self):
+        if self.has_groups and self.group_levels is not None:
+            end_times = np.array([level.times_s[1] for level in self.group_levels])
+            first_group_roi_ind = np.argmax(end_times > self.roi_region[0])
+            return int(first_group_roi_ind)
+
+    @property
+    def last_group_level_ind_in_roi(self):
+        # if self.has_groups and self.group_levels is not None:
+        if self.group_levels is not None:
+            # if len(self.roi_region) == 3:
+            #     last_roi_ind = self.roi_region[2]
+            # else:
+            end_times = np.array([level.times_s[1] for level in self.group_levels])
+            last_group_roi_ind = np.argmax(np.round(end_times, 3) >= np.round(self.roi_region[1], 3))
+            return int(last_group_roi_ind)
 
     @property
     def raster_scan_coordinates(self) -> tuple:
@@ -412,35 +508,79 @@ class Particle:
 
     @property
     def levels(self):
-        if self.using_group_levels:
-            return self.ahca.selected_step.group_levels
+        if self.has_groups and self.using_group_levels:
+            return self.group_levels
         else:
             return self.cpts.levels
 
     @property
+    def levels_roi(self):
+        if self.has_groups and self.using_group_levels:
+            return self.group_levels
+        else:
+            return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi + 1]
+
+    @property
+    def group_levels(self) -> List[Level]:
+        if self.has_groups:
+            return self.ahca.selected_step.group_levels
+
+    @property
+    def group_levels_roi(self) -> List[Level]:
+        if self.has_groups:
+            group_levels = self.group_levels
+            return group_levels[self.first_group_level_ind_in_roi: self.last_group_level_ind_in_roi + 1]
+
+    @property
     def num_levels(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_num_levels
         else:
             return self.cpts.num_levels
+
+    @property
+    def num_levels_roi(self):
+        return (self.last_level_ind_in_roi - self.first_level_ind_in_roi) + 1
 
     @property
     def dwell_time(self):
         return (self.abstimes[-1] - self.abstimes[0]) / 1E9
 
     @property
+    def dwell_time_roi(self):
+        if self.has_levels:
+            return self.levels_roi[-1].times_s[1] - self.levels_roi[0].times_s[0]
+        else:
+            first_photon_ind, last_photon_ind = self.roi_region_photon_inds
+            return (self.abstimes[last_photon_ind] - self.abstimes[first_photon_ind])/1E9
+
+    @property
     def level_ints(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_ints
         else:
             return self.cpts.level_ints
 
     @property
+    def level_ints_roi(self):
+        if self.has_groups and self.using_group_levels:
+            return self.ahca.selected_step.group_level_ints
+        else:
+            return self.cpts.level_ints[self.first_level_ind_in_roi:self.last_level_ind_in_roi]
+
+    @property
     def level_dwelltimes(self):
-        if self.using_group_levels:
+        if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_dwelltimes
         else:
             return self.cpts.level_dwelltimes
+
+    @property
+    def level_dwelltimes_roi(self):
+        if self.has_groups and self.using_group_levels:
+            return self.ahca.selected_step.group_level_dwelltimes
+        else:
+            return self.cpts.level_dwelltimes[self.first_level_ind_in_roi:self.last_level_ind_in_roi]
 
     @property
     def has_burst(self) -> bool:
@@ -466,41 +606,47 @@ class Particle:
     # def icon(self):
     #     return ParticleIcons.test_icon
 
-    def levels2data(self, use_grouped: bool = None) -> [np.ndarray, np.ndarray]:
+    def remove_and_reset_grouping(self):
+        self.ahca = AHCA(particle=self)
+        self.using_group_levels = False
+
+    def levels2data(self, use_grouped: bool = None, use_roi: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
         Parameters
         ----------
         use_grouped
-        plot_type: str, {'line', 'step'}
+        use_roi
 
         Returns
         -------
-        [np.ndarray, np.ndarray]
+        Tuple[np.ndarray, np.ndarray]
         """
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
-        levels = self.levels
-        if use_grouped is not None:
-            if not use_grouped:
+        if use_grouped is None:
+            use_grouped = self.has_groups and self.using_group_levels
+
+        if not use_grouped:
+            if not use_roi:
                 levels = self.cpts.levels
             else:
-                levels = self.ahca.selected_step.group_levels
+                levels = self.levels_roi
+        else:
+            if not use_roi:
+                levels = self.group_levels
+            else:
+                levels = self.group_levels_roi
 
-        num_levels = len(levels)
-        levels_data = np.empty(shape=num_levels * 2)
-        times = np.empty(shape=num_levels * 2)
-        accum_time = 0
-        for num, level in enumerate(levels):
-            times[num * 2] = accum_time
-            accum_time += level.dwell_time_s
-            times[num * 2 + 1] = accum_time
-            levels_data[num * 2] = level.int_p_s
-            levels_data[num * 2 + 1] = level.int_p_s
+        times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
+        times = times.flatten()
 
-        return levels_data, times
+        ints = np.array([[level.int_p_s, level.int_p_s] for level in levels])
+        ints = ints.flatten()
 
-    def current2data(self, num, plot_type: str = 'line') -> [np.ndarray, np.ndarray]:
+        return ints, times
+
+    def current2data(self, level_ind: int, use_roi: bool = False) -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for plotting level num.
         Parameters
@@ -514,36 +660,29 @@ class Particle:
         # TODO: Cleanup this function anc the one above it
         assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
 
-        # ############## Old, for Matplotlib ##############
-        # levels_data = np.empty(shape=self.num_levels+1)
-        # times = np.empty(shape=self.num_levels+1)
-        # accum_time = 0
-        # for num, level in enumerate(self.levels):
-        #     times[num] = accum_time
-        #     accum_time += level.dwell_time/1E9
-        #     levels_data[num] = level.int
-        #     if num+1 == self.num_levels:
-        #         levels_data[num+1] = accum_time
-        #         times[num+1] = level.int
-
-        level = self.levels[num]
+        if not use_roi:
+            level = self.levels[level_ind]
+        else:
+            level = self.levels_roi[level_ind]
         times = np.array(level.times_ns) / 1E9
         levels_data = np.array([level.int_p_s, level.int_p_s])
 
         return levels_data, times
 
-    def current_group2data(self, num: int) -> [np.ndarray, np.ndarray]:
+    def current_group2data(self, group_ind: int) -> [np.ndarray, np.ndarray]:
         assert self.has_groups, 'ChangePointAnalysis:\tNo groups to convert to data.'
 
-        group = self.groups[num]
+        group = self.groups[group_ind]
         times = np.array([self.abstimes[0], self.abstimes[-1]]) /1E9
         group_int = np.array([group.int_p_s, group.int_p_s])
         return group_int, times
 
-    def makehistogram(self, channel=True):
+    def makehistogram(self, channel=True, add_roi: bool = False):
         """Put the arrival times into a histogram"""
 
-        self.histogram = Histogram(self, start_point=self.startpoint, channel=channel)
+        self._histogram = Histogram(self, start_point=self.startpoint, channel=channel)
+        if add_roi:
+            self._histogram_roi = Histogram(self, start_point=self.startpoint, channel=channel, is_for_roi=True)
         # print(np.max(self.histogram.decay))
 
     def makelevelhists(self, channel: bool = True,
@@ -557,7 +696,7 @@ class Particle:
                 if force_cpts_levels:
                     levels.extend(self.cpts.levels)
                 if force_group_levels:
-                    levels.extend(self.ahca.selected_step.group_levels)
+                    levels.extend(self.group_levels)
             else:
                 levels = self.levels
 
@@ -570,7 +709,7 @@ class Particle:
                 self.groups[0].histogram = self.ahca.steps[0].groups[0].histogram
             else:
                 groups = self.groups
-                for group_level in self.ahca.selected_step.group_levels:
+                for group_level in self.group_levels:
                     g_ind = group_level.group_ind
                     group_level.histogram = groups[g_ind].histogram
 
@@ -587,34 +726,33 @@ class Particle:
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
 
-    # def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
-    #     if not self.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-    #                               fit_param.shift / channelwidth, fit_param.decaybg, fit_param.irfbg,
-    #                               start, end, fit_param.addopt, fit_param.irf, fit_param.shiftfix):
-    #         pass  # fit unsuccessful
-    #     self.numexp = fit_param.numexp
-    #     # progress_sig.emit()
-    #     if not self.has_levels:
-    #         return
-    #     levels = self.cpts.levels
-    #     if self.has_groups:
-    #         levels.extend(self.ahca.selected_step.group_levels)
-    #         for group in self.ahca.selected_step.groups:
-    #             if group.hist is None:
-    #                 group.hist = Histogram(particle=self, level=group.lvls_inds,
-    #                                        startpoint=self.startpoint)
-    #     for level in levels:
-    #         if not hasattr(level, 'histogram'):
-    #             level.histogram = Histogram()
-    #         try:
-    #             if not level.histogram.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-    #                                        fit_param.shift / channelwidth, fit_param.decaybg,
-    #                                        fit_param.irfbg,
-    #                                        start, end, fit_param.addopt,
-    #                                        fit_param.irf, fit_param.shiftfix):
-    #                 pass  # fit unsuccessful
-    #         except AttributeError:
-    #             print("No decay")
+    def trim_trace(self, min_level_dwell_time: float, min_level_int: int, reset_roi: bool = True):
+        trimmed = None
+        if self.has_levels and self.level_ints[-1] < min_level_int:
+            trimmed = False
+            trim_time_total = 0
+            first_valid_reversed_ind = None
+            for ind_reverse in reversed(range(0, self.num_levels)):
+                if self.level_ints[ind_reverse] <= min_level_int:
+                    trim_time_total += self.level_dwelltimes[ind_reverse]
+                    first_valid_reversed_ind = ind_reverse
+                else:
+                    first_valid_reversed_ind = ind_reverse
+                    break
+            if trim_time_total >= min_level_dwell_time and first_valid_reversed_ind > 1:
+                last_active_time = self.levels[first_valid_reversed_ind].times_s[1]
+                min_time = 0
+                if not reset_roi:
+                    if last_active_time > self.roi_region[0] and last_active_time - self.roi_region[0] > 0.5:
+                        min_time = self.roi_region[0]
+                    else:
+                        min_time = last_active_time - 0.5
+                    if last_active_time > self.roi_region[1]:
+                        last_active_time = self.roi_region[1]
+                if min_time >= 0:
+                    self.roi_region = (min_time, last_active_time, first_valid_reversed_ind)
+                    trimmed = True
+        return trimmed
 
 
 class Trace:
@@ -634,9 +772,9 @@ class Trace:
         data = particle.abstimes[:]
 
         binsize_ns = binsize * 1E6  # Convert ms to ns
-        if not data.size == 0:
+        try:
             endbin = np.int(np.max(data) / binsize_ns)
-        else:
+        except ValueError:
             endbin = 0
 
         binned = np.zeros(endbin + 1, dtype=np.int)
@@ -657,12 +795,52 @@ class Histogram:
                  level: Union[Level, List[int]] = None,
                  start_point: float = None,
                  channel: bool = True,
-                 trim_start: bool = False):
+                 trim_start: bool = False,
+                 is_for_roi: bool = False):
+        assert not (level is not None and is_for_roi), "ROI can't be used for a Level"
+        self.is_for_roi = is_for_roi
+        self.fitted_with_roi = None
+        self.roi_region_used = None
         no_sort = False
         self._particle = particle
         self.level = level
+        self.original_kwargs = {'start_point': start_point,
+                                'channel': channel,
+                                'trim_start': trim_start}
+        self.setup(level=level, use_roi=is_for_roi, **self.original_kwargs)
+
+        self.convd = None
+        self.convd_t = None
+        self.fitted = False
+
+        self.fit_decay = None
+        self.convd = None
+        self.convd_t = None
+        self.tau = None
+        self.amp = None
+        self.shift = None
+        self.bg = None
+        self.irfbg = None
+        self.avtau = None
+        self.numexp = None
+        self.residuals = None
+        self.fwhm = None
+        self.chisq = None
+        self.dw = None
+        self.dw_bound = None
+
+    def setup(self, level: Union[Level, List[int]] = None,
+              start_point: float = None,
+              channel: bool = True,
+              trim_start: bool = False,
+              use_roi: bool = False):
+        no_sort = False
         if level is None:
-            self.microtimes = self._particle.microtimes[:]
+            if not use_roi:
+                self.microtimes = self._particle.microtimes[:]
+            else:
+                self.microtimes = self._particle.mircrotimes_roi
+                self.roi_region_used = self._particle.roi_region
         elif type(level) is list:
             if not self._particle.has_groups:
                 logger.error("Multiple levels provided, but has no groups")
@@ -673,11 +851,11 @@ class Histogram:
                     ind].microtimes)
         else:
             self.microtimes = self.level.microtimes[:]
-
         if self.microtimes.size == 0:
             self.decay = np.empty(1)
             self.t = np.empty(1)
         else:
+            # tmin = self.microtimes.min()
             tmin = min(self._particle.tmin, self.microtimes.min())
             tmax = max(self._particle.tmax, self.microtimes.max())
             if start_point is None:
@@ -697,7 +875,7 @@ class Histogram:
                 tmin = sorted_micro[np.searchsorted(sorted_micro, tmin)]  # Make sure bins align with TCSPC bins
             tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # - 1  # Fix if max is end
 
-            window = tmax-tmin
+            window = tmax - tmin
             numpoints = int(window // self._particle.channelwidth)
 
             t = np.arange(tmin, tmax, self._particle.channelwidth)
@@ -727,26 +905,8 @@ class Histogram:
                 dbg.p(f"Histogram object of {self._particle.name} does not have a valid"
                       f" self.t attribute", "Histogram")
 
-        # print(f"{particle.name}: tmin={tmin}, tmax={tmax}")
-        self.convd = None
-        self.convd_t = None
-        self.fitted = False
-
-        self.fit_decay = None
-        self.convd = None
-        self.convd_t = None
-        self.tau = None
-        self.amp = None
-        self.shift = None
-        self.bg = None
-        self.irfbg = None
-        self.avtau = None
-        self.numexp = None
-        self.residuals = None
-        self.fwhm = None
-        self.chisq = None
-        self.dw = None
-        self.dw_bound = None
+    def update_roi(self):
+        self.setup(level=self.level, use_roi=True, **self.original_kwargs)
 
     @property
     def t(self):
@@ -756,7 +916,7 @@ class Histogram:
     def t(self, value):
         self._t = value
 
-    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, irf, fwhm=None):
+    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, boundaries, addopt, irf, fwhm=None):
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
@@ -766,14 +926,14 @@ class Histogram:
         try:
             if numexp == 1:
                 fit = tcspcfit.OneExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                      tauparam, None, shift, decaybg, irfbg, start, end, addopt, fwhm=fwhm)
+                                      tauparam, None, shift, decaybg, irfbg, boundaries, addopt, fwhm=fwhm)
             elif numexp == 2:
                 fit = tcspcfit.TwoExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                      tauparam, ampparam, shift, decaybg, irfbg, start, end, addopt, fwhm=fwhm)
+                                      tauparam, ampparam, shift, decaybg, irfbg, boundaries, addopt, fwhm=fwhm)
             elif numexp == 3:
                 fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self._particle.channelwidth,
                                         tauparam, ampparam, shift, decaybg,
-                                        irfbg, start, end, addopt, fwhm=fwhm)
+                                        irfbg, boundaries, addopt, fwhm=fwhm)
         except Exception as e:
             trace_string = ''
             for trace_part in traceback.format_tb(e.__traceback__):
@@ -847,12 +1007,13 @@ class ParticleAllHists:
         shift = fit_param.shift[:-1] / channelwidth
         shiftfix = fit_param.shift[-1]
         shift = [*shift, shiftfix]
+        boundaries = [start, end, fit_param.autostart, fit_param.autoend]
 
         for hist in all_hists:
             try:
                 if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
                                 shift, fit_param.decaybg,
-                                fit_param.irfbg, start, end, fit_param.addopt,
+                                fit_param.irfbg, boundaries, fit_param.addopt,
                                 fit_param.irf, fit_param.fwhm):
                     pass  # fit unsuccessful
             except AttributeError:

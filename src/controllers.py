@@ -10,7 +10,7 @@ import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from PyQt5.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QPen, QColor, QPalette, QFont
+from PyQt5.QtGui import QPen, QColor, QPalette, QFont, QBrush
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
 import pickle
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 from my_logger import setup_logger
 from smsh5 import H5dataset, Particle, ParticleAllHists, RasterScan
 from tcspcfit import FittingParameters, FittingDialog
+from trim_traces_dialog import TrimTracesDialog
 from threads import ProcessThread, ProcessTaskResult, WorkerBinAll
 from thread_tasks import OpenFile, BinAll, bin_all
 import matplotlib.pyplot as plt
@@ -33,6 +34,7 @@ EXPORT_MPL_WIDTH = 10
 EXPORT_MPL_HEIGHT = 4.5
 EXPORT_MPL_DPI = 300
 
+SIG_ROI_CHANGE_THRESHOLD = 0.1  # counts/s
 logger = setup_logger(__name__)
 
 
@@ -99,6 +101,7 @@ class IntController(QObject):
 
         self.int_widget = int_widget
         self.int_plot = int_widget.getPlotItem()
+
         self.setup_widget(self.int_widget)
         self.setup_plot(self.int_plot)
 
@@ -144,6 +147,34 @@ class IntController(QObject):
         self.temp_fig = None
         self.temp_ax = None
         self.temp_bins = None
+
+        # Setup and addition of Linear Region Item for ROI
+        pen = QPen()
+        pen.setCosmetic(True)
+        pen.setWidthF(1)
+        pen.setStyle(Qt.DashLine)
+        pen.setColor(QColor('grey'))
+
+        hover_pen = QPen()
+        hover_pen.setCosmetic(True)
+        hover_pen.setWidthF(2)
+        hover_pen.setStyle(Qt.DashLine)
+        hover_pen.setColor(QColor('red'))
+
+        brush_color = QColor('lightgreen')
+        brush_color.setAlpha(20)
+        brush = QBrush()
+        brush.setStyle(Qt.SolidPattern)
+        brush.setColor(brush_color)
+
+        hover_brush_color = QColor('lightgreen')
+        hover_brush_color.setAlpha(80)
+        hover_brush = QBrush()
+        hover_brush.setStyle(Qt.SolidPattern)
+        hover_brush.setColor(hover_brush_color)
+
+        self.int_ROI = pg.LinearRegionItem(brush=brush, hoverBrush=hover_brush, pen=pen, hoverPen=hover_pen)
+        self.int_ROI.sigRegionChangeFinished.connect(self.roi_region_changed)
 
         # Setup axes and limits
         # self.groups_hist_plot.getAxis('bottom').setLabel('Relative Frequency')
@@ -216,6 +247,37 @@ class IntController(QObject):
             else:
                 self.int_hist_container.hide()
                 self.int_hist_line.hide()
+
+    def roi_chb_changed(self):
+        roi_chb = self.mainwindow.chbInt_Show_ROI
+        chb_text = 'Hide ROI'
+        if roi_chb.checkState() == 1:
+            chb_text = 'Show ROI'
+        elif roi_chb.checkState() == 2:
+            chb_text = 'Edit ROI'
+        roi_chb.setText(chb_text)
+        self.plot_all()
+
+    def roi_region_changed(self):
+        if self.mainwindow.chbInt_Show_ROI.checkState() == 2:
+            cur_part = self.mainwindow.current_particle
+            cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+            if cur_part is not None and cur_tab_name == 'tabIntensity':
+                new_region = self.int_ROI.getRegion()
+                old_region = cur_part.roi_region[0:2]
+                significant_start_change = np.abs(new_region[0] - old_region[0]) > SIG_ROI_CHANGE_THRESHOLD
+                significant_end_change = np.abs(new_region[1] - old_region[1]) > SIG_ROI_CHANGE_THRESHOLD
+                if significant_start_change or significant_end_change:
+                    cur_part.roi_region = self.int_ROI.getRegion()
+                    self.mainwindow.lifetime_controller.test_need_roi_apply(particle=cur_part,
+                                                                            update_buttons=False)
+                    if cur_part.level_selected is not None:
+                        if cur_part.first_level_ind_in_roi < cur_part.level_selected > cur_part.last_level_ind_in_roi:
+                            cur_part.level_selected = None
+                self.plot_all()
+                    # self.plot_hist()
+                if self.mainwindow.chbInt_Show_Level_Info.isChecked():
+                    self.update_level_info()
 
     def hist_chb_changed(self):
 
@@ -324,48 +386,48 @@ class IntController(QObject):
         self.plot_trace()
         logger.info('Binnig all levels complete')
 
-    def ask_end_time(self):
-        """ Prompts the user to supply an end time."""
-
-        end_time_s, ok = QInputDialog.getDouble(self.mainwindow, 'End Time',
-                                                'Provide end time in seconds', 0, 1, 10000, 3)
-        return end_time_s, ok
-
-    def time_resolve_current(self):
-        """ Resolves the levels of the current particle to an end time asked of the user."""
-
-        end_time_s, ok = self.ask_end_time()
-        if ok:
-            self.gui_resolve(end_time_s=end_time_s)
-
-    def time_resolve_selected(self):
-        """ Resolves the levels of the selected particles to an end time asked of the user."""
-
-        end_time_s, ok = self.ask_end_time()
-        if ok:
-            self.gui_resolve_selected(end_time_s=end_time_s)
-
-    def time_resolve_all(self):
-        """ Resolves the levels of all the particles to an end time asked of the user."""
-
-        end_time_s, ok = self.ask_end_time()
-        if ok:
-            self.gui_resolve_all(end_time_s=end_time_s)
-
-    def gui_resolve(self, end_time_s=None):
+    # def ask_end_time(self):
+    #     """ Prompts the user to supply an end time."""
+    #
+    #     end_time_s, ok = QInputDialog.getDouble(self.mainwindow, 'End Time',
+    #                                             'Provide end time in seconds', 0, 1, 10000, 3)
+    #     return end_time_s, ok
+    #
+    # def time_resolve_current(self):
+    #     """ Resolves the levels of the current particle to an end time asked of the user."""
+    #
+    #     end_time_s, ok = self.ask_end_time()
+    #     if ok:
+    #         self.gui_resolve(end_time_s=end_time_s)
+    #
+    # def time_resolve_selected(self):
+    #     """ Resolves the levels of the selected particles to an end time asked of the user."""
+    #
+    #     end_time_s, ok = self.ask_end_time()
+    #     if ok:
+    #         self.gui_resolve_selected(end_time_s=end_time_s)
+    #
+    # def time_resolve_all(self):
+    #     """ Resolves the levels of all the particles to an end time asked of the user."""
+    #
+    #     end_time_s, ok = self.ask_end_time()
+    #     if ok:
+    #         self.gui_resolve_all(end_time_s=end_time_s)
+    #
+    def gui_resolve(self):  #, end_time_s=None):
         """ Resolves the levels of the current particle and displays it. """
 
-        self.start_resolve_thread(mode='current', end_time_s=end_time_s)
+        self.start_resolve_thread(mode='current')  #, end_time_s=end_time_s)
 
-    def gui_resolve_selected(self, end_time_s=None):
+    def gui_resolve_selected(self):  #, end_time_s=None):
         """ Resolves the levels of the selected particles and displays the levels of the current particle. """
 
-        self.start_resolve_thread(mode='selected', end_time_s=end_time_s)
+        self.start_resolve_thread(mode='selected')  #, end_time_s=end_time_s)
 
-    def gui_resolve_all(self, end_time_s=None):
+    def gui_resolve_all(self):  #, end_time_s=None):
         """ Resolves the levels of the all the particles and then displays the levels of the current particle. """
 
-        self.start_resolve_thread(mode='all', end_time_s=end_time_s)
+        self.start_resolve_thread(mode='all')  #, end_time_s=end_time_s)
 
     def plot_trace(self, particle: Particle = None,
                    for_export: bool = False,
@@ -392,6 +454,12 @@ class IntController(QObject):
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
+            roi_chb_value = self.mainwindow.chbInt_Show_ROI.checkState()
+            roi_state = 'none'
+            if roi_chb_value == 1:
+                roi_state = 'show'
+            elif roi_chb_value == 2:
+                roi_state = 'edit'
             if for_export:
                 cur_tab_name = 'tabIntensity'
             else:
@@ -416,9 +484,24 @@ class IntController(QObject):
                     plot_pen.setJoinStyle(Qt.RoundJoin)
 
                     plot_item.clear()
+                    if roi_state != 'none':
+                        if roi_state == 'edit' and cur_tab_name == 'tabIntensity':
+                            self.int_ROI.setMovable(True)
+                            self.int_ROI.setBounds((0, times[-1]))
+                        else:
+                            self.int_ROI.setMovable(False)
+
+                        new_region = self.int_ROI.getRegion()
+                        old_region = particle.roi_region[0:2]
+                        significant_start_change = np.abs(new_region[0] - old_region[0]) > SIG_ROI_CHANGE_THRESHOLD
+                        significant_end_change = np.abs(new_region[1] - old_region[1]) > SIG_ROI_CHANGE_THRESHOLD
+                        if significant_start_change or significant_end_change:
+                            self.int_ROI.setRegion(particle.roi_region)
+                        plot_item.addItem(self.int_ROI)
                     plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
                     plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                     plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
+
                 else:
                     if self.temp_fig is None:
                         self.temp_fig = plt.figure()
@@ -460,7 +543,8 @@ class IntController(QObject):
         if not particle.has_levels:
             return
         try:
-            level_ints, times = particle.levels2data()
+            use_roi = self.mainwindow.chbInt_Show_ROI.isChecked()
+            level_ints, times = particle.levels2data(use_roi=use_roi)
             level_ints = level_ints * self.get_bin() / 1E3
         except AttributeError:
             logger.error('No levels!')
@@ -532,6 +616,16 @@ class IntController(QObject):
         except AttributeError:
             logger.error('No trace!')
         else:
+            if self.mainwindow.chbInt_Show_ROI.isChecked():
+                roi_start = particle.roi_region[0]
+                roi_end = particle.roi_region[1]
+                time_ind_start = np.argmax(roi_start < particle.binnedtrace.inttimes/1E3)
+                end_test = roi_end <= particle.binnedtrace.inttimes/1E3
+                if any(end_test):
+                    time_ind_end = np.argmax(end_test)
+                else:
+                    time_ind_end = len(int_data)
+                int_data = int_data[time_ind_start:time_ind_end+1]
             plot_pen = QPen()
             plot_pen.setColor(QColor(0, 0, 0, 0))
 
@@ -573,10 +667,13 @@ class IntController(QObject):
                 hist_ax.set_ylim(self.temp_ax['int_ax'].get_ylim())
 
             if particle.has_levels:
-                level_ints = particle.level_ints
+                if not self.mainwindow.chbInt_Show_ROI.isChecked():
+                    level_ints = particle.level_ints
+                    dwell_times = [level.dwell_time_s for level in particle.levels]
+                else:
+                    level_ints = particle.level_ints_roi
+                    dwell_times = particle.level_dwelltimes_roi
                 level_ints *= particle.bin_size / 1000
-                dwell_times = [level.dwell_time_s for level in
-                               particle.levels]
                 if not for_export:
                     level_freq, level_hist_bins = np.histogram(np.negative(level_ints),
                                                                bins=bin_edges,
@@ -653,6 +750,17 @@ class IntController(QObject):
                     info = info + f"\n# of Groups = {particle.num_groups}"
                 if particle.has_levels:
                     info = info + f"\nHas Photon Bursts = {particle.has_burst}"
+
+                if self.mainwindow.chbInt_Show_ROI.isChecked:
+                    info += f"\n\nWhole Trace (ROI)\n{'*' * len('Whole Trace (ROI)')}"
+                    info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time_roi: .3g}"
+                    info = info + f"\n# of Photons = {particle.num_photons_roi}"
+                    if particle.has_levels:
+                        info = info + f"\n# of Levels = {particle.num_levels_roi}"
+                    if particle.has_groups:
+                        info = info + f"\n# of Groups = {particle.num_groups}"
+                    if particle.has_levels:
+                        info = info + f"\nHas Photon Bursts = {particle.has_burst}"
             elif particle.has_levels:
                 is_group_level = False
                 if particle.level_selected <= particle.num_levels - 1:
@@ -842,7 +950,7 @@ class IntController(QObject):
                 result.new_task_obj._particle = target_particle
                 result.new_task_obj._cpa._particle = target_particle
                 target_particle.cpts = result.new_task_obj
-                target_particle
+                # target_particle
             self.results_gathered = True
         except ValueError as e:
             logger.error(e)
@@ -862,7 +970,7 @@ class IntController(QObject):
         self.mainwindow.current_dataset.has_levels = True
         if self.mainwindow.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.mainwindow.display_data()
-        self.mainwindow.check_remove_bursts(mode=self.resolve_mode)
+        self.mainwindow.remove_bursts(mode=self.resolve_mode)
         # self.mainwindow.chbEx_Levels.setEnabled(True)
         # self.mainwindow.rdbWith_Levels.setEnabled(True)
         self.mainwindow.set_startpoint()
@@ -877,6 +985,48 @@ class IntController(QObject):
 
         return [self.mainwindow.cmbConfIndex.currentIndex(),
                 self.confidence_index[self.mainwindow.cmbConfIndex.currentIndex()]]
+
+    def gui_trim_traces(self, mode: str):
+        dialog = TrimTracesDialog(mainwindow=self)
+        dialog.exec()
+        if dialog.should_trim_traces:
+            if dialog.rdbCurrent.isChecked():
+                particles = [self.mainwindow.current_particle]
+            elif dialog.rdbSelected.isChecked():
+                particles = self.mainwindow.get_checked_particles()
+            elif dialog.rdbAll.isChecked():
+                particles = self.mainwindow.current_dataset.particles
+
+            for particle in particles:
+                if dialog.rdbManual.isChecked():
+                    trimmed = particle.trim_trace(min_level_int=dialog.spbManual_Min_Int.value(),
+                                                  min_level_dwell_time=dialog.dsbManual_Min_Time.value(),
+                                                  reset_roi=dialog.chbReset_ROI.isChecked())
+                    if trimmed is False and dialog.chbUncheck_If_Not_Valid.isChecked():
+                        self.mainwindow.set_particle_check_state(particle.dataset_ind, False)
+            self.mainwindow.lifetime_controller.test_need_roi_apply()
+            self.plot_all()
+
+    def gui_reset_roi_current(self):
+        self.reset_roi(mode='current')
+
+    def gui_reset_roi_selected(self):
+        self.reset_roi(mode='selected')
+
+    def gui_reset_roi_all(self):
+        self.reset_roi(mode='all')
+
+    def reset_roi(self, mode=str):
+        if mode == 'current':
+            particles = [self.mainwindow.current_particle]
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        elif mode == 'all':
+            particles = self.mainwindow.current_dataset.particles
+
+        for particle in particles:
+            particle.roi_region = (0, particle.abstimes[-1])
+        self.plot_all()
 
     def any_int_plot_double_click(self, event: MouseClickEvent):
         if event.double():
@@ -936,6 +1086,7 @@ class LifetimeController(QObject):
                  lifetime_hist_widget: pg.PlotWidget,
                  residual_widget: pg.PlotWidget):
         super().__init__()
+        self.all_should_apply = None
         self.mainwindow = mainwindow
 
         self.lifetime_hist_widget = lifetime_hist_widget
@@ -946,6 +1097,8 @@ class LifetimeController(QObject):
         self.residual_plot = residual_widget.getPlotItem()
         self.setup_widget(self.residual_widget)
         self.residual_widget.hide()
+
+        self.residual_plot.vb.setXLink(self.life_hist_plot.vb)
 
         self.setup_plot(self.life_hist_plot)
         self.setup_plot(self.residual_plot, is_residuals=True)
@@ -977,8 +1130,8 @@ class LifetimeController(QObject):
             plot.getAxis('bottom').setLabel('Decay time', 'ns')
             plot.getViewBox().setLimits(xMin=0, yMin=0)
         else:
-            plot.getAxis('left').setLabel('Weighted residual')
-            plot.getAxis('bottom').setLabel('Time (ns)')
+            plot.getAxis('left').setLabel('Weighted residual', 'au')
+            plot.getAxis('bottom').setLabel('Time', 'ns')
             plot.getViewBox().setLimits(xMin=0)
 
     @staticmethod
@@ -1120,15 +1273,17 @@ class LifetimeController(QObject):
                 start = int(f_p.start / channelwidth)
             else:
                 start = None
+            print(f_p.autoend, f_p.end)
             if f_p.autoend:
                 end = None
             elif f_p.end is not None:
                 end = int(f_p.end / channelwidth)
             else:
                 end = None
+            boundaries = [start, end, f_p.autostart, f_p.autoend]
             if not histogram.fit(f_p.numexp, f_p.tau, f_p.amp,
                                  shift, f_p.decaybg, f_p.irfbg,
-                                 start, end, f_p.addopt,
+                                 boundaries, f_p.addopt,
                                  f_p.irf, f_p.fwhm):
                 return  # fit unsuccessful
             else:
@@ -1153,6 +1308,68 @@ class LifetimeController(QObject):
         """ Fits the all the levels decay curves for the current particle. """
 
         self.start_fitting_thread()
+
+    def gui_use_roi_changed(self):
+        use_roi = self.mainwindow.chbLifetime_Use_ROI.isChecked()
+        for particle in self.mainwindow.current_dataset.particles:
+            particle.use_roi_for_histogram = use_roi
+        if use_roi:
+            self.test_need_roi_apply()
+        else:
+            self.update_apply_roi_button_colors()
+        self.plot_all()
+
+    def test_need_roi_apply(self, particle: Particle = None, update_buttons: bool = True):
+        if self.all_should_apply is None:
+            self.all_should_apply = np.empty(self.mainwindow.current_dataset.num_parts)
+            particle = None
+
+        if particle is not None:
+            particles_to_check = [particle]
+        else:
+            particles_to_check = self.mainwindow.current_dataset.particles
+        for part in particles_to_check:
+            part_ind = part.dataset_ind
+            region_same = part.roi_region[0:2] == part._histogram_roi.roi_region_used[0:2]
+            self.all_should_apply[part_ind] = not region_same
+
+        if update_buttons:
+            self.update_apply_roi_button_colors()
+
+    def update_apply_roi_button_colors(self):
+        use_roi_checked = self.mainwindow.chbLifetime_Use_ROI.isChecked()
+        color_current = "None"
+        color_selected = "None"
+        color_all = "None"
+        if use_roi_checked and self.all_should_apply is not None:
+            if self.all_should_apply[self.mainwindow.current_particle.dataset_ind]:
+                color_current = "red"
+            if any(self.all_should_apply[[part.dataset_ind for part in self.mainwindow.get_checked_particles()]]):
+                color_selected = "red"
+            if any(self.all_should_apply):
+                color_all = "red"
+        self.mainwindow.btnLifetime_Apply_ROI.setStyleSheet(f"background-color: {color_current}")
+        self.mainwindow.btnLifetime_Apply_ROI_Selected.setStyleSheet(f"background-color: {color_selected}")
+        self.mainwindow.btnLifetime_Apply_ROI_All.setStyleSheet(f"background-color: {color_all}")
+
+    def apply_roi(self, particles: list):
+        for part in particles:
+            if self.all_should_apply[part.dataset_ind]:
+                if self.mainwindow.chbLifetime_Use_ROI.isChecked() and not part.use_roi_for_histogram:
+                    part.use_roi_for_histogram = True
+                part._histogram_roi.update_roi()
+                self.all_should_apply[part.dataset_ind] = False
+        self.test_need_roi_apply()
+        self.plot_all()
+
+    def gui_apply_roi_current(self):
+        self.apply_roi(particles=[self.mainwindow.current_particle])
+
+    def gui_apply_roi_selected(self):
+        self.apply_roi(particles=self.mainwindow.get_checked_particles())
+
+    def gui_apply_roi_all(self):
+        self.apply_roi(particles=self.mainwindow.current_dataset.particles)
 
     def plot_all(self):
         self.mainwindow.display_data()
@@ -1193,12 +1410,14 @@ class LifetimeController(QObject):
         tau = histogram.tau
         amp = histogram.amp
         avtau = np.dot(histogram.amp, histogram.tau)
-        try:
+        if type(tau) is np.ndarray:
             info = info + 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
             info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
-        except TypeError:  # only one component
+        else:  # only one component
             info = info + 'Tau = {:#.3g} ns'.format(tau)
             info = info + '\nAmp = {:#.3g}'.format(amp)
+        if type(avtau) is list or type(avtau) is np.ndarray:
+            avtau = avtau[0]
         info = info + '\nAverage Tau = {:#.3g}'.format(avtau)
 
         info = info + f'\n\nShift = {histogram.shift: .3g} ns'
@@ -1329,11 +1548,13 @@ class LifetimeController(QObject):
         if particle is None:
             particle = self.mainwindow.current_particle
 
+        min_t = 0
         group_ind = None
         if select_ind is None:
             if particle.histogram.fitted:
                 decay = particle.histogram.fit_decay
                 t = particle.histogram.convd_t
+                min_t = particle.histogram.convd_t[0]
             else:
                 try:
                     decay = particle.histogram.decay
@@ -1342,13 +1563,14 @@ class LifetimeController(QObject):
                     logger.error('No Decay!')
                     return
         elif select_ind < particle.num_levels:
-            if particle.cpts.levels[select_ind].histogram.fitted:
+            if particle.levels[select_ind].histogram.fitted:
                 decay = particle.levels[select_ind].histogram.fit_decay
-                t = particle.cpts.levels[select_ind].histogram.convd_t
+                t = particle.levels[select_ind].histogram.convd_t
+                min_t = t[0]
             else:
                 try:
-                    decay = particle.cpts.levels[select_ind].histogram.decay
-                    t = particle.cpts.levels[select_ind].histogram.t
+                    decay = particle.levels[select_ind].histogram.decay
+                    t = particle.levels[select_ind].histogram.t
                 except ValueError:
                     return
         else:
@@ -1356,6 +1578,7 @@ class LifetimeController(QObject):
             if particle.groups[group_ind].histogram.fitted:
                 decay = particle.groups[group_ind].histogram.fit_decay
                 t = particle.groups[group_ind].histogram.convd_t
+                min_t = t[0]
             else:
                 try:
                     decay = particle.groups[group_ind].histogram.decay
@@ -1382,6 +1605,11 @@ class LifetimeController(QObject):
             unit = f'ns with {particle.channelwidth: .3g} ns bins'
             max_t = particle.histogram.t[-1]
 
+            if len(t) != len(decay):
+                shortest = min([len(t), len(decay)])
+                t = t[:shortest]
+                decay = decay[:shortest]
+
             if not for_export:
                 life_hist_plot = self.life_hist_plot
                 life_hist_plot.clear()
@@ -1390,18 +1618,11 @@ class LifetimeController(QObject):
                 plot_pen.setJoinStyle(Qt.RoundJoin)
                 plot_pen.setColor(QColor('blue'))
                 plot_pen.setCosmetic(True)
-                try:
-                    life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
-                except Exception as e:
-                    logger.error(e)
-                    shortest = min([len(t), len(decay)])
-                    t = t[:shortest]
-                    decay = decay[:shortest]
-                    life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
+                life_hist_plot.plot(x=t, y=decay, pen=plot_pen, symbol=None)
 
                 life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
-                life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=max_t)
-                life_hist_plot.getViewBox().setRange(xRange=[0, max_t])
+                life_hist_plot.getViewBox().setLimits(xMin=min_t, yMin=0, xMax=max_t)
+                life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t])
                 self.fitparamdialog.updateplot()
             else:
                 if self.temp_fig is None:
@@ -1424,17 +1645,12 @@ class LifetimeController(QObject):
 
                 decay_ax.spines['top'].set_visible(False)
                 decay_ax.spines['right'].set_visible(False)
-                try:
-                    decay_ax.semilogy(t, decay)
-                except Exception as e:
-                    shortest = min([len(t), len(decay)])
-                    t = t[:shortest]
-                    decay = decay[:shortest]
-                    decay_ax.semilogy(t, decay)
+                decay_ax.semilogy(t, decay)
 
                 min_pos_decay = decay[np.where(decay > 0, decay, np.inf).argmin()]
+                min_pos_decay = max([min_pos_decay, 1E-5])  # Min minimum positive decay set to be 1E-5
                 max_decay = max(decay)
-                if min_pos_decay == max(decay):
+                if min_pos_decay >= max(decay):
                     max_decay = min_pos_decay * 2
                 decay_ax.set(xlabel=f'decay time ({unit})',
                              ylabel='counts',
@@ -1456,7 +1672,7 @@ class LifetimeController(QObject):
                 self.temp_fig.suptitle(title_str)
                 full_path = os.path.join(export_path, particle.name + type_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
-                sleep(1)
+                # sleep(1)
                 # export_plot_item(plot_item=life_hist_plot, path=full_path)
         if lock:
             self.mainwindow.lock.release()
@@ -1519,8 +1735,8 @@ class LifetimeController(QObject):
                 self.life_hist_plot.plot(x=t, y=convd, pen=plot_pen, symbol=None)
                 unit = f'ns with {particle.channelwidth: .3g} ns bins'
                 self.life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
-                self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
-                self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+                # self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
+                # self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
             else:
                 decay_ax = self.temp_ax['decay_ax']
                 decay_ax.semilogy(t, convd)
@@ -1556,7 +1772,7 @@ class LifetimeController(QObject):
                 else:
                     export_dpi = EXPORT_MPL_DPI
                 self.temp_fig.savefig(full_path, dpi=export_dpi)
-                sleep(1)
+                # sleep(1)
 
                 # export_plot_item(plot_item=plot_item, path=full_path, text=text_str)
         if lock:
@@ -1617,7 +1833,7 @@ class LifetimeController(QObject):
                 self.residual_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
                 self.residual_plot.getViewBox().setYRange(min=residuals.min(),
                                                           max=residuals.max(), padding=0)
-                self.residual_plot.getViewBox().setLimits(xMin=0, xMax=t[-1])
+                self.residual_plot.getViewBox().setLimits(xMin=t[0], xMax=t[-1])
             else:
                 residual_ax = self.temp_ax['residual_ax']
                 residual_ax.scatter(t, residuals, s=1)
@@ -1647,7 +1863,7 @@ class LifetimeController(QObject):
                 full_path = os.path.join(export_path, particle.name + type_str)
                 self.temp_fig.suptitle(title_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
-                sleep(1)
+                # sleep(1)
         if lock:
             self.mainwindow.lock.release()
 
@@ -1711,7 +1927,7 @@ class LifetimeController(QObject):
         f_process_thread.signals.step_progress.connect(mw.update_progress)
         f_process_thread.signals.end_progress.connect(mw.end_progress)
         f_process_thread.signals.error.connect(self.error)
-        f_process_thread.signals.results.connect(self.gather_replace_results)  # Todo
+        f_process_thread.signals.results.connect(self.gather_replace_results)
         f_process_thread.signals.finished.connect(self.fitting_thread_complete)
         f_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
         f_process_thread.status_message = status_message
@@ -1737,7 +1953,10 @@ class LifetimeController(QObject):
                 result.new_task_obj.part_hist._particle = target_particle
                 result.new_task_obj.part_hist.microtimes = target_microtimes
 
-                target_particle.histogram = result.new_task_obj.part_hist
+                if not result.new_task_obj.part_hist.is_for_roi:
+                    target_particle._histogram = result.new_task_obj.part_hist
+                else:
+                    target_particle._histogram_roi = result.new_task_obj.part_hist
                 any_successful_fit = [result.new_task_obj.part_hist.fitted]
 
                 if result.new_task_obj.has_level_hists:
@@ -1911,6 +2130,9 @@ class GroupingController(QObject):
                 self.all_bic_plots = [None] * num_parts
                 self.all_last_solutions = [None] * num_parts
 
+            if particle.ahca.plots_need_to_be_updated:
+                self.all_bic_plots[particle.dataset_ind] = None
+                self.all_last_solutions[particle.dataset_ind] = None
             scat_plot_item = self.all_bic_plots[particle.dataset_ind]
             if scat_plot_item is None:
                 spot_other_pen = pg.mkPen(width=1, color='k')
@@ -2097,6 +2319,7 @@ class GroupingController(QObject):
         if type(results) is not list:
             results = [results]
         result_part_uuids = [result.new_task_obj.uuid for result in results]
+        particles_updated = []
         try:
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
@@ -2125,6 +2348,9 @@ class GroupingController(QObject):
                     # new_part.using_group_levels = True
                     # new_part.makelevelhists()
                     # new_part.using_group_levels = False
+                particles_updated.append(new_part)
+            if self.mainwindow.chbGroup_Auto_Apply.isChecked():
+                self.apply_groups(particles=particles)
 
             # self.results_gathered = True
         except ValueError as e:
@@ -2143,15 +2369,57 @@ class GroupingController(QObject):
             self.mainwindow.display_data()
         self.mainwindow.status_message("Done")
         self.mainwindow.reset_gui()
+        self.check_rois_and_set_label()
         logger.info('Grouping levels complete')
 
-    def apply_groups(self, mode: str = 'current'):
-        if mode == 'current':
-            particles = [self.mainwindow.current_particle]
-        elif mode == 'selected':
-            particles = self.mainwindow.get_checked_particles()
+    def check_rois_and_set_label(self):
+        export_group_roi_label = ''
+        label_color = 'black'
+        all_has_groups = np.array([p.has_groups for p in self.mainwindow.current_dataset.particles])
+        if any(all_has_groups):
+            all_grouped_with_roi = np.array([p.grouped_with_roi for p in self.mainwindow.current_dataset.particles])
+            all_grouped_and_with_roi = all_grouped_with_roi[all_has_groups]
+            if all(all_grouped_and_with_roi):
+                export_group_roi_label = 'All have ROI\n'
+            elif any(all_grouped_and_with_roi):
+                export_group_roi_label = 'Some have ROI\n'
+                label_color = 'red'
+
+            checked_particles = self.mainwindow.get_checked_particles()
+            if len(checked_particles) > 0:
+                all_checked_has_groups = np.array([p.has_groups for p in checked_particles])
+                all_checked_grouped_with_roi = np.array([p.grouped_with_roi for p in checked_particles])
+                all_checked_grouped_and_with_roi = all_checked_grouped_with_roi[all_checked_has_groups]
+                if all(all_checked_grouped_and_with_roi):
+                    export_group_roi_label += 'All selected have ROI\n'
+                elif any(all_checked_grouped_and_with_roi):
+                    export_group_roi_label += 'Some selected have ROI\n'
+                else:
+                    export_group_roi_label += 'None selected have ROI\n'
+
+            if self.mainwindow.current_particle.has_groups:
+                if self.mainwindow.current_particle.grouped_with_roi:
+                    export_group_roi_label += 'Current has ROI'
+                else:
+                    export_group_roi_label += 'Current doesn\'t have ROI'
+
+        if export_group_roi_label == '':
+            self.mainwindow.lblGrouping_ROI.setVisible(False)
         else:
-            particles = self.mainwindow.current_dataset.particles
+            if export_group_roi_label[-1] == '\n':
+                export_group_roi_label = export_group_roi_label[:-1]
+            self.mainwindow.lblGrouping_ROI.setVisible(True)
+            self.mainwindow.lblGrouping_ROI.setText(export_group_roi_label)
+            self.mainwindow.lblGrouping_ROI.setStyleSheet(f"color: {label_color}")
+
+    def apply_groups(self, mode: str = 'current', particles = None):
+        if particles is None:
+            if mode == 'current':
+                particles = [self.mainwindow.current_particle]
+            elif mode == 'selected':
+                particles = self.mainwindow.get_checked_particles()
+            else:
+                particles = self.mainwindow.current_dataset.particles
 
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:
@@ -2214,7 +2482,7 @@ class SpectraController(QObject):
         # self.spectra_plot.setContentsMargins(5, 5, 5, 5)
 
     def gui_sub_bkg(self):
-        """ Used to subtract the background TODO: Explain the sub_background """
+        """ Used to subtract the background """
 
         print("gui_sub_bkg")
 
@@ -2495,259 +2763,3 @@ class RasterScanController(QObject):
 
         if lock:
             self.main_window.lock.release()
-
-# def resolve_levels(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-#                    status_sig: pyqtSignal,
-#                    reset_gui_sig: pyqtSignal,
-#                    level_resolved_sig: pyqtSignal,
-#                    conf: Union[int, float], data: H5dataset,
-#                    currentparticle: Particle,
-#                    mode: str,
-#                    resolve_selected=None,
-#                    end_time_s=None) -> None:
-#     """
-#     TODO: edit the docstring
-#     Resolves the levels in particles by finding the change points in the
-#     abstimes data of a Particle instance.
-#
-#     Parameters
-#     ----------
-#     end_time_s
-#     currentparticle : Particle
-#     conf
-#     level_resolved_sig
-#     reset_gui_sig
-#     data : H5dataset
-#     start_progress_sig : pyqtSignal
-#         Used to call method to set up progress bar on G
-#     progress_sig : pyqtSignal
-#         Used to call method to increment progress bar on G
-#     status_sig : pyqtSignal
-#         Used to call method to show status bar message on G
-#     mode : {'current', 'selected', 'all'}
-#         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-#     resolve_selected : list[smsh5.Partilce]
-#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-#     """
-#
-#     # print(mode)
-#     assert mode in ['current', 'selected', 'all'], \
-#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-#
-#     if mode == 'current':  # Then resolve current
-#         currentparticle.cpts.run_cpa(confidence=conf / 100, run_levels=True, end_time_s=end_time_s)
-#
-#     else:
-#         if mode == 'all':  # Then resolve all
-#             status_text = 'Resolving All Particle Levels...'
-#             parts = data.particles
-#
-#         elif mode == 'selected':  # Then resolve selected
-#             assert resolve_selected is not None, \
-#                 'No selected particles provided.'
-#             status_text = 'Resolving Selected Particle Levels...'
-#             parts = resolve_selected
-#
-#         try:
-#             status_sig.emit(status_text)
-#             start_progress_sig.emit(len(parts))
-#             for num, part in enumerate(parts):
-#                 logger.info(f'Busy Resolving Particle {num + 1}')
-#                 part.cpts.run_cpa(confidence=conf, run_levels=True, end_time_s=end_time_s)
-#                 progress_sig.emit()
-#             status_sig.emit('Done')
-#         except Exception as exc:
-#             raise RuntimeError("Couldn't resolve levels.") from exc
-#
-#     level_resolved_sig.emit()
-#     data.makehistograms(progress=False)
-#     reset_gui_sig.emit()
-
-
-# def group_levels(start_progress_sig: pyqtSignal,
-#                  progress_sig: pyqtSignal,
-#                  status_sig: pyqtSignal,
-#                  reset_gui_sig: pyqtSignal,
-#                  data: H5dataset,
-#                  mode: str,
-#                  currentparticle: Particle = None,
-#                  group_selected=None) -> None:
-#     """
-#     TODO: edit the docstring
-#     Resolves the levels in particles by finding the change points in the
-#     abstimes data of a Particle instance.
-#
-#     Parameters
-#     ----------
-#     currentparticle : Particle
-#     conf
-#     level_resolved_sig
-#     reset_gui_sig
-#     data : H5dataset
-#     start_progress_sig : pyqtSignal
-#         Used to call method to set up progress bar on G
-#     progress_sig : pyqtSignal
-#         Used to call method to increment progress bar on G
-#     status_sig : pyqtSignal
-#         Used to call method to show status bar message on G
-#     mode : {'current', 'selected', 'all'}
-#         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-#     resolve_selected : list[smsh5.Partilce]
-#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-#     """
-#
-#     # print(mode)
-#     assert mode in ['current', 'selected', 'all'], \
-#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-#
-#     if mode == 'current':
-#         status_text = 'Grouping Current Particle Levels...'
-#         parts = [currentparticle]
-#     elif mode == 'all':  # Then resolve all
-#         status_text = 'Grouping All Particle Levels...'
-#         parts = data.particles
-#
-#     elif mode == 'selected':  # Then resolve selected
-#         assert group_selected is not None, \
-#             'No selected particles provided.'
-#         status_text = 'Grouping Selected Particle Levels...'
-#         parts = group_selected
-#
-#     try:
-#         status_sig.emit(status_text)
-#         start_progress_sig.emit(len(parts))
-#         for num, part in enumerate(parts):
-#             logger.info(f'Busy Grouping Particle {num + 1}')
-#             part.ahca.run_grouping()
-#             progress_sig.emit()
-#         status_sig.emit('Done')
-#     except Exception as exc:
-#         raise RuntimeError("Couldn't group levels.") from exc
-
-# grou.emit()
-# data.makehistograms(progress=False)
-# reset_gui_sig.emit()
-
-
-# def fit_lifetimes(start_progress_sig: pyqtSignal, progress_sig: pyqtSignal,
-#                   status_sig: pyqtSignal, reset_gui_sig: pyqtSignal,
-#                   data, particles, fitparam, mode: str,
-#                   resolve_selected=None) -> None:  # parallel: bool = False
-#     """
-#     TODO: edit the docstring
-#     Resolves the levels in particles by finding the change points in the
-#     abstimes data of a Particle instance.
-#
-#     Parameters
-#     ----------
-#     start_progress_sig : pyqtSignal
-#         Used to call method to set up progress bar on G
-#     progress_sig : pyqtSignal
-#         Used to call method to increment progress bar on G
-#     status_sig : pyqtSignal
-#         Used to call method to show status bar message on G
-#     mode : {'current', 'selected', 'all'}
-#         Determines the mode that the levels need to be resolved on. Options are 'current', 'selected' or 'all'
-#     resolve_selected : list[smsh5.Partilce]
-#         A list of Particle instances in smsh5, that isn't the current one, to be resolved.
-#     """
-#
-#     print(mode)
-#     assert mode in ['current', 'selected', 'all'], \
-#         "'resolve_all' and 'resolve_selected' can not both be given as parameters."
-#
-#     channelwidth = particles.channelwidth
-#     if fitparam.start is None:
-#         start = None
-#     else:
-#         start = int(fitparam.start / channelwidth)
-#     if fitparam.end is None:
-#         end = None
-#     else:
-#         end = int(fitparam.end / channelwidth)
-#
-#     if mode == 'current':  # Fit all levels in current particle
-#         status_sig.emit('Fitting Levels for Selected Particles...')
-#         start_progress_sig.emit(len(particles.levels))
-#
-#         for level in particles.levels:
-#             try:
-#                 if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-#                                            fitparam.shift / channelwidth, fitparam.decaybg,
-#                                            fitparam.irfbg,
-#                                            start, end, fitparam.addopt,
-#                                            fitparam.irf, fitparam.shiftfix):
-#                     pass  # fit unsuccessful
-#                 progress_sig.emit()
-#             except AttributeError:
-#                 print("No decay")
-#         particles.numexp = fitparam.numexp
-#         status_sig.emit("Ready...")
-#
-#     elif mode == 'all':  # Fit all levels in all particles
-#         status_sig.emit('Fitting All Particle Levels...')
-#         start_progress_sig.emit(data.num_parts)
-#
-#         for particle in data.particles:
-#             fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
-#         status_sig.emit("Ready...")
-#
-#     elif mode == 'selected':  # Fit all levels in selected particles
-#         assert resolve_selected is not None, \
-#             'No selected particles provided.'
-#         status_sig.emit('Resolving Selected Particle Levels...')
-#         start_progress_sig.emit(len(resolve_selected))
-#         for particle in resolve_selected:
-#             fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start)
-#         status_sig.emit('Ready...')
-#
-#     reset_gui_sig.emit()
-
-
-# def fit_part_and_levels(channelwidth, end, fitparam, particle, progress_sig, start):
-#     if not particle.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-#                                   fitparam.shift / channelwidth, fitparam.decaybg,
-#                                   fitparam.irfbg,
-#                                   start, end, fitparam.addopt,
-#                                   fitparam.irf, fitparam.shiftfix):
-#         pass  # fit unsuccessful
-#     particle.numexp = fitparam.numexp
-#     progress_sig.emit()
-#     if not particle.has_levels:
-#         return
-#     for level in particle.levels:
-#         try:
-#             if not level.histogram.fit(fitparam.numexp, fitparam.tau, fitparam.amp,
-#                                        fitparam.shift / channelwidth, fitparam.decaybg,
-#                                        fitparam.irfbg,
-#                                        start, end, fitparam.addopt,
-#                                        fitparam.irf, fitparam.shiftfix):
-#                 pass  # fit unsuccessful
-#         except AttributeError:
-#             print("No decay")
-
-
-# def get_plot(ui_pg_layout_widget: pg.GraphicsLayoutWidget) -> pg.PlotItem:
-#     return ui_pg_layout_widget.addPlot()
-
-
-# def setup_plot(plot: pg.PlotItem):
-#     # plot.setBackground(background=None)
-#     # plot_item = plot.getPlotItem()
-#
-#     axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
-#     plot.getAxis('left').setPen(axis_line_pen)
-#     plot.getAxis('bottom').setPen(axis_line_pen)
-#     # Set axis label bold and size
-#     font = plot.getAxis('left').label.font()
-#     font.setBold(True)
-#     # if plot == self.pgLifetime_Int:
-#     #     font.setPointSize(8)
-#     # elif plot == self.pgGroups_Int or plot == self.pgGroups_Hist:
-#     #     font.setPointSize(10)
-#     # else:
-#     #     font.setPointSize(12)
-#     plot.getAxis('left').label.setFont(font)
-#     plot.getAxis('bottom').label.setFont(font)
-#
-#     # plot.setAntialiasing(True)

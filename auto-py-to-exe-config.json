@@ -7,7 +7,7 @@
   },
   {
    "optionDest": "filenames",
-   "value": "C:/Google Drive/Current_Projects/Full_SMS/src/main.py"
+   "value": "C:/Drives/Google Drive/Current_Projects/Full_SMS/src/main.py"
   },
   {
    "optionDest": "onefile",
@@ -19,7 +19,7 @@
   },
   {
    "optionDest": "icon_file",
-   "value": "C:/Google Drive/Current_Projects/Full_SMS/resources/icons/Full-SMS.ico"
+   "value": "C:/Drives/Google Drive/Current_Projects/Full_SMS/resources/icons/Full-SMS.ico"
   },
   {
    "optionDest": "name",
@@ -47,7 +47,7 @@
   },
   {
    "optionDest": "version_file",
-   "value": "C:/Google Drive/Current_Projects/Full_SMS/versionfile.txt"
+   "value": "C:/Drives/Google Drive/Current_Projects/Full_SMS/versionfile.txt"
   },
   {
    "optionDest": "embed_manifest",
@@ -74,8 +74,12 @@
    "value": false
   },
   {
+   "optionDest": "argv_emulation",
+   "value": false
+  },
+  {
    "optionDest": "datas",
-   "value": "C:/Google Drive/Current_Projects/Full_SMS/resources;resources/"
+   "value": "C:/Drives/Google Drive/Current_Projects/Full_SMS/resources;resources/"
   },
   {
    "optionDest": "hiddenimports",

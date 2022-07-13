@@ -45,12 +45,12 @@ from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
 from convert_pt3 import ConvertPt3Dialog
-from exporting import export_data, ExportWorker
+from exporting import export_data, ExportWorker, DATAFRAME_FORMATS
 from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.3.4"
+SMS_VERSION = "0.3.7"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -132,13 +132,18 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnResolve.clicked.connect(i_c.gui_resolve)
         self.btnResolve_Selected.clicked.connect(i_c.gui_resolve_selected)
         self.btnResolveAll.clicked.connect(i_c.gui_resolve_all)
+        self.chbInt_Show_ROI.stateChanged.connect(i_c.roi_chb_changed)
         self.chbInt_Show_Hist.stateChanged.connect(i_c.hist_chb_changed)
         self.chbInt_Show_Level_Info.stateChanged.connect(i_c.level_info_chb_changed)
         self.chbInt_Show_Groups.stateChanged.connect(i_c.plot_all)
+        self.actionInt_Trim_Traces.triggered.connect(i_c.gui_trim_traces)
+        self.actionInt_Reset_ROI_Current.triggered.connect(i_c.gui_reset_roi_current)
+        self.actionInt_Reset_ROI_Selected.triggered.connect(i_c.gui_reset_roi_selected)
+        self.actionInt_Reset_ROI_All.triggered.connect(i_c.gui_reset_roi_all)
+        # self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
+        # self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
+        # self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
         self.chbInt_Exp_Trace.stateChanged.connect(i_c.exp_trace_chb_changed)
-        self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
-        self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
-        self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
 
         self.lifetime_controller = \
             LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
@@ -149,6 +154,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnWholeTrace.clicked.connect(l_c.gui_whole_trace)
         self.chbLifetime_Show_Groups.stateChanged.connect(l_c.plot_all)
         self.chbShow_Residuals.stateChanged.connect(l_c.gui_show_hide_residuals)
+        self.chbLifetime_Use_ROI.stateChanged.connect(l_c.gui_use_roi_changed)
+        self.btnLifetime_Apply_ROI.clicked.connect(l_c.gui_apply_roi_current)
+        self.btnLifetime_Apply_ROI_Selected.clicked.connect(l_c.gui_apply_roi_selected)
+        self.btnLifetime_Apply_ROI_All.clicked.connect(l_c.gui_apply_roi_all)
         self.btnJumpToGroups.clicked.connect(l_c.gui_jump_to_groups)
         self.btnLoadIRF.clicked.connect(l_c.gui_load_irf)
         self.btnFitParameters.clicked.connect(l_c.gui_fit_param)
@@ -194,7 +203,17 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
         self.actionRange_Selection.triggered.connect(self.range_selection)
         self.actionSettings.triggered.connect(self.act_open_settings_dialog)
+        self.actionDetect_Remove_Bursts_Current.triggered.connect(self.act_detect_remove_bursts_current)
+        self.actionDetect_Remove_Bursts_Selected.triggered.connect(self.act_detect_remove_bursts_selected)
+        self.actionDetect_Remove_Bursts_All.triggered.connect(self.act_detect_remove_bursts_all)
+        self.actionRemove_Bursts_Current.triggered.connect(self.act_remove_bursts_current)
+        self.actionRemove_Bursts_Selected.triggered.connect(self.act_remove_bursts_selected)
+        self.actionRemove_Bursts_All.triggered.connect(self.act_remove_bursts_all)
+        self.actionRestore_Bursts_Current.triggered.connect(self.act_restore_bursts_current)
+        self.actionRestore_Bursts_Selected.triggered.connect(self.act_restore_bursts_selected)
+        self.actionRestore_Bursts_All.triggered.connect(self.act_restore_bursts_all)
 
+        self.chbGroup_Use_ROI.stateChanged.connect(self.gui_group_use_roi)
         self.btnEx_Current.clicked.connect(self.gui_export_current)
         self.btnEx_Selected.clicked.connect(self.gui_export_selected)
         self.btnEx_All.clicked.connect(self.gui_export_all)
@@ -207,6 +226,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnSelectAllExport_Plots.clicked.connect(self.select_all_plots_export_options)
         self.btnSelectAllExport_DataFrames.clicked.connect(
             self.select_all_dataframes_export_options)
+
+        self.lblGrouping_ROI.setVisible(False)
+
+        self.cmbEx_DataFrame_Format.addItems(DATAFRAME_FORMATS)
 
         # Create and connect model for dataset tree
         self.treemodel = DatasetTreeModel()
@@ -303,17 +326,58 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def gui_export_all(self):
         self.gui_export(mode='all')
 
+    def act_detect_remove_bursts_current(self):
+        self.detect_remove_bursts(mode='current')
+
+    def act_detect_remove_bursts_selected(self):
+        self.detect_remove_bursts(mode='selected')
+
+    def act_detect_remove_bursts_all(self):
+        self.detect_remove_bursts(mode='all')
+
+    def act_remove_bursts_current(self):
+        self.remove_bursts(mode='current', confirm=False)
+
+    def act_remove_bursts_selected(self):
+        self.remove_bursts(mode='selected', confirm=False)
+
+    def act_remove_bursts_all(self):
+        self.remove_bursts(mode='all', confirm=False)
+
+    def act_restore_bursts_current(self):
+        self.restore_bursts(mode='current')
+
+    def act_restore_bursts_selected(self):
+        self.restore_bursts(mode='selected')
+
+    def act_restore_bursts_all(self):
+        self.restore_bursts(mode='all')
+
     def set_bin_size(self, bin_size: int):
         self.spbBinSize.setValue(bin_size)
 
     def act_open_settings_dialog(self):
         self.settings_dialog.exec()
 
+    def gui_group_use_roi(self):
+        if self.data_loaded:
+            use_roi = self.chbGroup_Use_ROI.isChecked()
+            for particle in self.current_dataset.particles:
+                particle.ahca.use_roi_for_grouping = use_roi
+
     def act_open_h5(self):
         """ Allows the user to point to a h5 file and then starts a thread that reads and loads the file. """
 
         logger.info("Performing Open H5 Action")
-        file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', '', "HDF5 files (*.h5)")
+        last_opened_file = fm.path(name='last_opened.txt', file_type=fm.Type.ResourcesRoot)
+        if os.path.exists(last_opened_file) and os.path.isfile(last_opened_file):
+            with open(last_opened_file, 'r') as file:
+                last_opened_path = file.read()
+            if not os.path.isdir(last_opened_path):
+                last_opened_path = ''
+        file_path = QFileDialog.getOpenFileName(self, 'Open HDF5 file', last_opened_path,
+                                                "HDF5 files (*.h5)")
+        did_open = False
         loading_analysis = False
         if os.path.exists(file_path[0][:-2] + 'smsa') and \
                 os.path.isfile(file_path[0][:-2] + 'smsa'):
@@ -337,12 +401,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     connect(self.lifetime_controller.show_residuals_widget)
                 self.threadpool.start(load_analysis_worker)
                 loading_analysis = True
-                # save_analysis.load_analysis(main_window=self,
-                #                             analysis_file=file_path[0][:-2] + 'smsa')
-                # self.data_loaded = True
-                # self.open_file_thread_complete()
-
-        # fname will equal ('', # '') if the # user canceled.
+                did_open = True
         if file_path != ('', '') and not loading_analysis:
             self.status_message(message="Opening file...")
             # logger.info("About to create ProcessThread object")
@@ -369,6 +428,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.threadpool.start(of_process_thread)
             # logger.info("Started Process Thread")
             self.active_threads.append(of_process_thread)
+            did_open = True
+        if did_open:
+            with open(last_opened_file, 'w') as file:
+                file.write(os.path.split(file_path[0])[0])
 
     def act_save_selected(self):
         """" Saves selected particles into a new HDF5 file."""
@@ -489,6 +552,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def tree_view_clicked(self, model_index):
         if type(self.treemodel.data(model_index, Qt.UserRole)) is smsh5.Particle:
             self.set_export_options()
+            self.grouping_controller.check_rois_and_set_label()
+            self.lifetime_controller.update_apply_roi_button_colors()
         if self.treemodel.data(model_index, Qt.UserRole) is self.dataset_node.dataobj:
             root_node_checked = self.dataset_node.checked()
             if all([node.checked() for node in self.part_nodes]) != root_node_checked:
@@ -509,7 +574,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.treeViewParticles.viewport().repaint()
 
     def tree_view_key_press(self, event):
-        print('here')
+        pass
+        # print('here')
 
     def act_select_all(self, *args, **kwargs):
         if self.data_loaded:
@@ -546,6 +612,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         if cur_part.has_burst:
             self.chbInt_Disp_Photon_Bursts.show()
+            if cur_part.cpts.bursts_deleted is not None:
+                self.chbInt_Disp_Photon_Bursts.setChecked(True)
+            else:
+                self.chbInt_Disp_Photon_Bursts.setChecked(False)
         else:
             self.chbInt_Disp_Photon_Bursts.hide()
 
@@ -601,6 +671,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.lifetime_controller.plot_convd()
                     self.lifetime_controller.plot_residuals()
                     self.lifetime_controller.update_results()
+                    self.lifetime_controller.update_apply_roi_button_colors()
 
                 if self.current_particle.has_groups:
                     self.int_controller.plot_group_bounds()
@@ -773,7 +844,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
             any_spectra = any([part.has_spectra for part in self.current_dataset.particles])
             if any_spectra:
                 self.current_dataset.has_spectra = True
-            self.display_data()
 
             if not any([p.has_levels for p in self.current_dataset.particles]):
                 msgbx = TimedMessageBox(30, parent=self)
@@ -798,16 +868,30 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.cmbConfIndex.setCurrentIndex(index)
                     self.int_controller.start_resolve_thread('all')
 
-        if self.data_loaded:
-            self.chbEx_Trace.setEnabled(True)
-            self.chbEx_Hist.setEnabled(True)
-            self.chbEx_Plot_Intensity.setEnabled(True)
-            self.rdbInt_Only.setEnabled(True)
-            self.chbEx_Plot_Lifetimes.setEnabled(True)
-            self.rdbHist_Only.setEnabled(True)
-            self.actionRange_Selection.setEnabled(True)
-            self.set_export_options()
-            self.reset_gui()
+            if self.data_loaded:
+                self.actionSave_Analysis.setEnabled(True)
+                self.actionSelect_All.setEnabled(True)
+                self.actionInvert_Selection.setEnabled(True)
+                self.actionDeselect_All.setEnabled(True)
+                self.actionRange_Selection.setEnabled(True)
+                self.menuIntensity.setEnabled(True)
+                self.menuLifetime.setEnabled(True)
+                self.chbEx_Use_ROI.setEnabled(True)
+                self.chbInt_Show_ROI.setEnabled(True)
+                self.chbGroup_Use_ROI.setEnabled(True)
+                self.chbEx_Trace.setEnabled(True)
+                self.chbEx_Hist.setEnabled(True)
+                self.chbEx_Plot_Intensity.setEnabled(True)
+                self.rdbInt_Only.setEnabled(True)
+                self.chbEx_Plot_Lifetimes.setEnabled(True)
+                self.rdbHist_Only.setEnabled(True)
+                self.actionRange_Selection.setEnabled(True)
+                self.set_export_options()
+                self.reset_gui()
+
+                self.chbInt_Show_ROI.setCheckState(1)
+                self.display_data()
+
             logger.info('File opened')
 
     def set_export_options(self):
@@ -880,7 +964,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
         self.chbEx_Hist.setChecked(self.chbEx_Hist.isEnabled())
         self.chbEx_Lifetimes.setChecked(self.chbEx_Lifetimes.isEnabled())
-        self.chbEx_DF_Lifetimes.setChecked(self.chbEx_DF_Lifetimes.isEnabled())
         self.chbEx_Spectra_2D.setChecked(self.chbEx_Spectra_2D.isEnabled())
         # self.chbEx_Spectra_Fitting.setChecked(self.chbEx_Spectra_Fitting.isEnabled())
         # self.chbEx_Sptecra_Traces.setChecked(self.chbEx_Sptecra_Traces.isEnabled())
@@ -940,7 +1023,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # logger.error(err)
         pass
 
-    def check_remove_bursts(self, mode: str = None) -> None:
+    def detect_remove_bursts(self, mode: str = None) -> None:
         if mode == 'current':
             particles = [self.current_particle]
         elif mode == 'selected':
@@ -948,29 +1031,58 @@ class MainWindow(QMainWindow, UI_Main_Window):
         else:
             particles = self.current_dataset.particles
 
-        removed_bursts = False  # TODO: Remove
+        for part in particles:
+            part.cpts.check_burst()
+        self.remove_bursts(mode=mode)
+
+    def remove_bursts(self, mode: str = None, confirm: bool = True) -> None:
+        if mode == 'current':
+            particles = [self.current_particle]
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        else:
+            particles = self.current_dataset.particles
+
         has_burst = [particle.has_burst for particle in particles]
         if sum(has_burst):
-            if not removed_bursts:
-                removed_bursts = True
-            msgbx = TimedMessageBox(30, parent=self)
-            msgbx.setIcon(QMessageBox.Question)
-            msgbx.setText("Would you like to remove the photon bursts?")
-            msgbx.set_timeout_text(
-                message_pretime="(Removing photon bursts in ",
-                message_posttime=" seconds)")
-            msgbx.setWindowTitle("Photon bursts detected")
-            msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
-            msgbx.setDefaultButton(QMessageBox.Yes)
-            msgbx.show()
-            msgbx_result, _ = msgbx.exec()
-            if msgbx_result == QMessageBox.Yes:
-                for num, particle in enumerate(particles):
-                    if has_burst[num]:
+            if confirm:
+                msgbx = TimedMessageBox(30, parent=self)
+                msgbx.setIcon(QMessageBox.Question)
+                msgbx.setText("Would you like to remove the photon bursts?")
+                msgbx.set_timeout_text(
+                    message_pretime="(Removing photon bursts in ",
+                    message_posttime=" seconds)")
+                msgbx.setWindowTitle("Photon bursts detected")
+                msgbx.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
+                msgbx.setDefaultButton(QMessageBox.Yes)
+                msgbx.show()
+                msgbx_result, _ = msgbx.exec()
+            if not confirm or msgbx_result == QMessageBox.Yes:
+                for particle in particles:
+                    if particle.has_burst:
                         particle.cpts.remove_bursts()
-            self.current_dataset.makehistograms()
+                        particle.makelevelhists()
+                    if particle.has_groups:
+                        particle.remove_and_reset_grouping()
 
             self.display_data()
+
+    def restore_bursts(self, mode: str = None) -> None:
+        if mode == 'current':
+            particles = [self.current_particle]
+        elif mode == 'selected':
+            particles = self.get_checked_particles()
+        else:
+            particles = self.current_dataset.particles
+
+        for part in particles:
+            if part.cpts.bursts_deleted is not None:
+                part.cpts.restore_bursts()
+                part.makelevelhists()
+                if part.has_groups:
+                    part.remove_and_reset_grouping()
+
+        self.display_data()
 
     def run_parallel_cpa(self, particle):
         particle.cpts.run_cpa(confidence=self.conf_parallel, run_levels=True)
@@ -1022,6 +1134,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if self.part_nodes[ind].checked():
                 checked_particles.append(self.tree2particle(ind))
         return checked_particles
+
+    def set_particle_check_state(self, particle_number: int, set_checked: bool):
+        self.part_nodes[particle_number].setChecked(set_checked)
 
     def set_level_resolved(self):
         self.current_dataset.level_resolved = True
@@ -1127,6 +1242,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if new_state:
             enable_levels = self.current_dataset.has_levels
         self.actionTrim_Dead_Traces.setEnabled(enable_levels)
+        self.chbGroup_Auto_Apply.setEnabled(enable_levels)
 
         # Lifetime
         self.tabLifetime.setEnabled(new_state)
@@ -1157,12 +1273,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
 
 def display_on():
-    print("Always On")
     ctypes.windll.kernel32.SetThreadExecutionState(0x80000002)
+    logger.info('Execution State set to Always On')
 
 
 def display_reset():
     ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
+    logger.info('Execution State Reset')
     sys.exit(0)
 
 

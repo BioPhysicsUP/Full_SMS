@@ -2,16 +2,17 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Full SMS"
-#define MyAppVersion "0.3.4"
+#define MyAppVersion "0.3.7"
+#define MyVersionInfoVersion "1.0.3.7"
 #define MyInstallerName "Full_SMS_v" + MyAppVersion + "_Win10_64-bit"
 #define MyAppPublisher "University of Pretoria"
 #define MyAppURL "https://www.up.ac.za/"
 #define MyAppExeName "Full_SMS.exe"
-#define MyRootFolder "C:\Google Drive\Current_Projects\Full_SMS"
+#define MyRootFolder "C:\Drives\Google Drive\Current_Projects\Full_SMS"
 #define MyIconFile MyRootFolder + "\resources\icons\Full-SMS.ico"
-#define MyOutputFolder MyRootFolder + "\dist"
+#define MyOutputFolder MyRootFolder + "\output"
 #define MyLicenseFile MyRootFolder + "\license.txt"
-#define MyDistFolder MyRootFolder + "\dist\Full_SMS"
+#define MyDistFolder MyRootFolder + "\output\Full_SMS"
 
 
 [Setup]
@@ -36,6 +37,9 @@ SetupIconFile={#MyIconFile}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+VersionInfoVersion={#MyVersionInfoVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoProductName={#MyAppName}
 ;PrivilegesRequired=admin
 
 [Languages]

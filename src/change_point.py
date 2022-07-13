@@ -123,6 +123,7 @@ class ChangePoints:
         confidence:
         run_levels
         """
+        self.bursts_deleted = None
         self._particle = particle
         self.uuid = self._particle.uuid
         # self.cpa_has_run = False
@@ -247,7 +248,6 @@ class ChangePoints:
         if self._run_levels:
             self._cpa.define_levels()
             if self.has_levels:
-                self.calc_mean_std()  # self.level_ints
                 self.check_burst()  # self.level_ints, self.level_dwelltimes
         logger.info(msg=f"{self._particle.name} levels resolved")
 
@@ -269,9 +269,10 @@ class ChangePoints:
         defined_int_thresh = self._cpa.settings.pb_defined_int_thresh
 
         assert self._particle.has_levels, "ChangePoints\tNeeds to have levels to check photon bursts."
-        # if intensities is None or dwell_times is None:
-            # intensities, dwell_times = np.array([(level.int_p_s, level.dwell_time_s) for level in self._particle.levels])
+        if self.bursts_deleted is not None:
+            self.restore_bursts()
         if use_sigma:
+            self.calc_mean_std()  # self.level_ints
             burst_def = self._particle.avg_int_weighted + \
                 (self._particle.int_std_weighted * sigam_int_thresh)
         else:
@@ -289,9 +290,10 @@ class ChangePoints:
             cpt_inds = self.cpt_inds
             conf_regions = self.conf_regions
             num_ctps_max = self.num_cpts
-            for burst_ind in np.flip(self.burst_levels):
+            photon_bursts_deleted = []
+            for ind, burst_ind in enumerate(np.flip(self.burst_levels)):
                 # print(burst_ind)
-                merge_left = bool()
+                merge_left = None
                 if burst_ind == num_ctps_max:
                     merge_left = True
                 elif burst_ind == 0:
@@ -308,14 +310,26 @@ class ChangePoints:
                 else:
                     del_ind = burst_ind
 
+                deleted_cpt = cpt_inds[del_ind]
                 cpt_inds = np.delete(cpt_inds, del_ind)
-                del(conf_regions[del_ind])
+                deleted_conf_region = conf_regions.pop(del_ind)
+                photon_bursts_deleted.append({'pos_ind': del_ind, 'cpt_ind': deleted_cpt, 'conf_region': deleted_conf_region})
         except IndexError as e:
             logger.error(f"Index error while removing photon burst for {self._particle}")
             logger.error(e)
         else:
             self.cpt_inds = cpt_inds
             self._cpa.conf_regions = conf_regions
+            self.num_cpts = len(self.cpt_inds)
+            self._cpa.define_levels(remove_prev=True)
+            self.bursts_deleted = photon_bursts_deleted
+
+    def restore_bursts(self):
+        if self.bursts_deleted is not None:
+            for burst in self.bursts_deleted:
+                self._cpa.cpt_inds = np.insert(self.cpt_inds, burst['pos_ind'], burst['cpt_ind'])
+                self._cpa.conf_regions.insert(burst['pos_ind'], burst['conf_region'])
+            self.bursts_deleted = None
             self.num_cpts = len(self.cpt_inds)
             self._cpa.define_levels(remove_prev=True)
 
@@ -363,7 +377,7 @@ class Level:
         self.microtimes = DatasetSubset(microtimes, self.level_inds[0], self.level_inds[1])
         # self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
         self.group_ind = group_ind
-        self.histogram = None  # TODO: hopefully this doesn't break anything.
+        self.histogram = None
 
         # TODO: Incorporate error margins
         # conf_ind_lower = conf_regions[0]
@@ -511,8 +525,9 @@ class ChangePointAnalysis:
     def load_settings(self):
         settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
         with open(settings_file_path, 'r') as settings_file:
+            if not hasattr(self, 'settings'):
+                self.settings = Settings()
             self.settings.load_settings_from_file(file_or_path=settings_file)
-        
 
     def reset(self, confidence: float = None):
         self.has_run = False

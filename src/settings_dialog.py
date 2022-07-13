@@ -32,6 +32,10 @@ class Settings:
         self.pb_use_sigma_thresh = None
         self.pb_sigma_int_thresh = None
         self.pb_defined_int_thresh = None
+        self.lt_start_percent = None
+        self.lt_end_multiple = None
+        self.lt_end_percent = None
+        self.lt_bg_percent = None
 
         if load_file_or_path:
             self.load_settings_from_file(file_or_path=load_file_or_path)
@@ -48,7 +52,11 @@ class Settings:
         self.pb_use_sigma_thresh = settings_dict["photon_bursts"]["use_sigma_int_thresh"]
         self.pb_sigma_int_thresh = settings_dict["photon_bursts"]["sigma_int_thresh"]
         self.pb_defined_int_thresh = settings_dict["photon_bursts"]["defined_int_thresh"]
-    
+        self.lt_start_percent = settings_dict["lifetimes"]["start_percent"]
+        self.lt_end_multiple = settings_dict["lifetimes"]["end_multiple"]
+        self.lt_end_percent = settings_dict["lifetimes"]["end_percent"]
+        self.lt_bg_percent = settings_dict["lifetimes"]["bg_percent"]
+
     def get_all_dict(self) -> dict:
         settings_dict = {
                         "change_point_analysis": {
@@ -60,6 +68,12 @@ class Settings:
                             "use_sigma_int_thresh": self.pb_use_sigma_thresh,
                             "sigma_int_thresh": self.pb_sigma_int_thresh,
                             "defined_int_thresh": self.pb_defined_int_thresh
+                        },
+                        "lifetimes": {
+                            "start_percent": self.lt_start_percent,
+                            "end_multiple": self.lt_end_multiple,
+                            "end_percent": self.lt_end_percent,
+                            "bg_percent": self.lt_bg_percent,
                         }
                     }
         return settings_dict
@@ -122,7 +136,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         self.rdbPB_use_sigma.toggled.connect(self.pb_use_changed)
         self.rdbPB_use_defined_int.toggled.connect(self.pb_use_changed)
 
-        if current_settings == None:
+        if current_settings is None:
             self.settings = self.get_dialog_settings()
         else:
             self.settings = current_settings
@@ -150,6 +164,10 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         pb_use_sigma_thresh = self.rdbPB_use_sigma.isChecked()
         pb_sigma_int_thresh = self.dsbPB_sigma_int_thresh.value()
         pb_defined_int_thresh = self.spbPB_defined_int_thresh.value()
+        lt_start_percent = self.spb_start_percent.value()
+        lt_end_multiple = self.spb_end_multiple.value()
+        lt_end_percent = self.spb_end_percent.value()
+        lt_bg_percent = self.spb_bg_percent.value()
 
         new_settings_dict = {
                     "change_point_analysis": {
@@ -161,8 +179,14 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
                         "use_sigma_int_thresh": pb_use_sigma_thresh,
                         "sigma_int_thresh": pb_sigma_int_thresh,
                         "defined_int_thresh": pb_defined_int_thresh
+                    },
+                    "lifetimes": {
+                        "start_percent": lt_start_percent,
+                        "end_multiple": lt_end_multiple,
+                        "end_percent": lt_end_percent,
+                        "bg_percent": lt_bg_percent,
                     }
-                }
+        }
         new_settings = Settings(settings_dict=new_settings_dict)
 
         return new_settings
@@ -177,6 +201,10 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         self.rdbPB_use_sigma.setChecked(not settings.pb_use_sigma_thresh)
         self.dsbPB_sigma_int_thresh.setValue(settings.pb_sigma_int_thresh)
         self.spbPB_defined_int_thresh.setValue(settings.pb_defined_int_thresh)
+        self.spb_start_percent.setValue(settings.lt_start_percent)
+        self.spb_end_multiple.setValue(settings.lt_end_multiple)
+        self.spb_end_percent.setValue(settings.lt_end_percent)
+        self.spb_bg_percent.setValue(settings.lt_bg_percent)
 
     def update_settings_from_dialog(self) -> None:
         self.settings = self.get_dialog_settings()
