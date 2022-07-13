@@ -381,8 +381,9 @@ class IntController(QObject):
             if particle is None:
                 particle = self.mainwindow.current_particle
             if self.show_exp_trace and particle.int_trace is not None:
-                    trace = particle.int_trace[:]
-                    times = np.arange(0, np.size(trace) * 0.1, 0.1)
+                trace = particle.int_trace[:]
+                times = np.arange(0, np.size(trace) * 0.1, 0.1)
+                print(times, trace)
             else:
                 trace = particle.binnedtrace.intdata
                 times = particle.binnedtrace.inttimes / 1E3

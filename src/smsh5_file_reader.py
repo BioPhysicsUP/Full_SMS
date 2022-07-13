@@ -110,7 +110,7 @@ def spectra(particle: Particle) -> h5pickle.Dataset:
 
 def int_trace(particle: Particle) -> h5pickle.Dataset:
     if particle.file_version not in ['1.0', '1.01', '1.02', '1.03']:
-        return particle.datadict["Intensity Trace (cps)"]
+        return particle.datadict["Intensity Trace (cps)"][0]
     else:
         return None
 
