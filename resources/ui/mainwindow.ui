@@ -38,6 +38,7 @@
         <property name="font">
          <font>
           <pointsize>16</pointsize>
+          <weight>75</weight>
           <bold>true</bold>
           <underline>true</underline>
          </font>
@@ -104,6 +105,7 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
+            <weight>50</weight>
             <bold>false</bold>
             <underline>true</underline>
            </font>
@@ -458,6 +460,7 @@
            <widget class="QLabel" name="lblInt_Bin_Size">
             <property name="font">
              <font>
+              <weight>50</weight>
               <bold>false</bold>
               <underline>false</underline>
              </font>
@@ -551,6 +554,13 @@
                </size>
               </property>
              </spacer>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Exp_Trace">
+              <property name="text">
+               <string>Show Exp Trace</string>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="QCheckBox" name="chbInt_Show_ROI">
@@ -847,19 +857,13 @@
             </item>
            </layout>
           </item>
-          <item row="3" column="4">
-           <widget class="Line" name="lineInt_Hist">
+          <item row="3" column="2">
+           <widget class="Line" name="lineInt_3">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>175</width>
-              <height>0</height>
-             </size>
             </property>
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
@@ -879,8 +883,8 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="3">
-           <widget class="Line" name="lineInt_4">
+          <item row="3" column="1">
+           <widget class="Line" name="lineInt_2">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -899,6 +903,25 @@
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="4">
+           <widget class="Line" name="lineInt_Hist">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>175</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>
@@ -943,6 +966,7 @@
                <property name="font">
                 <font>
                  <pointsize>8</pointsize>
+                 <weight>50</weight>
                  <bold>false</bold>
                 </font>
                </property>
@@ -981,222 +1005,6 @@
              </item>
             </layout>
            </widget>
-          </item>
-          <item row="3" column="1">
-           <widget class="Line" name="lineInt_2">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="2">
-           <widget class="Line" name="lineInt_3">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="4">
-           <widget class="QWidget" name="wdgInt_Hist_Container" native="true">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>175</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <layout class="QVBoxLayout" name="verticalLayout_14">
-             <property name="spacing">
-              <number>0</number>
-             </property>
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <item>
-              <widget class="PlotWidget" name="pgInt_Hist_PlotWidget">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="maximumSize">
-                <size>
-                 <width>175</width>
-                 <height>16777215</height>
-                </size>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="spcInt_Hist_Align">
-               <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeType">
-                <enum>QSizePolicy::Fixed</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>20</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
-           </widget>
-          </item>
-          <item row="1" column="3" colspan="3">
-           <layout class="QHBoxLayout" name="layInt_Chbs">
-            <property name="spacing">
-             <number>20</number>
-            </property>
-            <item>
-             <spacer name="horizontalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbInt_Exp_Trace">
-              <property name="font">
-               <font>
-                <pointsize>10</pointsize>
-               </font>
-              </property>
-              <property name="layoutDirection">
-               <enum>Qt::RightToLeft</enum>
-              </property>
-              <property name="text">
-               <string>Exp Trace</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbInt_Show_Groups">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>10</pointsize>
-               </font>
-              </property>
-              <property name="layoutDirection">
-               <enum>Qt::RightToLeft</enum>
-              </property>
-              <property name="text">
-               <string>Show Groups</string>
-              </property>
-              <property name="iconSize">
-               <size>
-                <width>16</width>
-                <height>16</height>
-               </size>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbInt_Show_Level_Info">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>10</pointsize>
-               </font>
-              </property>
-              <property name="layoutDirection">
-               <enum>Qt::RightToLeft</enum>
-              </property>
-              <property name="text">
-               <string>Show Level Info</string>
-              </property>
-              <property name="iconSize">
-               <size>
-                <width>16</width>
-                <height>16</height>
-               </size>
-              </property>
-              <property name="checked">
-               <bool>false</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbInt_Show_Hist">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>10</pointsize>
-               </font>
-              </property>
-              <property name="layoutDirection">
-               <enum>Qt::RightToLeft</enum>
-              </property>
-              <property name="text">
-               <string>Show Hist</string>
-              </property>
-              <property name="iconSize">
-               <size>
-                <width>16</width>
-                <height>16</height>
-               </size>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-           </layout>
           </item>
           <item row="3" column="5">
            <widget class="Line" name="lineInt_Level">
@@ -1369,6 +1177,7 @@
               <property name="font">
                <font>
                 <pointsize>12</pointsize>
+                <weight>75</weight>
                 <bold>true</bold>
                 <underline>true</underline>
                </font>
@@ -2865,6 +2674,7 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
+                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                      <strikeout>false</strikeout>
@@ -2881,53 +2691,12 @@
                      <number>10</number>
                     </property>
                     <item>
-                     <widget class="QCheckBox" name="chbEx_Trace">
-                      <property name="enabled">
-                       <bool>false</bool>
+                     <spacer name="verticalSpacer_7">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
                       </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Binned Trace</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Levels">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Resolved Levels</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Grouped_Levels">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Fixed</enum>
                       </property>
                       <property name="sizeHint" stdset="0">
                        <size>
@@ -2935,13 +2704,14 @@
                         <height>15</height>
                        </size>
                       </property>
-                     </widget>
+                     </spacer>
                     </item>
                     <item>
                      <widget class="QGroupBox" name="gbxDFIntensity">
                       <property name="font">
                        <font>
                         <pointsize>8</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>true</underline>
                         <strikeout>false</strikeout>
@@ -2977,6 +2747,7 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                            <strikeout>false</strikeout>
@@ -2995,6 +2766,7 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                            <strikeout>false</strikeout>
@@ -3025,6 +2797,7 @@
                             <property name="font">
                              <font>
                               <pointsize>8</pointsize>
+                              <weight>50</weight>
                               <bold>false</bold>
                               <underline>false</underline>
                               <strikeout>false</strikeout>
@@ -3046,6 +2819,7 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                            <strikeout>false</strikeout>
@@ -3076,6 +2850,7 @@
                             <property name="font">
                              <font>
                               <pointsize>8</pointsize>
+                              <weight>50</weight>
                               <bold>false</bold>
                               <underline>false</underline>
                               <strikeout>false</strikeout>
@@ -3259,6 +3034,7 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
+                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3278,6 +3054,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3288,15 +3065,8 @@
                       <property name="alignment">
                        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                       </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Anlysis Results</string>
+                      <property name="wordWrap">
+                       <bool>true</bool>
                       </property>
                      </widget>
                     </item>
@@ -3305,6 +3075,7 @@
                       <property name="font">
                        <font>
                         <pointsize>8</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>true</underline>
                         <strikeout>false</strikeout>
@@ -3337,6 +3108,7 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                            <strikeout>false</strikeout>
@@ -3496,6 +3268,7 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
+                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3531,6 +3304,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3548,6 +3322,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3651,6 +3426,7 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
+                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3686,6 +3462,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3703,6 +3480,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3720,6 +3498,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3752,6 +3531,7 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
+                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3771,6 +3551,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3897,6 +3678,7 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
+                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3932,6 +3714,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3970,6 +3753,7 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -3990,6 +3774,7 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4013,6 +3798,7 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4052,6 +3838,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -4085,6 +3872,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -4120,6 +3908,7 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
+                           <weight>50</weight>
                            <italic>true</italic>
                            <bold>false</bold>
                            <underline>false</underline>
@@ -4138,6 +3927,7 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4164,6 +3954,7 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4190,6 +3981,7 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4216,6 +4008,7 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
+                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4252,6 +4045,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -4285,6 +4079,7 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
+                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -4599,7 +4394,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
