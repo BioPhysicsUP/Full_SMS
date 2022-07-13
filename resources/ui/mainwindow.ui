@@ -2935,7 +2935,7 @@
                         <height>15</height>
                        </size>
                       </property>
-                     </spacer>
+                     </widget>
                     </item>
                     <item>
                      <widget class="QGroupBox" name="gbxDFIntensity">
