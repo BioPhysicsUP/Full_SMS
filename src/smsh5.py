@@ -65,6 +65,7 @@ class H5dataset:
             self.has_raster_scans = False
 
         self.particles = []
+        self.num_parts = 0
         for num, particle_name in enumerate(natural_p_names):
             if map_particle_indexes is not None:
                 this_raster_scan_index = map_particle_indexes[num]
@@ -76,7 +77,11 @@ class H5dataset:
                 Particle(name=particle_name, dataset_ind=num, dataset=self,
                          raster_scan_dataset_index=this_raster_scan_index,
                          raster_scan=this_raster_scan))
-        self.num_parts = len(self.particles)
+            self.particles.append(
+                Particle(name=particle_name, dataset_ind=num, dataset=self,
+                         raster_scan_dataset_index=this_raster_scan_index,
+                         raster_scan=this_raster_scan, secondary_part=True))
+            self.num_parts += 1
         assert self.num_parts == h5_fr.num_parts(dataset=self)
         self.channelwidth = None
         self.save_selected = None
@@ -155,19 +160,7 @@ class H5dataset:
         """Put the arrival times into histograms"""
 
         for particle in self.particles:
-            particle.startpoint = startpoint
-            particle.makehistogram(channel=channel, add_roi=True)
-            particle.makelevelhists(channel=channel)
-        if remove_zeros:
-            maxim = 0
-            for particle in self.particles:
-                try:
-                    maxim = max(particle.histogram.decaystart, maxim)
-                except AttributeError:
-                    maxim = 0
-            for particle in self.particles:
-                particle.histogram.decay = particle.histogram.decay[maxim:]
-                particle.histogram.t = particle.histogram.t[maxim:]
+            particle.makehistograms(remove_zeros, startpoint, channel)
 
     def bin_all_ints(self, binsize:float,
                      sig_fb: PassSigFeedback = None,
@@ -219,52 +212,6 @@ class H5dataset:
         new_h5file.close()
 
 
-# TODO: This is in the incorrect file.
-# class BICPlotData:
-#
-#     def __init__(self):
-#         self._scatter_plot_item = None
-#         self._selected_spot = None
-#
-#     @property
-#     def has_plot(self) -> bool:
-#         if self._scatter_plot_item:
-#             return True
-#         else:
-#             return False
-#
-#     @property
-#     def has_selected_spot(self) -> bool:
-#         if self._selected_spot:
-#             return True
-#         else:
-#             return False
-#
-#     @property
-#     def scatter_plot_item(self):
-#         if self.has_plot:
-#             return self._scatter_plot_item
-#
-#     @scatter_plot_item.setter
-#     def scatter_plot_item(self, scatter_plot_item: ScatterPlotItem):
-#         assert type(scatter_plot_item) == ScatterPlotItem, "scatter_plot_item not correct type."
-#         self._scatter_plot_item = scatter_plot_item
-#
-#     @property
-#     def selected_spot(self):
-#         if self.has_plot:
-#             return self._selected_spot
-#
-#     @selected_spot.setter
-#     def selected_spot(self, selected_spot: SpotItem):
-#         assert type(selected_spot) == SpotItem, "selected_spot is not correct type."
-#         self._selected_spot = selected_spot
-#
-#     def clear_scatter_plot_item(self):
-#         self._scatter_plot_item = None
-#         self._selected_spot = None
-
-
 class Particle:
     """
     Class for particle in H5dataset.
@@ -272,7 +219,7 @@ class Particle:
 
     def __init__(self, name: str, dataset_ind: int, dataset: H5dataset,
                  raster_scan_dataset_index: int = None, raster_scan: RasterScan = None,
-                 tmin=None, tmax=None, channelwidth=None):
+                 secondary_part: bool = False, tmin=None, tmax=None, channelwidth=None):
         """
         Creates an instance of Particle
 
@@ -280,12 +227,22 @@ class Particle:
         ----------
         name: str
             The name of the particle
+        dataset_ind: H5dataset
+            The index of the particle in the dataset
         dataset: H5dataset
             The instance of the dataset to which this particle belongs
+        raster_scan_dataset_index: int
+            The index of the raster scan connected to the particle
+        raster_scan: RasterScan
+            The raster scan object this particle is connected to
+        secondary_part: bool
+            Whether this is a "secondary particle" that contains the data from a second TCSCPC card
         tmin: int, Optional
-            TODO: Update docsring
+            Minimum photon micro time
         tmax: int, Optional
-        channelwidth:
+            Maximum photon micro time
+        channelwidth: float, Optional
+            TCSPC histogram channelwidth. Normally automatically determined.
         """
         self.uuid = uuid1()
         self.name = name
@@ -294,9 +251,15 @@ class Particle:
         self.file = dataset.file
         self.file_version = h5_fr.file_version(dataset=dataset)
         self.datadict = self.file[self.name]
-        self.microtimes = h5_fr.microtimes(particle=self)
-        self.abstimes = h5_fr.abstimes(particle=self)
-        self.num_photons = len(self.abstimes)
+        self.secondary_part = secondary_part
+        if not self.secondary_part:
+            self.microtimes = h5_fr.microtimes(particle=self)
+            self.abstimes = h5_fr.abstimes(particle=self)
+            self.num_photons = len(self.abstimes)
+        else:
+            self.microtimes = h5_fr.microtimes2(particle=self)
+            self.abstimes = h5_fr.abstimes2(particle=self)
+            self.num_photons = len(self.abstimes)
         self.int_trace = h5_fr.int_trace(particle=self)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
@@ -314,7 +277,7 @@ class Particle:
                 differences = np.diff(np.sort(self.microtimes[:]))
                 channelwidth = np.unique(differences)[1]
         except IndexError as e:
-            logger.error(f"channelwidth could not be detemined. Inspect {self.name}.")
+            logger.error(f"channelwidth could not be determined. Inspect {self.name}.")
             channelwidth = 0.01220703125
         self.channelwidth = channelwidth
         if tmin is None:
@@ -397,7 +360,7 @@ class Particle:
     #         return self.dataset.all_raster_scans[self._raster_scan_dataset_index]
 
     @property
-    def mircrotimes_roi(self) -> np.ndarray:
+    def microtimes_roi(self) -> np.ndarray:
         times = np.array(self.abstimes)/1E9
         if self.roi_region[0] == 0:
             first_ind = 0
@@ -677,6 +640,20 @@ class Particle:
         group_int = np.array([group.int_p_s, group.int_p_s])
         return group_int, times
 
+    def makehistograms(self, remove_zeros, startpoint, channel):
+        """Make all histograms - whole trace and levels"""
+        self.startpoint = startpoint
+        self.makehistogram(channel=channel, add_roi=True)
+        self.makelevelhists(channel=channel)
+        if remove_zeros:
+            maxim = 0
+            try:
+                maxim = max(self.histogram.decaystart, maxim)
+            except AttributeError:
+                maxim = 0
+            self.histogram.decay = self.histogram.decay[maxim:]
+            self.histogram.t = self.histogram.t[maxim:]
+
     def makehistogram(self, channel=True, add_roi: bool = False):
         """Put the arrival times into a histogram"""
 
@@ -839,7 +816,7 @@ class Histogram:
             if not use_roi:
                 self.microtimes = self._particle.microtimes[:]
             else:
-                self.microtimes = self._particle.mircrotimes_roi
+                self.microtimes = self._particle.microtimes_roi
                 self.roi_region_used = self._particle.roi_region
         elif type(level) is list:
             if not self._particle.has_groups:

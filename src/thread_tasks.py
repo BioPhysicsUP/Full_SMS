@@ -106,8 +106,9 @@ class OpenFile:
 
             all_nodes = [(datasetnode, -1)]
             for i, particle in enumerate(dataset.particles):
-                particlenode = DatasetTreeNode(particle.name, particle, 'particle')
-                all_nodes.append((particlenode, i))
+                if not particle.secondary_part:  # "secondary" particles contain data from second TCSPC card
+                    particlenode = DatasetTreeNode(particle.name, particle, 'particle')
+                    all_nodes.append((particlenode, i))
             sig_fb.add_all_particlenodes(all_nodes=all_nodes)
 
             sig_fb.reset_tree()

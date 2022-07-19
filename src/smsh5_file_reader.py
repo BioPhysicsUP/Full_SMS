@@ -72,11 +72,27 @@ def abstimes(particle: Particle) -> h5pickle.Dataset:
     return particle.datadict["Absolute Times (ns)"]
 
 
+def abstimes2(particle: Particle) -> h5pickle.Dataset:
+    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
+        microtimes_dataset = particle.datadict['Absolute Times 2 (ns)']
+    else:
+        microtimes_dataset = None
+    return microtimes_dataset
+
+
 def microtimes(particle: Particle) -> h5pickle.Dataset:
     if particle.file_version in ['1.0', '1.01', '1.02']:
         microtimes_dataset = particle.datadict['Micro Times (s)']
     else:
         microtimes_dataset = particle.datadict['Micro Times (ns)']
+    return microtimes_dataset
+
+
+def microtimes2(particle: Particle) -> h5pickle.Dataset:
+    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
+        microtimes_dataset = particle.datadict['Micro Times 2 (ns)']
+    else:
+        microtimes_dataset = None
     return microtimes_dataset
 
 
