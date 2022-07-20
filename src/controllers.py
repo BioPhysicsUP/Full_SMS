@@ -441,7 +441,10 @@ class IntController(QObject):
         try:
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             if particle is None:
-                particle = self.mainwindow.current_particle
+                if self.mainwindow.comboSelectCard.currentIndex() == 0:
+                    particle = self.mainwindow.current_particle
+                else:
+                    particle = self.mainwindow.current_particle.sec_part
             if self.show_exp_trace and particle.int_trace is not None:
                 trace = particle.int_trace[:]
                 times = np.linspace(0, np.size(trace) * 0.1, np.size(trace))

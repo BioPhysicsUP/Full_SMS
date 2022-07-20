@@ -96,6 +96,17 @@ def microtimes2(particle: Particle) -> h5pickle.Dataset:
     return microtimes_dataset
 
 
+def bh_card(particle: Particle) -> str:
+    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
+        if particle.is_secondary_part:
+            bh_card_name = particle.datadict['Absolute Times 2 (ns)'].attrs['bh Card']
+        else:
+            bh_card_name = particle.datadict['Absolute Times (ns)'].attrs['bh Card']
+    else:
+        bh_card_name = None
+    return bh_card_name
+
+
 def has_raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> bool:
     if str(type(particle)) == "<class 'smsh5.Particle'>":
         has_rs = "Raster Scan" in particle.datadict.keys()
@@ -130,6 +141,7 @@ def int_trace(particle: Particle) -> h5pickle.Dataset:
     else:
         return None
 
+
 # Raster Scan Attributes
 def __get_rs_dataset(part_or_rs: Union[Particle, RasterScan]) -> h5pickle.Dataset:
     if str(type(part_or_rs)) in ["<class 'smsh5.Particle'>", "<class 'h5pickle.Dataset'>"]:
@@ -139,6 +151,7 @@ def __get_rs_dataset(part_or_rs: Union[Particle, RasterScan]) -> h5pickle.Datase
     else:
         raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
     return raster_scan_dataset
+
 
 def rs_integration_time(part_or_rs: Union[Particle, RasterScan]) -> np.float64:
     raster_scan_dataset = __get_rs_dataset(part_or_rs=part_or_rs)

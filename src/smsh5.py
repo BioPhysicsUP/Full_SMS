@@ -73,14 +73,15 @@ class H5dataset:
             else:
                 this_raster_scan_index = None
                 this_raster_scan = None
-            self.particles.append(
-                Particle(name=particle_name, dataset_ind=num, dataset=self,
-                         raster_scan_dataset_index=this_raster_scan_index,
-                         raster_scan=this_raster_scan))
-            self.particles.append(
-                Particle(name=particle_name, dataset_ind=num, dataset=self,
-                         raster_scan_dataset_index=this_raster_scan_index,
-                         raster_scan=this_raster_scan, secondary_part=True))
+            prim_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
+                     raster_scan_dataset_index=this_raster_scan_index,
+                     raster_scan=this_raster_scan)
+            sec_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
+                                raster_scan_dataset_index=this_raster_scan_index,
+                                raster_scan=this_raster_scan, is_secondary_part=True, prim_part=prim_part)
+            prim_part.sec_part = sec_part
+            self.particles.append(prim_part)
+            self.particles.append(sec_part)
             self.num_parts += 1
         assert self.num_parts == h5_fr.num_parts(dataset=self)
         self.channelwidth = None
@@ -219,7 +220,8 @@ class Particle:
 
     def __init__(self, name: str, dataset_ind: int, dataset: H5dataset,
                  raster_scan_dataset_index: int = None, raster_scan: RasterScan = None,
-                 secondary_part: bool = False, tmin=None, tmax=None, channelwidth=None):
+                 is_secondary_part: bool = False, prim_part = None, sec_part = None,
+                 tmin=None, tmax=None, channelwidth=None):
         """
         Creates an instance of Particle
 
@@ -235,8 +237,12 @@ class Particle:
             The index of the raster scan connected to the particle
         raster_scan: RasterScan
             The raster scan object this particle is connected to
-        secondary_part: bool
+        is_secondary_part: bool
             Whether this is a "secondary particle" that contains the data from a second TCSCPC card
+        prim_part: Particle:
+            If this particle is a secondary particle, the corresponding primary particle
+        sec_part: Particle:
+            If this particle is a primary particle, the corresponding secondary particle
         tmin: int, Optional
             Minimum photon micro time
         tmax: int, Optional
@@ -251,8 +257,10 @@ class Particle:
         self.file = dataset.file
         self.file_version = h5_fr.file_version(dataset=dataset)
         self.datadict = self.file[self.name]
-        self.secondary_part = secondary_part
-        if not self.secondary_part:
+        self.is_secondary_part = is_secondary_part
+        self.prim_part = prim_part
+        self.sec_part = sec_part
+        if not self.is_secondary_part:
             self.microtimes = h5_fr.microtimes(particle=self)
             self.abstimes = h5_fr.abstimes(particle=self)
             self.num_photons = len(self.abstimes)
@@ -260,6 +268,7 @@ class Particle:
             self.microtimes = h5_fr.microtimes2(particle=self)
             self.abstimes = h5_fr.abstimes2(particle=self)
             self.num_photons = len(self.abstimes)
+        self.bh_card = h5_fr.bh_card(particle=self)
         self.int_trace = h5_fr.int_trace(particle=self)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
