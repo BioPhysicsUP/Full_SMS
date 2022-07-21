@@ -239,9 +239,13 @@ class ProcessThread(QRunnable):
                     self.result_queue.task_done()
             else:
                 time.sleep(1)
-                if not self.feedback_queue.empty():
-                    for _ in range(self.feedback_queue.qsize()):
-                        self.check_fbk_queue()
+                try:
+                    if not self.feedback_queue.empty():
+                        for _ in range(self.feedback_queue.qsize()):
+                            self.check_fbk_queue()
+                except BrokenPipeError as exception:
+                    print('Warning: Broken Pipe')
+                    self.signals.error.emit(exception)
             if process in self._processes:
                 for _ in range(num_used_processes):
                     self.task_queue.put(None)

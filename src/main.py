@@ -661,17 +661,37 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.current_particle = self.treemodel.get_particle(current)
             # self.current_level = None  # Reset current level when particle changes.
         if hasattr(self, 'current_particle') and type(self.current_particle) is smsh5.Particle:
+            # Select primary or secondary particle based on selected tcspc card
+            if self.comboSelectCard.currentIndex() == 1 and self.current_particle.sec_part is not None:
+                self.current_particle = self.current_particle.sec_part
+            elif self.current_particle.is_secondary_part:
+                self.current_particle = self.current_particle.prim_part
+
             cur_tab_name = self.tabWidget.currentWidget().objectName()
 
             self.txtDescription.setText(self.current_particle.description)
 
+            # If not called due to a change in selected card, update the card selector with available choices
             if not combocard:
-                card1 = self.current_particle.bh_card
-                if self.current_particle.sec_part is not None:
-                    card2 = self.current_particle.sec_part.bh_card
+                if not self.current_particle.is_secondary_part:
+                    card1 = self.current_particle.bh_card
+                    if self.current_particle.sec_part is not None:
+                        card2 = self.current_particle.sec_part.bh_card
+                    else:
+                        card2 = None
                 else:
-                    card2 = None
-                self.comboSelectCard.insertItems(0, [card1, card2])
+                    card1 = self.current_particle.prim_part.bh_card
+                    card2 = self.current_particle.bh_card
+                if self.comboSelectCard.count() == 0:
+                    self.comboSelectCard.insertItem(0, card1)
+                    self.comboSelectCard.insertItem(1, card2)
+                else:
+                    self.comboSelectCard.setItemText(0, card1)
+                    if self.comboSelectCard.count() == 1:
+                        self.comboSelectCard.insertItem(1, card2)
+                    else:
+                        self.comboSelectCard.setItemText(1, card2)
+            assert self.comboSelectCard.count() <= 2
 
             if cur_tab_name in ['tabIntensity', 'tabGrouping', 'tabLifetime']:
                 if cur_tab_name == 'tabIntensity':
@@ -813,7 +833,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def tree2particle(self, identifier):
         """ Returns the particle dataset for the identifier given.
-        The identifier could be the number of the particle of the the datasetnode value.
+        The identifier could be the number of the particle of the datasetnode value.
 
         Parameters
         ----------

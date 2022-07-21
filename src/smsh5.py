@@ -76,12 +76,15 @@ class H5dataset:
             prim_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
                      raster_scan_dataset_index=this_raster_scan_index,
                      raster_scan=this_raster_scan)
-            sec_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
-                                raster_scan_dataset_index=this_raster_scan_index,
-                                raster_scan=this_raster_scan, is_secondary_part=True, prim_part=prim_part)
-            prim_part.sec_part = sec_part
-            self.particles.append(prim_part)
-            self.particles.append(sec_part)
+            if h5_fr.abstimes2(prim_part) is not None:  # if second card data exists, create secondary particle
+                sec_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
+                                    raster_scan_dataset_index=this_raster_scan_index,
+                                    raster_scan=this_raster_scan, is_secondary_part=True, prim_part=prim_part)
+                prim_part.sec_part = sec_part
+                self.particles.append(prim_part)
+                self.particles.append(sec_part)
+            else:
+                self.particles.append(prim_part)
             self.num_parts += 1
         assert self.num_parts == h5_fr.num_parts(dataset=self)
         self.channelwidth = None
@@ -220,8 +223,8 @@ class Particle:
 
     def __init__(self, name: str, dataset_ind: int, dataset: H5dataset,
                  raster_scan_dataset_index: int = None, raster_scan: RasterScan = None,
-                 is_secondary_part: bool = False, prim_part = None, sec_part = None,
-                 tmin=None, tmax=None, channelwidth=None):
+                 is_secondary_part: bool = False, prim_part: Particle = None,
+                 sec_part: Particle = None, tmin=None, tmax=None, channelwidth=None):
         """
         Creates an instance of Particle
 
@@ -275,11 +278,19 @@ class Particle:
         self.avg_int_weighted = None
         self.int_std_weighted = None
 
-        self.spectra = Spectra(self)
-        self._raster_scan_dataset_index = raster_scan_dataset_index
-        self.raster_scan = raster_scan
-        self.has_raster_scan = raster_scan is not None
-        self.description = h5_fr.description(particle=self)
+        if self.is_secondary_part:
+            self.spectra = self.prim_part.spectra
+            self._raster_scan_dataset_index = self.prim_part._raster_scan_dataset_index
+            self.raster_scan = self.prim_part.raster_scan
+            self.has_raster_scan = self.prim_part.has_raster_scan
+            self.description = self.prim_part.description
+        else:
+            self.spectra = Spectra(self)
+            self._raster_scan_dataset_index = raster_scan_dataset_index
+            self.raster_scan = raster_scan
+            self.has_raster_scan = raster_scan is not None
+            self.description = h5_fr.description(particle=self)
+
         self.irf = None
         try:
             if channelwidth is None:
