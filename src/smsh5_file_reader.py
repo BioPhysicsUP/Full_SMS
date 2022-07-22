@@ -59,8 +59,8 @@ def raster_scan_coord(particle: Particle) -> np.ndarray:
     return particle.datadict.attrs["RS Coord. (um)"]
 
 
-def has_spectra(particle: Particle) -> bool:
-    return bool(particle.datadict.attrs["Spectra?"])
+# def has_spectra(particle: Particle) -> bool:
+#     return bool(particle.datadict.attrs["Spectra?"])
 
 
 def user(particle: Particle) -> str:
