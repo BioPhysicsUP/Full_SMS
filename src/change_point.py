@@ -593,7 +593,7 @@ class ChangePointAnalysis:
         start_ind, end_ind = seg_inds
         n = end_ind - start_ind
         assert n <= 1000, "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
-        if n < self.settings.cpa_min_num_photons:
+        if n < min_num_photons:
             cpt_found = False
             return cpt_found, None
         time_data = self._abstimes[start_ind:end_ind]
@@ -677,6 +677,8 @@ class ChangePointAnalysis:
         next_seg : (int, int)
             The next segments indexes.
         """
+
+        min_num_photons = self.settings.cpa_min_num_photons
 
         if self.end_at_photon is not None:
             last_photon_ind = self.end_at_photon
