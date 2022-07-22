@@ -903,7 +903,6 @@ class IntController(QObject):
         _, conf = self.get_gui_confidence()
         data = mw.tree2dataset()
         currentparticle = mw.current_particle
-        # print(currentparticle)
 
         self.resolve_mode = mode
         if mode == 'current':
@@ -949,7 +948,8 @@ class IntController(QObject):
         try:
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
-                target_particle = self.mainwindow.tree2particle(result_part_ind).cpts._particle
+                # target_particle = self.mainwindow.tree2particle(result_part_ind).cpts._particle
+                target_particle = particles[result_part_ind]
                 result.new_task_obj._particle = target_particle
                 result.new_task_obj._cpa._particle = target_particle
                 target_particle.cpts = result.new_task_obj
