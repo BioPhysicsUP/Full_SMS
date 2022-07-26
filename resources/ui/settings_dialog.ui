@@ -453,6 +453,19 @@
      <layout class="QFormLayout" name="formLayout">
       <item row="0" column="1">
        <layout class="QFormLayout" name="formLayout_5">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_5">
+          <property name="font">
+           <font>
+            <weight>50</weight>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Auto startpoint percentage of max</string>
+          </property>
+         </widget>
+        </item>
         <item row="0" column="1">
          <widget class="QSpinBox" name="spb_start_percent">
           <property name="font">
@@ -469,8 +482,8 @@
           </property>
          </widget>
         </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_5">
+        <item row="1" column="0">
+         <widget class="QLabel" name="useMovingAverageForEndpointLabel">
           <property name="font">
            <font>
             <weight>50</weight>
@@ -478,11 +491,24 @@
            </font>
           </property>
           <property name="text">
-           <string>Auto startpoint percentage of max</string>
+           <string>Use moving average for endpoint</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="0">
+        <item row="1" column="1">
+         <widget class="QCheckBox" name="chb_use_moving_avg">
+          <property name="font">
+           <font>
+            <weight>50</weight>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
          <widget class="QLabel" name="label_7">
           <property name="font">
            <font>
@@ -495,7 +521,7 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="1">
+        <item row="3" column="1">
          <widget class="QSpinBox" name="spb_end_multiple">
           <property name="font">
            <font>
@@ -508,7 +534,7 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0">
+        <item row="4" column="0">
          <widget class="QLabel" name="label_9">
           <property name="font">
            <font>
@@ -521,7 +547,7 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="1">
+        <item row="4" column="1">
          <widget class="QSpinBox" name="spb_end_percent">
           <property name="font">
            <font>
@@ -540,7 +566,20 @@
           </property>
          </widget>
         </item>
-        <item row="4" column="0">
+        <item row="5" column="0">
+         <widget class="QLabel" name="label_11">
+          <property name="font">
+           <font>
+            <weight>50</weight>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>(Greater of the two endpoints are used)</string>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="0">
          <widget class="QLabel" name="label_10">
           <property name="font">
            <font>
@@ -553,7 +592,7 @@
           </property>
          </widget>
         </item>
-        <item row="4" column="1">
+        <item row="7" column="1">
          <widget class="QSpinBox" name="spb_bg_percent">
           <property name="font">
            <font>
@@ -572,8 +611,21 @@
           </property>
          </widget>
         </item>
-        <item row="3" column="0">
-         <widget class="QLabel" name="label_11">
+        <item row="2" column="1">
+         <widget class="QSpinBox" name="spb_moving_avg_window">
+          <property name="font">
+           <font>
+            <weight>50</weight>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="value">
+           <number>10</number>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_12">
           <property name="font">
            <font>
             <weight>50</weight>
@@ -581,7 +633,57 @@
            </font>
           </property>
           <property name="text">
-           <string>(Greater of the two endpoints are used)</string>
+           <string>Moving average window size</string>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="1">
+         <widget class="QDoubleSpinBox" name="dsb_minimum_decay_window">
+          <property name="maximumSize">
+           <size>
+            <width>75</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="font">
+           <font>
+            <weight>50</weight>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="suffix">
+           <string> ns</string>
+          </property>
+          <property name="decimals">
+           <number>4</number>
+          </property>
+          <property name="minimum">
+           <double>0.001000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>10.000000000000000</double>
+          </property>
+          <property name="singleStep">
+           <double>0.001000000000000</double>
+          </property>
+          <property name="stepType">
+           <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
+          </property>
+          <property name="value">
+           <double>0.500000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="0">
+         <widget class="QLabel" name="label_13">
+          <property name="font">
+           <font>
+            <weight>50</weight>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Minimum decay window size</string>
           </property>
          </widget>
         </item>

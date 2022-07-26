@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+__docformat__ = 'NumPy'
+
 import os
 from typing import Union, List, Tuple, TYPE_CHECKING
 from copy import copy
@@ -947,7 +950,7 @@ class IntController(QObject):
         while self.results_gathered is False:
             time.sleep(1)
             count += 1
-            if count >= 5:
+            if count >= 20:
                 logger.error(msg="Results gathering timeout")
                 raise RuntimeError
 
@@ -1243,7 +1246,7 @@ class LifetimeController(QObject):
         else:
             # level = self.mainwindow.current_level
             if selected_level <= cp.num_levels - 1:
-                histogram = cp.levels[selected_level].histogram
+                histogram = cp.cpts.levels[selected_level].histogram
             else:
                 selected_group = selected_level - cp.num_levels
                 histogram = cp.groups[selected_group].histogram
@@ -1377,7 +1380,7 @@ class LifetimeController(QObject):
             histogram = particle.histogram
             fit_name = fit_name + ", Whole Trace"
         elif select_ind <= particle.num_levels - 1:
-            histogram = particle.levels[select_ind].histogram
+            histogram = particle.cpts.levels[select_ind].histogram
             fit_name = fit_name + f", Level #{select_ind + 1}"
             is_level = True
         else:
@@ -1549,14 +1552,14 @@ class LifetimeController(QObject):
                     logger.error('No Decay!')
                     return
         elif select_ind < particle.num_levels:
-            if particle.levels[select_ind].histogram.fitted:
-                decay = particle.levels[select_ind].histogram.fit_decay
-                t = particle.levels[select_ind].histogram.convd_t
+            if particle.cpts.levels[select_ind].histogram.fitted:
+                decay = particle.cpts.levels[select_ind].histogram.fit_decay
+                t = particle.cpts.levels[select_ind].histogram.convd_t
                 min_t = t[0]
             else:
                 try:
-                    decay = particle.levels[select_ind].histogram.decay
-                    t = particle.levels[select_ind].histogram.t
+                    decay = particle.cpts.levels[select_ind].histogram.decay
+                    t = particle.cpts.levels[select_ind].histogram.t
                 except ValueError:
                     return
         else:
@@ -1590,6 +1593,7 @@ class LifetimeController(QObject):
                 self.first = 0
             unit = f'ns with {particle.channelwidth: .3g} ns bins'
             max_t = particle.histogram.t[-1]
+            max_t_fitted = t[-1]
 
             if len(t) != len(decay):
                 shortest = min([len(t), len(decay)])
@@ -1608,7 +1612,7 @@ class LifetimeController(QObject):
 
                 life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
                 life_hist_plot.getViewBox().setLimits(xMin=min_t, yMin=0, xMax=max_t)
-                life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t])
+                life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t_fitted])
                 self.fitparamdialog.updateplot()
             else:
                 if self.temp_fig is None:
@@ -1692,8 +1696,8 @@ class LifetimeController(QObject):
                 return
         elif select_ind <= particle.num_levels - 1:
             try:
-                convd = particle.levels[select_ind].histogram.convd
-                t = particle.levels[select_ind].histogram.convd_t
+                convd = particle.cpts.levels[select_ind].histogram.convd
+                t = particle.cpts.levels[select_ind].histogram.convd_t
             except ValueError:
                 return
         else:
@@ -1791,8 +1795,8 @@ class LifetimeController(QObject):
                 return
         elif select_ind <= particle.num_levels - 1:
             try:
-                residuals = particle.levels[select_ind].histogram.residuals
-                t = particle.levels[select_ind].histogram.convd_t
+                residuals = particle.cpts.levels[select_ind].histogram.residuals
+                t = particle.cpts.levels[select_ind].histogram.convd_t
             except ValueError:
                 return
         else:

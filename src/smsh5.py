@@ -5,6 +5,9 @@ University of Pretoria
 2018
 """
 from __future__ import annotations
+
+__docformat__ = 'NumPy'
+
 import ast
 import os
 import re

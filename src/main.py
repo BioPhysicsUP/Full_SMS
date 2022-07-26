@@ -32,7 +32,7 @@ from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
 # import save_analysis
-from settings_dialog import SettingsDialog
+from settings_dialog import SettingsDialog, Settings
 
 try:
     import pkg_resources.py2_warn
@@ -109,6 +109,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         pg.setConfigOption('antialias', True)
         # pg.setConfigOption('leftButtonPan', False)
 
+        self.settings_dialog = SettingsDialog(self, get_saved_settings=True)
+        self.settings = self.settings_dialog.settings
+
         self.chbInt_Disp_Resolved.hide()
         self.chbInt_Disp_Photon_Bursts.hide()
         self.chbInt_Disp_Grouped.hide()
@@ -184,8 +187,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.raster_scan_controller = \
             RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
                                  list_text=self.txtRaster_Scan_List)
-
-        self.settings_dialog = SettingsDialog(self)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 

@@ -9,6 +9,7 @@ University of Pretoria
 """
 
 from __future__ import annotations
+
 __docformat__ = 'NumPy'
 
 import os

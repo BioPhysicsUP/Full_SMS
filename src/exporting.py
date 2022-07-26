@@ -6,10 +6,6 @@ from typing import TYPE_CHECKING, List
 from time import sleep
 import sys
 
-if '--vscode' in sys.argv:
-    import ptvsd
-
-
 from PyQt5.QtWidgets import QFileDialog
 import numpy as np
 import pandas as pd

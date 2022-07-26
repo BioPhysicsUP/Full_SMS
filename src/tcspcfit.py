@@ -8,6 +8,9 @@ University of Pretoria
 """
 
 from __future__ import annotations
+
+__docformat__ = 'NumPy'
+
 import numpy as np
 import pyqtgraph as pg
 import scipy
@@ -20,7 +23,7 @@ from scipy.optimize import curve_fit, nnls
 from scipy.signal import convolve
 import file_manager as fm
 from PyQt5 import uic
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 from settings_dialog import Settings
 
 if TYPE_CHECKING:
@@ -32,6 +35,26 @@ logger = setup_logger(__name__)
 
 fitting_dialog_file = fm.path(name="fitting_dialog.ui", file_type=fm.Type.UI)
 UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
+
+
+def moving_avg(vector: Union[list, np.ndarray], window_length: int,
+               pad_same_size: bool = True) -> np.ndarray:
+    vector_size = vector.size
+    left_window = int(np.floor(window_length/2))
+    right_window = int(np.ceil(window_length/2))
+    offset = 0
+    if pad_same_size:
+        start_pad = np.zeros(left_window)
+        end_pad = np.zeros(right_window)
+        vector = np.concatenate([start_pad, vector, end_pad])
+    else:
+        offset = window_length
+
+    new_vector = np.array([
+        np.mean(vector[i - left_window: i + right_window])
+        for i in range(left_window, left_window + vector_size - offset)
+    ])
+    return new_vector
 
 
 def makerow(vector):
@@ -263,7 +286,8 @@ class FluoFit:
 
         self.startpoint = None
         self.endpoint = None
-        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg, self.settings)
+        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg,
+                                                                   self.settings, channelwidth)
 
         self.meas_bef_bg = measured
         measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
@@ -292,7 +316,7 @@ class FluoFit:
             self.settings.load_settings_from_file(file_or_path=settings_file)
 
     @staticmethod
-    def calculate_boundaries(measured, boundaries, bg, settings=None):
+    def calculate_boundaries(measured, boundaries, bg, settings, channel_width):
         """Set the start and endpoints
 
         Sets the values to the given ones or automatically find good ones.
@@ -312,7 +336,8 @@ class FluoFit:
             Calculated decay background
         settings : settings_dialog.Settings() object
             Contains config settings
-
+        channel_width : float
+            Duration of a single channel
         """
         if boundaries is None:
             boundaries = [None, None, 'Manual', False]
@@ -322,6 +347,15 @@ class FluoFit:
         autostart = boundaries[2]
         autoend = boundaries[3]
 
+        if endpoint is None:
+            endpoint = measured.size
+
+        startmax = None
+        if settings.lt_use_moving_avg:
+            measured = moving_avg(vector=measured,
+                                  window_length=min(settings.lt_moving_avg_window,
+                                                    int(0.1 * measured.size)),
+                                  pad_same_size=True)
         if autostart == 'Manual':
             if startpoint is None:
                 startpoint = 0
@@ -333,10 +367,12 @@ class FluoFit:
             startmin = FluoFit.estimate_bg(measured, return_bglim=True)
             if autostart == '(Close to) max':
                 startpoint = startmax
-            if autostart == 'Rise middle':
+            elif autostart == 'Rise middle':
                 startpoint = int(0.5 * (startmin + startmax))
-            if autostart == 'Rise start':
+            elif autostart == 'Rise start':
                 startpoint = startmin
+            elif autostart == 'Safe rise start':
+                startpoint = startmin - min((startmax - startmin), 10)  #mmmmm
 
         if autoend:
             if settings is not None:
@@ -345,24 +381,41 @@ class FluoFit:
             else:
                 end_multiple = 20
                 end_percent = 0.01
-            minval = max(end_multiple * bg, end_percent * measured.max())
-            if not np.isnan(minval):
-                great_than_bg, = np.where(measured > minval)
-                if great_than_bg[-1] == measured.size - 1:
+            use_moving_avg = True
+            # if settings.lt_use_moving_avg:
+            #     measured = moving_avg(measured, min(settings.lt_moving_avg_window,
+            #                                         int(0.1*measured.size)))
+            min_val = max(end_multiple * bg, end_percent * measured.max())
+            if not np.isnan(min_val):
+                great_than_bg, = np.where(measured[startpoint:] > min_val)
+                great_than_bg += startpoint
+                if great_than_bg.size != 0 and \
+                        great_than_bg[-1] == measured.size - 1:
                     great_than_bg = great_than_bg[:-1]
                 if not great_than_bg.size == 0:
-                    max1 = great_than_bg.max()
-                    endpoint = max1
+                    endpoint = great_than_bg.max()
                 else:
-                    endpoint = measured.size
+                    endpoint = startpoint + int(np.round(
+                        settings.lt_minimum_decay_window/channel_width))
+            if settings.lt_use_moving_avg:
+                endpoint += int(np.round(settings.lt_moving_avg_window/2))
         elif endpoint is not None:
             endpoint = min(endpoint, measured.size)
         else:
             endpoint = measured.size
 
+        if settings is not None:
+            if channel_width*(endpoint - startpoint) < settings.lt_minimum_decay_window:
+                start = startmax if startmax is not None else startpoint
+                endpoint = start + int(np.round(
+                    settings.lt_minimum_decay_window/channel_width))
+                if autostart == 'Safe rise start':
+                    startpoint -= int(np.round(
+                        0.3*settings.lt_minimum_decay_window/channel_width))
+
         return startpoint, endpoint
 
-    def calculate_bg(self, bg, irf, irfbg, measured):
+    def calculate_bg(self, bg, irf, irf_bg, measured):
         """Calculate decay and IRF background values
 
         If not given, the  background value is estimated from the first part
@@ -380,7 +433,7 @@ class FluoFit:
         measured : ndarray
             Measured decay data
         """
-        if irfbg is None:
+        if irf_bg is None:
             if self.simulate_irf:
                 self.irfbg = 0
             else:  # TODO: replace with estimate_bg
@@ -393,7 +446,7 @@ class FluoFit:
 
                 self.irfbg = np.mean(irf[:bglim])
         else:
-            self.irfbg = irfbg
+            self.irfbg = irf_bg
         if bg is None:
             bg_est = self.estimate_bg(measured, settings=self.settings)
             self.bg = bg_est
@@ -988,8 +1041,8 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.lifetime_controller = lifetime_controller
         self.pgFitParam.setBackground(background=None)
 
-        self.settings = Settings()
-        self.load_settings()
+        self.settings = mainwindow.settings
+        # self.load_settings()
 
         self.checkSimIRF.stateChanged.connect(self.enable_sim_vals)
 
@@ -1131,8 +1184,10 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 convd = convd / convd.sum()
 
                 bg = FluoFit.estimate_bg(decay, settings=self.settings)
-                start, end = int(start / channelwidth), int(end / channelwidth)
-                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend], bg, self.settings)
+                start = int(start / channelwidth)
+                end = int(end / channelwidth) if end is not None else None
+                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend],
+                                                          bg, self.settings, channelwidth)
                 if autostart != 'Manual':
                     self.lineStartTime.setText(f'{start * channelwidth:.3g}')
                 if autoend:
@@ -1206,7 +1261,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         autostart = fp.autostart
         end = fp.end
         autoend = fp.autoend
-        if end is None:
+        if end is None and irf is not None:
             end = np.size(irf)
         return shift, decaybg, irfbg, start, autostart, end, autoend
 
