@@ -278,7 +278,8 @@ class ChangePoints:
                 (self._particle.int_std_weighted * sigam_int_thresh)
         else:
             burst_def = defined_int_thresh
-        burst_bools = np.logical_or(self.level_ints > burst_def,
+        # Chaning to logical_and, instead of logical_or
+        burst_bools = np.logical_and(self.level_ints > burst_def,
                                     np.array(self.level_dwelltimes) < min_dwell_time)
         burst_levels = np.where(burst_bools)[0]
         if len(burst_levels):

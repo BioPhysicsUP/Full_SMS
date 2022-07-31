@@ -37,6 +37,9 @@ fitting_dialog_file = fm.path(name="fitting_dialog.ui", file_type=fm.Type.UI)
 UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
 
 
+BACKGOURD_SECTION_LENGTH = 50
+
+
 def moving_avg(vector: Union[list, np.ndarray], window_length: int,
                pad_same_size: bool = True) -> np.ndarray:
     vector_size = vector.size
@@ -55,6 +58,15 @@ def moving_avg(vector: Union[list, np.ndarray], window_length: int,
         for i in range(left_window, left_window + vector_size - offset)
     ])
     return new_vector
+
+
+def max_continuous_zeros(vector: np.ndarray) -> int:
+    if type(vector) is list:
+        vector = np.array(vector)
+    is_zero = vector == 0
+    continous_zeros = np.diff(np.where(np.concatenate(([is_zero[0]], is_zero[:-1] != is_zero[1:],
+                                                       [True])))[0])[::2]
+    return np.max(continous_zeros) if len(continous_zeros) > 0 else 0
 
 
 def makerow(vector):
@@ -275,6 +287,7 @@ class FluoFit:
         self.settings = Settings()
         self.load_settings()
 
+
         self.bg = None
         self.irfbg = None
         self.calculate_bg(bg, irf, irfbg, measured)
@@ -289,17 +302,21 @@ class FluoFit:
         self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg,
                                                                    self.settings, channelwidth)
 
-        self.meas_bef_bg = measured
+        self.meas_bef_bg = measured.copy()
         measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
         measured[measured <= 0] = 0
 
         self.measured_unbounded = measured
         measured = measured[self.startpoint:self.endpoint]
+        self.measured_not_normalized = self.meas_bef_bg[self.startpoint:self.endpoint]
         self.meas_max = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
-        self.measured = measured / self.meas_max  # Normalize measured
-        self.bg_n = self.bg / self.meas_max  # Normalized background
-        self.meas_std = meas_std / self.meas_max
+        self.bg_n = None
+        self.meas_std = None
+        if self.meas_max != 0:
+            self.measured = measured / self.meas_max  # Normalize measured
+            self.bg_n = self.bg / self.meas_max  # Normalized background
+            self.meas_std = meas_std / self.meas_max
         self.dtau = None
         self.chisq = None
         self.residuals = None
@@ -348,7 +365,7 @@ class FluoFit:
         autoend = boundaries[3]
 
         if endpoint is None:
-            endpoint = measured.size
+            endpoint = measured.size - 1
 
         startmax = None
         if settings.lt_use_moving_avg:
@@ -372,7 +389,7 @@ class FluoFit:
             elif autostart == 'Rise start':
                 startpoint = startmin
             elif autostart == 'Safe rise start':
-                startpoint = startmin - min((startmax - startmin), 10)  #mmmmm
+                startpoint = startmin - min((startmax - startmin), 10)
 
         if autoend:
             if settings is not None:
@@ -381,10 +398,6 @@ class FluoFit:
             else:
                 end_multiple = 20
                 end_percent = 0.01
-            use_moving_avg = True
-            # if settings.lt_use_moving_avg:
-            #     measured = moving_avg(measured, min(settings.lt_moving_avg_window,
-            #                                         int(0.1*measured.size)))
             min_val = max(end_multiple * bg, end_percent * measured.max())
             if not np.isnan(min_val):
                 great_than_bg, = np.where(measured[startpoint:] > min_val)
@@ -470,13 +483,35 @@ class FluoFit:
             Contains config settings
 
         """
-        meas_real_start = np.nonzero(measured)[0][0]
         maxind = np.argmax(measured)
-        for i in range(maxind):
-            reverse = maxind - i
-            if measured[reverse] == np.int(np.mean(measured[meas_real_start:meas_real_start + 20])):
-                bglim = reverse
+
+        meas_real_start = np.nonzero(measured)[0][0]
+        bg_section = measured[meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+
+        # Attempt to remove low `island` of counts before real start
+        if max_continuous_zeros(bg_section)/BACKGOURD_SECTION_LENGTH >= 0.5 \
+                and len(measured[meas_real_start:]) > 2*BACKGOURD_SECTION_LENGTH:
+            original_start = meas_real_start.copy()
+            while max_continuous_zeros(bg_section)/BACKGOURD_SECTION_LENGTH >= 0.5:
+                next_seg_start = meas_real_start + np.argmax(bg_section == 0) + 1
+                if len(measured[meas_real_start + next_seg_start:]) < 2*BACKGOURD_SECTION_LENGTH:
+                    logger.warning('No reasonable background estimate could be made')
+                    meas_real_start = original_start
+                    bg_section = measured[
+                                 meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+                    break
+                meas_real_start = np.nonzero(measured[next_seg_start:])[0][0] + next_seg_start
+                bg_section = measured[meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+
+        bg_section_mean = np.mean(bg_section)
+        found = False
+        for i in reversed(range(meas_real_start, maxind)):
+            if measured[i] <= bg_section_mean:
+                bglim = i
+                found = True
                 break
+        if not found:
+            bglim = meas_real_start + 50
         bg_est = np.mean(measured[meas_real_start:bglim])
         if settings is not None:
             bg_percent = settings.lt_bg_percent / 100
@@ -764,8 +799,8 @@ class OneExp(FluoFit):
             tau = 5
         if amp is None:
             amp = 1
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
-                         fwhm, numexp=1)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg,
+                         boundaries, ploton, fwhm, numexp=1)
 
         if self.simulate_irf:
             paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]

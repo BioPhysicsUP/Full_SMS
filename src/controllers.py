@@ -1430,13 +1430,16 @@ class LifetimeController(QObject):
             group = particle.groups[group_ind]
             info = info + f'\n\nTotal Dwell Time (s) = {group.dwell_time_s: .3g}'
             info = info + f'\n# of photons = {group.num_photons}'
+            info = info + f'\n# used for fit = {group.histogram.num_photons_used}'
         elif is_level:
-            level = particle.levels[select_ind]
+            level = particle.cpts.levels[select_ind]
             info = info + f'\n\nDwell Time (s) {level.dwell_time_s: .3g}'
             info = info + f'\n# of photons = {level.num_photons}'
+            info = info + f'\n# used for fit = {level.histogram.num_photons_used}'
         else:
             info = info + f'\n\nDwell Times (s) = {particle.dwell_time: .3g}'
             info = info + f'\n# of photons = {particle.num_photons}'
+            info = info + f'\n# used for fit = {particle.histogram.num_photons_used}'
 
         if not for_export:
             self.mainwindow.textBrowser.setText(info)

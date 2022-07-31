@@ -63,8 +63,6 @@ def export_data(mainwindow: MainWindow,
                 mode: str = None,
                 signals: WorkerSignals = None,
                 lock: Lock = None):
-    if "--vscode" in sys.argv:
-        ptvsd.debug_this_thread()
     assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
 
     if mode == 'current':
@@ -468,7 +466,7 @@ def export_data(mainwindow: MainWindow,
                     rows = list()
                     rows.append(['Level #', 'Start Time (s)', 'End Time (s)',
                                  'Dwell Time (/s)', 'Int (counts/s)',
-                                 'Num of Photons'] + taucol + ampcol +
+                                 'Num of Photons', 'Num of Photons Used'] + taucol + ampcol +
                                 ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG',
                                  'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)'])
                     for i, l in enumerate(p.cpts.levels):
@@ -495,7 +493,8 @@ def export_data(mainwindow: MainWindow,
 
                             rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                          str(l.dwell_time_s), str(l.int_p_s),
-                                         str(l.num_photons)] + tauexp + ampexp + other_exp)
+                                         str(l.num_photons), str(l.histogram.num_photons_used)]
+                                        + tauexp + ampexp + other_exp)
                     with open_file(lvl_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
@@ -509,7 +508,8 @@ def export_data(mainwindow: MainWindow,
                             group_path += ' (ROI).csv'
                         rows = list()
                         rows.append(['Group #', 'Dwell Time (/s)',
-                                     'Int (counts/s)', 'Num of Photons'] + taucol + ampcol +
+                                     'Int (counts/s)', 'Num of Photons', 'Num of Photons Used']
+                                    + taucol + ampcol +
                                     ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
                                      'Chi Squared', 'Sim. IRF FWHM'])
                         for i, g in enumerate(p.groups):
@@ -532,7 +532,8 @@ def export_data(mainwindow: MainWindow,
 
                                 rows.append(
                                     [str(i + 1), str(g.dwell_time_s), str(g.int_p_s),
-                                     str(g.num_photons)] + tauexp + ampexp + other_exp)
+                                     str(g.num_photons), str(g.histogram.num_photons_used)]
+                                    + tauexp + ampexp + other_exp)
                     with open_file(group_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
@@ -544,7 +545,7 @@ def export_data(mainwindow: MainWindow,
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)',
                                      'Dwell Time (/s)', 'Int (counts/s)',
-                                     'Num of Photons'] + taucol + ampcol +
+                                     'Num of Photons', 'Num of Photons Used'] + taucol + ampcol +
                                     ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG',
                                      'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)'])
                         for i, l in enumerate(p.levels_roi):
@@ -571,7 +572,8 @@ def export_data(mainwindow: MainWindow,
 
                                 rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                              str(l.dwell_time_s), str(l.int_p_s),
-                                             str(l.num_photons)] + tauexp + ampexp + other_exp)
+                                             str(l.num_photons), str(l.histogram.num_photons_used)]
+                                            + tauexp + ampexp + other_exp)
                         with open_file(lvl_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
@@ -894,7 +896,7 @@ def export_data(mainwindow: MainWindow,
             max_numexp = max([p.numexp for p in particles])
             tau_cols = [f'tau_{i + 1}' for i in range(max_numexp)]
             amp_cols = [f'amp_{i + 1}' for i in range(max_numexp)]
-            life_cols_add = [*tau_cols, *amp_cols,
+            life_cols_add = ['num_photons_in_lifetime_fit', *tau_cols, *amp_cols,
                              'irf_shift', 'decay_bg', 'irf_bg',
                              'chi_squared', 'dw', 'dw_5', 'dw_1', 'dw_03', 'dw_01']
         else:
@@ -1033,15 +1035,16 @@ def write_dataframe_to_file(dataframe: pd.DataFrame, path: str, filename: str, f
     pass
 
 
-def get_level_data(level: Level, total_dwelltime:float,
+def get_level_data(level: Level, total_dwelltime: float,
                    incl_lifetimes: bool = False, max_numexp: int = 3) -> List:
     data = [*level.times_s, level.dwell_time_s, level.dwell_time_s/total_dwelltime, level.int_p_s,
             level.num_photons]
     if incl_lifetimes:
         h = level.histogram
         if h.fitted:
+            data.append(h.num_photons_used)
             if h.numexp == 1:
-                taus = [h.tau]
+                taus = [h.tau] if type(h.tau) is not list else h.tau
                 amps = [h.amp]
             else:
                 taus = list(h.tau)
@@ -1053,9 +1056,11 @@ def get_level_data(level: Level, total_dwelltime:float,
             amps.extend([np.NaN] * (max_numexp - h.numexp))
             data.extend(amps)
 
+            if h.dw_bound is None:
+                h.dw_bound = [None, None, None, None]
             data.extend([h.shift, h.bg, h.irfbg, h.chisq, h.dw, h.dw_bound[0],
                         h.dw_bound[1], h.dw_bound[2], h.dw_bound[3]])
         else:
-            data.extend([np.NaN]*(8 + max_numexp))
+            data.extend([np.NaN]*(9 + max_numexp))
 
     return data
