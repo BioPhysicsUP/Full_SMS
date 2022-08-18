@@ -1,7 +1,3 @@
-tcspcfit is the main module for lifetime fitting. 
+This software is to be used only if reference is made to the following paper:
 
-smsh5 is a small module for handling hdf5 files. 
-
-viewhdf is a simple tkinter gui for viewing data.
-
-The script tester.py is for testing the fitting code using generated data, while tester_hdf.py and tester_txt.py use example data.
+Kyeyune, F., Botha, J.L., Van Heerden, B., Malý, P., Van Grondelle, R., Diale, M. and Krüger, T.P., 2019. Strong plasmonic fluorescence enhancement of individual plant light-harvesting complexes. Nanoscale, 11(32), pp.15139-15146.
