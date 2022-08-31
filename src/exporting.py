@@ -982,7 +982,8 @@ def export_data(mainwindow: MainWindow,
             df_grouped_levels['particle'] = df_grouped_levels.particle.astype('string')
             # grouped_levels_df_path = os.path.join(f_dir, 'grouped_levels.df')
             # feather.write_feather(df=df_grouped_levels, dest=grouped_levels_df_path)
-            write_dataframe_to_file(dataframe=df_levels, path=f_dir, filename='grouped_levels',
+            write_dataframe_to_file(dataframe=df_grouped_levels, path=f_dir,
+                                    filename='grouped_levels',
                                     file_type=ex_df_format)
             if signals:
                 signals.progress.emit()
@@ -991,7 +992,7 @@ def export_data(mainwindow: MainWindow,
             df_grouping_info = pd.DataFrame(data=data_grouping_info, columns=grouping_info_cols)
             # grouping_info_df_path = os.path.join(f_dir, 'grouping_info.df')
             # feather.write_feather(df=df_grouping_info, dest=grouping_info_df_path)
-            write_dataframe_to_file(dataframe=df_levels, path=f_dir, filename='grouping_info',
+            write_dataframe_to_file(dataframe=df_grouping_info, path=f_dir, filename='grouping_info',
                                     file_type=ex_df_format)
             if signals:
                 signals.progress.emit()

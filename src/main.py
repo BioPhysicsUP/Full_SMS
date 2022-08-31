@@ -50,7 +50,7 @@ from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.3.7"
+SMS_VERSION = "0.3.9"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 

@@ -146,14 +146,14 @@ class Settings:
         opened_file = False
         if type(file_or_path) is str:
             if not os.path.exists(file_or_path):
-                raise FileNotFoundError("Path provided does not exist.")
+                raise FileNotFoundError(f"Path provided does not exist. {file_or_path}")
             if not os.path.isfile(file_or_path):
-                raise FileNotFoundError("Path provided is not valid file.")
+                raise FileNotFoundError(f"Path provided is not valid file. {file_or_path}")
             file = open(file_or_path, mode="r")
             opened_file = True
         else:
             file = file_or_path
-            assert file.closed != True, "File provided is not open."
+            # assert file.closed is True, "File provided is not open."
 
         loaded_settings_dict = json.load(file)
         try:
