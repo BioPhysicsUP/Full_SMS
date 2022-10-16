@@ -39,11 +39,13 @@ DATAFRAME_FORMATS = {'Parquet (*.parquet)': 0,
 class ExportWorker(QRunnable):
     def __init__(self, mainwindow: MainWindow,
                  mode: str = None,
-                 lock: Lock = None):
+                 lock: Lock = None,
+                 f_dir: str = None):
         super(ExportWorker, self).__init__()
         self.main_window = mainwindow
         self.mode = mode
         self.lock = lock
+        self.f_dir = f_dir
         self.signals = WorkerSignals()
 
     @pyqtSlot()
@@ -52,7 +54,8 @@ class ExportWorker(QRunnable):
             export_data(mainwindow=self.main_window,
                         mode=self.mode,
                         signals=self.signals,
-                        lock=self.lock)
+                        lock=self.lock,
+                        f_dir=self.f_dir)
         except Exception as err:
             self.signals.error.emit(err)
         finally:
@@ -62,7 +65,8 @@ class ExportWorker(QRunnable):
 def export_data(mainwindow: MainWindow,
                 mode: str = None,
                 signals: WorkerSignals = None,
-                lock: Lock = None):
+                lock: Lock = None,
+                f_dir: str = None):
     assert mode in ['current', 'selected', 'all'], "MainWindow\tThe mode parameter is invalid"
 
     if mode == 'current':
@@ -72,7 +76,6 @@ def export_data(mainwindow: MainWindow,
     else:
         particles = mainwindow.current_dataset.particles
 
-    f_dir = QFileDialog.getExistingDirectory(mainwindow)
     f_dir = os.path.abspath(f_dir)
 
     if not f_dir:
@@ -136,8 +139,7 @@ def export_data(mainwindow: MainWindow,
         prog_num = 0
         if any_particle_text_plot:
             prog_num = prog_num + len(particles)
-        if ex_raster_scan_2d or ex_plot_raster_scans:
-            prog_num = prog_num + len(raster_scans_use)
+        if ex_raster_scan_2d or ex_plot_raster_scans: prog_num = prog_num + len(raster_scans_use)
         if ex_df_levels:
             prog_num = prog_num + 1
         if ex_df_grouped_levels:
@@ -160,17 +162,23 @@ def export_data(mainwindow: MainWindow,
         p = particles[0]
         if p._histogram.numexp == 1:
             taucol = ['Lifetime (ns)']
+            taustdcol = ['Lifetime std (ns)']
             ampcol = ['Amp']
+            ampstdcol = ['Amp std']
         elif p._histogram.numexp == 2:
             taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
+            taustdcol = ['Lifetime 1 std (ns)', 'Lifetime 2 std (ns)']
             ampcol = ['Amp 1', 'Amp 2']
+            ampstdcol = ['Amp 1 std', 'Amp 2 std']
         elif p._histogram.numexp == 3:
             taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
-            ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
+            taustdcol = ['Lifetime 1 std (ns)', 'Lifetime 2 std (ns)', 'Lifetime 3 std (ns)']
+            ampcol = ['Amp 1', 'Amp 2', 'Amp 3',]
+            ampstdcol = ['Amp 1 std', 'Amp 2 std', 'Amp 3 std', ]
         rows = list()
-        rows.append(['Particle #'] + taucol + ampcol +
-                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
-                     'Chi Squared', 'Sim. IRF FWHM (ns)'])
+        rows.append(['Particle #'] + taucol + taustdcol + ampcol + ampstdcol +
+                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG', 'IRF BG',
+                     'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)'])
         for i, p in enumerate(particles):
             if p._histogram.fitted:
                 if p._histogram.tau is None or p._histogram.amp is None:  # Problem with fitting the level
@@ -178,16 +186,28 @@ def export_data(mainwindow: MainWindow,
                     ampexp = ['0' for i in range(p._histogram.numexp)]
                     other_exp = ['0', '0', '0', '0']
                 else:
+                    numexp = np.size(p._histogram.tau)
                     if p.numexp == 1:
                         tauexp = [str(p._histogram.tau)]
+                        taustdexp = [str(p._histogram.stds[0])]
                         ampexp = [str(p._histogram.amp)]
+                        ampstdexp = [str(0)]
                     else:
                         tauexp = [str(tau) for tau in p._histogram.tau]
+                        taustdexp = [str(std) for std in p._histogram.stds[:numexp]]
                         ampexp = [str(amp) for amp in p._histogram.amp]
+                        ampstdexp = [str(std) for std in p._histogram.stds[numexp:2*numexp]]
+                    if hasattr(p._histogram, 'fwhm') and p._histogram.fwhm is not None:
+                        sim_irf_fwhm = str(p._histogram.fwhm)
+                        sim_irf_fwhm_std = str(p._histogram.stds[2 * numexp + 1])
+                    else:
+                        sim_irf_fwhm = ''
+                        sim_irf_fwhm_std = ''
                     other_exp = [str(p._histogram.avtau), str(p._histogram.shift),
+                                 str(p._histogram.stds[2*numexp]),
                                  str(p._histogram.bg), str(p._histogram.irfbg),
-                                 str(p._histogram.chisq), str(p._histogram.fwhm)]
-                rows.append([str(i + 1)] + tauexp + ampexp + other_exp)
+                                 str(p._histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std]
+                rows.append([str(i + 1)] + tauexp + taustdexp + ampexp + ampstdexp + other_exp)
         with open_file(lifetime_path) as f:
             writer = csv.writer(f, dialect=csv.excel)
             writer.writerows(rows)
@@ -198,17 +218,23 @@ def export_data(mainwindow: MainWindow,
         p = particles[0]
         if p._histogram_roi.numexp == 1:
             taucol = ['Lifetime (ns)']
+            taustdcol = ['Lifetime std (ns)']
             ampcol = ['Amp']
+            ampstdcol = ['Amp std']
         elif p._histogram_roi.numexp == 2:
             taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
+            taustdcol = ['Lifetime 1 std (ns)', 'Lifetime 2 std (ns)']
             ampcol = ['Amp 1', 'Amp 2']
+            ampstdcol = ['Amp 1 std', 'Amp 2 std']
         elif p._histogram_roi.numexp == 3:
             taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
-            ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
+            taustdcol = ['Lifetime 1 std (ns)', 'Lifetime 2 std (ns)', 'Lifetime 3 std (ns)']
+            ampcol = ['Amp 1', 'Amp 2', 'Amp 3',]
+            ampstdcol = ['Amp 1 std', 'Amp 2 std', 'Amp 3 std', ]
         rows = list()
-        rows.append(['Particle #'] + taucol + ampcol +
-                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
-                     'Chi Squared', 'Sim. IRF FWHM (ns)'])
+        rows.append(['Particle #'] + taucol + taustdcol + ampcol + ampstdcol +
+                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG', 'IRF BG',
+                     'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)'])
         for i, p in enumerate(particles):
             if p._histogram_roi.fitted:
                 if p._histogram_roi.tau is None or p._histogram_roi.amp is None:  # Problem with fitting the level
@@ -218,14 +244,25 @@ def export_data(mainwindow: MainWindow,
                 else:
                     if p.numexp == 1:
                         tauexp = [str(p._histogram_roi.tau)]
+                        taustdexp = [str(p._histogram_roi.stds[0])]
                         ampexp = [str(p._histogram_roi.amp)]
+                        ampstdexp = [str(0)]
                     else:
                         tauexp = [str(tau) for tau in p._histogram_roi.tau]
+                        taustdexp = [str(std) for std in p._histogram_roi.stds[:numexp]]
                         ampexp = [str(amp) for amp in p._histogram_roi.amp]
+                        ampstdexp = [str(std) for std in p._histogram_roi.stds[numexp:2 * numexp]]
+                    if hasattr(p._histogram_roi, 'fwhm') and p._histogram_roi.fwhm is not None:
+                        sim_irf_fwhm = str(p._histogram_roi.fwhm)
+                        sim_irf_fwhm_std = str(p._histogram_roi.stds[2 * numexp + 1])
+                    else:
+                        sim_irf_fwhm = ''
+                        sim_irf_fwhm_std = ''
                     other_exp = [str(p._histogram_roi.avtau), str(p._histogram_roi.shift),
+                                 str(p._histogram_roi.stds[2 * numexp]),
                                  str(p._histogram_roi.bg), str(p._histogram_roi.irfbg),
-                                 str(p._histogram_roi.chisq), str(p._histogram_roi.fwhm)]
-                rows.append([str(i + 1)] + tauexp + ampexp + other_exp)
+                                 str(p._histogram_roi.chisq), sim_irf_fwhm, sim_irf_fwhm_std]
+                rows.append([str(i + 1)] + tauexp + taustdexp + ampexp + ampstdexp + other_exp)
         with open_file(lifetime_path) as f:
             writer = csv.writer(f, dialect=csv.excel)
             writer.writerows(rows)
@@ -452,13 +489,19 @@ def export_data(mainwindow: MainWindow,
             if ex_lifetime:
                 if p.numexp == 1:
                     taucol = ['Lifetime (ns)']
+                    taustdcol = ['Lifetime std (ns)']
                     ampcol = ['Amp']
+                    ampstdcol = ['Amp std']
                 elif p.numexp == 2:
                     taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)']
+                    taustdcol = ['Lifetime 1 std (ns)', 'Lifetime 2 std (ns)']
                     ampcol = ['Amp 1', 'Amp 2']
+                    ampstdcol = ['Amp 1 std', 'Amp 2 std']
                 elif p.numexp == 3:
                     taucol = ['Lifetime 1 (ns)', 'Lifetime 2 (ns)', 'Lifetime 3 (ns)']
-                    ampcol = ['Amp 1', 'Amp 2', 'Amp 3']
+                    taustdcol = ['Lifetime 1 std (ns)', 'Lifetime 2 std (ns)', 'Lifetime 3 std (ns)']
+                    ampcol = ['Amp 1', 'Amp 2', 'Amp 3', ]
+                    ampstdcol = ['Amp 1 std', 'Amp 2 std', 'Amp 3 std', ]
 
                 all_fitted_lvls = [lvl.histogram.fitted for lvl in p.cpts.levels]
                 if p.has_levels and any(all_fitted_lvls):
@@ -466,9 +509,9 @@ def export_data(mainwindow: MainWindow,
                     rows = list()
                     rows.append(['Level #', 'Start Time (s)', 'End Time (s)',
                                  'Dwell Time (/s)', 'Int (counts/s)',
-                                 'Num of Photons', 'Num of Photons Used'] + taucol + ampcol +
-                                ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG',
-                                 'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)'])
+                                 'Num of Photons', 'Num of Photons Used'] + taucol + taustdcol + ampcol + ampstdcol +
+                                ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG',
+                                 'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)'])
                     for i, l in enumerate(p.cpts.levels):
                         if l.histogram.fitted:
                             # Problem with fitting the level
@@ -479,22 +522,29 @@ def export_data(mainwindow: MainWindow,
                             else:
                                 if p.numexp == 1:
                                     tauexp = [str(l.histogram.tau)]
+                                    taustdexp = [str(l.histogram.stds[0])]
                                     ampexp = [str(l.histogram.amp)]
+                                    ampstdexp = [str(0)]
                                 else:
                                     tauexp = [str(tau) for tau in l.histogram.tau]
+                                    taustdexp = [str(std) for std in l.histogram.stds[:numexp]]
                                     ampexp = [str(amp) for amp in l.histogram.amp]
-                                if hasattr(l.histogram, 'fwhm'):
+                                    ampstdexp = [str(std) for std in l.histogram.stds[numexp:2 * numexp]]
+                                if hasattr(l.histogram, 'fwhm') and l.histogram.fwhm is not None:
                                     sim_irf_fwhm = str(l.histogram.fwhm)
+                                    sim_irf_fwhm_std = str(l.histogram.stds[2 * numexp + 1])
                                 else:
                                     sim_irf_fwhm = ''
+                                    sim_irf_fwhm_std = ''
                                 other_exp = [str(l.histogram.avtau), str(l.histogram.shift),
+                                             str(l.histogram.stds[2 * numexp]),
                                              str(l.histogram.bg), str(l.histogram.irfbg),
-                                             str(l.histogram.chisq), sim_irf_fwhm]
+                                             str(l.histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std]
 
                             rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                          str(l.dwell_time_s), str(l.int_p_s),
                                          str(l.num_photons), str(l.histogram.num_photons_used)]
-                                        + tauexp + ampexp + other_exp)
+                                        + tauexp + taustdexp + ampexp + ampstdexp + other_exp)
                     with open_file(lvl_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
@@ -509,9 +559,9 @@ def export_data(mainwindow: MainWindow,
                         rows = list()
                         rows.append(['Group #', 'Dwell Time (/s)',
                                      'Int (counts/s)', 'Num of Photons', 'Num of Photons Used']
-                                    + taucol + ampcol +
-                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG', 'IRF BG',
-                                     'Chi Squared', 'Sim. IRF FWHM'])
+                                    + taucol + taustdcol + ampcol + ampstdcol +
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG', 'IRF BG',
+                                     'Chi Squared', 'Sim. IRF FWHM', 'Sim. IRF FWHM std (ns)'])
                         for i, g in enumerate(p.groups):
                             if g.histogram.fitted:
                                 # Problem with fitting the level
@@ -522,18 +572,28 @@ def export_data(mainwindow: MainWindow,
                                 else:
                                     if p.numexp == 1:
                                         tauexp = [str(g.histogram.tau)]
+                                        taustdexp = [str(g.histogram.stds[0])]
                                         ampexp = [str(g.histogram.amp)]
+                                        ampstdexp = [str(0)]
                                     else:
                                         tauexp = [str(tau) for tau in g.histogram.tau]
+                                        taustdexp = [str(std) for std in g.histogram.stds[:numexp]]
                                         ampexp = [str(amp) for amp in g.histogram.amp]
+                                        ampstdexp = [str(std) for std in g.histogram.stds[numexp:2 * numexp]]
+                                    if hasattr(p.histogram, 'fwhm') and p.histogram.fwhm is not None:
+                                        sim_irf_fwhm = str(p.histogram.fwhm)
+                                        sim_irf_fwhm_std = str(p.histogram.stds[2 * numexp + 1])
+                                    else:
+                                        sim_irf_fwhm = ''
+                                        sim_irf_fwhm_std = ''
                                     other_exp = [str(g.histogram.avtau), str(g.histogram.shift),
+                                                 str(g.histogram.stds[2*numexp]),
                                                  str(g.histogram.bg), str(g.histogram.irfbg),
-                                                 str(g.histogram.chisq), str(g.histogram.fwhm)]
-
+                                                 str(g.histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std]
                                 rows.append(
                                     [str(i + 1), str(g.dwell_time_s), str(g.int_p_s),
                                      str(g.num_photons), str(g.histogram.num_photons_used)]
-                                    + tauexp + ampexp + other_exp)
+                                    + tauexp + taustdexp + ampexp + ampstdexp + other_exp)
                     with open_file(group_path) as f:
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
@@ -545,9 +605,10 @@ def export_data(mainwindow: MainWindow,
                         rows = list()
                         rows.append(['Level #', 'Start Time (s)', 'End Time (s)',
                                      'Dwell Time (/s)', 'Int (counts/s)',
-                                     'Num of Photons', 'Num of Photons Used'] + taucol + ampcol +
-                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'Decay BG',
-                                     'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)'])
+                                     'Num of Photons', 'Num of Photons Used'] + taucol + taustdcol + ampcol +
+                                    ampstdcol +
+                                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG',
+                                     'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)'])
                         for i, l in enumerate(p.levels_roi):
                             if l.histogram.fitted:
                                 # Problem with fitting the level
@@ -558,22 +619,29 @@ def export_data(mainwindow: MainWindow,
                                 else:
                                     if p.numexp == 1:
                                         tauexp = [str(l.histogram.tau)]
+                                        taustdexp = [str(l.histogram.stds[0])]
                                         ampexp = [str(l.histogram.amp)]
+                                        ampstdexp = [str(0)]
                                     else:
                                         tauexp = [str(tau) for tau in l.histogram.tau]
+                                        taustdexp = [str(std) for std in l.histogram.stds[:numexp]]
                                         ampexp = [str(amp) for amp in l.histogram.amp]
-                                    if hasattr(l.histogram, 'fwhm'):
+                                        ampstdexp = [str(std) for std in l.histogram.stds[numexp:2 * numexp]]
+                                    if hasattr(l.histogram, 'fwhm') and l.histogram.fwhm is not None:
                                         sim_irf_fwhm = str(l.histogram.fwhm)
+                                        sim_irf_fwhm_std = str(l.histogram.stds[2 * numexp + 1])
                                     else:
                                         sim_irf_fwhm = ''
+                                        sim_irf_fwhm_std = ''
                                     other_exp = [str(l.histogram.avtau), str(l.histogram.shift),
+                                                 str(l.histogram.stds[2*numexp]),
                                                  str(l.histogram.bg), str(l.histogram.irfbg),
-                                                 str(l.histogram.chisq), sim_irf_fwhm]
+                                                 str(l.histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std]
 
                                 rows.append([str(i + 1), str(l.times_s[0]), str(l.times_s[1]),
                                              str(l.dwell_time_s), str(l.int_p_s),
                                              str(l.num_photons), str(l.histogram.num_photons_used)]
-                                            + tauexp + ampexp + other_exp)
+                                            + tauexp + taustdexp + ampexp + ampstdexp + other_exp)
                         with open_file(lvl_path) as f:
                             writer = csv.writer(f, dialect=csv.excel)
                             writer.writerows(rows)
@@ -895,9 +963,11 @@ def export_data(mainwindow: MainWindow,
         if any_has_lifetime:
             max_numexp = max([p.numexp for p in particles])
             tau_cols = [f'tau_{i + 1}' for i in range(max_numexp)]
+            taustd_cols = [f'tau_std_{i + 1}' for i in range(max_numexp)]
             amp_cols = [f'amp_{i + 1}' for i in range(max_numexp)]
-            life_cols_add = ['num_photons_in_lifetime_fit', *tau_cols, *amp_cols,
-                             'irf_shift', 'decay_bg', 'irf_bg',
+            ampstd_cols = [f'amp_std_{i + 1}' for i in range(max_numexp)]
+            life_cols_add = ['num_photons_in_lifetime_fit', *tau_cols, *taustd_cols, *amp_cols,
+                             *ampstd_cols, 'irf_shift', 'irf_shift_std', 'decay_bg', 'irf_bg',
                              'chi_squared', 'dw', 'dw_5', 'dw_1', 'dw_03', 'dw_01']
         else:
             life_cols_add = ['']
@@ -1046,20 +1116,28 @@ def get_level_data(level: Level, total_dwelltime: float,
             data.append(h.num_photons_used)
             if h.numexp == 1:
                 taus = [h.tau] if type(h.tau) is not list else h.tau
+                taustds = [h.stds[0]]
                 amps = [h.amp]
+                ampstds = [h.stds[0]]
             else:
                 taus = list(h.tau)
+                taustds = list(h.stds[:h.numexp])
                 amps = list(h.amp)
+                ampstds = list(h.stds[h.numexp:2*h.numexp])
 
             taus.extend([np.NaN] * (max_numexp - h.numexp))
             data.extend(taus)
+            taustds.extend([np.NaN] * (max_numexp - h.numexp))
+            data.extend(taustds)
 
             amps.extend([np.NaN] * (max_numexp - h.numexp))
             data.extend(amps)
+            ampstds.extend([np.NaN] * (max_numexp - h.numexp))
+            data.extend(ampstds)
 
             if h.dw_bound is None:
                 h.dw_bound = [None, None, None, None]
-            data.extend([h.shift, h.bg, h.irfbg, h.chisq, h.dw, h.dw_bound[0],
+            data.extend([h.shift, h.stds[2*h.numexp], h.bg, h.irfbg, h.chisq, h.dw, h.dw_bound[0],
                         h.dw_bound[1], h.dw_bound[2], h.dw_bound[3]])
         else:
             data.extend([np.NaN]*(9 + max_numexp))

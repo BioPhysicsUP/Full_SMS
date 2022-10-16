@@ -1150,7 +1150,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def gui_export(self, mode: str = None):
         self.lock = Lock()
-        export_worker = ExportWorker(mainwindow=self, mode=mode, lock=self.lock)
+        f_dir = QFileDialog.getExistingDirectory(self)
+        export_worker = ExportWorker(mainwindow=self, mode=mode, lock=self.lock, f_dir=f_dir)
         sigs = export_worker.signals
         sigs.start_progress.connect(self.start_progress)
         sigs.progress.connect(self.update_progress)

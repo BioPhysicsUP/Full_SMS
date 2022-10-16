@@ -1398,23 +1398,39 @@ class LifetimeController(QObject):
 
         tau = histogram.tau
         amp = histogram.amp
+        stds = histogram.stds
         avtau = np.dot(histogram.amp, histogram.tau)
-        if type(tau) is np.ndarray:
-            info = info + 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
-            info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
-        else:  # only one component
-            info = info + 'Tau = {:#.3g} ns'.format(tau)
-            info = info + '\nAmp = {:#.3g}'.format(amp)
+        # if type(tau) is np.ndarray:
+        #     info = info + 'Tau = ' + ' '.join(f'{F:.3g} ± {stds[i]:.1g} ns' for i, F in enumerate(tau))
+        #     info = info + '\nAmp = ' + ' '.join(f'{F:.3g} ± {stds[i+np.size(tau)]:.1g}' for i, F in enumerate(amp))
+        # else:  # only one component
+        #     info = info + f'Tau = {tau:.3g} ± {stds[0]:.1g} ns'
+        #     info = info + f'\nAmp = {amp:.3g} ns'
+        if np.size(tau) == 1:
+            info = info + f'Tau = {tau:.3g} ± {stds[0]:.1g} ns'
+            info = info + f'\nAmp = {amp:.3g}'
+        elif np.size(tau) == 2:
+            info = info + f'Tau 1 = {tau[0]:.3g} ± {stds[0]:.1g} ns'
+            info = info + f'\nTau 2 = {tau[1]:.3g} ± {stds[1]:.1g} ns'
+            info = info + f'\nAmp 1 = {amp[0]:.3g} ± {stds[2]:.1g}'
+            info = info + f'\nAmp 2 = {amp[1]:.3g} ± {stds[3]:.1g}'
+        elif np.size(tau) == 3:
+            info = info + f'Tau 1 = {tau[0]:.3g} ± {stds[0]:.1g} ns'
+            info = info + f'\nTau 2 = {tau[1]:.3g} ± {stds[1]:.1g} ns'
+            info = info + f'\nTau 3 = {tau[2]:.3g} ± {stds[2]:.1g} ns'
+            info = info + f'\nAmp 1 = {amp[0]:.3g} ± {stds[3]:.1g}'
+            info = info + f'\nAmp 2 = {amp[1]:.3g} ± {stds[4]:.1g}'
+            info = info + f'\nAmp 3 = {amp[2]:.3g} ± {stds[5]:.1g}'
         if type(avtau) is list or type(avtau) is np.ndarray:
             avtau = avtau[0]
         info = info + '\nAverage Tau = {:#.3g}'.format(avtau)
 
-        info = info + f'\n\nShift = {histogram.shift: .3g} ns'
+        info = info + f'\n\nShift = {histogram.shift: .3g} ± {stds[2*np.size(tau)]: .1g} ns'
         if not for_export:
             info = info + f'\nDecay BG = {histogram.bg: .3g}'
             info = info + f'\nIRF BG = {histogram.irfbg: .3g}'
         if hasattr(histogram, 'fwhm') and histogram.fwhm is not None:
-            info = info + f'\nSim. IRF FWHM = {histogram.fwhm: .3g}'
+            info = info + f'\nSim. IRF FWHM = {histogram.fwhm: .3g} ± {stds[2*np.size(tau)+1]: .1g} ns'
 
         info = info + f'\nChi-Sq = {histogram.chisq: .3g}'
         if not for_export:

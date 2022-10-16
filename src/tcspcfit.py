@@ -283,6 +283,7 @@ class FluoFit:
         self.fwhm = None
         self.fwhmmin = None
         self.fwhmmax = None
+        self.stds = []
         self.setup_params(amp, shift, tau, fwhm)
         self.settings = Settings()
         self.load_settings()
@@ -450,6 +451,7 @@ class FluoFit:
             if self.simulate_irf:
                 self.irfbg = 0
             else:  # TODO: replace with estimate_bg
+                bglim = None
                 maxind = np.argmax(irf)
                 for i in range(maxind):
                     reverse = maxind - i
@@ -457,7 +459,10 @@ class FluoFit:
                         bglim = reverse
                         break
 
-                self.irfbg = np.mean(irf[:bglim])
+                if bglim is not None:
+                    self.irfbg = np.mean(irf[:bglim])
+                else:
+                    self.irfbg = 0
         else:
             self.irfbg = irf_bg
         if bg is None:
@@ -619,7 +624,7 @@ class FluoFit:
             df_num = 1
         return df_num
 
-    def results(self, tau, dtau, shift, amp=1, fwhm=None):
+    def results(self, tau, stds, shift, amp=1, fwhm=None):
         """Handle results after fitting
 
         After fitting, the results are processed. Chi-squared is calculated
@@ -639,10 +644,10 @@ class FluoFit:
         """
 
         self.tau = tau
-        self.dtau = dtau
         self.amp = amp
         self.shift = shift*self.channelwidth
         self.fwhm = fwhm
+        self.stds = stds
 
         param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
 
@@ -824,7 +829,7 @@ class OneExp(FluoFit):
             tau = param[0]
             amp = param[1]
             shift = param[2]
-            dtau = np.sqrt(pcov[0, 0])
+            stds = np.sqrt(np.diag(pcov))
 
             if self.simulate_irf:
                 fwhm = param[3]
@@ -833,7 +838,7 @@ class OneExp(FluoFit):
 
             # self.convd = self.fitfunc(self.t[self.startpoint:self.endpoint], tau, amp, shift, fwhm)
             self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
-            self.results(tau, dtau, shift, amp=1, fwhm=fwhm)
+            self.results(tau, stds, shift, amp=1, fwhm=fwhm)
 
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
@@ -869,13 +874,14 @@ class TwoExp(FluoFit):
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
             # sigma=np.sqrt(np.abs(self.measured)))
         else:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
+            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit,
+                                    **addopt)
 
         tau = param[0:2]
         # amp = np.append(param[2], param[3])
         amp = np.append(param[2], 1 - param[2])
         shift = param[4]
-        dtau = np.sqrt(np.diag(pcov[0:2]))
+        stds = np.sqrt(np.diag(pcov))
 
         if self.simulate_irf:
             fwhm = param[5]
@@ -884,7 +890,7 @@ class TwoExp(FluoFit):
 
         # self.convd = self.fitfunc(self.t[self.startpoint:self.endpoint], tau[0], tau[1], amp[0], amp[1], shift, fwhm)
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
-        self.results(tau, dtau, shift, amp, fwhm)
+        self.results(tau, stds, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
@@ -924,7 +930,7 @@ class ThreeExp(FluoFit):
         tau = param[0:3]
         amp = np.append(param[3:5], 1 - param[3] - param[4])
         shift = param[6]
-        dtau = np.diag(pcov[0:3])
+        stds = np.sqrt(np.diag(pcov))
 
         if self.simulate_irf:
             fwhm = param[7]
@@ -932,7 +938,7 @@ class ThreeExp(FluoFit):
             fwhm = None
 
         self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
-        self.results(tau, dtau, shift, amp, fwhm)
+        self.results(tau, stds, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""

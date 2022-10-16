@@ -217,7 +217,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>5</number>
+       <number>2</number>
       </property>
       <property name="iconSize">
        <size>
@@ -2256,9 +2256,15 @@
                 <verstretch>0</verstretch>
                </sizepolicy>
               </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>0</height>
+               </size>
+              </property>
               <property name="maximumSize">
                <size>
-                <width>180</width>
+                <width>210</width>
                 <height>16777215</height>
                </size>
               </property>
@@ -4387,7 +4393,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
