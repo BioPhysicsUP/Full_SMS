@@ -3,10 +3,10 @@ name: Pylint
 on:
   pull_request:
     branches:
-      - master
+      - master-future
   push:
     branches:
-      - master
+      - master-future
 
 jobs:
   build:
