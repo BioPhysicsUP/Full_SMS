@@ -5,6 +5,9 @@ University of Pretoria
 2018
 """
 from __future__ import annotations
+
+__docformat__ = 'NumPy'
+
 import ast
 import os
 import re
@@ -805,6 +808,7 @@ class Histogram:
         self.original_kwargs = {'start_point': start_point,
                                 'channel': channel,
                                 'trim_start': trim_start}
+        self.microtimes = None
         self.setup(level=level, use_roi=is_for_roi, **self.original_kwargs)
 
         self.convd = None
@@ -823,9 +827,13 @@ class Histogram:
         self.numexp = None
         self.residuals = None
         self.fwhm = None
+        self.stds = None
         self.chisq = None
         self.dw = None
         self.dw_bound = None
+        self.decay_roi_start_ns = None
+        self.decay_roi_end_ns = None
+        self.num_photons_used = None
 
     def setup(self, level: Union[Level, List[int]] = None,
               start_point: float = None,
@@ -950,6 +958,7 @@ class Histogram:
             self.bg = fit.bg
             self.irfbg = fit.irfbg
             self.fwhm = fit.fwhm
+            self.stds = fit.stds
             self.chisq = fit.chisq
             self.dw = fit.dw
             self.dw_bound = fit.dw_bound
@@ -959,6 +968,9 @@ class Histogram:
                 self.avtau = self.tau
             else:
                 self.avtau = sum(self.tau * self.amp) / self.amp.sum()
+            self.decay_roi_start_ns = fit.startpoint * self._particle.channelwidth
+            self.decay_roi_end_ns = fit.endpoint * self._particle.channelwidth
+            self.num_photons_used = np.sum(fit.measured_not_normalized)
 
         return True
 

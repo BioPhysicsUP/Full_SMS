@@ -1680,6 +1680,11 @@
                 <string>Rise start</string>
                </property>
               </item>
+              <item>
+               <property name="text">
+                <string>Safe rise start</string>
+               </property>
+              </item>
              </widget>
             </item>
            </layout>

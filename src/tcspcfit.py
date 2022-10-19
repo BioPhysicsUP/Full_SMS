@@ -8,6 +8,9 @@ University of Pretoria
 """
 
 from __future__ import annotations
+
+__docformat__ = 'NumPy'
+
 import numpy as np
 import pyqtgraph as pg
 import scipy
@@ -20,7 +23,7 @@ from scipy.optimize import curve_fit, nnls
 from scipy.signal import convolve
 import file_manager as fm
 from PyQt5 import uic
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 from settings_dialog import Settings
 
 if TYPE_CHECKING:
@@ -32,6 +35,38 @@ logger = setup_logger(__name__)
 
 fitting_dialog_file = fm.path(name="fitting_dialog.ui", file_type=fm.Type.UI)
 UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
+
+
+BACKGOURD_SECTION_LENGTH = 50
+
+
+def moving_avg(vector: Union[list, np.ndarray], window_length: int,
+               pad_same_size: bool = True) -> np.ndarray:
+    vector_size = vector.size
+    left_window = int(np.floor(window_length/2))
+    right_window = int(np.ceil(window_length/2))
+    offset = 0
+    if pad_same_size:
+        start_pad = np.zeros(left_window)
+        end_pad = np.zeros(right_window)
+        vector = np.concatenate([start_pad, vector, end_pad])
+    else:
+        offset = window_length
+
+    new_vector = np.array([
+        np.mean(vector[i - left_window: i + right_window])
+        for i in range(left_window, left_window + vector_size - offset)
+    ])
+    return new_vector
+
+
+def max_continuous_zeros(vector: np.ndarray) -> int:
+    if type(vector) is list:
+        vector = np.array(vector)
+    is_zero = vector == 0
+    continous_zeros = np.diff(np.where(np.concatenate(([is_zero[0]], is_zero[:-1] != is_zero[1:],
+                                                       [True])))[0])[::2]
+    return np.max(continous_zeros) if len(continous_zeros) > 0 else 0
 
 
 def makerow(vector):
@@ -248,9 +283,11 @@ class FluoFit:
         self.fwhm = None
         self.fwhmmin = None
         self.fwhmmax = None
+        self.stds = []
         self.setup_params(amp, shift, tau, fwhm)
         self.settings = Settings()
         self.load_settings()
+
 
         self.bg = None
         self.irfbg = None
@@ -263,19 +300,24 @@ class FluoFit:
 
         self.startpoint = None
         self.endpoint = None
-        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg, self.settings)
+        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg,
+                                                                   self.settings, channelwidth)
 
-        self.meas_bef_bg = measured
+        self.meas_bef_bg = measured.copy()
         measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
         measured[measured <= 0] = 0
 
         self.measured_unbounded = measured
         measured = measured[self.startpoint:self.endpoint]
+        self.measured_not_normalized = self.meas_bef_bg[self.startpoint:self.endpoint]
         self.meas_max = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
-        self.measured = measured / self.meas_max  # Normalize measured
-        self.bg_n = self.bg / self.meas_max  # Normalized background
-        self.meas_std = meas_std / self.meas_max
+        self.bg_n = None
+        self.meas_std = None
+        if self.meas_max != 0:
+            self.measured = measured / self.meas_max  # Normalize measured
+            self.bg_n = self.bg / self.meas_max  # Normalized background
+            self.meas_std = meas_std / self.meas_max
         self.dtau = None
         self.chisq = None
         self.residuals = None
@@ -292,7 +334,7 @@ class FluoFit:
             self.settings.load_settings_from_file(file_or_path=settings_file)
 
     @staticmethod
-    def calculate_boundaries(measured, boundaries, bg, settings=None):
+    def calculate_boundaries(measured, boundaries, bg, settings, channel_width):
         """Set the start and endpoints
 
         Sets the values to the given ones or automatically find good ones.
@@ -312,7 +354,8 @@ class FluoFit:
             Calculated decay background
         settings : settings_dialog.Settings() object
             Contains config settings
-
+        channel_width : float
+            Duration of a single channel
         """
         if boundaries is None:
             boundaries = [None, None, 'Manual', False]
@@ -322,6 +365,15 @@ class FluoFit:
         autostart = boundaries[2]
         autoend = boundaries[3]
 
+        if endpoint is None:
+            endpoint = measured.size - 1
+
+        startmax = None
+        if settings.lt_use_moving_avg:
+            measured = moving_avg(vector=measured,
+                                  window_length=min(settings.lt_moving_avg_window,
+                                                    int(0.1 * measured.size)),
+                                  pad_same_size=True)
         if autostart == 'Manual':
             if startpoint is None:
                 startpoint = 0
@@ -333,10 +385,12 @@ class FluoFit:
             startmin = FluoFit.estimate_bg(measured, return_bglim=True)
             if autostart == '(Close to) max':
                 startpoint = startmax
-            if autostart == 'Rise middle':
+            elif autostart == 'Rise middle':
                 startpoint = int(0.5 * (startmin + startmax))
-            if autostart == 'Rise start':
+            elif autostart == 'Rise start':
                 startpoint = startmin
+            elif autostart == 'Safe rise start':
+                startpoint = startmin - min((startmax - startmin), 10)
 
         if autoend:
             if settings is not None:
@@ -345,24 +399,37 @@ class FluoFit:
             else:
                 end_multiple = 20
                 end_percent = 0.01
-            minval = max(end_multiple * bg, end_percent * measured.max())
-            if not np.isnan(minval):
-                great_than_bg, = np.where(measured > minval)
-                if great_than_bg[-1] == measured.size - 1:
+            min_val = max(end_multiple * bg, end_percent * measured.max())
+            if not np.isnan(min_val):
+                great_than_bg, = np.where(measured[startpoint:] > min_val)
+                great_than_bg += startpoint
+                if great_than_bg.size != 0 and \
+                        great_than_bg[-1] == measured.size - 1:
                     great_than_bg = great_than_bg[:-1]
                 if not great_than_bg.size == 0:
-                    max1 = great_than_bg.max()
-                    endpoint = max1
+                    endpoint = great_than_bg.max()
                 else:
-                    endpoint = measured.size
+                    endpoint = startpoint + int(np.round(
+                        settings.lt_minimum_decay_window/channel_width))
+            if settings.lt_use_moving_avg:
+                endpoint += int(np.round(settings.lt_moving_avg_window/2))
         elif endpoint is not None:
             endpoint = min(endpoint, measured.size)
         else:
             endpoint = measured.size
 
+        if settings is not None:
+            if channel_width*(endpoint - startpoint) < settings.lt_minimum_decay_window:
+                start = startmax if startmax is not None else startpoint
+                endpoint = start + int(np.round(
+                    settings.lt_minimum_decay_window/channel_width))
+                if autostart == 'Safe rise start':
+                    startpoint -= int(np.round(
+                        0.3*settings.lt_minimum_decay_window/channel_width))
+
         return startpoint, endpoint
 
-    def calculate_bg(self, bg, irf, irfbg, measured):
+    def calculate_bg(self, bg, irf, irf_bg, measured):
         """Calculate decay and IRF background values
 
         If not given, the  background value is estimated from the first part
@@ -380,10 +447,11 @@ class FluoFit:
         measured : ndarray
             Measured decay data
         """
-        if irfbg is None:
+        if irf_bg is None:
             if self.simulate_irf:
                 self.irfbg = 0
             else:  # TODO: replace with estimate_bg
+                bglim = None
                 maxind = np.argmax(irf)
                 for i in range(maxind):
                     reverse = maxind - i
@@ -391,9 +459,12 @@ class FluoFit:
                         bglim = reverse
                         break
 
-                self.irfbg = np.mean(irf[:bglim])
+                if bglim is not None:
+                    self.irfbg = np.mean(irf[:bglim])
+                else:
+                    self.irfbg = 0
         else:
-            self.irfbg = irfbg
+            self.irfbg = irf_bg
         if bg is None:
             bg_est = self.estimate_bg(measured, settings=self.settings)
             self.bg = bg_est
@@ -417,13 +488,35 @@ class FluoFit:
             Contains config settings
 
         """
-        meas_real_start = np.nonzero(measured)[0][0]
         maxind = np.argmax(measured)
-        for i in range(maxind):
-            reverse = maxind - i
-            if measured[reverse] == np.int(np.mean(measured[meas_real_start:meas_real_start + 20])):
-                bglim = reverse
+
+        meas_real_start = np.nonzero(measured)[0][0]
+        bg_section = measured[meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+
+        # Attempt to remove low `island` of counts before real start
+        if max_continuous_zeros(bg_section)/BACKGOURD_SECTION_LENGTH >= 0.5 \
+                and len(measured[meas_real_start:]) > 2*BACKGOURD_SECTION_LENGTH:
+            original_start = meas_real_start.copy()
+            while max_continuous_zeros(bg_section)/BACKGOURD_SECTION_LENGTH >= 0.5:
+                next_seg_start = meas_real_start + np.argmax(bg_section == 0) + 1
+                if len(measured[meas_real_start + next_seg_start:]) < 2*BACKGOURD_SECTION_LENGTH:
+                    logger.warning('No reasonable background estimate could be made')
+                    meas_real_start = original_start
+                    bg_section = measured[
+                                 meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+                    break
+                meas_real_start = np.nonzero(measured[next_seg_start:])[0][0] + next_seg_start
+                bg_section = measured[meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+
+        bg_section_mean = np.mean(bg_section)
+        found = False
+        for i in reversed(range(meas_real_start, maxind)):
+            if measured[i] <= bg_section_mean:
+                bglim = i
+                found = True
                 break
+        if not found:
+            bglim = meas_real_start + 50
         bg_est = np.mean(measured[meas_real_start:bglim])
         if settings is not None:
             bg_percent = settings.lt_bg_percent / 100
@@ -531,7 +624,7 @@ class FluoFit:
             df_num = 1
         return df_num
 
-    def results(self, tau, dtau, shift, amp=1, fwhm=None):
+    def results(self, tau, stds, shift, amp=1, fwhm=None):
         """Handle results after fitting
 
         After fitting, the results are processed. Chi-squared is calculated
@@ -551,10 +644,10 @@ class FluoFit:
         """
 
         self.tau = tau
-        self.dtau = dtau
         self.amp = amp
         self.shift = shift*self.channelwidth
         self.fwhm = fwhm
+        self.stds = stds
 
         param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
 
@@ -711,8 +804,8 @@ class OneExp(FluoFit):
             tau = 5
         if amp is None:
             amp = 1
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
-                         fwhm, numexp=1)
+        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg,
+                         boundaries, ploton, fwhm, numexp=1)
 
         if self.simulate_irf:
             paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
@@ -736,7 +829,7 @@ class OneExp(FluoFit):
             tau = param[0]
             amp = param[1]
             shift = param[2]
-            dtau = np.sqrt(pcov[0, 0])
+            stds = np.sqrt(np.diag(pcov))
 
             if self.simulate_irf:
                 fwhm = param[3]
@@ -745,7 +838,7 @@ class OneExp(FluoFit):
 
             # self.convd = self.fitfunc(self.t[self.startpoint:self.endpoint], tau, amp, shift, fwhm)
             self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
-            self.results(tau, dtau, shift, amp=1, fwhm=fwhm)
+            self.results(tau, stds, shift, amp=1, fwhm=fwhm)
 
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
@@ -781,13 +874,14 @@ class TwoExp(FluoFit):
             param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
             # sigma=np.sqrt(np.abs(self.measured)))
         else:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
+            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit,
+                                    **addopt)
 
         tau = param[0:2]
         # amp = np.append(param[2], param[3])
         amp = np.append(param[2], 1 - param[2])
         shift = param[4]
-        dtau = np.sqrt(np.diag(pcov[0:2]))
+        stds = np.sqrt(np.diag(pcov))
 
         if self.simulate_irf:
             fwhm = param[5]
@@ -796,7 +890,7 @@ class TwoExp(FluoFit):
 
         # self.convd = self.fitfunc(self.t[self.startpoint:self.endpoint], tau[0], tau[1], amp[0], amp[1], shift, fwhm)
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
-        self.results(tau, dtau, shift, amp, fwhm)
+        self.results(tau, stds, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
@@ -836,7 +930,7 @@ class ThreeExp(FluoFit):
         tau = param[0:3]
         amp = np.append(param[3:5], 1 - param[3] - param[4])
         shift = param[6]
-        dtau = np.diag(pcov[0:3])
+        stds = np.sqrt(np.diag(pcov))
 
         if self.simulate_irf:
             fwhm = param[7]
@@ -844,7 +938,7 @@ class ThreeExp(FluoFit):
             fwhm = None
 
         self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
-        self.results(tau, dtau, shift, amp, fwhm)
+        self.results(tau, stds, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
@@ -988,8 +1082,8 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.lifetime_controller = lifetime_controller
         self.pgFitParam.setBackground(background=None)
 
-        self.settings = Settings()
-        self.load_settings()
+        self.settings = mainwindow.settings
+        # self.load_settings()
 
         self.checkSimIRF.stateChanged.connect(self.enable_sim_vals)
 
@@ -1131,8 +1225,10 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 convd = convd / convd.sum()
 
                 bg = FluoFit.estimate_bg(decay, settings=self.settings)
-                start, end = int(start / channelwidth), int(end / channelwidth)
-                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend], bg, self.settings)
+                start = int(start / channelwidth)
+                end = int(end / channelwidth) if end is not None else None
+                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend],
+                                                          bg, self.settings, channelwidth)
                 if autostart != 'Manual':
                     self.lineStartTime.setText(f'{start * channelwidth:.3g}')
                 if autoend:
@@ -1206,7 +1302,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         autostart = fp.autostart
         end = fp.end
         autoend = fp.autoend
-        if end is None:
+        if end is None and irf is not None:
             end = np.size(irf)
         return shift, decaybg, irfbg, start, autostart, end, autoend
 

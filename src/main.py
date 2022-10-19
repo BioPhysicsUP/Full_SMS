@@ -32,7 +32,7 @@ from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
 # import save_analysis
-from settings_dialog import SettingsDialog
+from settings_dialog import SettingsDialog, Settings
 
 try:
     import pkg_resources.py2_warn
@@ -50,7 +50,7 @@ from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.3.7"
+SMS_VERSION = "0.3.9"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -108,6 +108,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         pg.setConfigOption('antialias', True)
         # pg.setConfigOption('leftButtonPan', False)
+
+        self.settings_dialog = SettingsDialog(self, get_saved_settings=True)
+        self.settings = self.settings_dialog.settings
 
         self.chbInt_Disp_Resolved.hide()
         self.chbInt_Disp_Photon_Bursts.hide()
@@ -185,8 +188,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.raster_scan_controller = \
             RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
                                  list_text=self.txtRaster_Scan_List)
-
-        self.settings_dialog = SettingsDialog(self)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
@@ -1186,7 +1187,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def gui_export(self, mode: str = None):
         self.lock = Lock()
-        export_worker = ExportWorker(mainwindow=self, mode=mode, lock=self.lock)
+        f_dir = QFileDialog.getExistingDirectory(self)
+        export_worker = ExportWorker(mainwindow=self, mode=mode, lock=self.lock, f_dir=f_dir)
         sigs = export_worker.signals
         sigs.start_progress.connect(self.start_progress)
         sigs.progress.connect(self.update_progress)

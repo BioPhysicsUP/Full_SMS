@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+__docformat__ = 'NumPy'
+
 import os
 from typing import Union, List, Tuple, TYPE_CHECKING
 from copy import copy
@@ -964,7 +967,7 @@ class IntController(QObject):
         while self.results_gathered is False:
             time.sleep(1)
             count += 1
-            if count >= 5:
+            if count >= 20:
                 logger.error(msg="Results gathering timeout")
                 raise RuntimeError
 
@@ -1260,7 +1263,7 @@ class LifetimeController(QObject):
         else:
             # level = self.mainwindow.current_level
             if selected_level <= cp.num_levels - 1:
-                histogram = cp.levels[selected_level].histogram
+                histogram = cp.cpts.levels[selected_level].histogram
             else:
                 selected_group = selected_level - cp.num_levels
                 histogram = cp.groups[selected_group].histogram
@@ -1394,7 +1397,7 @@ class LifetimeController(QObject):
             histogram = particle.histogram
             fit_name = fit_name + ", Whole Trace"
         elif select_ind <= particle.num_levels - 1:
-            histogram = particle.levels[select_ind].histogram
+            histogram = particle.cpts.levels[select_ind].histogram
             fit_name = fit_name + f", Level #{select_ind + 1}"
             is_level = True
         else:
@@ -1412,23 +1415,39 @@ class LifetimeController(QObject):
 
         tau = histogram.tau
         amp = histogram.amp
+        stds = histogram.stds
         avtau = np.dot(histogram.amp, histogram.tau)
-        if type(tau) is np.ndarray:
-            info = info + 'Tau = ' + ' '.join('{:#.3g} ns'.format(F) for F in tau)
-            info = info + '\nAmp = ' + ' '.join('{:#.3g} '.format(F) for F in amp)
-        else:  # only one component
-            info = info + 'Tau = {:#.3g} ns'.format(tau)
-            info = info + '\nAmp = {:#.3g}'.format(amp)
+        # if type(tau) is np.ndarray:
+        #     info = info + 'Tau = ' + ' '.join(f'{F:.3g} ± {stds[i]:.1g} ns' for i, F in enumerate(tau))
+        #     info = info + '\nAmp = ' + ' '.join(f'{F:.3g} ± {stds[i+np.size(tau)]:.1g}' for i, F in enumerate(amp))
+        # else:  # only one component
+        #     info = info + f'Tau = {tau:.3g} ± {stds[0]:.1g} ns'
+        #     info = info + f'\nAmp = {amp:.3g} ns'
+        if np.size(tau) == 1:
+            info = info + f'Tau = {tau:.3g} ± {stds[0]:.1g} ns'
+            info = info + f'\nAmp = {amp:.3g}'
+        elif np.size(tau) == 2:
+            info = info + f'Tau 1 = {tau[0]:.3g} ± {stds[0]:.1g} ns'
+            info = info + f'\nTau 2 = {tau[1]:.3g} ± {stds[1]:.1g} ns'
+            info = info + f'\nAmp 1 = {amp[0]:.3g} ± {stds[2]:.1g}'
+            info = info + f'\nAmp 2 = {amp[1]:.3g} ± {stds[3]:.1g}'
+        elif np.size(tau) == 3:
+            info = info + f'Tau 1 = {tau[0]:.3g} ± {stds[0]:.1g} ns'
+            info = info + f'\nTau 2 = {tau[1]:.3g} ± {stds[1]:.1g} ns'
+            info = info + f'\nTau 3 = {tau[2]:.3g} ± {stds[2]:.1g} ns'
+            info = info + f'\nAmp 1 = {amp[0]:.3g} ± {stds[3]:.1g}'
+            info = info + f'\nAmp 2 = {amp[1]:.3g} ± {stds[4]:.1g}'
+            info = info + f'\nAmp 3 = {amp[2]:.3g} ± {stds[5]:.1g}'
         if type(avtau) is list or type(avtau) is np.ndarray:
             avtau = avtau[0]
         info = info + '\nAverage Tau = {:#.3g}'.format(avtau)
 
-        info = info + f'\n\nShift = {histogram.shift: .3g} ns'
+        info = info + f'\n\nShift = {histogram.shift: .3g} ± {stds[2*np.size(tau)]: .1g} ns'
         if not for_export:
             info = info + f'\nDecay BG = {histogram.bg: .3g}'
             info = info + f'\nIRF BG = {histogram.irfbg: .3g}'
         if hasattr(histogram, 'fwhm') and histogram.fwhm is not None:
-            info = info + f'\nSim. IRF FWHM = {histogram.fwhm: .3g}'
+            info = info + f'\nSim. IRF FWHM = {histogram.fwhm: .3g} ± {stds[2*np.size(tau)+1]: .1g} ns'
 
         info = info + f'\nChi-Sq = {histogram.chisq: .3g}'
         if not for_export:
@@ -1444,13 +1463,16 @@ class LifetimeController(QObject):
             group = particle.groups[group_ind]
             info = info + f'\n\nTotal Dwell Time (s) = {group.dwell_time_s: .3g}'
             info = info + f'\n# of photons = {group.num_photons}'
+            info = info + f'\n# used for fit = {group.histogram.num_photons_used}'
         elif is_level:
-            level = particle.levels[select_ind]
+            level = particle.cpts.levels[select_ind]
             info = info + f'\n\nDwell Time (s) {level.dwell_time_s: .3g}'
             info = info + f'\n# of photons = {level.num_photons}'
+            info = info + f'\n# used for fit = {level.histogram.num_photons_used}'
         else:
             info = info + f'\n\nDwell Times (s) = {particle.dwell_time: .3g}'
             info = info + f'\n# of photons = {particle.num_photons}'
+            info = info + f'\n# used for fit = {particle.histogram.num_photons_used}'
 
         if not for_export:
             self.mainwindow.textBrowser.setText(info)
@@ -1566,14 +1588,14 @@ class LifetimeController(QObject):
                     logger.error('No Decay!')
                     return
         elif select_ind < particle.num_levels:
-            if particle.levels[select_ind].histogram.fitted:
-                decay = particle.levels[select_ind].histogram.fit_decay
-                t = particle.levels[select_ind].histogram.convd_t
+            if particle.cpts.levels[select_ind].histogram.fitted:
+                decay = particle.cpts.levels[select_ind].histogram.fit_decay
+                t = particle.cpts.levels[select_ind].histogram.convd_t
                 min_t = t[0]
             else:
                 try:
-                    decay = particle.levels[select_ind].histogram.decay
-                    t = particle.levels[select_ind].histogram.t
+                    decay = particle.cpts.levels[select_ind].histogram.decay
+                    t = particle.cpts.levels[select_ind].histogram.t
                 except ValueError:
                     return
         else:
@@ -1607,6 +1629,7 @@ class LifetimeController(QObject):
                 self.first = 0
             unit = f'ns with {particle.channelwidth: .3g} ns bins'
             max_t = particle.histogram.t[-1]
+            max_t_fitted = t[-1]
 
             if len(t) != len(decay):
                 shortest = min([len(t), len(decay)])
@@ -1625,7 +1648,7 @@ class LifetimeController(QObject):
 
                 life_hist_plot.getAxis('bottom').setLabel('Decay time', unit)
                 life_hist_plot.getViewBox().setLimits(xMin=min_t, yMin=0, xMax=max_t)
-                life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t])
+                life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t_fitted])
                 self.fitparamdialog.updateplot()
             else:
                 if self.temp_fig is None:
@@ -1709,8 +1732,8 @@ class LifetimeController(QObject):
                 return
         elif select_ind <= particle.num_levels - 1:
             try:
-                convd = particle.levels[select_ind].histogram.convd
-                t = particle.levels[select_ind].histogram.convd_t
+                convd = particle.cpts.levels[select_ind].histogram.convd
+                t = particle.cpts.levels[select_ind].histogram.convd_t
             except ValueError:
                 return
         else:
@@ -1808,8 +1831,8 @@ class LifetimeController(QObject):
                 return
         elif select_ind <= particle.num_levels - 1:
             try:
-                residuals = particle.levels[select_ind].histogram.residuals
-                t = particle.levels[select_ind].histogram.convd_t
+                residuals = particle.cpts.levels[select_ind].histogram.residuals
+                t = particle.cpts.levels[select_ind].histogram.convd_t
             except ValueError:
                 return
         else:

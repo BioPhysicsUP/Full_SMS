@@ -7,7 +7,7 @@
   },
   {
    "optionDest": "filenames",
-   "value": "C:/Drives/Google Drive/Current_Projects/Full_SMS/src/main.py"
+   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/src/main.py"
   },
   {
    "optionDest": "onefile",
@@ -19,7 +19,7 @@
   },
   {
    "optionDest": "icon_file",
-   "value": "C:/Drives/Google Drive/Current_Projects/Full_SMS/resources/icons/Full-SMS.ico"
+   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/resources/icons/Full-SMS.ico"
   },
   {
    "optionDest": "name",
@@ -47,7 +47,7 @@
   },
   {
    "optionDest": "version_file",
-   "value": "C:/Drives/Google Drive/Current_Projects/Full_SMS/versionfile.txt"
+   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/versionfile.txt"
   },
   {
    "optionDest": "embed_manifest",
@@ -79,7 +79,7 @@
   },
   {
    "optionDest": "datas",
-   "value": "C:/Drives/Google Drive/Current_Projects/Full_SMS/resources;resources/"
+   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/resources;resources/"
   },
   {
    "optionDest": "hiddenimports",
@@ -112,6 +112,14 @@
   {
    "optionDest": "excludes",
    "value": "pyinstaller-versionfile"
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "numexpr"
+  },
+  {
+   "optionDest": "datas",
+   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/settings.json;."
   }
  ],
  "nonPyinstallerOptions": {

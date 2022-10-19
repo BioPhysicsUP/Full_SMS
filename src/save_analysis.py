@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+__docformat__ = 'NumPy'
+
 from typing import TYPE_CHECKING
 
 import pickle
@@ -8,7 +11,6 @@ import lzma
 
 import h5pickle
 from PyQt5.QtCore import QRunnable, pyqtSlot
-
 
 from tree_model import DatasetTreeNode
 from threads import WorkerSignals

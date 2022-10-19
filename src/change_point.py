@@ -9,6 +9,7 @@ University of Pretoria
 """
 
 from __future__ import annotations
+
 __docformat__ = 'NumPy'
 
 import os
@@ -277,7 +278,8 @@ class ChangePoints:
                 (self._particle.int_std_weighted * sigam_int_thresh)
         else:
             burst_def = defined_int_thresh
-        burst_bools = np.logical_or(self.level_ints > burst_def,
+        # Chaning to logical_and, instead of logical_or
+        burst_bools = np.logical_and(self.level_ints > burst_def,
                                     np.array(self.level_dwelltimes) < min_dwell_time)
         burst_levels = np.where(burst_bools)[0]
         if len(burst_levels):
@@ -698,11 +700,11 @@ class ChangePointAnalysis:
             if len(self.cpt_inds) == 0:
                 if last_photon_ind >= prev_end_ind + 800:
                     next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
-                elif last_photon_ind - prev_end_ind >= min_num_photons:  # Next segment needs to be at least 10 photons large.
+                elif last_photon_ind - prev_end_ind >= self.settings.cpa_min_num_photons:  # Next segment needs to be at least 10 photons large.
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
                 else:
                     next_start_ind, next_end_ind = None, None
-                    dbg.p(f"Warning, last photon segment smaller than {min_num_photons} photons and was not tested", "Change Point")
+                    dbg.p(f"Warning, last photon segment smaller than {self.settings.cpa_min_num_photons} photons and was not tested", "Change Point")
             elif side is not None:  # or prev_start_ind < self.cpts[-1] < prev_end_ind
                 if side is not None:
                     assert side in ['left',

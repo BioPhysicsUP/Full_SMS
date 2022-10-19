@@ -51,4 +51,4 @@ class RangeSelectionDialog(QDialog, UI_Range_Selection):
         mode_remove = self.rdbRemove.isChecked()
         mode_invert = self.rdbInvert.isChecked()
 
-        return mode_only, mode_add, mode_remove, mode_invert
+        return [mode_only, mode_add, mode_remove, mode_invert]
