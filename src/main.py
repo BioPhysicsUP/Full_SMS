@@ -664,8 +664,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if hasattr(self, 'current_particle') and type(self.current_particle) is smsh5.Particle:
             # Select primary or secondary particle based on selected tcspc card
             if self.comboSelectCard.currentIndex() == 1 and self.current_particle.sec_part is not None:
+                assert not self.current_particle.is_secondary_part
                 self.current_particle = self.current_particle.sec_part
-            elif self.current_particle.is_secondary_part:
+            elif self.comboSelectCard.currentIndex() == 0 and self.current_particle.is_secondary_part:
                 self.current_particle = self.current_particle.prim_part
 
             cur_tab_name = self.tabWidget.currentWidget().objectName()

@@ -1971,7 +1971,7 @@ class LifetimeController(QObject):
             for num, result in enumerate(results):
                 any_successful_fit = None
                 result_part_ind = part_uuids.index(result_part_uuids[num])
-                target_particle = self.mainwindow.tree2particle(result_part_ind)
+                target_particle = self.mainwindow.current_dataset.particles[result_part_ind]
 
                 target_hist = target_particle.histogram
                 target_microtimes = target_hist.microtimes
