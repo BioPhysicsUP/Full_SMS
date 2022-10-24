@@ -190,6 +190,12 @@
       </item>
       <item>
        <widget class="QFrame" name="frame_9">
+        <property name="maximumSize">
+         <size>
+          <width>235</width>
+          <height>16777215</height>
+         </size>
+        </property>
         <property name="frameShape">
          <enum>QFrame::StyledPanel</enum>
         </property>

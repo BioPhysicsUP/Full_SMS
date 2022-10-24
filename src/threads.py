@@ -212,7 +212,7 @@ class ProcessThread(QRunnable):
                         else:
                             raise TypeError("Task result is not of type ProcessTaskResult")
 
-                    if not result.dont_send:
+                    elif not result.dont_send:
                         self.signals.results.emit(result)
                     del result
 
@@ -225,7 +225,6 @@ class ProcessThread(QRunnable):
                     num_task_left -= 1
 
         except Exception as exception:
-            print(exception)
             self.signals.error.emit(exception)
         # else:
         #     self.signals.result.emit(self.tasks)

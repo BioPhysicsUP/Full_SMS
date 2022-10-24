@@ -80,6 +80,7 @@ class H5dataset:
                      raster_scan_dataset_index=this_raster_scan_index,
                      raster_scan=this_raster_scan)
             if h5_fr.abstimes2(prim_part) is not None:  # if second card data exists, create secondary particle
+                print(particle_name)
                 sec_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
                                     raster_scan_dataset_index=this_raster_scan_index,
                                     raster_scan=this_raster_scan, is_secondary_part=True, prim_part=prim_part)

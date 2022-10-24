@@ -426,5 +426,6 @@ class SingleProcess(mp.Process):
                         self.task_queue.task_done()
         except Exception as e:
             self.result_queue.put(e)
+            print(e)
             # logger(e)
 

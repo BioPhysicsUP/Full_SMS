@@ -964,12 +964,14 @@ class IntController(QObject):
     def resolve_thread_complete(self, thread: ProcessThread):
         count = 0
 
+        print('resolve complete')
         while self.results_gathered is False:
             time.sleep(1)
             count += 1
-            if count >= 20:
+            if count >= 2:
                 logger.error(msg="Results gathering timeout")
-                raise RuntimeError
+                break
+                # raise RuntimeError
 
         if self.mainwindow.current_particle.has_levels:  # tree2dataset().cpa_has_run:
             self.mainwindow.tabGrouping.setEnabled(True)
