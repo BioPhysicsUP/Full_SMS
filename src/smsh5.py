@@ -1021,14 +1021,15 @@ class ParticleAllHists:
         boundaries = [start, end, fit_param.autostart, fit_param.autoend]
 
         for hist in all_hists:
-            try:
-                if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-                                shift, fit_param.decaybg,
-                                fit_param.irfbg, boundaries, fit_param.addopt,
-                                fit_param.irf, fit_param.fwhm):
-                    pass  # fit unsuccessful
-            except AttributeError:
-                print("No decay")
+            if hist.microtimes.size > 10:
+                try:
+                    if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
+                                    shift, fit_param.decaybg,
+                                    fit_param.irfbg, boundaries, fit_param.addopt,
+                                    fit_param.irf, fit_param.fwhm):
+                        pass  # fit unsuccessful
+                except AttributeError:
+                    logger.info('Level or trace not fitted. No decay.')
 
 
 class RasterScan:
