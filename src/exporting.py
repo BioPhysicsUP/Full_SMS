@@ -150,6 +150,7 @@ def export_data(mainwindow: MainWindow,
         signals.start_progress.emit(prog_num)
         signals.status_message.emit(f"Exporting data for {mode} particles...")
 
+    logger.info('Export finished')
     # any_particle_text_plot = any([any_particle_text_plot, ex_raster_scan_2d, ex_plot_raster_scans])
 
     def open_file(path: str):
@@ -961,7 +962,7 @@ def export_data(mainwindow: MainWindow,
     if any([ex_df_levels, ex_df_grouped_levels, ex_df_grouping_info]):
         any_has_lifetime = any([p.has_fit_a_lifetime for p in particles])
         if any_has_lifetime:
-            max_numexp = max([p.numexp for p in particles])
+            max_numexp = max([p.numexp for p in particles if p.numexp is not None])
             tau_cols = [f'tau_{i + 1}' for i in range(max_numexp)]
             taustd_cols = [f'tau_std_{i + 1}' for i in range(max_numexp)]
             amp_cols = [f'amp_{i + 1}' for i in range(max_numexp)]
@@ -973,7 +974,7 @@ def export_data(mainwindow: MainWindow,
             life_cols_add = ['']
             max_numexp = None
         if ex_df_levels or ex_df_grouped_levels:
-            levels_cols = ['particle', 'level', 'start', 'end', 'dwell', 'dwell_frac', 'int',
+            levels_cols = ['particle', 'is_primary_part', 'bh_card', 'level', 'start', 'end', 'dwell', 'dwell_frac', 'int',
                            'num_photons']
             grouped_levels_cols = levels_cols.copy()
             # grouped_levels_cols[1] = 'grouped_level'
@@ -991,18 +992,19 @@ def export_data(mainwindow: MainWindow,
                 data_grouped_levels = list()
 
         if ex_df_grouping_info:
-            grouping_info_cols = ['particle', 'group', 'total_dwell', 'int', 'num_levels',
+            grouping_info_cols = ['particle', 'is_primary_part', 'bh_card', 'group', 'total_dwell', 'int', 'num_levels',
                                   'num_photons', 'num_steps', 'is_best_step']
             data_grouping_info = list()
 
         for p in particles:
-            # print(p.name)
+            if not p.has_levels:
+                continue
             roi_first_level_ind = p.first_level_ind_in_roi
             roi_last_level_ind = p.last_level_ind_in_roi
             if ex_df_levels:
                 for l_num, l in enumerate(p.cpts.levels):
                     level_in_roi = roi_first_level_ind <= l_num <= roi_last_level_ind
-                    row = [p.name,
+                    row = [p.name, not p.is_secondary_part, p.bh_card,
                            l_num + 1,
                            *get_level_data(l, p.dwell_time,
                                            incl_lifetimes=all([ex_df_levels_lifetimes,
@@ -1016,7 +1018,7 @@ def export_data(mainwindow: MainWindow,
                 roi_last_group_level_ind = p.last_group_level_ind_in_roi
                 for g_l_num, g_l in enumerate(p.group_levels):
                     group_level_in_roi = roi_first_group_level_ind <= g_l_num <= roi_last_group_level_ind
-                    row = [p.name, g_l_num + 1, g_l.group_ind + 1,
+                    row = [p.name, not p.is_secondary_part, p.bh_card, g_l_num + 1, g_l.group_ind + 1,
                            *get_level_data(g_l,
                                            p.dwell_time,
                                            incl_lifetimes=all([ex_df_grouped_levels_lifetimes,
@@ -1028,8 +1030,8 @@ def export_data(mainwindow: MainWindow,
             if ex_df_grouping_info:
                 if p.has_groups:
                     for g_num, g in enumerate(p.ahca.selected_step.groups):
-                        row = [p.name, g_num + 1, g.int_p_s, g.dwell_time_s, len(g.lvls),
-                               g.num_photons, p.ahca.num_steps,
+                        row = [p.name, not p.is_secondary_part, p.bh_card, g_num + 1, g.int_p_s, g.dwell_time_s,
+                               len(g.lvls), g.num_photons, p.ahca.num_steps,
                                p.ahca.selected_step == p.ahca.best_step_ind]
                         data_grouping_info.append(row)
                 else:

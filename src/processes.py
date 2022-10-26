@@ -381,19 +381,20 @@ class SingleProcess(mp.Process):
                     elif task.method_name == "run_grouping":
                         dont_send = True
                         task_name = task.obj._particle.name
+                        if task.obj._particle.has_levels:
+                            task.obj.best_step._particle = None
+                            for step in task.obj.steps:
+                                step._particle = None
+                                for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                                    if hasattr(step, group_attr_name):
+                                        group_attr = getattr(step, group_attr_name)
+                                        if group_attr is not None:
+                                            for group in group_attr:
+                                                for ahc_lvl in group.lvls:
+                                                    ahc_hist = ahc_lvl.histogram
+                                                    if hasattr(ahc_hist, '_particle'):
+                                                        ahc_hist._particle = None
                         task.obj._particle = None
-                        task.obj.best_step._particle = None
-                        for step in task.obj.steps:
-                            step._particle = None
-                            for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
-                                if hasattr(step, group_attr_name):
-                                    group_attr = getattr(step, group_attr_name)
-                                    if group_attr is not None:
-                                        for group in group_attr:
-                                            for ahc_lvl in group.lvls:
-                                                ahc_hist = ahc_lvl.histogram
-                                                if hasattr(ahc_hist, '_particle'):
-                                                    ahc_hist._particle = None
                         assert self._temp_dir is not None, "temp_folder has not been set"
                         assert task_name is not None, "task_name has not been set"
                         file_path = os.path.join(self._temp_dir.name, task_name)
@@ -425,6 +426,7 @@ class SingleProcess(mp.Process):
                     if process_result.task_complete:
                         self.task_queue.task_done()
         except Exception as e:
+            raise e
             self.result_queue.put(e)
             print(e)
             # logger(e)

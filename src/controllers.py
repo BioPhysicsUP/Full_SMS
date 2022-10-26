@@ -658,7 +658,7 @@ class IntController(QObject):
                 freq /= np.max(freq)
                 int_hist = pg.PlotCurveItem(x=hist_bins, y=freq, pen=plot_pen,
                                             stepMode=True, fillLevel=0, brush=(0, 0, 0, 50))
-                int_hist.rotate(-90)
+                int_hist.setRotation(-90)
                 plot_item.addItem(int_hist)
             elif not (for_levels or for_groups):
                 hist_ax = self.temp_ax['hist_ax']
@@ -689,7 +689,7 @@ class IntController(QObject):
                     level_hist = pg.PlotCurveItem(x=level_hist_bins, y=level_freq, stepMode=True,
                                                   pen=plot_pen, fillLevel=0, brush=(0, 0, 0, 255))
 
-                    level_hist.rotate(-90)
+                    level_hist.setRotation(-90)
                     plot_item.addItem(level_hist)
                 elif for_levels and particle.has_levels:
                     hist_ax = self.temp_ax['hist_ax']
@@ -2321,6 +2321,7 @@ class GroupingController(QObject):
         elif mode == 'all':
             all_particles = mw.current_dataset.particles
             grouping_objs = [particle.ahca for particle in all_particles]
+            print(grouping_objs)
             status_message = "Grouping levels for all particle..."
 
         # g_process_thread = ProcessThread(num_processes=1, task_buffer_size=1)
@@ -2354,22 +2355,23 @@ class GroupingController(QObject):
                 new_part = self.mainwindow.current_dataset.particles[result_part_ind]
                 new_part.level_selected = None
 
-                result_ahca = result.new_task_obj
-                result_ahca._particle = new_part
-                result_ahca.best_step._particle = new_part
-                for step in result_ahca.steps:
-                    step._particle = new_part
-                    for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
-                        if hasattr(step, group_attr_name):
-                            group_attr = getattr(step, group_attr_name)
-                            if group_attr is not None:
-                                for group in group_attr:
-                                    for ahc_lvl in group.lvls:
-                                        ahc_hist = ahc_lvl.histogram
-                                        if hasattr(ahc_hist, '_particle'):
-                                            ahc_hist._particle = new_part
+                if new_part.has_levels:
+                    result_ahca = result.new_task_obj
+                    result_ahca._particle = new_part
+                    result_ahca.best_step._particle = new_part
+                    for step in result_ahca.steps:
+                        step._particle = new_part
+                        for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                            if hasattr(step, group_attr_name):
+                                group_attr = getattr(step, group_attr_name)
+                                if group_attr is not None:
+                                    for group in group_attr:
+                                        for ahc_lvl in group.lvls:
+                                            ahc_hist = ahc_lvl.histogram
+                                            if hasattr(ahc_hist, '_particle'):
+                                                ahc_hist._particle = new_part
 
-                new_part.ahca = result_ahca
+                    new_part.ahca = result_ahca
                 if new_part.has_groups:
                     new_part.makegrouphists()
                     new_part.makegrouplevelhists()
@@ -2457,6 +2459,7 @@ class GroupingController(QObject):
         self.mainwindow.int_controller.plot_all()
 
     def error(self, e: Exception):
+        raise e
         logger.error(e)
         print(e)
 
