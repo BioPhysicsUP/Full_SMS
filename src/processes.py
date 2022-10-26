@@ -381,6 +381,8 @@ class SingleProcess(mp.Process):
                     elif task.method_name == "run_grouping":
                         dont_send = True
                         task_name = task.obj._particle.name
+                        if task.obj._particle.is_secondary_part:
+                            task_name = task_name + '_2'
                         if task.obj._particle.has_levels:
                             task.obj.best_step._particle = None
                             for step in task.obj.steps:

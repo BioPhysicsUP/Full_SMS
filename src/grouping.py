@@ -117,6 +117,8 @@ class ClusteringStep:
                 self.group_levels = self._particle.cpts.levels
                 self.num_groups = self._num_levels
                 self.level_group_ind = list(range(self._num_levels))
+                for level in self.group_levels:
+                    level.group_ind = 0
         else:
             assert seed_groups is not None, "ClusteringStep: parameters not provided"
             self._seed_groups = seed_groups
@@ -446,6 +448,8 @@ class AHCA:
                     self.best_step_ind = 0
                     self.selected_step_ind = 0
                     self.has_groups = True
+                    logger.info(f"{self._particle.name} has only one level")
+                    logger.info(self.steps)
                 else:
                     c_step = ClusteringStep(self._particle, first=True)
                     if not self.use_roi_for_grouping:
