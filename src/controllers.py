@@ -1688,17 +1688,19 @@ class LifetimeController(QObject):
             if for_export and export_path is not None:
                 if not (os.path.exists(export_path) and os.path.isdir(export_path)):
                     raise AssertionError("Provided path not valid")
+                pname = particle.unique_name
+                logger.info(select_ind)
                 if select_ind is None:
                     type_str = ' hist (whole trace).png'
-                    title_str = f"{particle.name} Decay Trace"
+                    title_str = f"{pname} Decay Trace"
                 elif group_ind is None:
                     type_str = f' hist (level {select_ind + 1}).png'
-                    title_str = f"{particle.name}, Level {select_ind + 1} Decay Trace"
+                    title_str = f"{pname}, Level {select_ind + 1} Decay Trace"
                 else:
                     type_str = f' hist (group {group_ind + 1}).png'
-                    title_str = f"{particle.name}, Group {group_ind + 1} Decay Trace"
+                    title_str = f"{pname}, Group {group_ind + 1} Decay Trace"
                 self.temp_fig.suptitle(title_str)
-                full_path = os.path.join(export_path, particle.name + type_str)
+                full_path = os.path.join(export_path, pname + type_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
                 # sleep(1)
                 # export_plot_item(plot_item=life_hist_plot, path=full_path)
@@ -1779,14 +1781,14 @@ class LifetimeController(QObject):
             if for_export and export_path is not None:
                 # plot_item = self.life_hist_plot
                 if select_ind is None:
-                    type_str = f'{particle.name} hist-fitted (whole trace).png'
-                    title_str = f'{particle.name} Decay Trace and Fit'
+                    type_str = f'{particle.unique_name} hist-fitted (whole trace).png'
+                    title_str = f'{particle.unique_name} Decay Trace and Fit'
                 elif group_ind is None:
-                    type_str = f'{particle.name} hist-fitted (level {select_ind + 1}).png'
-                    title_str = f'{particle.name}, Level {select_ind + 1} Decay Trace and Fit'
+                    type_str = f'{particle.unique_name} hist-fitted (level {select_ind + 1}).png'
+                    title_str = f'{particle.unique_name}, Level {select_ind + 1} Decay Trace and Fit'
                 else:
-                    type_str = f'{particle.name} hist-fitted (group {group_ind + 1}).png'
-                    title_str = f'{particle.name}, Group {group_ind + 1} Decay Trace and Fit'
+                    type_str = f'{particle.unique_name} hist-fitted (group {group_ind + 1}).png'
+                    title_str = f'{particle.unique_name}, Group {group_ind + 1} Decay Trace and Fit'
                 full_path = os.path.join(export_path, type_str)
                 text_select_ind = select_ind
                 if text_select_ind is None:
@@ -1872,14 +1874,14 @@ class LifetimeController(QObject):
             if for_export and export_path is not None:
                 if select_ind is None:
                     type_str = ' residuals (whole trace).png'
-                    title_str = f'{particle.name} Decay Trace, Fit and Residuals'
+                    title_str = f'{particle.unique_name} Decay Trace, Fit and Residuals'
                 elif group_ind is None:
                     type_str = f' residuals (level {select_ind + 1} with residuals).png'
-                    title_str = f'{particle.name},' \
+                    title_str = f'{particle.unique_name},' \
                                 f' Level {select_ind + 1} Decay Trace, Fit and Residuals'
                 else:
                     type_str = f' residuals (group {group_ind + 1} with residuals).png'
-                    title_str = f'{particle.name}, Group {group_ind + 1}' \
+                    title_str = f'{particle.unique_name}, Group {group_ind + 1}' \
                                 f' Decay Trace, Fit and Residuals'
                 text_select_ind = select_ind
                 if text_select_ind is None:
@@ -1888,7 +1890,7 @@ class LifetimeController(QObject):
                                                for_export=True, str_return=True)
                 decay_ax = self.temp_ax['decay_ax']
                 decay_ax.text(0.9, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes)
-                full_path = os.path.join(export_path, particle.name + type_str)
+                full_path = os.path.join(export_path, particle.unique_name + type_str)
                 self.temp_fig.suptitle(title_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
                 # sleep(1)

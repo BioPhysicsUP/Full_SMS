@@ -173,10 +173,7 @@ def export_data(mainwindow: MainWindow,
     if any_particle_text_plot:
         for num, p in enumerate(particles):
 
-            if not p.is_secondary_part:
-                pname = p.name
-            else:
-                pname = p.name + '_2'
+            pname = p.unique_name
             if ex_traces:
                 tr_path = os.path.join(f_dir, pname + ' trace.csv')
                 ints = p.binnedtrace.intdata
@@ -432,7 +429,7 @@ def export_data(mainwindow: MainWindow,
                     pass
                 if p.has_levels:
                     if not ex_plot_lifetimes_only_groups:
-                        for i in range(p.num_levels):
+                        for i, lvl in enumerate(p.cpts.levels):
                             if signals:
                                 signals.plot_decay_export_lock.emit(i, p, False, True, dir_path, True)
                                 lock.acquire()
@@ -615,10 +612,7 @@ def export_data(mainwindow: MainWindow,
                 continue
             roi_first_level_ind = p.first_level_ind_in_roi
             roi_last_level_ind = p.last_level_ind_in_roi
-            if not p.is_secondary_part:
-                pname = p.name
-            else:
-                pname = p.name + '_2'
+            pname = p.unique_name
             if ex_df_levels:
                 for l_num, l in enumerate(p.cpts.levels):
                     level_in_roi = roi_first_level_ind <= l_num <= roi_last_level_ind
@@ -693,14 +687,14 @@ def export_data(mainwindow: MainWindow,
 
 
 def write_hists(ex_plot_lifetimes_only_groups, f_dir, lock, p, signals, residuals=False):
-    dir_path = os.path.join(f_dir, p.name + ' hists')
+    pname = p.unique_name
+    dir_path = os.path.join(f_dir, pname + ' hists')
     try:
         os.mkdir(dir_path)
     except FileExistsError:
         pass
     if p.has_levels:
         args = p, dir_path, p.has_groups, ex_plot_lifetimes_only_groups, True
-        logger.info(args)
         if not residuals:
             signals.plot_decay_convd_export_lock.emit(*args)
         else:
@@ -808,7 +802,11 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
             ampcol = ['Amp 1', 'Amp 2', 'Amp 3', ]
             ampstdcol = ['Amp 1 std', 'Amp 2 std', 'Amp 3 std', ]
         rows = list()
-        rows.append(['Particle #'] + taucol + taustdcol + ampcol + ampstdcol +
+        if levels:
+            partlev = ['Level #']
+        else:
+            partlev = ['Particle #', 'Primary?']
+        rows.append(partlev + taucol + taustdcol + ampcol + ampstdcol +
                     ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG', 'IRF BG',
                      'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)'])
         for i, p in enumerate(particles):
@@ -845,8 +843,10 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
                                  str(histogram.stds[2 * numexp]),
                                  str(histogram.bg), str(histogram.irfbg),
                                  str(histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std]
-                pnum = re.findall(r'\d+', p.name)
-                # rows.append([str(i + 1)] + tauexp + taustdexp + ampexp + ampstdexp + other_exp)
+                if levels:
+                    pnum = [str(i + 1)]
+                else:  # get number from particle name
+                    pnum = re.findall(r'\d+', p.name) + [str(int(not p.is_secondary_part))]
                 rows.append(pnum + tauexp + taustdexp + ampexp + ampstdexp + other_exp)
         with open_file(lifetime_path) as f:
             writer = csv.writer(f, dialect=csv.excel)

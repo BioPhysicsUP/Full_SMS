@@ -590,6 +590,13 @@ class Particle:
     def numexp(self):
         return self.histogram.numexp
 
+    @property
+    def unique_name(self):
+        if self.is_secondary_part:
+            return self.name + '_2'
+        else:
+            return self.name
+
     # @property
     # def icon(self):
     #     return ParticleIcons.test_icon
