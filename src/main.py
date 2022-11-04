@@ -676,14 +676,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
             # If not called due to a change in selected card, update the card selector with available choices
             if not combocard:
                 if not self.current_particle.is_secondary_part:
-                    card1 = self.current_particle.bh_card
+                    card1 = self.current_particle.tcspc_card
                     if self.current_particle.sec_part is not None:
-                        card2 = self.current_particle.sec_part.bh_card
+                        card2 = self.current_particle.sec_part.tcspc_card
                     else:
                         card2 = None
                 else:
-                    card1 = self.current_particle.prim_part.bh_card
-                    card2 = self.current_particle.bh_card
+                    card1 = self.current_particle.prim_part.tcspc_card
+                    card2 = self.current_particle.tcspc_card
                 if self.comboSelectCard.count() == 0:
                     self.comboSelectCard.insertItem(0, card1)
                     self.comboSelectCard.insertItem(1, card2)

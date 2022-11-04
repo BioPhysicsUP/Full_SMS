@@ -276,7 +276,7 @@ class Particle:
             self.microtimes = h5_fr.microtimes2(particle=self)
             self.abstimes = h5_fr.abstimes2(particle=self)
             self.num_photons = len(self.abstimes)
-        self.bh_card = h5_fr.bh_card(particle=self)
+        self.tcspc_card = h5_fr.tcspc_card(particle=self)
         self.int_trace = h5_fr.int_trace(particle=self)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm

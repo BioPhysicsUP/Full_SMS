@@ -585,7 +585,7 @@ def export_data(mainwindow: MainWindow,
             life_cols_add = ['']
             max_numexp = None
         if ex_df_levels or ex_df_grouped_levels:
-            levels_cols = ['particle', 'is_primary_part', 'bh_card', 'level', 'start', 'end', 'dwell', 'dwell_frac', 'int',
+            levels_cols = ['particle', 'is_primary_part', 'tcspc_card', 'level', 'start', 'end', 'dwell', 'dwell_frac', 'int',
                            'num_photons']
             grouped_levels_cols = levels_cols.copy()
             # grouped_levels_cols[1] = 'grouped_level'
@@ -603,7 +603,7 @@ def export_data(mainwindow: MainWindow,
                 data_grouped_levels = list()
 
         if ex_df_grouping_info:
-            grouping_info_cols = ['particle', 'is_primary_part', 'bh_card', 'group', 'total_dwell', 'int', 'num_levels',
+            grouping_info_cols = ['particle', 'is_primary_part', 'tcspc_card', 'group', 'total_dwell', 'int', 'num_levels',
                                   'num_photons', 'num_steps', 'is_best_step']
             data_grouping_info = list()
 
@@ -616,7 +616,7 @@ def export_data(mainwindow: MainWindow,
             if ex_df_levels:
                 for l_num, l in enumerate(p.cpts.levels):
                     level_in_roi = roi_first_level_ind <= l_num <= roi_last_level_ind
-                    row = [pname, not p.is_secondary_part, p.bh_card,
+                    row = [pname, not p.is_secondary_part, p.tcspc_card,
                            l_num + 1,
                            *get_level_data(l, p.dwell_time,
                                            incl_lifetimes=all([ex_df_levels_lifetimes,
@@ -630,7 +630,7 @@ def export_data(mainwindow: MainWindow,
                 roi_last_group_level_ind = p.last_group_level_ind_in_roi
                 for g_l_num, g_l in enumerate(p.group_levels):
                     group_level_in_roi = roi_first_group_level_ind <= g_l_num <= roi_last_group_level_ind
-                    row = [pname, not p.is_secondary_part, p.bh_card, g_l_num + 1, g_l.group_ind + 1,
+                    row = [pname, not p.is_secondary_part, p.tcspc_card, g_l_num + 1, g_l.group_ind + 1,
                            *get_level_data(g_l,
                                            p.dwell_time,
                                            incl_lifetimes=all([ex_df_grouped_levels_lifetimes,
@@ -642,7 +642,7 @@ def export_data(mainwindow: MainWindow,
             if ex_df_grouping_info:
                 if p.has_groups:
                     for g_num, g in enumerate(p.ahca.selected_step.groups):
-                        row = [pname, not p.is_secondary_part, p.bh_card, g_num + 1, g.int_p_s, g.dwell_time_s,
+                        row = [pname, not p.is_secondary_part, p.tcspc_card, g_num + 1, g.int_p_s, g.dwell_time_s,
                                len(g.lvls), g.num_photons, p.ahca.num_steps,
                                p.ahca.selected_step == p.ahca.best_step_ind]
                         data_grouping_info.append(row)

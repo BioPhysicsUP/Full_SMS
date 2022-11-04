@@ -96,15 +96,15 @@ def microtimes2(particle: Particle) -> h5pickle.Dataset:
     return microtimes_dataset
 
 
-def bh_card(particle: Particle) -> str:
+def tcspc_card(particle: Particle) -> str:
     if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
         if particle.is_secondary_part:
-            bh_card_name = particle.datadict['Absolute Times 2 (ns)'].attrs['bh Card']
+            tcspc_card = particle.datadict['Absolute Times 2 (ns)'].attrs['bh Card']
         else:
-            bh_card_name = particle.datadict['Absolute Times (ns)'].attrs['bh Card']
+            tcspc_card = particle.datadict['Absolute Times (ns)'].attrs['bh Card']
     else:
-        bh_card_name = None
-    return bh_card_name
+        tcspc_card = None
+    return tcspc_card
 
 
 def has_raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> bool:

@@ -12,6 +12,7 @@ import lzma
 import h5pickle
 from PyQt5.QtCore import QRunnable, pyqtSlot
 
+import smsh5
 from tree_model import DatasetTreeNode
 from threads import WorkerSignals
 import smsh5_file_reader as h5_fr
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from main import MainWindow
 
 
-SAVING_VERSION = '1.05'
+SAVING_VERSION = '1.06'
 
 
 class SaveAnalysisWorker(QRunnable):
@@ -110,10 +111,13 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
         loaded_dataset = pickle.load(f)
 
     if not hasattr(loaded_dataset, 'save_version') or loaded_dataset.save_version != SAVING_VERSION:
-        signals.save_file_version_outdated.emit()
-        signals.status_message.emit("Done")
-        signals.end_progress.emit()
-        return
+        if loaded_dataset.save_version == '1.05':
+            loaded_dataset = convert_v1_05_to_v1_06(loaded_dataset)
+        else:
+            signals.save_file_version_outdated.emit()
+            signals.status_message.emit("Done")
+            signals.end_progress.emit()
+            return
 
     for particle in loaded_dataset.particles:
         particle.file = h5_file
@@ -184,3 +188,11 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
             signals.show_residual_widget.emit(True)
         signals.status_message.emit("Done")
         signals.end_progress.emit()
+
+
+def convert_v1_05_to_v1_06(dataset_1_05: smsh5.H5dataset) -> smsh5.H5dataset:
+    for particle in dataset_1_05.particles:
+        particle.is_secondary_part = False
+        particle.tcspc_card = 'TCSPC Card'
+        particle.sec_part = None
+    return dataset_1_05
