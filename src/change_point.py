@@ -595,7 +595,7 @@ class ChangePointAnalysis:
         start_ind, end_ind = seg_inds
         n = end_ind - start_ind
         assert n <= 1000, "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
-        if n < self.settings.cpa_min_num_photons:
+        if n < min_num_photons:
             cpt_found = False
             return cpt_found, None
         time_data = self._abstimes[start_ind:end_ind]
@@ -680,6 +680,8 @@ class ChangePointAnalysis:
             The next segments indexes.
         """
 
+        min_num_photons = self.settings.cpa_min_num_photons
+
         if self.end_at_photon is not None:
             last_photon_ind = self.end_at_photon
         else:
@@ -687,8 +689,12 @@ class ChangePointAnalysis:
 
         if prev_seg_inds is None:
             # Data sets need to be larger than 200 photons
-            assert self.num_photons >= 200, 'ChangePointAnalysis:\tData set needs to ' \
-                                            'be at least 200 photons for change point detection.'
+            # assert self.num_photons >= 200, 'ChangePointAnalysis:\tData set needs to ' \
+            #                                 'be at least 200 photons for change point detection.'
+            if self.num_photons < 200:
+                logger.info('ChangePointAnalysis:\tData set needs to be at least 200 photons for change point detection.')
+                next_start_ind, next_end_ind = None, None
+                return next_start_ind, next_end_ind
             if self.num_photons > 1000:
                 next_start_ind, next_end_ind = 0, 1000
             else:
@@ -882,12 +888,17 @@ class ChangePointAnalysis:
 
             self.has_levels = True
         elif self.has_run:  # Has run, no cpts -> One single level
-            self.levels = [Level(abs_times=self._abstimes,
-                                 microtimes=self._microtimes,
-                                 level_inds=(0, self.num_photons-1))]
-            self.num_levels = 1
-            self.num_cpts = 0
-            self.has_levels = True
+            if self.num_photons >= 200:
+                self.levels = [Level(abs_times=self._abstimes,
+                                     microtimes=self._microtimes,
+                                     level_inds=(0, self.num_photons-1))]
+                self.num_levels = 1
+                self.num_cpts = 0
+                self.has_levels = True
+            else:
+                self.num_levels = 0
+                self.num_cpts = 0
+                self.has_levels = False
 
     # @dbg.profile
     def run_cpa(self, all_sums: CPSums, confidence=None, end_time_s=None):
@@ -924,7 +935,10 @@ class ChangePointAnalysis:
             assert self.confidence is not None, "ChangePointAnalysis:\tNo confidence value provided."
 
         if end_time_s is not None:
-            self.end_at_photon = np.argmax(self._abstimes[:] > (end_time_s * 1E9))
+            if self._abstimes.size != 0:
+                self.end_at_photon = np.argmax(self._abstimes[:] > (end_time_s * 1E9))
+            else:
+                self.end_at_photon = 0
             if self.end_at_photon == 0:
                 self.end_at_photon = self.num_photons
         self._find_all_cpts(all_sums=all_sums)

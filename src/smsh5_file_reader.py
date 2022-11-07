@@ -59,8 +59,8 @@ def raster_scan_coord(particle: Particle) -> np.ndarray:
     return particle.datadict.attrs["RS Coord. (um)"]
 
 
-def has_spectra(particle: Particle) -> bool:
-    return bool(particle.datadict.attrs["Spectra?"])
+# def has_spectra(particle: Particle) -> bool:
+#     return bool(particle.datadict.attrs["Spectra?"])
 
 
 def user(particle: Particle) -> str:
@@ -72,12 +72,39 @@ def abstimes(particle: Particle) -> h5pickle.Dataset:
     return particle.datadict["Absolute Times (ns)"]
 
 
+def abstimes2(particle: Particle) -> h5pickle.Dataset:
+    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
+        abstimes_dataset = particle.datadict['Absolute Times 2 (ns)']
+    else:
+        abstimes_dataset = None
+    return abstimes_dataset
+
+
 def microtimes(particle: Particle) -> h5pickle.Dataset:
     if particle.file_version in ['1.0', '1.01', '1.02']:
         microtimes_dataset = particle.datadict['Micro Times (s)']
     else:
         microtimes_dataset = particle.datadict['Micro Times (ns)']
     return microtimes_dataset
+
+
+def microtimes2(particle: Particle) -> h5pickle.Dataset:
+    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
+        microtimes_dataset = particle.datadict['Micro Times 2 (ns)']
+    else:
+        microtimes_dataset = None
+    return microtimes_dataset
+
+
+def tcspc_card(particle: Particle) -> str:
+    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
+        if particle.is_secondary_part:
+            tcspc_card = particle.datadict['Absolute Times 2 (ns)'].attrs['bh Card']
+        else:
+            tcspc_card = particle.datadict['Absolute Times (ns)'].attrs['bh Card']
+    else:
+        tcspc_card = None
+    return tcspc_card
 
 
 def has_raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> bool:
@@ -108,6 +135,13 @@ def spectra(particle: Particle) -> h5pickle.Dataset:
     return particle.datadict["Spectra (counts\s)"]
 
 
+def int_trace(particle: Particle) -> h5pickle.Dataset:
+    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03']:
+        return particle.datadict["Intensity Trace (cps)"][0]
+    else:
+        return None
+
+
 # Raster Scan Attributes
 def __get_rs_dataset(part_or_rs: Union[Particle, RasterScan]) -> h5pickle.Dataset:
     if str(type(part_or_rs)) in ["<class 'smsh5.Particle'>", "<class 'h5pickle.Dataset'>"]:
@@ -117,6 +151,7 @@ def __get_rs_dataset(part_or_rs: Union[Particle, RasterScan]) -> h5pickle.Datase
     else:
         raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
     return raster_scan_dataset
+
 
 def rs_integration_time(part_or_rs: Union[Particle, RasterScan]) -> np.float64:
     raster_scan_dataset = __get_rs_dataset(part_or_rs=part_or_rs)

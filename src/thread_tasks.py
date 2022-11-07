@@ -106,8 +106,9 @@ class OpenFile:
 
             all_nodes = [(datasetnode, -1)]
             for i, particle in enumerate(dataset.particles):
-                particlenode = DatasetTreeNode(particle.name, particle, 'particle')
-                all_nodes.append((particlenode, i))
+                if not particle.is_secondary_part:  # "secondary" particles contain data from second TCSPC card
+                    particlenode = DatasetTreeNode(particle.name, particle, 'particle')
+                    all_nodes.append((particlenode, i))
             sig_fb.add_all_particlenodes(all_nodes=all_nodes)
 
             sig_fb.reset_tree()
@@ -115,34 +116,35 @@ class OpenFile:
             starttimes = []
             tmins = []
             for particle in dataset.particles:
-                # Find max, then search backward for first zero to find the best startpoint
-                decay = particle.histogram.decay
-                histmax_ind = np.argmax(decay)
-                reverse = decay[:histmax_ind][::-1]
-                zeros_rev = np.where(reverse == 0)[0]
-                if len(zeros_rev) != 0:
-                    length = 0
-                    start_ind_rev = zeros_rev[0]
-                    for i, val in enumerate(zeros_rev[:-1]):
-                        if zeros_rev[i + 1] - val > 1:
-                            length = 0
-                            continue
-                        length += 1
-                        if length >= 10:
-                            start_ind_rev = val
-                            break
-                    start_ind = histmax_ind - start_ind_rev
-                    # starttime = particle.histogram.t[start_ind]
-                    starttime = start_ind
-                else:
-                    starttime = 0
-                starttimes.append(starttime)
+                if not particle.is_secondary_part:
+                        # Find max, then search backward for first zero to find the best startpoint
+                    decay = particle.histogram.decay
+                    histmax_ind = np.argmax(decay)
+                    reverse = decay[:histmax_ind][::-1]
+                    zeros_rev = np.where(reverse == 0)[0]
+                    if len(zeros_rev) != 0:
+                        length = 0
+                        start_ind_rev = zeros_rev[0]
+                        for i, val in enumerate(zeros_rev[:-1]):
+                            if zeros_rev[i + 1] - val > 1:
+                                length = 0
+                                continue
+                            length += 1
+                            if length >= 10:
+                                start_ind_rev = val
+                                break
+                        start_ind = histmax_ind - start_ind_rev
+                        # starttime = particle.histogram.t[start_ind]
+                        starttime = start_ind
+                    else:
+                        starttime = 0
+                    starttimes.append(starttime)
 
-                try:
-                    tmin = np.min(particle.histogram.microtimes)
-                except ValueError:
-                    tmin = 0
-                tmins.append(tmin)
+                    try:
+                        tmin = np.min(particle.histogram.microtimes)
+                    except ValueError:
+                        tmin = 0
+                    tmins.append(tmin)
 
             av_start = np.average(starttimes)
             sig_fb.set_start(start=av_start)
@@ -214,7 +216,7 @@ class BinAll:
     def run_bin_all(self, feedback_queue: mp.JoinableQueue):
         sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
         prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
-        self.bin_all_func(dataset= self.dataset,
+        self.bin_all_func(dataset=self.dataset,
                           bin_size=self.bin_size,
                           sig_fb=sig_fb,
                           prog_fb=prog_fb)

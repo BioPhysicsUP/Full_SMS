@@ -141,6 +141,8 @@ class IntController(QObject):
         level_info_palette.setColor(QPalette.Base, mw_bg_colour)
         self.level_info_text.viewport().setPalette(level_info_palette)
 
+        self.show_exp_trace = self.mainwindow.chbInt_Exp_Trace.isChecked()
+
         self.int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
         self.groups_int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
         self.lifetime_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
@@ -310,6 +312,13 @@ class IntController(QObject):
             self.int_level_info_container.hide()
             self.int_level_line.hide()
 
+    def exp_trace_chb_changed(self):
+
+        self.show_exp_trace = self.mainwindow.chbInt_Exp_Trace.isChecked()
+        self.mainwindow.display_data()
+        self.mainwindow.repaint()
+        logger.info('Show experimental trace')
+
     def gui_apply_bin(self):
         """ Changes the bin size of the data of the current particle and then displays the new trace. """
         try:
@@ -436,8 +445,16 @@ class IntController(QObject):
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             if particle is None:
                 particle = self.mainwindow.current_particle
-            trace = particle.binnedtrace.intdata
-            times = particle.binnedtrace.inttimes / 1E3
+                # if self.mainwindow.comboSelectCard.currentIndex() == 0:
+                #     particle = self.mainwindow.current_particle
+                # else:
+                #     particle = self.mainwindow.current_particle.sec_part
+            if self.show_exp_trace and particle.int_trace is not None:
+                trace = particle.int_trace[:]
+                times = np.linspace(0, np.size(trace) * 0.1, np.size(trace))
+            else:
+                trace = particle.binnedtrace.intdata
+                times = particle.binnedtrace.inttimes / 1E3
         except AttributeError:
             logger.error('No trace!')
         else:
@@ -641,7 +658,7 @@ class IntController(QObject):
                 freq /= np.max(freq)
                 int_hist = pg.PlotCurveItem(x=hist_bins, y=freq, pen=plot_pen,
                                             stepMode=True, fillLevel=0, brush=(0, 0, 0, 50))
-                int_hist.rotate(-90)
+                int_hist.setRotation(-90)
                 plot_item.addItem(int_hist)
             elif not (for_levels or for_groups):
                 hist_ax = self.temp_ax['hist_ax']
@@ -672,7 +689,7 @@ class IntController(QObject):
                     level_hist = pg.PlotCurveItem(x=level_hist_bins, y=level_freq, stepMode=True,
                                                   pen=plot_pen, fillLevel=0, brush=(0, 0, 0, 255))
 
-                    level_hist.rotate(-90)
+                    level_hist.setRotation(-90)
                     plot_item.addItem(level_hist)
                 elif for_levels and particle.has_levels:
                     hist_ax = self.temp_ax['hist_ax']
@@ -889,7 +906,6 @@ class IntController(QObject):
         _, conf = self.get_gui_confidence()
         data = mw.tree2dataset()
         currentparticle = mw.current_particle
-        # print(currentparticle)
 
         self.resolve_mode = mode
         if mode == 'current':
@@ -935,7 +951,8 @@ class IntController(QObject):
         try:
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
-                target_particle = self.mainwindow.tree2particle(result_part_ind).cpts._particle
+                # target_particle = self.mainwindow.tree2particle(result_part_ind).cpts._particle
+                target_particle = particles[result_part_ind]
                 result.new_task_obj._particle = target_particle
                 result.new_task_obj._cpa._particle = target_particle
                 target_particle.cpts = result.new_task_obj
@@ -947,12 +964,14 @@ class IntController(QObject):
     def resolve_thread_complete(self, thread: ProcessThread):
         count = 0
 
+        print('resolve complete')
         while self.results_gathered is False:
             time.sleep(1)
             count += 1
-            if count >= 20:
+            if count >= 2:
                 logger.error(msg="Results gathering timeout")
-                raise RuntimeError
+                break
+                # raise RuntimeError
 
         if self.mainwindow.current_particle.has_levels:  # tree2dataset().cpa_has_run:
             self.mainwindow.tabGrouping.setEnabled(True)
@@ -1669,17 +1688,19 @@ class LifetimeController(QObject):
             if for_export and export_path is not None:
                 if not (os.path.exists(export_path) and os.path.isdir(export_path)):
                     raise AssertionError("Provided path not valid")
+                pname = particle.unique_name
+                logger.info(select_ind)
                 if select_ind is None:
                     type_str = ' hist (whole trace).png'
-                    title_str = f"{particle.name} Decay Trace"
+                    title_str = f"{pname} Decay Trace"
                 elif group_ind is None:
                     type_str = f' hist (level {select_ind + 1}).png'
-                    title_str = f"{particle.name}, Level {select_ind + 1} Decay Trace"
+                    title_str = f"{pname}, Level {select_ind + 1} Decay Trace"
                 else:
                     type_str = f' hist (group {group_ind + 1}).png'
-                    title_str = f"{particle.name}, Group {group_ind + 1} Decay Trace"
+                    title_str = f"{pname}, Group {group_ind + 1} Decay Trace"
                 self.temp_fig.suptitle(title_str)
-                full_path = os.path.join(export_path, particle.name + type_str)
+                full_path = os.path.join(export_path, pname + type_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
                 # sleep(1)
                 # export_plot_item(plot_item=life_hist_plot, path=full_path)
@@ -1760,14 +1781,14 @@ class LifetimeController(QObject):
             if for_export and export_path is not None:
                 # plot_item = self.life_hist_plot
                 if select_ind is None:
-                    type_str = f'{particle.name} hist-fitted (whole trace).png'
-                    title_str = f'{particle.name} Decay Trace and Fit'
+                    type_str = f'{particle.unique_name} hist-fitted (whole trace).png'
+                    title_str = f'{particle.unique_name} Decay Trace and Fit'
                 elif group_ind is None:
-                    type_str = f'{particle.name} hist-fitted (level {select_ind + 1}).png'
-                    title_str = f'{particle.name}, Level {select_ind + 1} Decay Trace and Fit'
+                    type_str = f'{particle.unique_name} hist-fitted (level {select_ind + 1}).png'
+                    title_str = f'{particle.unique_name}, Level {select_ind + 1} Decay Trace and Fit'
                 else:
-                    type_str = f'{particle.name} hist-fitted (group {group_ind + 1}).png'
-                    title_str = f'{particle.name}, Group {group_ind + 1} Decay Trace and Fit'
+                    type_str = f'{particle.unique_name} hist-fitted (group {group_ind + 1}).png'
+                    title_str = f'{particle.unique_name}, Group {group_ind + 1} Decay Trace and Fit'
                 full_path = os.path.join(export_path, type_str)
                 text_select_ind = select_ind
                 if text_select_ind is None:
@@ -1853,14 +1874,14 @@ class LifetimeController(QObject):
             if for_export and export_path is not None:
                 if select_ind is None:
                     type_str = ' residuals (whole trace).png'
-                    title_str = f'{particle.name} Decay Trace, Fit and Residuals'
+                    title_str = f'{particle.unique_name} Decay Trace, Fit and Residuals'
                 elif group_ind is None:
                     type_str = f' residuals (level {select_ind + 1} with residuals).png'
-                    title_str = f'{particle.name},' \
+                    title_str = f'{particle.unique_name},' \
                                 f' Level {select_ind + 1} Decay Trace, Fit and Residuals'
                 else:
                     type_str = f' residuals (group {group_ind + 1} with residuals).png'
-                    title_str = f'{particle.name}, Group {group_ind + 1}' \
+                    title_str = f'{particle.unique_name}, Group {group_ind + 1}' \
                                 f' Decay Trace, Fit and Residuals'
                 text_select_ind = select_ind
                 if text_select_ind is None:
@@ -1869,7 +1890,7 @@ class LifetimeController(QObject):
                                                for_export=True, str_return=True)
                 decay_ax = self.temp_ax['decay_ax']
                 decay_ax.text(0.9, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes)
-                full_path = os.path.join(export_path, particle.name + type_str)
+                full_path = os.path.join(export_path, particle.unique_name + type_str)
                 self.temp_fig.suptitle(title_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
                 # sleep(1)
@@ -1954,7 +1975,7 @@ class LifetimeController(QObject):
             for num, result in enumerate(results):
                 any_successful_fit = None
                 result_part_ind = part_uuids.index(result_part_uuids[num])
-                target_particle = self.mainwindow.tree2particle(result_part_ind)
+                target_particle = self.mainwindow.current_dataset.particles[result_part_ind]
 
                 target_hist = target_particle.histogram
                 target_microtimes = target_hist.microtimes
@@ -2302,6 +2323,7 @@ class GroupingController(QObject):
         elif mode == 'all':
             all_particles = mw.current_dataset.particles
             grouping_objs = [particle.ahca for particle in all_particles]
+            print(grouping_objs)
             status_message = "Grouping levels for all particle..."
 
         # g_process_thread = ProcessThread(num_processes=1, task_buffer_size=1)
@@ -2335,22 +2357,23 @@ class GroupingController(QObject):
                 new_part = self.mainwindow.current_dataset.particles[result_part_ind]
                 new_part.level_selected = None
 
-                result_ahca = result.new_task_obj
-                result_ahca._particle = new_part
-                result_ahca.best_step._particle = new_part
-                for step in result_ahca.steps:
-                    step._particle = new_part
-                    for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
-                        if hasattr(step, group_attr_name):
-                            group_attr = getattr(step, group_attr_name)
-                            if group_attr is not None:
-                                for group in group_attr:
-                                    for ahc_lvl in group.lvls:
-                                        ahc_hist = ahc_lvl.histogram
-                                        if hasattr(ahc_hist, '_particle'):
-                                            ahc_hist._particle = new_part
+                if new_part.has_levels:
+                    result_ahca = result.new_task_obj
+                    result_ahca._particle = new_part
+                    result_ahca.best_step._particle = new_part
+                    for step in result_ahca.steps:
+                        step._particle = new_part
+                        for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                            if hasattr(step, group_attr_name):
+                                group_attr = getattr(step, group_attr_name)
+                                if group_attr is not None:
+                                    for group in group_attr:
+                                        for ahc_lvl in group.lvls:
+                                            ahc_hist = ahc_lvl.histogram
+                                            if hasattr(ahc_hist, '_particle'):
+                                                ahc_hist._particle = new_part
 
-                new_part.ahca = result_ahca
+                    new_part.ahca = result_ahca
                 if new_part.has_groups:
                     new_part.makegrouphists()
                     new_part.makegrouplevelhists()
@@ -2438,6 +2461,7 @@ class GroupingController(QObject):
         self.mainwindow.int_controller.plot_all()
 
     def error(self, e: Exception):
+        raise e
         logger.error(e)
         print(e)
 

@@ -31,7 +31,7 @@
     <item>
      <layout class="QVBoxLayout" name="layTree">
       <property name="spacing">
-       <number>0</number>
+       <number>1</number>
       </property>
       <item>
        <widget class="QLabel" name="lblTree">
@@ -62,7 +62,7 @@
         <property name="sizeHint" stdset="0">
          <size>
           <width>20</width>
-          <height>2</height>
+          <height>13</height>
          </size>
         </property>
        </spacer>
@@ -178,7 +178,7 @@
         <property name="maximumSize">
          <size>
           <width>235</width>
-          <height>150</height>
+          <height>170</height>
          </size>
         </property>
         <property name="font">
@@ -186,6 +186,56 @@
           <pointsize>8</pointsize>
          </font>
         </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="frame_9">
+        <property name="maximumSize">
+         <size>
+          <width>235</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Raised</enum>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <property name="spacing">
+          <number>1</number>
+         </property>
+         <property name="leftMargin">
+          <number>1</number>
+         </property>
+         <property name="topMargin">
+          <number>1</number>
+         </property>
+         <property name="rightMargin">
+          <number>1</number>
+         </property>
+         <property name="bottomMargin">
+          <number>1</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>TCSPC Card:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="comboSelectCard">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </item>
      </layout>
@@ -217,7 +267,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -554,6 +604,13 @@
                </size>
               </property>
              </spacer>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Exp_Trace">
+              <property name="text">
+               <string>Show Exp Trace</string>
+              </property>
+             </widget>
             </item>
             <item>
              <widget class="QCheckBox" name="chbInt_Show_ROI">
@@ -4393,7 +4450,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>23</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

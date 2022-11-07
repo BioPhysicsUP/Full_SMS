@@ -212,7 +212,7 @@ class ProcessThread(QRunnable):
                         else:
                             raise TypeError("Task result is not of type ProcessTaskResult")
 
-                    if not result.dont_send:
+                    elif not result.dont_send:
                         self.signals.results.emit(result)
                     del result
 
@@ -225,7 +225,6 @@ class ProcessThread(QRunnable):
                     num_task_left -= 1
 
         except Exception as exception:
-            print(exception)
             self.signals.error.emit(exception)
         # else:
         #     self.signals.result.emit(self.tasks)
@@ -239,9 +238,13 @@ class ProcessThread(QRunnable):
                     self.result_queue.task_done()
             else:
                 time.sleep(1)
-                if not self.feedback_queue.empty():
-                    for _ in range(self.feedback_queue.qsize()):
-                        self.check_fbk_queue()
+                try:
+                    if not self.feedback_queue.empty():
+                        for _ in range(self.feedback_queue.qsize()):
+                            self.check_fbk_queue()
+                except BrokenPipeError as exception:
+                    print('Warning: Broken Pipe')
+                    self.signals.error.emit(exception)
             if process in self._processes:
                 for _ in range(num_used_processes):
                     self.task_queue.put(None)

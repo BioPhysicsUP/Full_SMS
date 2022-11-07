@@ -146,6 +146,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
         # self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
         # self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
+        self.chbInt_Exp_Trace.stateChanged.connect(i_c.exp_trace_chb_changed)
 
         self.lifetime_controller = \
             LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
@@ -239,6 +240,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.treeViewParticles.clicked.connect(self.tree_view_clicked)
         # self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
         self._root_was_checked = False
+
+        self.comboSelectCard.currentIndexChanged.connect(self.card_selected)
 
         self.part_nodes = list()
         self.part_index = list()
@@ -631,7 +634,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         else:
             self.chbInt_Disp_Using_Groups.hide()
 
-    def display_data(self, current=None, prev=None) -> None:
+    def card_selected(self) -> None:
+        self.display_data(combocard=True)
+
+    def display_data(self, current=None, prev=None, combocard=False) -> None:
         """ Displays the intensity trace and the histogram of the current particle.
 
             Directly called by the tree signal currentChanged, thus the two arguments.
@@ -642,6 +648,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             The index of the current selected particle as defined by QtCore.QModelIndex.
         prev : QtCore.QModelIndex
             The index of the previous selected particle as defined by QtCore.QModelIndex.
+        combocard : bool
+            True if called due to selecting other TCSPC card.
         """
 
         # self.current_level = None
@@ -654,9 +662,38 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.current_particle = self.treemodel.get_particle(current)
             # self.current_level = None  # Reset current level when particle changes.
         if hasattr(self, 'current_particle') and type(self.current_particle) is smsh5.Particle:
+            # Select primary or secondary particle based on selected tcspc card
+            if self.comboSelectCard.currentIndex() == 1 and self.current_particle.sec_part is not None:
+                assert not self.current_particle.is_secondary_part
+                self.current_particle = self.current_particle.sec_part
+            elif self.comboSelectCard.currentIndex() == 0 and self.current_particle.is_secondary_part:
+                self.current_particle = self.current_particle.prim_part
+
             cur_tab_name = self.tabWidget.currentWidget().objectName()
 
             self.txtDescription.setText(self.current_particle.description)
+
+            # If not called due to a change in selected card, update the card selector with available choices
+            if not combocard:
+                if not self.current_particle.is_secondary_part:
+                    card1 = self.current_particle.tcspc_card
+                    if self.current_particle.sec_part is not None:
+                        card2 = self.current_particle.sec_part.tcspc_card
+                    else:
+                        card2 = None
+                else:
+                    card1 = self.current_particle.prim_part.tcspc_card
+                    card2 = self.current_particle.tcspc_card
+                if self.comboSelectCard.count() == 0:
+                    self.comboSelectCard.insertItem(0, card1)
+                    self.comboSelectCard.insertItem(1, card2)
+                else:
+                    self.comboSelectCard.setItemText(0, card1)
+                    if self.comboSelectCard.count() == 1:
+                        self.comboSelectCard.insertItem(1, card2)
+                    else:
+                        self.comboSelectCard.setItemText(1, card2)
+            assert self.comboSelectCard.count() <= 2
 
             if cur_tab_name in ['tabIntensity', 'tabGrouping', 'tabLifetime']:
                 if cur_tab_name == 'tabIntensity':
@@ -798,7 +835,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def tree2particle(self, identifier):
         """ Returns the particle dataset for the identifier given.
-        The identifier could be the number of the particle of the the datasetnode value.
+        The identifier could be the number of the particle of the datasetnode value.
 
         Parameters
         ----------
@@ -887,6 +924,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.rdbHist_Only.setEnabled(True)
                 self.actionRange_Selection.setEnabled(True)
                 self.set_export_options()
+
                 self.reset_gui()
 
                 self.chbInt_Show_ROI.setCheckState(1)
