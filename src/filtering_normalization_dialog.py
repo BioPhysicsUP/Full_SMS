@@ -14,6 +14,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Union, List
 import numpy as np
+import pandas as pd
+import statsmodels.formula.api as smf
 
 logger = setup_logger(__name__)
 
@@ -65,8 +67,6 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         self.plot_widget.setBackground(background=None)
         self.plot_widget.setAntialiasing(True)
 
-        self.fit_results_text = self.lblFitResults
-
         self.option_linker = {
             'min_photons': (self.chbMinPhotons, self.spnMinPhotons),
             'min_intensity': (self.chbMinIntensity, self.dsbMinIntensity),
@@ -111,12 +111,14 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         self.current_data_points_to_use = None
         self.current_particles = list()
         self.levels_to_use = None
-        self.mapping_level_to_use = None
+        self.fit_result = None
+        self.has_fit = False
 
         self.setup_plot(*self.current_plot_type, clear_plot=False, is_first_setup=True)
 
         self.cmbFeatureX.currentTextChanged.connect(lambda: self.two_features_changed(x_changed=True))
         self.cmbFeatureY.currentTextChanged.connect(lambda: self.two_features_changed(x_changed=False))
+        self.tlbSwitchFeatures.clicked.connect(lambda: self.switch_two_features())
         self.btnPlotTwoFeatures.clicked.connect(lambda: self.plot_features(use_selected_two_features=True))
         self.btnFit.clicked.connect(self.fit_intensity_lifetime)
 
@@ -155,6 +157,17 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
             y=[0],
             pen=self.plot_pen,
             size=3
+        )
+
+        self.plot_fit_pen = QPen()
+        self.plot_fit_pen.setCosmetic(True)
+        self.plot_fit_pen.setWidthF(2)
+        self.plot_fit_pen.setColor(QColor('red'))
+
+        self.int_lifetime_fit_item = pg.PlotCurveItem(
+            x=[0],
+            y=[0],
+            pen=self.plot_fit_pen,
         )
 
     @staticmethod
@@ -289,6 +302,31 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         if current_feature_x is not None and current_feature_y is not None:  # True if current is two feature plot
             self.plot_features(use_current_plot=True)
 
+    def switch_two_features(self):
+        selected_feature_x = self.cmbFeatureX.currentText()
+        selected_feature_y = self.cmbFeatureY.currentText()
+        items_x = PlotFeature.get_dict()
+        _ = items_x.pop(selected_feature_y)
+        items_y = PlotFeature.get_dict()
+        _ = items_y.pop(selected_feature_x)
+
+        selected_feature_x, selected_feature_y = selected_feature_y, selected_feature_x
+        items_x, items_y = items_y, items_x
+
+        self.cmbFeatureX.blockSignals(True)
+        self.cmbFeatureX.clear()
+        self.cmbFeatureX.addItems(items_x)
+        self.cmbFeatureX.setCurrentText(selected_feature_x)
+        self.cmbFeatureX.blockSignals(False)
+
+        self.cmbFeatureY.blockSignals(True)
+        self.cmbFeatureY.clear()
+        self.cmbFeatureY.addItems(items_y)
+        self.cmbFeatureY.setCurrentText(selected_feature_y)
+        self.cmbFeatureY.blockSignals(False)
+
+        self.plot_features(use_selected_two_features=True)
+
     def plot_features(self,
                       feature_x: Union[PlotFeature, str] = None,
                       feature_y: Union[PlotFeature, str] = None,
@@ -312,6 +350,8 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
             else:
                 if feature_x is None and feature_y is not None:
                     raise ValueError('Can not provide only a plot feature for the Y-Axis')
+                if feature_x == feature_y:
+                    raise ValueError('Can not provide the same feature for x and y')
                 if feature_x is None and feature_y is None:
                     logger.warning('No feature(s) provided and no options selected')
                     return None
@@ -324,14 +364,16 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
 
             is_distribution = True if feature_y is None else False
             plot_item = self.distribution_item if is_distribution else self.two_feature_item
-            if plot_item not in self.plot.items:
-                for item in self.plot.items:
-                    self.plot.removeItem(item)
+            could_have_fit_and_shouldnt = self.has_fit
+            if could_have_fit_and_shouldnt:
+                could_have_fit_and_shouldnt &= (feature_x, feature_y) != (PlotFeature.Intensity, PlotFeature.Lifetime)
+            if plot_item not in self.plot.items or could_have_fit_and_shouldnt:
+                self.plot.clear()
                 self.plot.addItem(plot_item)
             if is_distribution:
-                self._plot_distribution()
+                self.plot_distribution()
             else:
-                self._plot_two_features()
+                self.plot_two_features()
 
     def _filter_numeric_data(self,
                              feature_data: np.ndarray,
@@ -466,13 +508,29 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
                 all_filter &= ~np.isnan(feature_all_data['feature_data'])
         return all_filter
 
-    def _plot_distribution(self):
+    def set_limits(self, feature_x: Union[PlotFeature, str] = None, feature_y: Union[PlotFeature, str] = None):
+        if feature_x is None and feature_y is None:
+            feature_x, feature_y = self.current_plot_type
+
+        if feature_y == PlotFeature.IRFShift:
+            self.plot.vb.setLimits(yMin=None)
+        else:
+            self.plot.vb.setLimits(yMin=0)
+
+        if feature_x == PlotFeature.IRFShift:
+            self.plot.vb.setLimits(xMin=None)
+        else:
+            self.plot.vb.setLimits(xMin=0)
+
+    def plot_distribution(self):
         feature, _ = self.current_plot_type
 
         feature_data, num_datapoints, num_datapoints_filtered = self.get_feature_data(feature=feature)
         feature_data = feature_data[~np.isnan(feature_data)]
 
         if feature_data is not None:
+            self.set_limits(feature_x=feature)
+
             is_auto_num_bins = self.chbAutoNumBins.isChecked()
             if is_auto_num_bins:
                 bin_edges = 'auto'
@@ -494,16 +552,14 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
             else:
                 num_datapoints_text = f'# Datapoints: {num_datapoints_filtered} ({num_datapoints} unfiltered)'
             self.lblNumDatapoints.setText(num_datapoints_text)
+            self.plot.autoRange()
         else:
             logger.warning('No feature data found')
 
-    def _plot_two_features(self):
+    def plot_two_features(self):
         feature_x, feature_y = self.current_plot_type
 
-        if feature_y == PlotFeature.IRFShift:
-            self.plot.vb.setLimits(yMin=None)
-        else:
-            self.plot.vb.setLimits(yMin=0)
+        self.set_limits(feature_x=feature_x, feature_y=feature_y)
 
         featured_x_data, num_data_x, num_data_x_filt = self.get_feature_data(feature=feature_x)
         featured_y_data, num_data_y, num_data_y_filt = self.get_feature_data(feature=feature_y)
@@ -528,9 +584,90 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
             num_datapoints_text = f'# Datapoints: {num_data_filtered} ({num_data} unfiltered)'
         self.lblNumDatapoints.setText(num_datapoints_text)
 
+        if (feature_x, feature_y) == (PlotFeature.Intensity, PlotFeature.Lifetime) and self.has_fit:
+            self.plot_fit_result()
+        self.plot.autoRange()
+
+    def prepare_plot_for_int_lifetime_fit(self):
+        feature_x, feature_y = self.current_plot_type
+        if (feature_x, feature_y) != (PlotFeature.Intensity, PlotFeature.Lifetime):
+            self.plot_features(feature_x=PlotFeature.Intensity, feature_y=PlotFeature.Lifetime)
+            feature_x, feature_y = (PlotFeature.Intensity, PlotFeature.Lifetime)
+            self.cmbFeatureX.blockSignals(True)
+            self.cmbFeatureY.blockSignals(True)
+
+            other_x_features = PlotFeature.get_dict()
+            _ = other_x_features.pop(feature_x)
+            other_y_features = PlotFeature.get_dict()
+            _ = other_y_features.pop(feature_y)
+
+            self.cmbFeatureX.clear()
+            self.cmbFeatureX.addItems(other_y_features.keys())
+            self.cmbFeatureX.setCurrentText(feature_x)
+
+            self.cmbFeatureY.clear()
+            self.cmbFeatureY.addItems(other_x_features.keys())
+            self.cmbFeatureY.setCurrentText(feature_y)
+
+            self.cmbFeatureX.blockSignals(False)
+            self.cmbFeatureY.blockSignals(False)
+
+    def plot_fit_result(self):
+        assert self.has_fit, "No fit to plot"
+        assert self.current_plot_type == (PlotFeature.Intensity, PlotFeature.Lifetime), "Incorrect plot type for fit"
+
+        slope = self.fit_result['slope']
+        slope_err = self.fit_result['slope_err']
+        has_intercept = self.fit_result['has_intercept']
+        intercept = self.fit_result['intercept']
+        intercept_err = self.fit_result['intercept_err']
+        rsquared = self.fit_result['rsquared']
+
+        int_data, tau_data = self.two_feature_item.getData()
+
+        int_model = np.linspace(0, np.max(int_data), 100)
+        tau_model = int_model * slope
+        if has_intercept:
+            tau_model += intercept
+
+        self.int_lifetime_fit_item.setData(x=int_model, y=tau_model)
+        if not self.int_lifetime_fit_item in self.plot.items:
+            self.plot.addItem(self.int_lifetime_fit_item)
+
+        fit_result_text = f"Fit: tau = ({slope:.3e} +- {slope_err:.1e})*int"
+        fit_result_text += f" + ({intercept:.3e} +- {intercept_err:.1e})" if has_intercept else ''
+        fit_result_text += f"  with R^2 = {rsquared:.3f}"
+        self.lblResults.setText(fit_result_text)
+
     def fit_intensity_lifetime(self):
-        self.plot_features(feature_x=PlotFeature.Intensity, feature_y=PlotFeature.Lifetime)
+        self.prepare_plot_for_int_lifetime_fit()
+        force_origin = self.chbForceOrigin.isChecked()
         int_data, lifetime_data = self.two_feature_item.getData()
+        df = pd.DataFrame(data={'int': int_data, 'tau': lifetime_data})
+        formula = 'tau ~ int + 0' if force_origin else 'tau ~ int'
+        model = smf.ols(formula=formula, data=df)
+        fit = model.fit()
+
+        slope = fit.params.int
+        slope_err = fit.bse.int
+        intercept = None
+        intercept_err = None
+        if not force_origin:
+            intercept = fit.params.Intercept
+            intercept_err = fit.bse.Intercept
+        rsquared = fit.rsquared
+        self.fit_result = {
+            'slope': slope,
+            'slope_err': slope_err,
+            'has_intercept': not force_origin,
+            'intercept': intercept,
+            'intercept_err': intercept_err,
+            'rsquared': rsquared,
+            'fit': fit
+        }
+        self.has_fit = True
+
+        self.plot_fit_result()
 
     def apply_filters(self):
         all_filters = self.get_all_filter()
@@ -558,7 +695,16 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         print('reset_normalization')
 
     def apply_normalization(self):
-        print('apply_normalization')  # TODO: Return and apply Normalization
+        fit_result = self.fit_result
+        intercept = fit_result['intercept']
+        intercept = 0 if intercept is None else intercept
+        for level in self.levels_to_use:
+            if level.histogram.fitted:
+                level.unnorm_int_p_s = level.int_p_s
+                level.unnorm_num_photons = level.num_photons
+                level.int_p_s = (level.histogram.tau - intercept)/fit_result['slope']
+                # level.num_photons =
+
 
     def rejected_callback(self):
         self.close()

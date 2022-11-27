@@ -95,7 +95,7 @@ class LoadAnalysisWorker(QRunnable):
     def run(self) -> None:
         try:
             load_analysis(main_window=self.main_window, analysis_file=self.file_path,
-                          signals = self.signals)
+                          signals=self.signals)
             self.signals.openfile_finished.emit(False)
         except Exception as err:
             self.signals.error.emit(err)

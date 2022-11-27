@@ -2074,6 +2074,9 @@
             <property name="text">
              <string>Force Through Origin</string>
             </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
            </widget>
           </item>
           <item>

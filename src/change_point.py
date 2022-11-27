@@ -369,7 +369,7 @@ class Level:
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
         self.times_ns = (abs_times[self.level_inds[0]], abs_times[self.level_inds[1]])
         self.dwell_time_ns = self.times_ns[1] - self.times_ns[0]
-        if int_p_s:
+        if int_p_s is not None:
             self.int_p_s = int_p_s
         else:
             try:
