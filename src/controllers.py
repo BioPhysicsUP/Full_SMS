@@ -1289,10 +1289,10 @@ class LifetimeController(QObject):
             else:
                 end = None
             boundaries = [start, end, f_p.autostart, f_p.autoend]
-            if not histogram.fit(f_p.numexp, f_p.tau, f_p.amp,
-                                 shift, f_p.decaybg, f_p.irfbg,
-                                 boundaries, f_p.addopt,
-                                 f_p.irf, f_p.fwhm):
+            if not histogram.fit_intensity_lifetime(f_p.numexp, f_p.tau, f_p.amp,
+                                                    shift, f_p.decaybg, f_p.irfbg,
+                                                    boundaries, f_p.addopt,
+                                                    f_p.irf, f_p.fwhm):
                 return  # fit unsuccessful
             else:
                 cp.has_fit_a_lifetime = True

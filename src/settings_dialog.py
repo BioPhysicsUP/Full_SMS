@@ -4,8 +4,7 @@ __docformat__ = 'NumPy'
 
 from matplotlib.font_manager import json_dump
 from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog
-from PyQt5.QtWidgets import QDialogButtonBox
+from PyQt5.QtWidgets import QDialog, QDialogButtonBox
 from my_logger import setup_logger
 import sys
 import os

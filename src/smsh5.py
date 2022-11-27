@@ -509,6 +509,10 @@ class Particle:
             return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi + 1]
 
     @property
+    def levels_roi_force(self):
+        return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi + 1]
+
+    @property
     def group_levels(self) -> List[Level]:
         if self.has_groups:
             return self.ahca.selected_step.group_levels

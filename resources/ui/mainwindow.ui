@@ -4475,6 +4475,9 @@ Python: import pandas.read_feather)</string>
       <string>Intensity</string>
      </property>
      <widget class="QMenu" name="menuRegion_of_Interest">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="title">
        <string>Region of Interest</string>
       </property>
@@ -4538,8 +4541,9 @@ Python: import pandas.read_feather)</string>
     </widget>
     <addaction name="menuIntensity"/>
     <addaction name="menuLifetime"/>
-    <addaction name="actionReset_Analysis"/>
+    <addaction name="actionFiltering_Normalization"/>
     <addaction name="separator"/>
+    <addaction name="actionReset_Analysis"/>
     <addaction name="actionConvert_pt3"/>
    </widget>
    <widget class="QMenu" name="menuAnalysis">
@@ -4830,6 +4834,19 @@ Python: import pandas.read_feather)</string>
    </property>
    <property name="text">
     <string>Note: Existing levels will overwritten</string>
+   </property>
+  </action>
+  <action name="actionIntensityLifetimeNormalization">
+   <property name="text">
+    <string>using Lifetimes</string>
+   </property>
+  </action>
+  <action name="actionFiltering_Normalization">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Filtering and Normalization</string>
    </property>
   </action>
  </widget>

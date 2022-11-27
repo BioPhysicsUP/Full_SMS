@@ -32,7 +32,9 @@ from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
 # import save_analysis
+
 from settings_dialog import SettingsDialog, Settings
+from filtering_normalization_dialog import FilteringNormalizationDialog
 
 try:
     import pkg_resources.py2_warn
@@ -50,7 +52,7 @@ from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.3.9"
+SMS_VERSION = "0.4.1"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -111,6 +113,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.settings_dialog = SettingsDialog(self, get_saved_settings=True)
         self.settings = self.settings_dialog.settings
+
+        self.intensity_lifetime_normalization_dialog = \
+            FilteringNormalizationDialog(main_window=self)
 
         self.chbInt_Disp_Resolved.hide()
         self.chbInt_Disp_Photon_Bursts.hide()
@@ -204,6 +209,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
         self.actionRange_Selection.triggered.connect(self.range_selection)
         self.actionSettings.triggered.connect(self.act_open_settings_dialog)
+        self.actionFiltering_Normalization.triggered.connect(self.act_filtering_and_normalization_dialog)
         self.actionDetect_Remove_Bursts_Current.triggered.connect(self.act_detect_remove_bursts_current)
         self.actionDetect_Remove_Bursts_Selected.triggered.connect(self.act_detect_remove_bursts_selected)
         self.actionDetect_Remove_Bursts_All.triggered.connect(self.act_detect_remove_bursts_all)
@@ -361,6 +367,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def act_open_settings_dialog(self):
         self.settings_dialog.exec()
+
+    def act_filtering_and_normalization_dialog(self):
+        self.intensity_lifetime_normalization_dialog.exec()
 
     def gui_group_use_roi(self):
         if self.data_loaded:
