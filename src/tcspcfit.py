@@ -958,7 +958,7 @@ class FittingParameters:
         self.decaybg = None
         self.irfbg = None
         self.start = None
-        self.autostart = False
+        self.autostart = 'Manual'
         self.end = None
         self.autoend = False
         self.numexp = None

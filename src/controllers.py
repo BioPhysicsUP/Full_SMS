@@ -1275,7 +1275,7 @@ class LifetimeController(QObject):
             shift = f_p.shift[:-1] / channelwidth
             shiftfix = f_p.shift[-1]
             shift = [*shift, shiftfix]
-            if f_p.autostart:
+            if f_p.autostart != 'Manual':
                 start = None
             elif f_p.start is not None:
                 start = int(f_p.start / channelwidth)
@@ -1927,7 +1927,7 @@ class LifetimeController(QObject):
         f_p = self.fitparam
         channelwidth = particles[0].channelwidth
 
-        if f_p.autostart:
+        if f_p.autostart != 'Manual':
             start = None
         elif f_p.start is not None:
             start = int(f_p.start / channelwidth)
