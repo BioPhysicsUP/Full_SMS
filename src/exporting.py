@@ -83,8 +83,11 @@ def export_data(mainwindow: MainWindow,
     if not f_dir:
         return
     else:
-        raster_scans_use = [part.raster_scan.dataset_index for part in particles]
-        raster_scans_use = np.unique(raster_scans_use).tolist()
+        try:
+            raster_scans_use = [part.raster_scan.dataset_index for part in particles]
+            raster_scans_use = np.unique(raster_scans_use).tolist()
+        except AttributeError:
+            raster_scans_use = []
 
     if not lock:
         lock = Lock()
@@ -808,7 +811,8 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
             partlev = ['Particle #', 'Primary?']
         rows.append(partlev + taucol + taustdcol + ampcol + ampstdcol +
                     ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG', 'IRF BG',
-                     'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)'])
+                     'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)', 'DW', 'DW 0.05', 'DW 0.01',
+                     'DW 0.003', 'DW 0.001'])
         for i, p in enumerate(particles):
             if levels:
                 histogram = p.histogram
@@ -842,7 +846,9 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
                     other_exp = [str(histogram.avtau), str(histogram.shift),
                                  str(histogram.stds[2 * numexp]),
                                  str(histogram.bg), str(histogram.irfbg),
-                                 str(histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std]
+                                 str(histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std,
+                                 str(histogram.dw), str(histogram.dw_bound[0]), str(histogram.dw_bound[1]),
+                                 str(histogram.dw_bound[2]), str(histogram.dw_bound[3])]
                 if levels:
                     pnum = [str(i + 1)]
                 else:  # get number from particle name
