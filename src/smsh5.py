@@ -43,7 +43,7 @@ class H5dataset:
         self.use_parallel = False
         self.name = filename
         prog_fb.set_status(status="Reading file...")
-        self.file = h5pickle.File(self.name, 'r')
+        self._file = h5pickle.File(self.name, 'r')
         self.file_version = h5_fr.file_version(dataset=self)
 
         all_keys = self.file.keys()
@@ -77,8 +77,8 @@ class H5dataset:
                 this_raster_scan_index = None
                 this_raster_scan = None
             prim_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
-                     raster_scan_dataset_index=this_raster_scan_index,
-                     raster_scan=this_raster_scan)
+                                 raster_scan_dataset_index=this_raster_scan_index,
+                                 raster_scan=this_raster_scan)
             if h5_fr.abstimes2(prim_part) is not None:  # if second card data exists, create secondary particle
                 print(particle_name)
                 sec_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
@@ -100,6 +100,19 @@ class H5dataset:
         self.irf_t = None
         self.has_irf = False
         self.has_spectra = False
+
+    @property
+    def file(self):
+        if self._file is not None and self._file.__bool__() is True:
+            return self._file
+        else:
+            raise Warning("File not set")
+
+    @file.setter
+    def file(self, new_file):
+        if self._file is not None and self._file.__bool__() is True:
+            self._file.close()
+        self._file = new_file
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
         raster_scans = list()
@@ -260,11 +273,11 @@ class Particle:
         """
         self.uuid = uuid1()
         self.name = name
-        # self.dataset = dataset
+        self.dataset = dataset
         self.dataset_ind = dataset_ind
-        self.file = dataset.file
+        # self.get_file = lambda: dataset.get_file()
         self.file_version = h5_fr.file_version(dataset=dataset)
-        self.datadict = self.file[self.name]
+        # self.dataset_particle = self.file[self.name]
         self.is_secondary_part = is_secondary_part
         self.prim_part = prim_part
         self.sec_part = sec_part
@@ -333,6 +346,15 @@ class Particle:
 
         self.has_fit_a_lifetime = False
         self.has_exported = False
+
+    @property
+    def file(self):
+        return self.dataset.file
+
+    @property
+    def file_group(self):
+        if self.file is not None:
+            return self.file[self.name]
 
     @property
     def histogram(self) -> Histogram:
@@ -438,7 +460,7 @@ class Particle:
 
     @property
     def raster_scan_coordinates(self) -> tuple:
-        particle_attr_keys = self.datadict.attrs.keys()
+        particle_attr_keys = self.file_group.attrs.keys()
         if self.has_raster_scan:
             coords = h5_fr.raster_scan_coord(particle=self)
             return coords[1], coords[0]

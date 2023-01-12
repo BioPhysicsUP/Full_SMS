@@ -306,11 +306,10 @@ class ClusteringStep:
             part_levels = self._particle.cpts.levels
         else:
             part_levels = self._particle.levels_roi
-        abs_times = self._particle.abstimes
-        micro_times = self._particle.microtimes
 
         group_levels = []
         busy_joining = False
+        start_ind = None
         for i, part_level in enumerate(part_levels):
             if not busy_joining:
                 start_ind = part_level.level_inds[0]
@@ -324,8 +323,7 @@ class ClusteringStep:
             if not busy_joining:
                 end_ind = part_level.level_inds[1]
                 group_int = self.group_ints[self.level_group_ind[i]]
-                group_levels.append(Level(abs_times=abs_times,
-                                          microtimes=micro_times,
+                group_levels.append(Level(particle=self._particle,
                                           level_inds=(start_ind, end_ind),
                                           int_p_s=group_int,
                                           group_ind=self.level_group_ind[i]))

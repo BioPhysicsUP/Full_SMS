@@ -24,13 +24,11 @@ import file_manager as fm
 from my_logger import setup_logger
 from settings_dialog import Settings
 import sys
+import smsh5_file_reader as sms_fr
 
 if TYPE_CHECKING:
     from smsh5 import Particle
     from generate_sums import CPSums
-
-if "--vscode" in sys.argv:
-    import ptvsd
 
 # replaced by settings_dialog
 # MIN_PHOTONS = 20
@@ -41,20 +39,25 @@ if "--vscode" in sys.argv:
 logger = setup_logger(__name__)
 
 
-class DatasetSubset:
+class ParticleMicrotimesSubset:
     """ A container for a custom list that accesses a subset of a H5 dataset"""
 
-    def __init__(self, dataset, start_ind: int, end_ind: int):
-        assert dataset is not None, "No dataset provided"
+    def __init__(self, particle: Particle, start_ind: int, end_ind: int):
 
-        if not 0 <= start_ind < len(dataset) - 1:
+        self._particle = particle
+
+        if not 0 <= start_ind < len(self._micro_dataset) - 1:
             raise IndexError("Start index out of bounds")
-        if not 0 < end_ind <= len(dataset) - 1:
+        if not 0 < end_ind <= len(self._micro_dataset) - 1:
             raise IndexError("End index out of bounds")
 
-        self._dataset = dataset
         self._start_ind = start_ind
         self._end_ind = end_ind
+
+    @property
+    def _micro_dataset(self):
+        if self._particle.file is not None:
+            return sms_fr.microtimes(self._particle)
 
     def __len__(self):
         return 1 + self._end_ind - self._start_ind
@@ -71,7 +74,7 @@ class DatasetSubset:
             if not self._start_ind <= ind <= self._end_ind:
                 raise IndexError("Index out of defined range")
 
-            return self._dataset[ind]
+            return self._micro_dataset[ind]
 
         elif type(i) is slice:
             slice_start = i.start
@@ -93,15 +96,15 @@ class DatasetSubset:
                 slice_stop = self._end_ind + 1
 
             new_slice = slice(slice_start, slice_stop, slice_step)
-            return self._dataset[new_slice]
+            return self._micro_dataset[new_slice]
 
     def __iter__(self):
-        for elem in self._dataset[self._start_ind:self._end_ind]:
+        for elem in self._micro_dataset[self._start_ind:self._end_ind]:
             yield elem
 
     def __repr__(self):
         return f"<{self.__class__.__name__} with index range ({self._start_ind}, " \
-               f"{self._end_ind}) of {self._dataset.__repr__()[1:-1]}>"
+               f"{self._end_ind}) of {self._micro_dataset.__repr__()[1:-1]}>"
 
     def __eq__(self, other):
         return self.__getitem__(slice(None)) == other
@@ -231,10 +234,6 @@ class ChangePoints:
         end_time_s
         """
 
-        if '--vscode' in sys.argv:
-            ptvsd.debug_this_thread()
-        
-
         if run_levels is not None:
             self._run_levels = run_levels
         if confidence is not None:
@@ -346,7 +345,7 @@ class Err:
 class Level:
     """ Defines the start, end and intensity of a single level. """
 
-    def __init__(self, abs_times: Dataset, microtimes: Dataset,
+    def __init__(self, particle: Particle,
                  level_inds: Tuple[int, int], int_p_s: float = None, group_ind: int = None):
         """
         Initiate Level
@@ -361,13 +360,15 @@ class Level:
         :type level_inds: tuple
         """
 
-        assert abs_times is not None, "Levels:\tParameter 'abstimes' not given."
+        assert particle is not None, 'Levels:\tParameter "particle" not provided'
+        self._particle = particle
+        # assert abs_times is not None, "Levels:\tParameter 'abstimes' not given."
         assert level_inds is not None, "Levels:\tParameter 'level_inds' not given."
         assert type(level_inds) is tuple, "Level:\tLevel indexes argument is not a " \
                                           "tuple (start, end)."
         self.level_inds = level_inds  # (first_ind, last_ind)
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
-        self.times_ns = (abs_times[self.level_inds[0]], abs_times[self.level_inds[1]])
+        self.times_ns = (self.abs_times[self.level_inds[0]], self.abs_times[self.level_inds[1]])
         self.dwell_time_ns = self.times_ns[1] - self.times_ns[0]
         if int_p_s is not None:
             self.int_p_s = int_p_s
@@ -376,7 +377,9 @@ class Level:
                 self.int_p_s = self.num_photons / self.dwell_time_s
             except RuntimeWarning as e:
                 print("here")
-        self.microtimes = DatasetSubset(microtimes, self.level_inds[0], self.level_inds[1])
+        self.microtimes = ParticleMicrotimesSubset(particle=self._particle,
+                                                   start_ind=self.level_inds[0],
+                                                   end_ind=self.level_inds[1])
         # self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
         self.group_ind = group_ind
         self.histogram = None
@@ -394,6 +397,11 @@ class Level:
         # int_err_lower = self.int_p_s - (1E9 * num_ph_err_lower / dwell_err_lower)
         # int_err_upper = self.int_p_s - (1E9 * num_ph_err_upper / dwell_err_upper)
         # self.int_err_p_s = Err(lower=int_err_lower, upper=int_err_upper)
+
+    @property
+    def abs_times(self):
+        if self._particle.file is not None:
+            return sms_fr.abstimes(particle=self._particle)
 
     @property
     def times_s(self):
@@ -867,30 +875,25 @@ class ChangePointAnalysis:
                         else:
                             end_ind = self.num_photons
                         level_inds = (cpt, end_ind - 1)
-                        self.levels[num + 1] = Level(abs_times=self._abstimes,
-                                                     microtimes=self._microtimes,
+                        self.levels[num + 1] = Level(particle=self._particle,
                                                      level_inds=level_inds)
 
                         level_inds = (self.cpt_inds[num - 1], cpt - 1)
                     else:
                         level_inds = (self.cpt_inds[num - 1], cpt)
 
-                    self.levels[num] = Level(abs_times=self._abstimes,
-                                             microtimes=self._microtimes,
+                    self.levels[num] = Level(particle=self._particle,
                                              level_inds=level_inds)
             else:
-                self.levels[0] = Level(abs_times=self._abstimes,
-                                       microtimes=self._microtimes,
+                self.levels[0] = Level(particle=self._particle,
                                        level_inds=(0, self.cpt_inds[0] - 1))
-                self.levels[1] = Level(abs_times=self._abstimes,
-                                       microtimes=self._microtimes,
+                self.levels[1] = Level(particle=self._particle,
                                        level_inds=(self.cpt_inds[0], self.num_photons - 1))
 
             self.has_levels = True
         elif self.has_run:  # Has run, no cpts -> One single level
             if self.num_photons >= 200:
-                self.levels = [Level(abs_times=self._abstimes,
-                                     microtimes=self._microtimes,
+                self.levels = [Level(particle=self._particle,
                                      level_inds=(0, self.num_photons-1))]
                 self.num_levels = 1
                 self.num_cpts = 0

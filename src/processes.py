@@ -5,6 +5,7 @@ from enum import IntEnum, auto
 from queue import Empty
 from typing import List, Union, TYPE_CHECKING
 from uuid import UUID, uuid1
+import traceback
 # import time
 from numpy import ndarray
 import os
@@ -13,6 +14,7 @@ from tempfile import TemporaryDirectory
 from my_logger import setup_logger
 from signals import WorkerSigPassType, ProcessThreadSignals
 from tree_model import DatasetTreeNode
+import dill  # do not remove
 import pickle
 
 from inspect import signature
@@ -428,6 +430,7 @@ class SingleProcess(mp.Process):
                     if process_result.task_complete:
                         self.task_queue.task_done()
         except Exception as e:
+            traceback.print_exc()
             raise e
             self.result_queue.put(e)
             print(e)

@@ -16,3 +16,4 @@ progressbar>=2.5
 tables>=3.7.0
 openpyxl>=3.0.10
 auto-py-to-exe>=2.20.1
+dill>=0.3.6

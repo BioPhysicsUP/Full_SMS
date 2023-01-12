@@ -3,16 +3,14 @@ from __future__ import annotations
 __docformat__ = 'NumPy'
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox
+from PyQt5.QtWidgets import QDialog
 
-import smsh5
 from my_logger import setup_logger
 import file_manager as fm
 import pyqtgraph as pg
-from PyQt5.QtGui import QPalette, QPen, QColor
-import numpy as np
+from PyQt5.QtGui import QPen, QColor
 from dataclasses import dataclass
-from typing import Union, List
+from typing import Union
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
@@ -99,9 +97,12 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         self.btnIRFShiftDistribution.clicked \
             .connect(lambda: self.plot_features(feature_x=PlotFeature.IRFShift))
 
-        filter_nums = [self.spnMinPhotons, self.dsbMinIntensity, self.dsbMaxIntensity, self.dsbMinLifetime,
-                       self.dsbMaxLifetime, self.dsbMinChiSquared, self.dsbMaxChiSquared, self.dsbMinIRFShift,
-                       self.dsbMaxIRFShift]
+        filter_nums = [
+            self.spnMinPhotons, self.dsbMinIntensity, self.dsbMaxIntensity, self.dsbMinLifetime,
+            self.dsbMaxLifetime, self.dsbMinChiSquared, self.dsbMaxChiSquared, self.dsbMinIRFShift,
+            self.dsbMaxIRFShift
+        ]
+
         for num_control in filter_nums:
             num_control.valueChanged.connect(lambda: self.plot_features(use_current_plot=True))
         self.cmbDWTest.currentTextChanged.connect(lambda: self.plot_features(use_current_plot=True))
@@ -113,6 +114,7 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         self.levels_to_use = None
         self.fit_result = None
         self.has_fit = False
+        self.is_normalized = False
 
         self.setup_plot(*self.current_plot_type, clear_plot=False, is_first_setup=True)
 
@@ -266,7 +268,7 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         for level in self.levels_to_use:
             if level.histogram.fitted:
                 ints.append(level.int_p_s)
-                taus.append(level.histogram.tau)
+                taus.append(level.histogram.avtau)
         else:
             ints, taus = None, None
 
@@ -350,7 +352,7 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
             else:
                 if feature_x is None and feature_y is not None:
                     raise ValueError('Can not provide only a plot feature for the Y-Axis')
-                if feature_x == feature_y:
+                elif (feature_x is not None or feature_y is not None) and feature_x == feature_y:
                     raise ValueError('Can not provide the same feature for x and y')
                 if feature_x is None and feature_y is None:
                     logger.warning('No feature(s) provided and no options selected')
@@ -427,7 +429,7 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
             )
 
         elif feature == PlotFeature.Lifetime:
-            feature_data = [histogram.tau if histogram.fitted and histogram.tau is not None else np.NaN
+            feature_data = [histogram.avtau if histogram.fitted and histogram.avtau is not None else np.NaN
                             for histogram in histograms]
             feature_data = np.array([value[0] if type(value) is list and len(value) == 1 else value
                                      for value in feature_data])
@@ -691,20 +693,61 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
                             group_level.is_filtered_out = False
         self.lblResults.setText('All Filters Reset')
 
+    def get_all_levels_with_lifetime(self) -> list:
+        levels = list()
+        if not self.chbApplyNormalizationAll.isChecked():
+            levels = self.levels_to_use
+        else:
+            for particle in self.main_window.current_dataset.particles:
+                if particle.has_levels:
+                    for level in particle.cpts.levels:
+                        if level.histogram.fitted:
+                            levels.append(level)
+                    if particle.has_groups:
+                        for level in particle.ahca.selected_step.group_levels:
+                            if level.histogram.fitted:
+                                levels.append(level)
+        return levels
+
     def reset_normalization(self):
-        print('reset_normalization')
+        all_levels = self.get_all_levels_with_lifetime()
+        for level in all_levels:
+            if hasattr(level, 'is_normalized') and level.is_normalized:
+                level.int_p_s = level.unnorm_int_p_s
+                level.num_photons = level.unnorm_num_photons
+            level.is_normalized = False
+        self.is_normalized = False
 
     def apply_normalization(self):
         fit_result = self.fit_result
         intercept = fit_result['intercept']
         intercept = 0 if intercept is None else intercept
-        for level in self.levels_to_use:
-            if level.histogram.fitted:
-                level.unnorm_int_p_s = level.int_p_s
-                level.unnorm_num_photons = level.num_photons
-                level.int_p_s = (level.histogram.tau - intercept)/fit_result['slope']
-                # level.num_photons =
+        only_drift = self.chbOnlyDriftNormalization.isChecked()
 
+        levels_to_norm = self.get_all_levels_with_lifetime()
+
+        for level in levels_to_norm:
+            level.unnorm_int_p_s = level.int_p_s
+            level.unnorm_num_photons = level.num_photons
+            avtau = level.histogram.tau
+            if type(avtau) is list:
+                if len(avtau) == 1:
+                    avtau = avtau[0]
+                else:
+                    raise ValueError("Multiple average lifetime values")
+            norm_int_p_s = (avtau - intercept)/fit_result['slope']
+            if only_drift:
+                if norm_int_p_s >= level.int_p_s:
+                    level.is_normalized = True
+                    continue
+            level.num_photons = np.int(np.round(norm_int_p_s * level.dwell_time_s))
+            level.int_p_s = level.num_photons/level.dwell_time_s
+            level.is_normalized = True
+
+        self.is_normalized = True
+        self.lblResults.setText('Applied Normalization')
+        self.plot_features(use_current_plot=True)
 
     def rejected_callback(self):
+        self.main_window.display_data()
         self.close()

@@ -903,6 +903,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 msgbx_result, timed_out = msgbx.exec()
                 if msgbx_result == QMessageBox.Yes:
                     confidences = ("0.99", "0.95", "0.90", "0.69")
+                    index = None
                     if timed_out:
                         index = 0
                     else:
@@ -911,7 +912,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                                         confidences, 0, False)
                         if ok:
                             index = list(self.confidence_index.values()).index(int(float(item) * 100))
-                    self.cmbConfIndex.setCurrentIndex(index)
+                    if index is not None:
+                        self.cmbConfIndex.setCurrentIndex(index)
                     self.int_controller.start_resolve_thread('all')
 
             if self.data_loaded:
