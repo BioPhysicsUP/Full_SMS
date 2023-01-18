@@ -38,7 +38,6 @@
         <property name="font">
          <font>
           <pointsize>16</pointsize>
-          <weight>75</weight>
           <bold>true</bold>
           <underline>true</underline>
          </font>
@@ -105,7 +104,6 @@
           <property name="font">
            <font>
             <pointsize>10</pointsize>
-            <weight>50</weight>
             <bold>false</bold>
             <underline>true</underline>
            </font>
@@ -267,7 +265,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>4</number>
       </property>
       <property name="iconSize">
        <size>
@@ -510,7 +508,6 @@
            <widget class="QLabel" name="lblInt_Bin_Size">
             <property name="font">
              <font>
-              <weight>50</weight>
               <bold>false</bold>
               <underline>false</underline>
              </font>
@@ -1016,7 +1013,6 @@
                <property name="font">
                 <font>
                  <pointsize>8</pointsize>
-                 <weight>50</weight>
                  <bold>false</bold>
                 </font>
                </property>
@@ -1227,7 +1223,6 @@
               <property name="font">
                <font>
                 <pointsize>12</pointsize>
-                <weight>75</weight>
                 <bold>true</bold>
                 <underline>true</underline>
                </font>
@@ -2279,9 +2274,6 @@
                  <height>0</height>
                 </size>
                </property>
-               <property name="renderHints">
-                <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
-               </property>
               </widget>
              </item>
              <item>
@@ -2445,6 +2437,68 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="tabAntibunching">
+       <attribute name="icon">
+        <iconset>
+         <normaloff>../../../../OneDrive - Washington State University (email.wsu.edu)/Documents/Bertus/SMS Code/AB_icon4.png</normaloff>../../../../OneDrive - Washington State University (email.wsu.edu)/Documents/Bertus/SMS Code/AB_icon4.png</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Antibunching</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_25">
+        <item>
+         <widget class="PlotWidget" name="pgIntensity_PlotWidget_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <property name="topMargin">
+           <number>10</number>
+          </property>
+          <item>
+           <widget class="QPushButton" name="pushButton_3">
+            <property name="text">
+             <string>Correlate current</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_2">
+            <property name="text">
+             <string>Correlate selected</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton">
+            <property name="text">
+             <string>Correlate all</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_4">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
       <widget class="QWidget" name="tabRaster_Scan">
        <property name="autoFillBackground">
         <bool>true</bool>
@@ -2570,7 +2624,6 @@
               <property name="font">
                <font>
                 <pointsize>10</pointsize>
-                <weight>75</weight>
                 <bold>true</bold>
                 <underline>false</underline>
                 <strikeout>false</strikeout>
@@ -2730,7 +2783,6 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
-                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                      <strikeout>false</strikeout>
@@ -2767,7 +2819,6 @@
                       <property name="font">
                        <font>
                         <pointsize>8</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>true</underline>
                         <strikeout>false</strikeout>
@@ -2803,7 +2854,6 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                            <strikeout>false</strikeout>
@@ -2822,7 +2872,6 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                            <strikeout>false</strikeout>
@@ -2853,7 +2902,6 @@
                             <property name="font">
                              <font>
                               <pointsize>8</pointsize>
-                              <weight>50</weight>
                               <bold>false</bold>
                               <underline>false</underline>
                               <strikeout>false</strikeout>
@@ -2875,7 +2923,6 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                            <strikeout>false</strikeout>
@@ -2906,7 +2953,6 @@
                             <property name="font">
                              <font>
                               <pointsize>8</pointsize>
-                              <weight>50</weight>
                               <bold>false</bold>
                               <underline>false</underline>
                               <strikeout>false</strikeout>
@@ -2947,7 +2993,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                         <strikeout>false</strikeout>
@@ -2966,7 +3011,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                         <strikeout>false</strikeout>
@@ -2985,7 +3029,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                         <strikeout>false</strikeout>
@@ -3090,7 +3133,6 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
-                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3110,7 +3152,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3131,7 +3172,6 @@
                       <property name="font">
                        <font>
                         <pointsize>8</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>true</underline>
                         <strikeout>false</strikeout>
@@ -3164,7 +3204,6 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                            <strikeout>false</strikeout>
@@ -3202,7 +3241,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3220,7 +3258,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3324,7 +3361,6 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
-                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3360,7 +3396,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3378,7 +3413,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3482,7 +3516,6 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
-                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3518,7 +3551,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3536,7 +3568,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3554,7 +3585,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3587,7 +3617,6 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
-                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3607,7 +3636,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3734,7 +3762,6 @@
                    <property name="font">
                     <font>
                      <pointsize>12</pointsize>
-                     <weight>75</weight>
                      <bold>true</bold>
                      <underline>true</underline>
                     </font>
@@ -3770,7 +3797,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3809,7 +3835,6 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -3830,7 +3855,6 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -3854,7 +3878,6 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -3894,7 +3917,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3928,7 +3950,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -3964,7 +3985,6 @@
                          <property name="font">
                           <font>
                            <pointsize>8</pointsize>
-                           <weight>50</weight>
                            <italic>true</italic>
                            <bold>false</bold>
                            <underline>false</underline>
@@ -3983,7 +4003,6 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4010,7 +4029,6 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4037,7 +4055,6 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4064,7 +4081,6 @@
                          <property name="font">
                           <font>
                            <pointsize>10</pointsize>
-                           <weight>50</weight>
                            <bold>false</bold>
                            <underline>false</underline>
                           </font>
@@ -4101,7 +4117,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -4135,7 +4150,6 @@
                       <property name="font">
                        <font>
                         <pointsize>10</pointsize>
-                        <weight>50</weight>
                         <bold>false</bold>
                         <underline>false</underline>
                        </font>
@@ -4450,7 +4464,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
