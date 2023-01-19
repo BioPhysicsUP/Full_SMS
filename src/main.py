@@ -27,7 +27,7 @@ from multiprocessing import Process, freeze_support
 from threading import Lock
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController, \
-    RasterScanController
+    RasterScanController, AntibunchingController
 from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
@@ -188,6 +188,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.raster_scan_controller = \
             RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
                                  list_text=self.txtRaster_Scan_List)
+
+        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 

@@ -2796,3 +2796,61 @@ class RasterScanController(QObject):
 
         if lock:
             self.main_window.lock.release()
+
+
+class AntibunchingController(QObject):
+
+    def __init__(self, mainwindow: MainWindow, corr_widget: pg.PlotWidget):
+        super().__init__()
+        self.mainwindow = mainwindow
+        self.resolve_mode = None
+        self.results_gathered = False
+
+        self.corr_widget = corr_widget
+        self.corr_plot = corr_widget.getPlotItem()
+
+        self.setup_widget(self.corr_widget)
+        # self.setup_plot(self.corr_plot)
+
+    @staticmethod
+    def setup_widget(plot_widget: pg.PlotWidget):
+
+        # Set widget background and antialiasing
+        plot_widget.setBackground(background=None)
+        plot_widget.setAntialiasing(True)
+
+    def gui_correlate_current(self):
+
+        cp = self.mainwindow.current_particle
+
+    def gui_load_irf(self):
+        """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
+
+        file_path = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '',
+                                                "HDF5 files (*.h5)")
+        if file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
+            mw = self.mainwindow
+            mw.status_message(message="Opening IRF file...")
+            of_process_thread = ProcessThread(num_processes=1)
+            of_process_thread.worker_signals.add_datasetindex.connect(mw.add_dataset)
+            of_process_thread.worker_signals.add_particlenode.connect(mw.add_node)
+            of_process_thread.worker_signals.add_all_particlenodes.connect(mw.add_all_nodes)
+            of_process_thread.worker_signals.bin_size.connect(mw.set_bin_size)
+            of_process_thread.worker_signals.data_loaded.connect(mw.set_data_loaded)
+            of_process_thread.worker_signals.add_irf.connect(self.add_irf)
+            of_process_thread.signals.status_update.connect(mw.status_message)
+            of_process_thread.signals.start_progress.connect(mw.start_progress)
+            of_process_thread.signals.set_progress.connect(mw.set_progress)
+            of_process_thread.signals.step_progress.connect(mw.update_progress)
+            of_process_thread.signals.add_progress.connect(mw.update_progress)
+            of_process_thread.signals.end_progress.connect(mw.end_progress)
+            of_process_thread.signals.error.connect(mw.error_handler)
+            of_process_thread.signals.finished.connect(mw.reset_gui)
+
+            of_obj = OpenFile(file_path=file_path, is_irf=True, tmin=self.tmin)
+            of_process_thread.add_tasks_from_methods(of_obj, 'open_irf')
+            mw.threadpool.start(of_process_thread)
+            mw.active_threads.append(of_process_thread)
+
+    def add_irf(self):
+        pass
