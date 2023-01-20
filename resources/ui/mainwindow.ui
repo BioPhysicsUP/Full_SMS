@@ -2462,7 +2462,7 @@
            <number>10</number>
           </property>
           <item>
-           <widget class="QPushButton" name="pushButton_4">
+           <widget class="QPushButton" name="btnLoadIRFCorr">
             <property name="minimumSize">
              <size>
               <width>0</width>
@@ -2470,7 +2470,7 @@
              </size>
             </property>
             <property name="text">
-             <string>Load IRF 1</string>
+             <string>Load IRF</string>
             </property>
             <property name="icon">
              <iconset resource="../icons.qrc">
@@ -2479,34 +2479,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="checkBox">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pushButton_5">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Load IRF 2</string>
-            </property>
-            <property name="icon">
-             <iconset resource="../icons.qrc">
-              <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="checkBox_2">
+           <widget class="QCheckBox" name="chbIRFCorrLoaded">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -2529,7 +2502,7 @@
            </spacer>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_3">
+           <widget class="QPushButton" name="btnCorrCurrent">
             <property name="minimumSize">
              <size>
               <width>0</width>
@@ -2542,7 +2515,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_2">
+           <widget class="QPushButton" name="btnCorrSelected">
             <property name="minimumSize">
              <size>
               <width>0</width>
@@ -2555,7 +2528,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton">
+           <widget class="QPushButton" name="btnCorrAll">
             <property name="minimumSize">
              <size>
               <width>0</width>

@@ -2812,6 +2812,11 @@ class AntibunchingController(QObject):
         self.setup_widget(self.corr_widget)
         # self.setup_plot(self.corr_plot)
 
+        self.irfdiff = 0
+
+        self.corr = None
+        self.bins = None
+
     @staticmethod
     def setup_widget(plot_widget: pg.PlotWidget):
 
@@ -2821,7 +2826,43 @@ class AntibunchingController(QObject):
 
     def gui_correlate_current(self):
 
+        print('correlating')
         cp = self.mainwindow.current_particle
+        photon_times1 = cp.abstimes[:]
+        photon_times2 = cp.sec_part.abstimes[:]
+        micro_times1 = cp.microtimes[:]
+        micro_times2 = cp.sec_part.microtimes[:]
+        photon_times1 = photon_times1 + micro_times1
+        photon_times2 = photon_times2 + micro_times2 + self.irfdiff
+
+        size1 = np.size(photon_times1)
+        size2 = np.size(photon_times2)
+
+        channel = np.concatenate((np.zeros(size1), np.ones(size2)))  # create list of channels for each photon (ch. 0 or ch. 1)
+
+        all_times = np.concatenate((photon_times1, photon_times2))
+        ind = all_times.argsort()
+        all_times = all_times[ind]
+        channel = channel[ind]  # sort channel array to match times
+
+        events = []
+        for i, time1 in enumerate(all_times):
+            for j, time2 in enumerate(all_times[i:]):
+                channel1 = channel[i]
+                channel2 = channel[i+j]
+                if channel1 == channel2:
+                    continue  # ignore photons from same card
+                difftime = time2 - time1
+                if difftime > 500:  # 500 ns window
+                    break
+                events.append(difftime)
+
+        corr, bins = np.histogram(events, 1000)
+        self.bins = bins[:-1]
+        self.corr = corr
+        # plt.plot(bins[:-1], corr)
+        print(np.size(events))
+        self.plot_corr()
 
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
@@ -2847,10 +2888,36 @@ class AntibunchingController(QObject):
             of_process_thread.signals.error.connect(mw.error_handler)
             of_process_thread.signals.finished.connect(mw.reset_gui)
 
-            of_obj = OpenFile(file_path=file_path, is_irf=True, tmin=self.tmin)
+            of_obj = OpenFile(file_path=file_path, is_irf=True, tmin=0)
             of_process_thread.add_tasks_from_methods(of_obj, 'open_irf')
             mw.threadpool.start(of_process_thread)
             mw.active_threads.append(of_process_thread)
 
-    def add_irf(self):
-        pass
+    def add_irf(self, decay, t, irfdata):
+
+        irfhist2 = irfdata.particles[0].sec_part.histogram
+        decay2 = irfhist2.decay
+        t2 = irfhist2.t
+
+        irf1_maxt = t[np.argmax(decay)]
+        irf2_maxt = t2[np.argmax(decay2)]
+        self.irfdiff = irf1_maxt - irf2_maxt
+        print(self.irfdiff)
+        self.mainwindow.chbIRFCorrLoaded.setChecked(True)
+
+    def plot_corr(self):
+        plot_pen = QPen()
+        plot_pen.setCosmetic(True)
+
+        plot_pen.setWidthF(1.5)
+        plot_pen.setColor(QColor('green'))
+
+        # unit = 'counts/' + str(self.get_bin()) + 'ms'
+        plot_pen.setJoinStyle(Qt.RoundJoin)
+
+        plot_item = self.corr_widget
+
+        plot_item.clear()
+        # plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
+        # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
+        plot_item.plot(x=self.bins, y=self.corr, pen=plot_pen, symbol=None)

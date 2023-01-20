@@ -190,6 +190,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
                                  list_text=self.txtRaster_Scan_List)
 
         self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget)
+        a_c = self.antibunch_controller
+        self.btnLoadIRFCorr.clicked.connect(a_c.gui_load_irf)
+        self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
