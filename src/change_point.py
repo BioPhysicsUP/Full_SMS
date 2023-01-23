@@ -512,8 +512,6 @@ class ChangePointAnalysis:
         # assert confidence is not None, "ChangePoints:\tNo confidence parameter given."
 
         self._particle = particle
-        self._abstimes = particle.abstimes
-        self._microtimes = particle.microtimes
         self.has_run = False
         self.end_at_photon = None
         self.num_photons = particle.num_photons
@@ -531,6 +529,16 @@ class ChangePointAnalysis:
         if confidence is not None:
             self._tau = TauData(self.confidence)
         self.settings = Settings()
+
+    @property
+    def _abstimes(self):
+        if self._particle.file is not None and self._particle.file.__bool__() is True:
+            return self._particle.abstimes
+
+    @property
+    def _microtimes(self):
+        if self._particle.file is not None and self._particle.file.__bool__() is True:
+            return self._particle.microtimes
 
     def load_settings(self):
         settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)

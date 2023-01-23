@@ -2774,7 +2774,7 @@ class RasterScanController(QObject):
 
             self.list_text.clear()
             dataset = self.main_window.current_dataset
-            all_text = f"<h3>Raster Scan {raster_scan.dataset_index + 1}</h3><p>"
+            all_text = f"<h3>Raster Scan {raster_scan.h5dataset_index + 1}</h3><p>"
             rs_part_coord = [dataset.particles[part_ind].raster_scan_coordinates
                              for part_ind in raster_scan.particle_indexes]
             all_text = all_text + f"<p>Range (um) = {raster_scan.range}<br></br>" \

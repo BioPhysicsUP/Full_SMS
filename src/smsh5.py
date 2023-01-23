@@ -108,11 +108,27 @@ class H5dataset:
         else:
             raise Warning("File not set")
 
-    @file.setter
-    def file(self, new_file):
-        if self._file is not None and self._file.__bool__() is True:
-            self._file.close()
-        self._file = new_file
+    def unload_file(self, should_close: bool = True, should_delete: bool = True):
+        if should_close:
+            if self._file is not None and self._file.__bool__() is True:
+                self._file.close()
+                if should_delete:
+                    del self._file
+        self._file = None
+
+    def load_file(self, new_file: h5pickle.File):
+        if type(new_file) is h5pickle.File and new_file.__bool__() is True:
+            self._file = new_file
+            self.name = new_file.filename
+            return True
+        else:
+            logger.error('Provided H5 file invalid.')
+
+    # @file.setter
+    # def file(self, new_file):
+    #     if self._file is not None and self._file.__bool__() is True:
+    #         self._file.close()
+    #     self._file = new_file
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
         raster_scans = list()
@@ -138,9 +154,11 @@ class H5dataset:
                         if num != len(raster_scans) - 1:  # Not last one
                             # Save previous raster scan with previous group indexes
                             self.all_raster_scans.append(
-                                RasterScan(raster_scan_dataset=prev_raster_scan,
-                                           particle_indexes=group_indexes,
-                                           dataset_index=raster_scan_num))
+                                RasterScan(h5dataset=self,
+                                           particle_num=num,
+                                           h5dataset_index=raster_scan_num,
+                                           particle_indexes=group_indexes)
+                                )
                             raster_scan_counter += 1
                             raster_scan_num = len(self.all_raster_scans)
                         else:  # Last one
@@ -152,24 +170,31 @@ class H5dataset:
                             else:
                                 # Last one part of new group
                                 self.all_raster_scans.append(
-                                    RasterScan(raster_scan_dataset=prev_raster_scan,
-                                               particle_indexes=group_indexes,
-                                               dataset_index=raster_scan_num))
+                                    RasterScan(h5dataset=self,
+                                               particle_num=num,
+                                               h5dataset_index=raster_scan_num,
+                                               particle_indexes=group_indexes)
+                                   )
                                 raster_scan_counter += 1
                                 group_indexes = [num]
                                 raster_scan_num = len(self.all_raster_scans)
-                            self.all_raster_scans.append(RasterScan(raster_scan_dataset=raster_scan,
-                                                                    particle_indexes=group_indexes,
-                                                                    dataset_index=raster_scan_counter))
+                            self.all_raster_scans.append(
+                                RasterScan(h5dataset=self,
+                                           particle_num=num,
+                                           h5dataset_index=raster_scan_counter,
+                                           particle_indexes=group_indexes)
+                                )
                             raster_scan_counter += 1
                     else:
                         raster_scan_num = 0
                         if len(raster_scans) == 1:
                             group_indexes = [0]
                             self.all_raster_scans.append(
-                                RasterScan(raster_scan_dataset=raster_scan,
-                                           particle_indexes=group_indexes,
-                                           dataset_index=raster_scan_counter))
+                                RasterScan(h5dataset=self,
+                                           particle_num=num,
+                                           h5dataset_index=raster_scan_counter,
+                                           particle_indexes=group_indexes)
+                                )
                     group_indexes = [num]
                     prev_raster_scan = raster_scan
 
@@ -282,12 +307,12 @@ class Particle:
         self.prim_part = prim_part
         self.sec_part = sec_part
         if not self.is_secondary_part:
-            self.microtimes = h5_fr.microtimes(particle=self)
-            self.abstimes = h5_fr.abstimes(particle=self)
+            # self.microtimes = h5_fr.microtimes(particle=self)
+            # self.abstimes = h5_fr.abstimes(particle=self)
             self.num_photons = len(self.abstimes)
         else:
-            self.microtimes = h5_fr.microtimes2(particle=self)
-            self.abstimes = h5_fr.abstimes2(particle=self)
+            # self.microtimes = h5_fr.microtimes2(particle=self)
+            # self.abstimes = h5_fr.abstimes2(particle=self)
             self.num_photons = len(self.abstimes)
         self.tcspc_card = h5_fr.tcspc_card(particle=self)
         self.int_trace = h5_fr.int_trace(particle=self)
@@ -355,6 +380,22 @@ class Particle:
     def file_group(self):
         if self.file is not None:
             return self.file[self.name]
+
+    @property
+    def microtimes(self) -> h5pickle.Dataset:
+        if self.file is not None and self.file.__bool__() is True:
+            if not self.is_secondary_part:
+                return h5_fr.microtimes(particle=self)
+            else:
+                return h5_fr.microtimes2(particle=self)
+
+    @property
+    def abstimes(self) -> h5pickle.Dataset:
+        if self.file is not None and self.file.__bool__() is True:
+            if not self.is_secondary_part:
+                return h5_fr.abstimes(particle=self)
+            else:
+                return h5_fr.abstimes2(particle=self)
 
     @property
     def histogram(self) -> Histogram:
@@ -1066,10 +1107,14 @@ class ParticleAllHists:
 
 
 class RasterScan:
-    def __init__(self, raster_scan_dataset: h5py.Dataset, particle_indexes: List[int],
-                 dataset_index: int = None):
-        self.dataset = raster_scan_dataset
-        self.dataset_index = dataset_index
+    def __init__(self,
+                 h5dataset: H5dataset,
+                 particle_num: int,
+                 h5dataset_index: int,
+                 particle_indexes: List[int]):
+        self.h5dataset = h5dataset
+        self.particle_num = particle_num
+        self.h5dataset_index = h5dataset_index
         self.particle_indexes = particle_indexes
         self.integration_time = h5_fr.rs_integration_time(part_or_rs=self)
         self.pixel_per_line = h5_fr.rs_pixels_per_line(part_or_rs=self)
@@ -1080,15 +1125,35 @@ class RasterScan:
         self.x_axis_pos = np.linspace(self.x_start, self.x_start + self.range, self.pixel_per_line)
         self.y_axis_pos = np.linspace(self.y_start, self.y_start + self.range, self.pixel_per_line)
 
+    @property
+    def dataset(self) -> h5pickle.Dataset:
+        if self.h5dataset.file is not None and self.h5dataset.file.__bool__() is True:
+            return h5_fr.raster_scan(h5_fr.particle(self.particle_num, self.h5dataset))
+
 
 class Spectra:
     def __init__(self, particle: Particle):
         self._particle = particle
-        self._has_spectra = h5_fr.has_spectra(particle=particle)
-        if self._has_spectra:
-            self.data = h5_fr.spectra(particle=particle)
-            self.wavelengths = h5_fr.spectra_wavelengths(particle=particle)
-            self.series_times = h5_fr.spectra_abstimes(particle=particle)
+
+    @property
+    def _has_spectra(self) -> bool:
+        if self._particle.file is not None and self._particle.file.__bool__() is True:
+            return h5_fr.has_spectra(particle=self._particle)
+
+    @property
+    def data(self) -> h5pickle.Dataset:
+        if self._particle.file is not None and self._particle.file.__bool__() is True:
+            return h5_fr.spectra(particle=self._particle) if self._has_spectra else None
+
+    @property
+    def wavelengths(self) -> np.ndarray:
+        if self._particle.file is not None and self._particle.file.__bool__() is True:
+            return h5_fr.spectra_wavelengths(particle=self._particle) if self._has_spectra else None
+
+    @property
+    def series_times(self) -> np.ndarray:
+        if self._particle.file is not None and self._particle.file.__bool__() is True:
+            return h5_fr.spectra_abstimes(particle=self._particle) if self._has_spectra else None
 
 
 def start_at_value(decay, t, neg_t=True, decaystart=None):

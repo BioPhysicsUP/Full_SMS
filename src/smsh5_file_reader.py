@@ -110,7 +110,7 @@ def tcspc_card(particle: Particle) -> str:
 def has_raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> bool:
     if str(type(particle)) == "<class 'smsh5.Particle'>":
         has_rs = "Raster Scan" in particle.file_group.keys()
-    elif str(type(particle)) == "<class 'h5pickle.Group'>" :
+    elif str(type(particle)) == "<class 'h5pickle.Group'>":
         has_rs = "Raster Scan" in particle.keys()
     else:
         raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
@@ -120,7 +120,7 @@ def has_raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> bool:
 def raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> h5pickle.Dataset:
     if str(type(particle)) == "<class 'smsh5.Particle'>":
         rs = particle.file_group["Raster Scan"]
-    elif str(type(particle)) == "<class 'h5pickle.Group'>" :
+    elif str(type(particle)) == "<class 'h5pickle.Group'>":
         rs = particle["Raster Scan"]
     else:
         raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
@@ -138,15 +138,13 @@ def spectra(particle: Particle) -> h5pickle.Dataset:
 def int_trace(particle: Particle) -> h5pickle.Dataset:
     if particle.file_version not in ['1.0', '1.01', '1.02', '1.03']:
         return particle.file_group["Intensity Trace (cps)"][0]
-    else:
-        return None
 
 
 # Raster Scan Attributes
 def __get_rs_dataset(part_or_rs: Union[Particle, RasterScan]) -> h5pickle.Dataset:
     if str(type(part_or_rs)) in ["<class 'smsh5.Particle'>", "<class 'h5pickle.Dataset'>"]:
         raster_scan_dataset = raster_scan(particle=part_or_rs)
-    elif str(type(part_or_rs)) == "<class 'smsh5.RasterScan'>" :
+    elif str(type(part_or_rs)) == "<class 'smsh5.RasterScan'>":
         raster_scan_dataset = part_or_rs.dataset
     else:
         raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
