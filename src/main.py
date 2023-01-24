@@ -15,8 +15,8 @@ import sys
 from platform import system
 import ctypes
 
-from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot
-from PyQt5.QtGui import QIcon  # , QResizeEvent
+from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot, QRegExp
+from PyQt5.QtGui import QIcon, QRegExpValidator  # , QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QStyleFactory  # , QTreeWidget
 from PyQt5 import uic
@@ -193,6 +193,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
         a_c = self.antibunch_controller
         self.btnLoadIRFCorr.clicked.connect(a_c.gui_load_irf)
         self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
+        self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
+        self.chbIRFCorrDiff.stateChanged.connect(a_c.disable_corr_diff)
+
+        reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
+        reg_val = QRegExpValidator(reg_exp)
+        self.lineCorrDiff.setValidator(reg_val)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 

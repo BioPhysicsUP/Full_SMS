@@ -12,7 +12,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
-from PyQt5.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QObject, Qt, pyqtSignal, pyqtSlot, QRegExp
 from PyQt5.QtGui import QPen, QColor, QPalette, QFont, QBrush
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
@@ -2812,10 +2812,9 @@ class AntibunchingController(QObject):
         self.setup_widget(self.corr_widget)
         # self.setup_plot(self.corr_plot)
 
-        self.irfdiff = 0
-
         self.corr = None
         self.bins = None
+
 
     @staticmethod
     def setup_widget(plot_widget: pg.PlotWidget):
@@ -2828,38 +2827,66 @@ class AntibunchingController(QObject):
 
         print('correlating')
         cp = self.mainwindow.current_particle
+        if cp.is_secondary_part:
+            cp = cp.prim_part
+        difftime_float = self.difftime
+        bins, corr, events = self.correlate_particle(cp, difftime_float)
+        self.bins = bins[:-1]
+        self.corr = corr
+        # plt.plot(bins[:-1], corr)
+        print(np.size(events))
+        self.plot_corr()
+
+    @property
+    def difftime(self):
+        difftime = self.mainwindow.lineCorrDiff.text()
+        if difftime == '':
+            difftime_float = 0
+        else:
+            difftime_float = np.float(difftime)
+        return difftime_float
+
+    @staticmethod
+    def correlate_particle(cp, difftime):
         photon_times1 = cp.abstimes[:]
         photon_times2 = cp.sec_part.abstimes[:]
         micro_times1 = cp.microtimes[:]
         micro_times2 = cp.sec_part.microtimes[:]
         photon_times1 = photon_times1 + micro_times1
-        photon_times2 = photon_times2 + micro_times2 + self.irfdiff
-
+        photon_times2 = photon_times2 + micro_times2 + difftime
         size1 = np.size(photon_times1)
         size2 = np.size(photon_times2)
-
-        channel = np.concatenate((np.zeros(size1), np.ones(size2)))  # create list of channels for each photon (ch. 0 or ch. 1)
-
+        channel = np.concatenate(
+            (np.zeros(size1), np.ones(size2)))  # create list of channels for each photon (ch. 0 or ch. 1)
         all_times = np.concatenate((photon_times1, photon_times2))
         ind = all_times.argsort()
         all_times = all_times[ind]
         channel = channel[ind]  # sort channel array to match times
-
         events = []
         for i, time1 in enumerate(all_times):
             for j, time2 in enumerate(all_times[i:]):
                 channel1 = channel[i]
-                channel2 = channel[i+j]
+                channel2 = channel[i + j]
                 if channel1 == channel2:
                     continue  # ignore photons from same card
                 difftime = time2 - time1
                 if difftime > 500:  # 500 ns window
                     break
                 events.append(difftime)
-
         corr, bins = np.histogram(events, 1000)
+        return bins, corr, events
+
+    def gui_correlate_selected(self):
+        checked_parts = self.mainwindow.get_checked_particles()
+        allcorr = None
+        for part in checked_parts:
+            bins, corr, events = self.correlate_particle(part, self.difftime)
+            if allcorr is None:
+                allcorr = corr
+            else:
+                allcorr += corr
         self.bins = bins[:-1]
-        self.corr = corr
+        self.corr = allcorr
         # plt.plot(bins[:-1], corr)
         print(np.size(events))
         self.plot_corr()
@@ -2901,9 +2928,10 @@ class AntibunchingController(QObject):
 
         irf1_maxt = t[np.argmax(decay)]
         irf2_maxt = t2[np.argmax(decay2)]
-        self.irfdiff = irf1_maxt - irf2_maxt
+        self.irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
         print(self.irfdiff)
         self.mainwindow.chbIRFCorrLoaded.setChecked(True)
+        self.mainwindow.lineCorrDiff.setText(str(self.irfdiff))
 
     def plot_corr(self):
         plot_pen = QPen()
@@ -2921,3 +2949,8 @@ class AntibunchingController(QObject):
         # plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
         # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
         plot_item.plot(x=self.bins, y=self.corr, pen=plot_pen, symbol=None)
+
+    def disable_corr_diff(self, disabled):
+        self.mainwindow.lineCorrDiff.setEnabled(not disabled)
+        if disabled:
+            self.mainwindow.lineCorrDiff.setText(str(self.irfdiff))
