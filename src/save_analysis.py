@@ -67,7 +67,12 @@ def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSi
         with open(save_file_name, 'wb') as f:
             pickle.dump(dataset, f)
 
-    dataset.load_file(h5pickle.File(dataset_path))
+    reopened_file = h5pickle.File(dataset_path)
+    if reopened_file.__bool__() is False:
+        h5pickle.cache.clear()
+        reopened_file = h5pickle.File(dataset_path)
+
+    dataset.load_file(new_file=reopened_file)
 
     if signals:
         signals.status_message.emit("Done")

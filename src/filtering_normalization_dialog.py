@@ -256,7 +256,7 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
                 if not self.chbUseROI.isChecked():
                     levels = [particle.cpts.levels for particle in particles if particle.has_levels]
                 else:
-                    levels = [particle.cpts.levels_roi_forced for particle in particles if particle.has_levels]
+                    levels = [particle.levels_roi_force for particle in particles if particle.has_levels]
             self.levels_to_use = np.concatenate(levels) if len(levels) > 0 else list()
             self.current_data_points_to_use = data_points_to_use
 
@@ -408,8 +408,9 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         num_datapoints_filtered = None
 
         if feature == PlotFeature.PhotonNumber:
-            feature_data = np.array([level.num_photons if level.num_photons is not None else np.NaN
-                                     for level in levels])
+            feature_data = np.array(
+                [level.num_photons if level.num_photons is not None else np.NaN for level in levels]
+            )
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered = self._filter_numeric_data(
                 feature_data=feature_data,
@@ -418,7 +419,9 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
             )
 
         elif feature == PlotFeature.Intensity:
-            feature_data = np.array([level.int_p_s if level.int_p_s is not None else np.NaN for level in levels])
+            feature_data = np.array(
+                [level.int_p_s if level.int_p_s is not None else np.NaN for level in levels]
+            )
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, = self._filter_numeric_data(
                 feature_data=feature_data,
@@ -431,8 +434,9 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         elif feature == PlotFeature.Lifetime:
             feature_data = [histogram.avtau if histogram.fitted and histogram.avtau is not None else np.NaN
                             for histogram in histograms]
-            feature_data = np.array([value[0] if type(value) is list and len(value) == 1 else value
-                                     for value in feature_data])
+            feature_data = np.array(
+                [value[0] if type(value) is list and len(value) == 1 else value for value in feature_data]
+            )
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, = self._filter_numeric_data(
                 feature_data=feature_data,
@@ -444,8 +448,9 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
 
         elif feature == PlotFeature.DW:
             levels_used = np.array([level.histogram.fitted and level.histogram.dw is not None for level in levels])
-            feature_data = np.array([level.histogram.dw if level.histogram.dw is not None else np.NaN
-                                     for level in levels])
+            feature_data = np.array(
+                [level.histogram.dw if level.histogram.dw is not None else np.NaN for level in levels]
+            )
             num_datapoints = np.sum(~np.isnan(feature_data))
             if self.chbUseDW.isChecked():
                 selected_dw_test = self.cmbDWTest.currentText()
@@ -463,8 +468,10 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
                 num_datapoints_filtered = np.sum(~np.isnan(feature_data))
 
         elif feature == PlotFeature.IRFShift:
-            feature_data = np.array([histogram.shift if histogram.fitted and histogram.shift is not None else np.NaN
-                                     for histogram in histograms])
+            feature_data = np.array(
+                [histogram.shift if histogram.fitted and histogram.shift is not None else np.NaN
+                 for histogram in histograms]
+            )
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, = self._filter_numeric_data(
                 feature_data=feature_data,
@@ -475,8 +482,10 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
             )
 
         elif feature == PlotFeature.ChiSquared:
-            feature_data = np.array([histogram.chisq if histogram.fitted and histogram.chisq is not None else np.NaN
-                                     for histogram in histograms])
+            feature_data = np.array(
+                [histogram.chisq if histogram.fitted and histogram.chisq is not None else np.NaN
+                 for histogram in histograms]
+            )
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, = self._filter_numeric_data(
                 feature_data=feature_data,

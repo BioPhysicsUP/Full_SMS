@@ -122,13 +122,10 @@ class H5dataset:
             self.name = new_file.filename
             return True
         else:
-            logger.error('Provided H5 file invalid.')
-
-    # @file.setter
-    # def file(self, new_file):
-    #     if self._file is not None and self._file.__bool__() is True:
-    #         self._file.close()
-    #     self._file = new_file
+            if type(new_file) is h5pickle.File and new_file.__bool__() is False:
+                logger.error('Provided H5 file file is closed.')
+            else:
+                logger.error('Provided H5 file invalid.')
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
         raster_scans = list()
