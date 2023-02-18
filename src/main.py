@@ -196,9 +196,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
         self.chbIRFCorrDiff.stateChanged.connect(a_c.disable_corr_diff)
 
-        reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
-        reg_val = QRegExpValidator(reg_exp)
-        self.lineCorrDiff.setValidator(reg_val)
+        # reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
+        # reg_val = QRegExpValidator(reg_exp)
+        # self.spbCorrDiff.setValidator(reg_val)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 

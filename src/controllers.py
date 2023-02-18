@@ -2830,7 +2830,10 @@ class AntibunchingController(QObject):
         if cp.is_secondary_part:
             cp = cp.prim_part
         difftime_float = self.difftime
-        bins, corr, events = self.correlate_particle(cp, difftime_float)
+        window = self.mainwindow.spbWindow.value()
+        binsize = self.mainwindow.spbBinSizeCorr.value()
+        binsize = binsize / 1000  # convert to ns
+        bins, corr, events = self.correlate_particle(cp, difftime_float, window, binsize)
         self.bins = bins[:-1]
         self.corr = corr
         # plt.plot(bins[:-1], corr)
@@ -2839,15 +2842,10 @@ class AntibunchingController(QObject):
 
     @property
     def difftime(self):
-        difftime = self.mainwindow.lineCorrDiff.text()
-        if difftime == '':
-            difftime_float = 0
-        else:
-            difftime_float = np.float(difftime)
-        return difftime_float
+        return self.mainwindow.spbCorrDiff.value()
 
     @staticmethod
-    def correlate_particle(cp, difftime):
+    def correlate_particle(cp, difftime, window=500, binsize=0.5):
         photon_times1 = cp.abstimes[:]
         photon_times2 = cp.sec_part.abstimes[:]
         micro_times1 = cp.microtimes[:]
@@ -2870,10 +2868,11 @@ class AntibunchingController(QObject):
                 if channel1 == channel2:
                     continue  # ignore photons from same card
                 difftime = time2 - time1
-                if difftime > 500:  # 500 ns window
+                if difftime > window:  # 500 ns window
                     break
                 events.append(difftime)
-        corr, bins = np.histogram(events, 1000)
+        numbins = int(window / binsize)
+        corr, bins = np.histogram(events, numbins)
         return bins, corr, events
 
     def gui_correlate_selected(self):
@@ -2931,7 +2930,7 @@ class AntibunchingController(QObject):
         self.irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
         print(self.irfdiff)
         self.mainwindow.chbIRFCorrLoaded.setChecked(True)
-        self.mainwindow.lineCorrDiff.setText(str(self.irfdiff))
+        self.mainwindow.spbCorrDiff.setValue(self.irfdiff)
 
     def plot_corr(self):
         plot_pen = QPen()
@@ -2951,6 +2950,6 @@ class AntibunchingController(QObject):
         plot_item.plot(x=self.bins, y=self.corr, pen=plot_pen, symbol=None)
 
     def disable_corr_diff(self, disabled):
-        self.mainwindow.lineCorrDiff.setEnabled(not disabled)
+        self.mainwindow.spbCorrDiff.setEnabled(not disabled)
         if disabled:
-            self.mainwindow.lineCorrDiff.setText(str(self.irfdiff))
+            self.mainwindow.spbCorrDiff.setValue(self.irfdiff)
