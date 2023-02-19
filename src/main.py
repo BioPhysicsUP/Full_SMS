@@ -194,6 +194,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnLoadIRFCorr.clicked.connect(a_c.gui_load_irf)
         self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
         self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
+        self.btnCorrAll.clicked.connect(a_c.gui_correlate_all)
         self.chbIRFCorrDiff.stateChanged.connect(a_c.disable_corr_diff)
 
         # reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
@@ -733,6 +734,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
             elif cur_tab_name == 'tabRaster_Scan' and self.current_particle.has_raster_scan:
                 self.raster_scan_controller.plot_raster_scan()
+
+            elif cur_tab_name == 'tabAntibunching':
+                self.antibunch_controller.plot_corr()
 
             elif cur_tab_name == 'tabExport':
                 self.set_export_options()

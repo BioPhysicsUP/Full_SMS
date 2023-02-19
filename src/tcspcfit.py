@@ -3,7 +3,7 @@
 The function distfluofit is based on MATLAB code by Jörg Enderlein:
 https://www.uni-goettingen.de/en/513325.html
 
-Bertus van Heerden
+Bertus van Heerden and Joshua Botha
 University of Pretoria
 """
 

@@ -2815,7 +2815,6 @@ class AntibunchingController(QObject):
         self.corr = None
         self.bins = None
 
-
     @staticmethod
     def setup_widget(plot_widget: pg.PlotWidget):
 
@@ -2823,72 +2822,31 @@ class AntibunchingController(QObject):
         plot_widget.setBackground(background=None)
         plot_widget.setAntialiasing(True)
 
-    def gui_correlate_current(self):
-
-        print('correlating')
-        cp = self.mainwindow.current_particle
-        if cp.is_secondary_part:
-            cp = cp.prim_part
-        difftime_float = self.difftime
-        window = self.mainwindow.spbWindow.value()
-        binsize = self.mainwindow.spbBinSizeCorr.value()
-        binsize = binsize / 1000  # convert to ns
-        bins, corr, events = self.correlate_particle(cp, difftime_float, window, binsize)
-        self.bins = bins[:-1]
-        self.corr = corr
-        # plt.plot(bins[:-1], corr)
-        print(np.size(events))
-        self.plot_corr()
-
     @property
     def difftime(self):
         return self.mainwindow.spbCorrDiff.value()
 
-    @staticmethod
-    def correlate_particle(cp, difftime, window=500, binsize=0.5):
-        photon_times1 = cp.abstimes[:]
-        photon_times2 = cp.sec_part.abstimes[:]
-        micro_times1 = cp.microtimes[:]
-        micro_times2 = cp.sec_part.microtimes[:]
-        photon_times1 = photon_times1 + micro_times1
-        photon_times2 = photon_times2 + micro_times2 + difftime
-        size1 = np.size(photon_times1)
-        size2 = np.size(photon_times2)
-        channel = np.concatenate(
-            (np.zeros(size1), np.ones(size2)))  # create list of channels for each photon (ch. 0 or ch. 1)
-        all_times = np.concatenate((photon_times1, photon_times2))
-        ind = all_times.argsort()
-        all_times = all_times[ind]
-        channel = channel[ind]  # sort channel array to match times
-        events = []
-        for i, time1 in enumerate(all_times):
-            for j, time2 in enumerate(all_times[i:]):
-                channel1 = channel[i]
-                channel2 = channel[i + j]
-                if channel1 == channel2:
-                    continue  # ignore photons from same card
-                difftime = time2 - time1
-                if difftime > window:  # 500 ns window
-                    break
-                events.append(difftime)
-        numbins = int(window / binsize)
-        corr, bins = np.histogram(events, numbins)
-        return bins, corr, events
+    def gui_correlate_current(self):
+        self.start_corr_thread('current')
 
     def gui_correlate_selected(self):
-        checked_parts = self.mainwindow.get_checked_particles()
-        allcorr = None
-        for part in checked_parts:
-            bins, corr, events = self.correlate_particle(part, self.difftime)
-            if allcorr is None:
-                allcorr = corr
-            else:
-                allcorr += corr
-        self.bins = bins[:-1]
-        self.corr = allcorr
-        # plt.plot(bins[:-1], corr)
-        print(np.size(events))
-        self.plot_corr()
+        self.start_corr_thread('selected')
+        # checked_parts = self.mainwindow.get_checked_particles()
+        # allcorr = None
+        # for part in checked_parts:
+        #     bins, corr, events = self.correlate_particle(part, self.difftime)
+        #     if allcorr is None:
+        #         allcorr = corr
+        #     else:
+        #         allcorr += corr
+        # self.bins = bins[:-1]
+        # self.corr = allcorr
+        # # plt.plot(bins[:-1], corr)
+        # print(np.size(events))
+        # self.plot_corr()
+
+    def gui_correlate_all(self):
+        self.start_corr_thread('all')
 
     def gui_load_irf(self):
         """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
@@ -2927,29 +2885,112 @@ class AntibunchingController(QObject):
 
         irf1_maxt = t[np.argmax(decay)]
         irf2_maxt = t2[np.argmax(decay2)]
-        self.irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
-        print(self.irfdiff)
+        irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
         self.mainwindow.chbIRFCorrLoaded.setChecked(True)
-        self.mainwindow.spbCorrDiff.setValue(self.irfdiff)
+        self.mainwindow.spbCorrDiff.setValue(irfdiff)
 
     def plot_corr(self):
+
+        plot_item = self.corr_widget
+        plot_item.clear()
+
+        ab_analysis = self.mainwindow.current_particle.ab_analysis
+        if not ab_analysis.has_corr:
+            logger.info('No correlation for this particle')
+            return
+        bins = ab_analysis.corr_bins
+        corr = ab_analysis.corr_hist
+
         plot_pen = QPen()
         plot_pen.setCosmetic(True)
 
         plot_pen.setWidthF(1.5)
         plot_pen.setColor(QColor('green'))
 
-        # unit = 'counts/' + str(self.get_bin()) + 'ms'
         plot_pen.setJoinStyle(Qt.RoundJoin)
-
-        plot_item = self.corr_widget
-
-        plot_item.clear()
-        # plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
-        # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
-        plot_item.plot(x=self.bins, y=self.corr, pen=plot_pen, symbol=None)
+        plot_item.plot(x=bins, y=corr, pen=plot_pen, symbol=None)
 
     def disable_corr_diff(self, disabled):
         self.mainwindow.spbCorrDiff.setEnabled(not disabled)
         if disabled:
             self.mainwindow.spbCorrDiff.setValue(self.irfdiff)
+
+    def start_corr_thread(self, mode: str = 'current') -> None:
+        """
+        Creates a worker to calculate correlations.
+
+        Depending on the ``current_selected_all`` parameter the worker will be
+        given the necessary parameter to correlate the current, selected or all particles.
+
+        Parameters
+        ----------
+        mode : {'current', 'selected', 'all'}
+            Possible values are 'current' (default), 'selected', and 'all'.
+        """
+
+        assert mode in ['current', 'selected', 'all'], \
+            "'corr_all' and 'corr_selected' can not both be given as parameters."
+
+        mw = self.mainwindow
+        cp = mw.current_particle
+        if cp.is_secondary_part:
+            cp = cp.prim_part
+        if mode == 'current':
+            status_message = "Calculating correlation for Current Particle..."
+            ab_objs = [cp.ab_analysis]
+        elif mode == 'selected':
+            status_message = "Calculating correlations for Selected Particles..."
+            ab_objs = [part.ab_analysis for part in mw.get_checked_particles()]
+        elif mode == 'all':
+            status_message = "Calculating correlations for All Particles..."
+            ab_objs = [part.ab_analysis for part in mw.current_dataset.particles]
+
+        difftime = self.difftime
+        window = self.mainwindow.spbWindow.value()
+        binsize = self.mainwindow.spbBinSizeCorr.value()
+        binsize = binsize / 1000  # convert to ns
+
+        c_process_thread = ProcessThread()
+        c_process_thread.add_tasks_from_methods(objects=ab_objs,
+                                                method_name='correlate_particle',
+                                                args=(difftime, window, binsize))
+        c_process_thread.signals.start_progress.connect(mw.start_progress)
+        c_process_thread.signals.status_update.connect(mw.status_message)
+        c_process_thread.signals.step_progress.connect(mw.update_progress)
+        c_process_thread.signals.end_progress.connect(mw.end_progress)
+        c_process_thread.signals.error.connect(self.error)
+        c_process_thread.signals.results.connect(self.gather_replace_results)
+        c_process_thread.signals.finished.connect(self.fitting_thread_complete)
+        c_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
+        c_process_thread.status_message = status_message
+
+        mw.threadpool.start(c_process_thread)
+        mw.active_threads.append(c_process_thread)
+
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
+        particles = self.mainwindow.current_dataset.particles
+        part_uuids = [part.uuid for part in particles]
+        if type(results) is not list:
+            results = [results]
+        result_part_uuids = [result.new_task_obj.uuid for result in results]
+        try:
+            for num, result in enumerate(results):
+                result_part_ind = part_uuids.index(result_part_uuids[num])
+                target_particle = particles[result_part_ind]
+                result.new_task_obj._particle = target_particle
+                target_particle.ab_analysis = result.new_task_obj
+            self.results_gathered = True
+        except ValueError as e:
+            logger.error(e)
+
+    def fitting_thread_complete(self, mode: str = None):
+        if self.mainwindow.current_particle is not None:
+            self.mainwindow.display_data()
+        if not mode == 'current':
+            self.mainwindow.status_message("Done")
+        self.mainwindow.current_dataset.has_corr = True
+        logger.info('Correlation complete')
+
+    def error(self, e):
+        logger.error(e)
+

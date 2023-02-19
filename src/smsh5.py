@@ -29,6 +29,7 @@ from my_logger import setup_logger
 from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
 from tcspcfit import FittingParameters
 import smsh5_file_reader as h5_fr
+from antibunching import AntibunchingAnalysis
 
 if TYPE_CHECKING:
     from change_point import Level
@@ -100,6 +101,7 @@ class H5dataset:
         self.irf_t = None
         self.has_irf = False
         self.has_spectra = False
+        self.has_corr = False
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
         raster_scans = list()
@@ -280,6 +282,7 @@ class Particle:
         self.int_trace = h5_fr.int_trace(particle=self)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
+        self.ab_analysis = AntibunchingAnalysis(self)
         self.avg_int_weighted = None
         self.int_std_weighted = None
 
