@@ -196,7 +196,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
         self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
         self.btnCorrAll.clicked.connect(a_c.gui_correlate_all)
-        self.chbIRFCorrDiff.stateChanged.connect(a_c.disable_corr_diff)
+        self.chbIRFCorrDiff.stateChanged.connect(a_c.gui_irf_chb)
+        self.chbCurrCorrDiff.stateChanged.connect(a_c.gui_curr_chb)
 
         # reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
         # reg_val = QRegExpValidator(reg_exp)

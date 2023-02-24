@@ -2833,6 +2833,7 @@ class AntibunchingController(QObject):
 
         self.corr = None
         self.bins = None
+        self.irfdiff = 0
 
     def setup_plot(self, plot_item: pg.PlotItem):
 
@@ -2928,6 +2929,7 @@ class AntibunchingController(QObject):
         irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
         self.mainwindow.chbIRFCorrLoaded.setChecked(True)
         self.mainwindow.spbCorrDiff.setValue(irfdiff)
+        self.irfdiff = irfdiff
 
     def plot_corr(self):
 
@@ -2950,10 +2952,37 @@ class AntibunchingController(QObject):
         plot_pen.setJoinStyle(Qt.RoundJoin)
         plot_item.plot(x=bins, y=corr, pen=plot_pen, symbol=None)
 
-    def disable_corr_diff(self, disabled):
-        self.mainwindow.spbCorrDiff.setEnabled(not disabled)
-        if disabled:
-            self.mainwindow.spbCorrDiff.setValue(self.irfdiff)
+    def gui_curr_chb(self, checked):
+        mw = self.mainwindow
+        if checked or mw.chbIRFCorrDiff.isChecked():
+            mw.spbCorrDiff.setEnabled(False)
+        else:
+            mw.spbCorrDiff.setEnabled(True)
+        if checked:
+            if mw.chbIRFCorrDiff.isChecked():
+                mw.chbIRFCorrDiff.setChecked(False)
+            irfhist1 = mw.current_particle.histogram
+            irfhist2 = mw.current_particle.sec_part.histogram
+            decay1 = irfhist1.decay
+            decay2 = irfhist2.decay
+            t1 = irfhist1.t
+            t2 = irfhist2.t
+
+            irf1_maxt = t1[np.argmax(decay1)]
+            irf2_maxt = t2[np.argmax(decay2)]
+            irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
+            self.mainwindow.spbCorrDiff.setValue(irfdiff)
+
+    def gui_irf_chb(self, checked):
+        mw = self.mainwindow
+        if checked or mw.chbCurrCorrDiff.isChecked():
+            mw.spbCorrDiff.setEnabled(False)
+        else:
+            mw.spbCorrDiff.setEnabled(True)
+        if checked:
+            if mw.chbCurrCorrDiff.isChecked():
+                mw.chbCurrCorrDiff.setChecked(False)
+            mw.spbCorrDiff.setValue(self.irfdiff)
 
     def start_corr_thread(self, mode: str = 'current') -> None:
         """
