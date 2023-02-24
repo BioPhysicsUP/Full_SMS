@@ -438,29 +438,38 @@ class IntController(QObject):
                    lock: bool = False) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
 
+        mw = self.mainwindow
+        plot_2_trace = False
+        if mw.current_particle.sec_part is not None:
+            if mw.current_particle.sec_part.tcspc_card != 'None' and mw.chbSecondCard.isChecked():
+                plot_2_trace = True
+
         if type(export_path) is bool:
             lock = export_path
             export_path = None
         try:
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             if particle is None:
-                particle = self.mainwindow.current_particle
-                # if self.mainwindow.comboSelectCard.currentIndex() == 0:
-                #     particle = self.mainwindow.current_particle
-                # else:
-                #     particle = self.mainwindow.current_particle.sec_part
+                particle = mw.current_particle
+            trace2 = None
+            times2 = None
             if self.show_exp_trace and particle.int_trace is not None:
                 trace = particle.int_trace[:]
                 times = np.linspace(0, np.size(trace) * 0.1, np.size(trace))
             else:
                 trace = particle.binnedtrace.intdata
                 times = particle.binnedtrace.inttimes / 1E3
+                if plot_2_trace:
+                    trace2 = particle.sec_part.binnedtrace.intdata
+                    times2 = particle.sec_part.binnedtrace.inttimes / 1E3
         except AttributeError:
             logger.error('No trace!')
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
-            roi_chb_value = self.mainwindow.chbInt_Show_ROI.checkState()
+            plot_pen2 = QPen()
+            plot_pen2.setCosmetic(True)
+            roi_chb_value = mw.chbInt_Show_ROI.checkState()
             roi_state = 'none'
             if roi_chb_value == 1:
                 roi_state = 'show'
@@ -469,21 +478,27 @@ class IntController(QObject):
             if for_export:
                 cur_tab_name = 'tabIntensity'
             else:
-                cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+                cur_tab_name = mw.tabWidget.currentWidget().objectName()
 
             if cur_tab_name != 'tabSpectra':
                 if cur_tab_name == 'tabIntensity':
                     plot_item = self.int_plot
                     plot_pen.setWidthF(1.5)
                     plot_pen.setColor(QColor('green'))
+                    plot_pen2.setWidthF(1.5)
+                    plot_pen2.setColor(QColor('blue'))
                 elif cur_tab_name == 'tabLifetime':
                     plot_item = self.lifetime_plot
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor('green'))
+                    plot_pen2.setWidthF(1.1)
+                    plot_pen2.setColor(QColor('blue'))
                 elif cur_tab_name == 'tabGrouping':
                     plot_item = self.groups_int_plot
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor(0, 0, 0, 50))
+                    plot_pen2.setWidthF(1.1)
+                    plot_pen2.setColor(QColor('blue'))
 
                 unit = 'counts/' + str(self.get_bin()) + 'ms'
                 if not for_export:
@@ -507,6 +522,10 @@ class IntController(QObject):
                     plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
                     plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                     plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
+                    if plot_2_trace and cur_tab_name == 'tabIntensity':
+                        print('shloop')
+                        print(mw.current_particle.sec_part.tcspc_card)
+                        plot_item.plot(x=times2, y=trace2, pen=plot_pen2, symbol=None)
 
                 else:
                     if self.temp_fig is None:
@@ -534,7 +553,7 @@ class IntController(QObject):
                                    export_path=export_path,
                                    for_levels=False)
         if lock:
-            self.mainwindow.lock.release()
+            mw.lock.release()
 
     def plot_levels(self, particle: Particle = None,
                     for_export: bool = False,
@@ -2810,10 +2829,31 @@ class AntibunchingController(QObject):
         self.corr_plot = corr_widget.getPlotItem()
 
         self.setup_widget(self.corr_widget)
-        # self.setup_plot(self.corr_plot)
+        self.setup_plot(self.corr_plot)
 
         self.corr = None
         self.bins = None
+
+    def setup_plot(self, plot_item: pg.PlotItem):
+
+        # Set axis label bold and size
+        axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
+
+        left_axis = plot_item.getAxis('left')
+        bottom_axis = plot_item.getAxis('bottom')
+
+        left_axis.setPen(axis_line_pen)
+        bottom_axis.setPen(axis_line_pen)
+
+        font = left_axis.label.font()
+        font.setPointSize(10)
+
+        left_axis.label.setFont(font)
+        bottom_axis.label.setFont(font)
+
+        left_axis.setLabel('Number of occur.', 'counts/bin')
+        bottom_axis.setLabel('Delay time', 'ns')
+        plot_item.vb.setLimits(xMin=0, yMin=0)
 
     @staticmethod
     def setup_widget(plot_widget: pg.PlotWidget):

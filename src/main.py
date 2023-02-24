@@ -147,6 +147,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
         # self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
         self.chbInt_Exp_Trace.stateChanged.connect(i_c.exp_trace_chb_changed)
+        self.chbSecondCard.stateChanged.connect(i_c.plot_all)
 
         self.lifetime_controller = \
             LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
@@ -687,6 +688,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
             # If not called due to a change in selected card, update the card selector with available choices
             if not combocard:
+                print(self.current_particle.sec_part)
                 if not self.current_particle.is_secondary_part:
                     card1 = self.current_particle.tcspc_card
                     if self.current_particle.sec_part is not None:
