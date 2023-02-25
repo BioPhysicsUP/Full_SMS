@@ -961,6 +961,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         all_have_lifetimes = all([p.has_fit_a_lifetime for p in particles])
         all_have_raster_scans = all([p.has_raster_scan for p in particles])
         all_have_spectra = all([p.has_spectra for p in particles])
+        all_have_corr = all([p.has_corr for p in particles])
 
         self.chbEx_Levels.setEnabled(all_have_levels)
         self.chbEx_DF_Levels.setEnabled(all_have_levels)
@@ -1010,6 +1011,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.chbEx_Raster_Scan_2D.setEnabled(all_have_raster_scans)
         self.chbEx_Plot_Raster_Scans.setEnabled(all_have_raster_scans)
+
+        self.chbEx_Corr.setEnabled(all_have_corr)
+        self.chbEx_Plot_Corr.setEnabled(all_have_corr)
 
     def select_all_export_options(self):
         self.chbEx_Trace.setChecked(self.chbEx_Trace.isEnabled())
@@ -1232,6 +1236,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         sigs.plot_residuals_export_lock.connect(self.lifetime_controller.plot_residuals)
         sigs.plot_spectra_export_lock.connect(self.spectra_controller.plot_spectra)
         sigs.plot_raster_scan_export_lock.connect(self.raster_scan_controller.plot_raster_scan)
+        sigs.plot_corr_lock.connect(self.antibunch_controller.plot_corr)
+        sigs.plot_corr_export_lock.connect(self.antibunch_controller.plot_corr)
 
         self.threadpool.start(export_worker)
 

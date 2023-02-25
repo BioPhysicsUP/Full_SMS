@@ -2830,6 +2830,8 @@ class AntibunchingController(QObject):
 
         self.setup_widget(self.corr_widget)
         self.setup_plot(self.corr_plot)
+        self.temp_fig = None
+        self.temp_ax = None
 
         self.corr = None
         self.bins = None
@@ -2931,7 +2933,17 @@ class AntibunchingController(QObject):
         self.mainwindow.spbCorrDiff.setValue(irfdiff)
         self.irfdiff = irfdiff
 
-    def plot_corr(self):
+    def plot_corr(self, particle: Particle = None,
+                  for_export: bool = False,
+                  export_path: str = None,
+                  lock: bool = False) -> None:
+
+        if type(export_path) is bool:
+            lock = export_path
+            export_path = None
+
+        if particle is None:
+            particle = self.mainwindow.current_particle
 
         plot_item = self.corr_widget
         plot_item.clear()
@@ -2943,14 +2955,43 @@ class AntibunchingController(QObject):
         bins = ab_analysis.corr_bins
         corr = ab_analysis.corr_hist
 
-        plot_pen = QPen()
-        plot_pen.setCosmetic(True)
+        if not for_export:
+            plot_pen = QPen()
+            plot_pen.setCosmetic(True)
 
-        plot_pen.setWidthF(1.5)
-        plot_pen.setColor(QColor('green'))
+            plot_pen.setWidthF(1.5)
+            plot_pen.setColor(QColor('green'))
 
-        plot_pen.setJoinStyle(Qt.RoundJoin)
-        plot_item.plot(x=bins, y=corr, pen=plot_pen, symbol=None)
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_item.plot(x=bins, y=corr, pen=plot_pen, symbol=None)
+        else:
+            if self.temp_fig is None:
+                self.temp_fig = plt.figure()
+            else:
+                self.temp_fig.clf()
+            self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
+            gs = self.temp_fig.add_gridspec(1, 1, left=0.05, right=0.95)
+            corr_ax = self.temp_fig.add_subplot(gs[0, 0])
+            self.temp_ax = {'decay_ax': corr_ax}
+
+            corr_ax.spines['top'].set_visible(False)
+            corr_ax.spines['right'].set_visible(False)
+            corr_ax.semilogy(bins, corr)
+
+            corr_ax.set(xlabel=f'Delay time (ns)',
+                        ylabel='Correlation (counts/bin)')
+
+        if for_export and export_path is not None:
+            if not (os.path.exists(export_path) and os.path.isdir(export_path)):
+                raise AssertionError("Provided path not valid")
+            pname = particle.unique_name
+            type_str = ' corr hist.png'
+            title_str = f"{pname} Second Order Correlation"
+            self.temp_fig.suptitle(title_str)
+            full_path = os.path.join(export_path, pname + type_str)
+            self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+        if lock:
+            self.mainwindow.lock.release()
 
     def gui_curr_chb(self, checked):
         mw = self.mainwindow

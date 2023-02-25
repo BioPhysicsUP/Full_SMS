@@ -457,6 +457,10 @@ class Particle:
         return self.ahca.has_groups
 
     @property
+    def has_corr(self):
+        return self.ab_analysis.has_corr
+
+    @property
     def groups(self):
         if self.has_groups:
             return self.ahca.selected_step.groups
