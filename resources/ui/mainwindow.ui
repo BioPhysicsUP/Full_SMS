@@ -267,7 +267,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>6</number>
+       <number>4</number>
       </property>
       <property name="iconSize">
        <size>
@@ -2455,7 +2455,7 @@
        </property>
        <attribute name="icon">
         <iconset>
-         <normaloff>../../../../OneDrive - Washington State University (email.wsu.edu)/Documents/Bertus/SMS Code/AB_icon4.png</normaloff>../../../../OneDrive - Washington State University (email.wsu.edu)/Documents/Bertus/SMS Code/AB_icon4.png</iconset>
+         <normaloff>../icons/AB_icon.png</normaloff>../icons/AB_icon.png</iconset>
        </attribute>
        <attribute name="title">
         <string>Antibunching</string>
