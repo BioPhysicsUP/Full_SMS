@@ -834,9 +834,9 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
         else:
             partlev = ['Particle #', 'Primary?']
         rows.append(partlev + taucol + taustdcol + ampcol + ampstdcol +
-                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG', 'IRF BG',
-                     'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)', 'DW', 'DW 0.05', 'DW 0.01',
-                     'DW 0.003', 'DW 0.001'])
+                    ['Av. Lifetime (ns)', 'Av. Lifetime std (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG',
+                     'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)', 'DW', 'DW 0.05',
+                     'DW 0.01', 'DW 0.003', 'DW 0.001'])
         for i, p in enumerate(particles):
             if levels:
                 histogram = p.histogram
@@ -867,7 +867,7 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
                     else:
                         sim_irf_fwhm = ''
                         sim_irf_fwhm_std = ''
-                    other_exp = [str(histogram.avtau), str(histogram.shift),
+                    other_exp = [str(histogram.avtau), str(histogram.avtaustd), str(histogram.shift),
                                  str(histogram.stds[2 * numexp]),
                                  str(histogram.bg), str(histogram.irfbg),
                                  str(histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std,

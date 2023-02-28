@@ -503,7 +503,7 @@ class FluoFit:
             df_num = 1
         return df_num
 
-    def results(self, tau, stds, shift, amp=1, fwhm=None):
+    def results(self, tau, stds, avtaustd, shift, amp=1, fwhm=None):
         """Handle results after fitting
 
         After fitting, the results are processed. Chi-squared is calculated
@@ -527,6 +527,7 @@ class FluoFit:
         self.shift = shift*self.channelwidth
         self.fwhm = fwhm
         self.stds = stds
+        self.avtaustd = avtaustd
 
         param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
 
@@ -702,6 +703,7 @@ class OneExp(FluoFit):
             amp = param[1]
             shift = param[2]
             stds = np.sqrt(np.diag(pcov))
+            avtaustd = stds[0]
 
             if self.simulate_irf:
                 fwhm = param[3]
@@ -709,7 +711,7 @@ class OneExp(FluoFit):
                 fwhm = None
 
             self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
-            self.results(tau, stds, shift, amp=1, fwhm=fwhm)
+            self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm)
 
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
@@ -752,6 +754,8 @@ class TwoExp(FluoFit):
         shift = param[4]
         stds = np.sqrt(np.diag(pcov))
         stds[3] = stds[2]  # second amplitude std is same as that of the first
+        avtaustd = np.sqrt(tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0])) +
+                           tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1])))
 
         if self.simulate_irf:
             fwhm = param[5]
@@ -759,7 +763,7 @@ class TwoExp(FluoFit):
             fwhm = None
 
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
-        self.results(tau, stds, shift, amp, fwhm)
+        self.results(tau, stds, avtaustd, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
@@ -801,6 +805,9 @@ class ThreeExp(FluoFit):
         shift = param[6]
         stds = np.sqrt(np.diag(pcov))
         stds[5] = np.sqrt(stds[3] ** 2 + stds[4] ** 2)  # third amp std is based on first two
+        avtaustd = np.sqrt(tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0])) +
+                           tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1])) +
+                           tau[2] * amp[2] * np.sqrt((stds[2] / tau[2]) ** 2 + (stds[5] / amp[2])))
 
         if self.simulate_irf:
             fwhm = param[7]
@@ -808,7 +815,7 @@ class ThreeExp(FluoFit):
             fwhm = None
 
         self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
-        self.results(tau, stds, shift, amp, fwhm)
+        self.results(tau, stds, avtaustd, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""

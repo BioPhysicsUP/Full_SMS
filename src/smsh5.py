@@ -843,6 +843,7 @@ class Histogram:
         self.residuals = None
         self.fwhm = None
         self.stds = None
+        self.avtaustd = None
         self.chisq = None
         self.dw = None
         self.dw_bound = None
@@ -974,6 +975,7 @@ class Histogram:
             self.irfbg = fit.irfbg
             self.fwhm = fit.fwhm
             self.stds = fit.stds
+            self.avtaustd = fit.avtaustd
             self.chisq = fit.chisq
             self.dw = fit.dw
             self.dw_bound = fit.dw_bound

@@ -1438,12 +1438,9 @@ class LifetimeController(QObject):
         amp = histogram.amp
         stds = histogram.stds
         avtau = np.dot(histogram.amp, histogram.tau)
-        # if type(tau) is np.ndarray:
-        #     info = info + 'Tau = ' + ' '.join(f'{F:.3g} ± {stds[i]:.1g} ns' for i, F in enumerate(tau))
-        #     info = info + '\nAmp = ' + ' '.join(f'{F:.3g} ± {stds[i+np.size(tau)]:.1g}' for i, F in enumerate(amp))
-        # else:  # only one component
-        #     info = info + f'Tau = {tau:.3g} ± {stds[0]:.1g} ns'
-        #     info = info + f'\nAmp = {amp:.3g} ns'
+        avtaustd = histogram.avtaustd
+        if type(avtau) is list or type(avtau) is np.ndarray:
+            avtau = avtau[0]
         if np.size(tau) == 1:
             info = info + f'Tau = {tau:.3g} ± {stds[0]:.1g} ns'
             info = info + f'\nAmp = {amp:.3g}'
@@ -1459,9 +1456,7 @@ class LifetimeController(QObject):
             info = info + f'\nAmp 1 = {amp[0]:.3g} ± {stds[3]:.1g}'
             info = info + f'\nAmp 2 = {amp[1]:.3g} ± {stds[4]:.1g}'
             info = info + f'\nAmp 3 = {amp[2]:.3g} ± {stds[5]:.1g}'
-        if type(avtau) is list or type(avtau) is np.ndarray:
-            avtau = avtau[0]
-        info = info + '\nAverage Tau = {:#.3g}'.format(avtau)
+        info = info + f'\nAverage Tau = {avtau:.3g} ± {avtaustd:.1g} ns'
 
         info = info + f'\n\nShift = {histogram.shift: .3g} ± {stds[2*np.size(tau)]: .1g} ns'
         if not for_export:
