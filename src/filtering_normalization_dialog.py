@@ -10,7 +10,7 @@ import file_manager as fm
 import pyqtgraph as pg
 from PyQt5.QtGui import QPen, QColor
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, List, Tuple, Dict, Any
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
@@ -379,24 +379,31 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
 
     def _filter_numeric_data(self,
                              feature_data: np.ndarray,
+                             are_used_flags: List[bool],
                              test_min: bool = False,
                              test_max: bool = False,
                              min_value=None,
                              max_value=None):
-        levels = self.levels_to_use
         num_datapoints_filtered = None
 
-        num_datapoints = len(feature_data)
         if test_min:
-            feature_data = np.array([value if not np.isnan(value) and value >= min_value else np.NaN
-                                     for value in feature_data])
+            are_used_flags = np.logical_and(
+                are_used_flags,
+                [not np.isnan(value) and value >= min_value for value in feature_data]
+            )
+            feature_data = np.array([value if passed_filter else np.NaN
+                                     for value, passed_filter in zip(feature_data, are_used_flags)])
         if test_max:
-            feature_data = np.array([value if not np.isnan(value) and value <= max_value else np.NaN
-                                     for value in feature_data])
+            are_used_flags = np.logical_and(
+                are_used_flags,
+                [not np.isnan(value) and value <= max_value for value in feature_data]
+            )
+            feature_data = np.array([value if passed_filter else np.NaN
+                                     for value, passed_filter in zip(feature_data, are_used_flags)])
         if test_min or test_max:
             num_datapoints_filtered = np.sum(~np.isnan(feature_data))
 
-        return feature_data, num_datapoints_filtered
+        return feature_data, num_datapoints_filtered, are_used_flags
 
     def get_feature_data(self, feature: Union[PlotFeature, str]) -> tuple:
         if self.levels_to_use is None:
@@ -406,50 +413,64 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
         feature_data = None
         num_datapoints = 0
         num_datapoints_filtered = None
+        is_level_or_histogram = None
 
         if feature == PlotFeature.PhotonNumber:
+            are_used_flags = [level.num_photons is not None for level in levels]
             feature_data = np.array(
-                [level.num_photons if level.num_photons is not None else np.NaN for level in levels]
+                [level.num_photons if is_used else np.NaN for level, is_used in zip(levels, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
-            feature_data, num_datapoints_filtered = self._filter_numeric_data(
+            feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
                 feature_data=feature_data,
+                are_used_flags=are_used_flags,
                 test_min=self.chbMinPhotons.isChecked(),
                 min_value=self.spnMinPhotons.value()
             )
+            are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
+            is_intensity_or_histogram = 'level'
 
         elif feature == PlotFeature.Intensity:
+            are_used_flags = [level.int_p_s is not None for level in levels]
             feature_data = np.array(
-                [level.int_p_s if level.int_p_s is not None else np.NaN for level in levels]
+                [level.int_p_s if is_used else np.NaN for level, is_used in zip(levels, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
-            feature_data, num_datapoints_filtered, = self._filter_numeric_data(
+            feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
                 feature_data=feature_data,
+                are_used_flags=are_used_flags,
                 test_min=self.chbMinIntensity.isChecked(),
                 test_max=self.chbMaxIntensity.isChecked(),
                 min_value=self.dsbMinIntensity.value(),
                 max_value=self.dsbMaxIntensity.value(),
             )
+            are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
+            is_intensity_or_histogram = 'level'
 
         elif feature == PlotFeature.Lifetime:
-            feature_data = [histogram.avtau if histogram.fitted and histogram.avtau is not None else np.NaN
-                            for histogram in histograms]
+            are_used_flags = [histogram.fitted and histogram.avtau is not None for histogram in histograms]
+            feature_data = [histogram.avtau if is_used else np.NaN
+                            for histogram, is_used in zip(histograms, are_used_flags)]
             feature_data = np.array(
                 [value[0] if type(value) is list and len(value) == 1 else value for value in feature_data]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
-            feature_data, num_datapoints_filtered, = self._filter_numeric_data(
+            feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
                 feature_data=feature_data,
+                are_used_flags=are_used_flags,
                 test_min=self.chbMinLifetime.isChecked(),
                 test_max=self.chbMaxLifetime.isChecked(),
                 min_value=self.dsbMinLifetime.value(),
                 max_value=self.dsbMaxLifetime.value(),
             )
+            are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
+            is_intensity_or_histogram = 'histogram'
 
         elif feature == PlotFeature.DW:
-            levels_used = np.array([level.histogram.fitted and level.histogram.dw is not None for level in levels])
+            are_used_flags = [histogram.fitted and histogram.dw is not None for histogram in histograms]
             feature_data = np.array(
-                [level.histogram.dw if level.histogram.dw is not None else np.NaN for level in levels]
+                [histogram.dw if is_used else np.NaN
+                 for histogram, is_used in zip(histograms, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             if self.chbUseDW.isChecked():
@@ -463,54 +484,75 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
                     dw_ind = 2
                 elif selected_dw_test == '0.1%':
                     dw_ind = 3
-                feature_data = np.array([value if not np.isnan(value) and histogram.dw >= histogram.dw_bound[dw_ind]
-                                         else np.NaN for (value, histogram) in zip(feature_data, histograms)])
+                are_used_flags = np.logical_and(
+                    are_used_flags,
+                    [not np.isnan(value) and histogram.dw >= histogram.dw_bound[dw_ind]
+                     for value, histogram in zip(feature_data, histograms)]
+                )
+                feature_data = np.array(
+                    [value if is_used else np.NaN for (value, is_used) in zip(feature_data, are_used_flags)]
+                )
                 num_datapoints_filtered = np.sum(~np.isnan(feature_data))
+            is_intensity_or_histogram = 'histogram'
 
         elif feature == PlotFeature.IRFShift:
+            are_used_flags = [histogram.fitted and histogram.shift is not None for histogram in histograms]
             feature_data = np.array(
-                [histogram.shift if histogram.fitted and histogram.shift is not None else np.NaN
-                 for histogram in histograms]
+                [histogram.shift if is_used else np.NaN for histogram, is_used in zip(histograms, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
-            feature_data, num_datapoints_filtered, = self._filter_numeric_data(
+            feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
                 feature_data=feature_data,
+                are_used_flags=are_used_flags,
                 test_min=self.chbMinIRFShift.isChecked(),
                 test_max=self.chbMaxIRFShift.isChecked(),
                 min_value=self.dsbMinIRFShift.value(),
                 max_value=self.dsbMaxIRFShift.value(),
             )
+            are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
+            is_intensity_or_histogram = 'histogram'
 
         elif feature == PlotFeature.ChiSquared:
+            are_used_flags = [histogram.fitted and histogram.chisq is not None for histogram in histograms]
             feature_data = np.array(
-                [histogram.chisq if histogram.fitted and histogram.chisq is not None else np.NaN
-                 for histogram in histograms]
+                [histogram.chisq if is_used else np.NaN for histogram, is_used in zip(histograms, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
-            feature_data, num_datapoints_filtered, = self._filter_numeric_data(
+            feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
                 feature_data=feature_data,
+                are_used_flags=are_used_flags,
                 test_min=self.chbMinChiSquared.isChecked(),
                 test_max=self.chbMaxChiSquared.isChecked(),
                 min_value=self.dsbMinChiSquared.value(),
                 max_value=self.dsbMaxChiSquared.value(),
             )
+            are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
+            is_intensity_or_histogram = 'histogram'
 
-        return feature_data, num_datapoints, num_datapoints_filtered
+        return feature_data, num_datapoints, num_datapoints_filtered, are_used_flags, is_level_or_histogram
 
-    def get_all_feature_data(self) -> dict:
+    def get_all_feature_data(self) -> tuple[dict[Any, dict[str, Any]], list[bool] | Any, list[bool] | Any]:
         all_features = PlotFeature.get_dict()
         all_feature_data = dict()
+        levels_used = [True]*len(self.levels_to_use)
+        histograms_used = [True]*len(self.levels_to_use)
         for key, item in all_features.items():
-            feature_data, num_datapoints, num_datapoints_filtered = self.get_feature_data(feature=item)
+            feature_data, num_datapoints, num_datapoints_filtered, filter_flags, level_or_hist =\
+                self.get_feature_data(feature=item)
             all_feature_data[key] = {
                 'feature_data': feature_data,
                 'num_datapoints': num_datapoints,
                 'num_datapoints_filtered': num_datapoints_filtered
             }
-        return all_feature_data
+            if level_or_hist == 'level':
+                levels_used = np.logical_and(levels_used, filter_flags)
+            else:
+                histograms_used = np.logical_and(histograms_used, filter_flags)
+
+        return all_feature_data, levels_used, histograms_used
 
     def get_all_filter(self) -> np.ndarray:
-        all_feature_data = self.get_all_feature_data()
+        all_feature_data, levels_used, histograms_used = self.get_all_feature_data()
         all_filter = None
         for _, feature_all_data in all_feature_data.items():
             if all_filter is None:
@@ -536,7 +578,7 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
     def plot_distribution(self):
         feature, _ = self.current_plot_type
 
-        feature_data, num_datapoints, num_datapoints_filtered = self.get_feature_data(feature=feature)
+        feature_data, num_datapoints, num_datapoints_filtered, _, _ = self.get_feature_data(feature=feature)
         feature_data = feature_data[~np.isnan(feature_data)]
 
         if feature_data is not None:
@@ -572,8 +614,8 @@ class FilteringNormalizationDialog(QDialog, UI_Filtering_Normalization_Dialog):
 
         self.set_limits(feature_x=feature_x, feature_y=feature_y)
 
-        featured_x_data, num_data_x, num_data_x_filt = self.get_feature_data(feature=feature_x)
-        featured_y_data, num_data_y, num_data_y_filt = self.get_feature_data(feature=feature_y)
+        featured_x_data, num_data_x, num_data_x_filt, _, _ = self.get_feature_data(feature=feature_x)
+        featured_y_data, num_data_y, num_data_y_filt, _, _ = self.get_feature_data(feature=feature_y)
 
         not_nan_values = (~np.isnan(featured_x_data)) & (~np.isnan(featured_y_data))
         did_all_filter = False
