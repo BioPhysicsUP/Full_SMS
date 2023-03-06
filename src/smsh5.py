@@ -29,6 +29,7 @@ from my_logger import setup_logger
 from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
 from tcspcfit import FittingParameters
 import smsh5_file_reader as h5_fr
+from antibunching import AntibunchingAnalysis
 
 if TYPE_CHECKING:
     from change_point import Level
@@ -100,6 +101,7 @@ class H5dataset:
         self.irf_t = None
         self.has_irf = False
         self.has_spectra = False
+        self.has_corr = False
 
     @property
     def file(self):
@@ -315,6 +317,7 @@ class Particle:
         self.int_trace = h5_fr.int_trace(particle=self)
         self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
         self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
+        self.ab_analysis = AntibunchingAnalysis(self)
         self.avg_int_weighted = None
         self.int_std_weighted = None
 
@@ -512,6 +515,10 @@ class Particle:
     @property
     def has_groups(self):
         return self.ahca.has_groups
+
+    @property
+    def has_corr(self):
+        return self.ab_analysis.has_corr
 
     @property
     def groups(self):
@@ -900,6 +907,7 @@ class Histogram:
         self.residuals = None
         self.fwhm = None
         self.stds = None
+        self.avtaustd = None
         self.chisq = None
         self.dw = None
         self.dw_bound = None
@@ -1031,6 +1039,7 @@ class Histogram:
             self.irfbg = fit.irfbg
             self.fwhm = fit.fwhm
             self.stds = fit.stds
+            self.avtaustd = fit.avtaustd
             self.chisq = fit.chisq
             self.dw = fit.dw
             self.dw_bound = fit.dw_bound

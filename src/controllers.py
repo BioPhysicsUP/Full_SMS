@@ -12,7 +12,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
-from PyQt5.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QObject, Qt, pyqtSignal, pyqtSlot, QRegExp
 from PyQt5.QtGui import QPen, QColor, QPalette, QFont, QBrush
 from PyQt5.QtWidgets import QWidget, QFrame, QInputDialog, QFileDialog, QTextBrowser, QCheckBox
 import time
@@ -438,29 +438,38 @@ class IntController(QObject):
                    lock: bool = False) -> None:
         """ Used to display the trace from the absolute arrival time data of the current particle. """
 
+        mw = self.mainwindow
+        plot_2_trace = False
+        if mw.current_particle.sec_part is not None:
+            if mw.current_particle.sec_part.tcspc_card != 'None' and mw.chbSecondCard.isChecked():
+                plot_2_trace = True
+
         if type(export_path) is bool:
             lock = export_path
             export_path = None
         try:
             # self.currentparticle = self.treemodel.data(self.current_ind, Qt.UserRole)
             if particle is None:
-                particle = self.mainwindow.current_particle
-                # if self.mainwindow.comboSelectCard.currentIndex() == 0:
-                #     particle = self.mainwindow.current_particle
-                # else:
-                #     particle = self.mainwindow.current_particle.sec_part
+                particle = mw.current_particle
+            trace2 = None
+            times2 = None
             if self.show_exp_trace and particle.int_trace is not None:
                 trace = particle.int_trace[:]
                 times = np.linspace(0, np.size(trace) * 0.1, np.size(trace))
             else:
                 trace = particle.binnedtrace.intdata
                 times = particle.binnedtrace.inttimes / 1E3
+                if plot_2_trace:
+                    trace2 = particle.sec_part.binnedtrace.intdata
+                    times2 = particle.sec_part.binnedtrace.inttimes / 1E3
         except AttributeError:
             logger.error('No trace!')
         else:
             plot_pen = QPen()
             plot_pen.setCosmetic(True)
-            roi_chb_value = self.mainwindow.chbInt_Show_ROI.checkState()
+            plot_pen2 = QPen()
+            plot_pen2.setCosmetic(True)
+            roi_chb_value = mw.chbInt_Show_ROI.checkState()
             roi_state = 'none'
             if roi_chb_value == 1:
                 roi_state = 'show'
@@ -469,21 +478,27 @@ class IntController(QObject):
             if for_export:
                 cur_tab_name = 'tabIntensity'
             else:
-                cur_tab_name = self.mainwindow.tabWidget.currentWidget().objectName()
+                cur_tab_name = mw.tabWidget.currentWidget().objectName()
 
             if cur_tab_name != 'tabSpectra':
                 if cur_tab_name == 'tabIntensity':
                     plot_item = self.int_plot
                     plot_pen.setWidthF(1.5)
                     plot_pen.setColor(QColor('green'))
+                    plot_pen2.setWidthF(1.5)
+                    plot_pen2.setColor(QColor('blue'))
                 elif cur_tab_name == 'tabLifetime':
                     plot_item = self.lifetime_plot
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor('green'))
+                    plot_pen2.setWidthF(1.1)
+                    plot_pen2.setColor(QColor('blue'))
                 elif cur_tab_name == 'tabGrouping':
                     plot_item = self.groups_int_plot
                     plot_pen.setWidthF(1.1)
                     plot_pen.setColor(QColor(0, 0, 0, 50))
+                    plot_pen2.setWidthF(1.1)
+                    plot_pen2.setColor(QColor('blue'))
 
                 unit = 'counts/' + str(self.get_bin()) + 'ms'
                 if not for_export:
@@ -507,6 +522,10 @@ class IntController(QObject):
                     plot_item.getAxis('left').setLabel(text='Intensity', units=unit)
                     plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                     plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
+                    if plot_2_trace and cur_tab_name == 'tabIntensity':
+                        print('shloop')
+                        print(mw.current_particle.sec_part.tcspc_card)
+                        plot_item.plot(x=times2, y=trace2, pen=plot_pen2, symbol=None)
 
                 else:
                     if self.temp_fig is None:
@@ -534,7 +553,7 @@ class IntController(QObject):
                                    export_path=export_path,
                                    for_levels=False)
         if lock:
-            self.mainwindow.lock.release()
+            mw.lock.release()
 
     def plot_levels(self, particle: Particle = None,
                     for_export: bool = False,
@@ -1275,7 +1294,7 @@ class LifetimeController(QObject):
             shift = f_p.shift[:-1] / channelwidth
             shiftfix = f_p.shift[-1]
             shift = [*shift, shiftfix]
-            if f_p.autostart:
+            if f_p.autostart != 'Manual':
                 start = None
             elif f_p.start is not None:
                 start = int(f_p.start / channelwidth)
@@ -1419,12 +1438,9 @@ class LifetimeController(QObject):
         amp = histogram.amp
         stds = histogram.stds
         avtau = np.dot(histogram.amp, histogram.tau)
-        # if type(tau) is np.ndarray:
-        #     info = info + 'Tau = ' + ' '.join(f'{F:.3g} ± {stds[i]:.1g} ns' for i, F in enumerate(tau))
-        #     info = info + '\nAmp = ' + ' '.join(f'{F:.3g} ± {stds[i+np.size(tau)]:.1g}' for i, F in enumerate(amp))
-        # else:  # only one component
-        #     info = info + f'Tau = {tau:.3g} ± {stds[0]:.1g} ns'
-        #     info = info + f'\nAmp = {amp:.3g} ns'
+        avtaustd = histogram.avtaustd
+        if type(avtau) is list or type(avtau) is np.ndarray:
+            avtau = avtau[0]
         if np.size(tau) == 1:
             info = info + f'Tau = {tau:.3g} ± {stds[0]:.1g} ns'
             info = info + f'\nAmp = {amp:.3g}'
@@ -1440,9 +1456,7 @@ class LifetimeController(QObject):
             info = info + f'\nAmp 1 = {amp[0]:.3g} ± {stds[3]:.1g}'
             info = info + f'\nAmp 2 = {amp[1]:.3g} ± {stds[4]:.1g}'
             info = info + f'\nAmp 3 = {amp[2]:.3g} ± {stds[5]:.1g}'
-        if type(avtau) is list or type(avtau) is np.ndarray:
-            avtau = avtau[0]
-        info = info + '\nAverage Tau = {:#.3g}'.format(avtau)
+        info = info + f'\nAverage Tau = {avtau:.3g} ± {avtaustd:.1g} ns'
 
         info = info + f'\n\nShift = {histogram.shift: .3g} ± {stds[2*np.size(tau)]: .1g} ns'
         if not for_export:
@@ -1927,7 +1941,7 @@ class LifetimeController(QObject):
         f_p = self.fitparam
         channelwidth = particles[0].channelwidth
 
-        if f_p.autostart:
+        if f_p.autostart != 'Manual':
             start = None
         elif f_p.start is not None:
             start = int(f_p.start / channelwidth)
@@ -2796,3 +2810,292 @@ class RasterScanController(QObject):
 
         if lock:
             self.main_window.lock.release()
+
+
+class AntibunchingController(QObject):
+
+    def __init__(self, mainwindow: MainWindow, corr_widget: pg.PlotWidget):
+        super().__init__()
+        self.mainwindow = mainwindow
+        self.resolve_mode = None
+        self.results_gathered = False
+
+        self.corr_widget = corr_widget
+        self.corr_plot = corr_widget.getPlotItem()
+
+        self.setup_widget(self.corr_widget)
+        self.setup_plot(self.corr_plot)
+        self.temp_fig = None
+        self.temp_ax = None
+
+        self.corr = None
+        self.bins = None
+        self.irfdiff = 0
+
+    def setup_plot(self, plot_item: pg.PlotItem):
+
+        # Set axis label bold and size
+        axis_line_pen = pg.mkPen(color=(0, 0, 0), width=2)
+
+        left_axis = plot_item.getAxis('left')
+        bottom_axis = plot_item.getAxis('bottom')
+
+        left_axis.setPen(axis_line_pen)
+        bottom_axis.setPen(axis_line_pen)
+
+        font = left_axis.label.font()
+        font.setPointSize(10)
+
+        left_axis.label.setFont(font)
+        bottom_axis.label.setFont(font)
+
+        left_axis.setLabel('Number of occur.', 'counts/bin')
+        bottom_axis.setLabel('Delay time', 'ns')
+        plot_item.vb.setLimits(xMin=0, yMin=0)
+
+    @staticmethod
+    def setup_widget(plot_widget: pg.PlotWidget):
+
+        # Set widget background and antialiasing
+        plot_widget.setBackground(background=None)
+        plot_widget.setAntialiasing(True)
+
+    @property
+    def difftime(self):
+        return self.mainwindow.spbCorrDiff.value()
+
+    def gui_correlate_current(self):
+        self.start_corr_thread('current')
+
+    def gui_correlate_selected(self):
+        self.start_corr_thread('selected')
+        # checked_parts = self.mainwindow.get_checked_particles()
+        # allcorr = None
+        # for part in checked_parts:
+        #     bins, corr, events = self.correlate_particle(part, self.difftime)
+        #     if allcorr is None:
+        #         allcorr = corr
+        #     else:
+        #         allcorr += corr
+        # self.bins = bins[:-1]
+        # self.corr = allcorr
+        # # plt.plot(bins[:-1], corr)
+        # print(np.size(events))
+        # self.plot_corr()
+
+    def gui_correlate_all(self):
+        self.start_corr_thread('all')
+
+    def gui_load_irf(self):
+        """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
+
+        file_path = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '',
+                                                "HDF5 files (*.h5)")
+        if file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
+            mw = self.mainwindow
+            mw.status_message(message="Opening IRF file...")
+            of_process_thread = ProcessThread(num_processes=1)
+            of_process_thread.worker_signals.add_datasetindex.connect(mw.add_dataset)
+            of_process_thread.worker_signals.add_particlenode.connect(mw.add_node)
+            of_process_thread.worker_signals.add_all_particlenodes.connect(mw.add_all_nodes)
+            of_process_thread.worker_signals.bin_size.connect(mw.set_bin_size)
+            of_process_thread.worker_signals.data_loaded.connect(mw.set_data_loaded)
+            of_process_thread.worker_signals.add_irf.connect(self.add_irf)
+            of_process_thread.signals.status_update.connect(mw.status_message)
+            of_process_thread.signals.start_progress.connect(mw.start_progress)
+            of_process_thread.signals.set_progress.connect(mw.set_progress)
+            of_process_thread.signals.step_progress.connect(mw.update_progress)
+            of_process_thread.signals.add_progress.connect(mw.update_progress)
+            of_process_thread.signals.end_progress.connect(mw.end_progress)
+            of_process_thread.signals.error.connect(mw.error_handler)
+            of_process_thread.signals.finished.connect(mw.reset_gui)
+
+            of_obj = OpenFile(file_path=file_path, is_irf=True, tmin=0)
+            of_process_thread.add_tasks_from_methods(of_obj, 'open_irf')
+            mw.threadpool.start(of_process_thread)
+            mw.active_threads.append(of_process_thread)
+
+    def add_irf(self, decay, t, irfdata):
+
+        irfhist2 = irfdata.particles[0].sec_part.histogram
+        decay2 = irfhist2.decay
+        t2 = irfhist2.t
+
+        irf1_maxt = t[np.argmax(decay)]
+        irf2_maxt = t2[np.argmax(decay2)]
+        irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
+        self.mainwindow.chbIRFCorrLoaded.setChecked(True)
+        self.mainwindow.spbCorrDiff.setValue(irfdiff)
+        self.irfdiff = irfdiff
+
+    def plot_corr(self, particle: Particle = None,
+                  for_export: bool = False,
+                  export_path: str = None,
+                  lock: bool = False) -> None:
+
+        if type(export_path) is bool:
+            lock = export_path
+            export_path = None
+
+        if particle is None:
+            particle = self.mainwindow.current_particle
+
+        plot_item = self.corr_widget
+        plot_item.clear()
+
+        ab_analysis = self.mainwindow.current_particle.ab_analysis
+        if not ab_analysis.has_corr:
+            logger.info('No correlation for this particle')
+            return
+        bins = ab_analysis.corr_bins
+        corr = ab_analysis.corr_hist
+
+        if not for_export:
+            plot_pen = QPen()
+            plot_pen.setCosmetic(True)
+
+            plot_pen.setWidthF(1.5)
+            plot_pen.setColor(QColor('green'))
+
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_item.plot(x=bins, y=corr, pen=plot_pen, symbol=None)
+        else:
+            if self.temp_fig is None:
+                self.temp_fig = plt.figure()
+            else:
+                self.temp_fig.clf()
+            self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
+            gs = self.temp_fig.add_gridspec(1, 1, left=0.05, right=0.95)
+            corr_ax = self.temp_fig.add_subplot(gs[0, 0])
+            self.temp_ax = {'decay_ax': corr_ax}
+
+            corr_ax.spines['top'].set_visible(False)
+            corr_ax.spines['right'].set_visible(False)
+            corr_ax.semilogy(bins, corr)
+
+            corr_ax.set(xlabel=f'Delay time (ns)',
+                        ylabel='Correlation (counts/bin)')
+
+        if for_export and export_path is not None:
+            if not (os.path.exists(export_path) and os.path.isdir(export_path)):
+                raise AssertionError("Provided path not valid")
+            pname = particle.unique_name
+            type_str = ' corr hist.png'
+            title_str = f"{pname} Second Order Correlation"
+            self.temp_fig.suptitle(title_str)
+            full_path = os.path.join(export_path, pname + type_str)
+            self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
+        if lock:
+            self.mainwindow.lock.release()
+
+    def gui_curr_chb(self, checked):
+        mw = self.mainwindow
+        if checked or mw.chbIRFCorrDiff.isChecked():
+            mw.spbCorrDiff.setEnabled(False)
+        else:
+            mw.spbCorrDiff.setEnabled(True)
+        if checked:
+            if mw.chbIRFCorrDiff.isChecked():
+                mw.chbIRFCorrDiff.setChecked(False)
+            irfhist1 = mw.current_particle.histogram
+            irfhist2 = mw.current_particle.sec_part.histogram
+            decay1 = irfhist1.decay
+            decay2 = irfhist2.decay
+            t1 = irfhist1.t
+            t2 = irfhist2.t
+
+            irf1_maxt = t1[np.argmax(decay1)]
+            irf2_maxt = t2[np.argmax(decay2)]
+            irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
+            self.mainwindow.spbCorrDiff.setValue(irfdiff)
+
+    def gui_irf_chb(self, checked):
+        mw = self.mainwindow
+        if checked or mw.chbCurrCorrDiff.isChecked():
+            mw.spbCorrDiff.setEnabled(False)
+        else:
+            mw.spbCorrDiff.setEnabled(True)
+        if checked:
+            if mw.chbCurrCorrDiff.isChecked():
+                mw.chbCurrCorrDiff.setChecked(False)
+            mw.spbCorrDiff.setValue(self.irfdiff)
+
+    def start_corr_thread(self, mode: str = 'current') -> None:
+        """
+        Creates a worker to calculate correlations.
+
+        Depending on the ``current_selected_all`` parameter the worker will be
+        given the necessary parameter to correlate the current, selected or all particles.
+
+        Parameters
+        ----------
+        mode : {'current', 'selected', 'all'}
+            Possible values are 'current' (default), 'selected', and 'all'.
+        """
+
+        assert mode in ['current', 'selected', 'all'], \
+            "'corr_all' and 'corr_selected' can not both be given as parameters."
+
+        mw = self.mainwindow
+        cp = mw.current_particle
+        if cp.is_secondary_part:
+            cp = cp.prim_part
+        if mode == 'current':
+            status_message = "Calculating correlation for Current Particle..."
+            ab_objs = [cp.ab_analysis]
+        elif mode == 'selected':
+            status_message = "Calculating correlations for Selected Particles..."
+            ab_objs = [part.ab_analysis for part in mw.get_checked_particles()]
+        elif mode == 'all':
+            status_message = "Calculating correlations for All Particles..."
+            ab_objs = [part.ab_analysis for part in mw.current_dataset.particles]
+
+        difftime = self.difftime
+        window = self.mainwindow.spbWindow.value()
+        binsize = self.mainwindow.spbBinSizeCorr.value()
+        binsize = binsize / 1000  # convert to ns
+
+        c_process_thread = ProcessThread()
+        c_process_thread.add_tasks_from_methods(objects=ab_objs,
+                                                method_name='correlate_particle',
+                                                args=(difftime, window, binsize))
+        c_process_thread.signals.start_progress.connect(mw.start_progress)
+        c_process_thread.signals.status_update.connect(mw.status_message)
+        c_process_thread.signals.step_progress.connect(mw.update_progress)
+        c_process_thread.signals.end_progress.connect(mw.end_progress)
+        c_process_thread.signals.error.connect(self.error)
+        c_process_thread.signals.results.connect(self.gather_replace_results)
+        c_process_thread.signals.finished.connect(self.fitting_thread_complete)
+        c_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
+        c_process_thread.status_message = status_message
+
+        mw.threadpool.start(c_process_thread)
+        mw.active_threads.append(c_process_thread)
+
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
+        particles = self.mainwindow.current_dataset.particles
+        part_uuids = [part.uuid for part in particles]
+        if type(results) is not list:
+            results = [results]
+        result_part_uuids = [result.new_task_obj.uuid for result in results]
+        try:
+            for num, result in enumerate(results):
+                result_part_ind = part_uuids.index(result_part_uuids[num])
+                target_particle = particles[result_part_ind]
+                result.new_task_obj._particle = target_particle
+                target_particle.ab_analysis = result.new_task_obj
+            self.results_gathered = True
+        except ValueError as e:
+            logger.error(e)
+
+    def fitting_thread_complete(self, mode: str = None):
+        if self.mainwindow.current_particle is not None:
+            self.mainwindow.display_data()
+        if not mode == 'current':
+            self.mainwindow.status_message("Done")
+        self.mainwindow.current_dataset.has_corr = True
+        logger.info('Correlation complete')
+
+    def error(self, e):
+        logger.error(e)
+

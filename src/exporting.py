@@ -83,8 +83,11 @@ def export_data(mainwindow: MainWindow,
     if not f_dir:
         return
     else:
-        raster_scans_use = [part.raster_scan.dataset_index for part in particles]
-        raster_scans_use = np.unique(raster_scans_use).tolist()
+        try:
+            raster_scans_use = [part.raster_scan.dataset_index for part in particles]
+            raster_scans_use = np.unique(raster_scans_use).tolist()
+        except AttributeError:
+            raster_scans_use = []
 
     if not lock:
         lock = Lock()
@@ -124,6 +127,8 @@ def export_data(mainwindow: MainWindow,
     ex_plot_spectra = mainwindow.chbEx_Plot_Spectra.isChecked()
     ex_raster_scan_2d = mainwindow.chbEx_Raster_Scan_2D.isChecked()
     ex_plot_raster_scans = mainwindow.chbEx_Plot_Raster_Scans.isChecked()
+    ex_corr_hists = mainwindow.chbEx_Corr.isChecked()
+    ex_plot_corr_hists = mainwindow.chbEx_Plot_Corr.isChecked()
 
     ex_df_levels = mainwindow.chbEx_DF_Levels.isChecked()
     ex_df_levels_lifetimes = mainwindow.chbEx_DF_Levels_Lifetimes.isChecked()
@@ -136,7 +141,7 @@ def export_data(mainwindow: MainWindow,
     any_particle_text_plot = any([ex_traces, ex_levels, ex_plot_intensities, ex_grouped_levels,
                                   ex_grouping_info, ex_grouping_results, ex_plot_grouping_bics,
                                   ex_lifetime, ex_hist, ex_plot_lifetimes, ex_spectra_2d,
-                                  ex_plot_spectra])
+                                  ex_plot_spectra, ex_corr_hists, ex_plot_corr_hists])
     if signals:
         prog_num = 0
         if any_particle_text_plot:
@@ -186,6 +191,18 @@ def export_data(mainwindow: MainWindow,
                     roi_ints = ints[roi_filter]
                     roi_times = times[roi_filter]
                     export_trace(roi_ints, open_file, p, roi_times, tr_path)
+
+            if ex_corr_hists:
+                tr_path = os.path.join(f_dir, pname + ' corr.csv')
+                export_corr(open_file, tr_path, p)
+
+                if use_roi:
+                    pass
+                    # tr_path = os.path.join(f_dir, pname + ' trace (ROI).csv')
+                    # roi_filter = (p.roi_region[0] > times) ^ (times <= p.roi_region[1])
+                    # roi_ints = ints[roi_filter]
+                    # roi_times = times[roi_filter]
+                    # export_trace(roi_ints, open_file, p, roi_times, tr_path)
 
             if ex_plot_intensities and ex_plot_int_only:
                 if signals:
@@ -523,6 +540,16 @@ def export_data(mainwindow: MainWindow,
                 else:
                     mainwindow.spectra_controller.plot_spectra(particle=p, for_export=True,
                                                                export_path=f_dir)
+            if ex_plot_corr_hists:
+                if signals:
+                    signals.plot_corr_export_lock.emit(p, True, f_dir, True)
+                    lock.acquire()
+                    while lock.locked():
+                        sleep(0.1)
+                else:
+                    mainwindow.antibunch_controller.plot_corr(particle=p,
+                                                              for_export=True,
+                                                              export_path=f_dir)
 
             logger.info('Exporting Finished')
             if signals:
@@ -807,8 +834,9 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
         else:
             partlev = ['Particle #', 'Primary?']
         rows.append(partlev + taucol + taustdcol + ampcol + ampstdcol +
-                    ['Av. Lifetime (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG', 'IRF BG',
-                     'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)'])
+                    ['Av. Lifetime (ns)', 'Av. Lifetime std (ns)', 'IRF Shift (ns)', 'IRF Shift std (ns)', 'Decay BG',
+                     'IRF BG', 'Chi Squared', 'Sim. IRF FWHM (ns)', 'Sim. IRF FWHM std (ns)', 'DW', 'DW 0.05',
+                     'DW 0.01', 'DW 0.003', 'DW 0.001'])
         for i, p in enumerate(particles):
             if levels:
                 histogram = p.histogram
@@ -839,10 +867,12 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
                     else:
                         sim_irf_fwhm = ''
                         sim_irf_fwhm_std = ''
-                    other_exp = [str(histogram.avtau), str(histogram.shift),
+                    other_exp = [str(histogram.avtau), str(histogram.avtaustd), str(histogram.shift),
                                  str(histogram.stds[2 * numexp]),
                                  str(histogram.bg), str(histogram.irfbg),
-                                 str(histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std]
+                                 str(histogram.chisq), sim_irf_fwhm, sim_irf_fwhm_std,
+                                 str(histogram.dw), str(histogram.dw_bound[0]), str(histogram.dw_bound[1]),
+                                 str(histogram.dw_bound[2]), str(histogram.dw_bound[3])]
                 if levels:
                     pnum = [str(i + 1)]
                 else:  # get number from particle name
@@ -851,6 +881,18 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
         with open_file(lifetime_path) as f:
             writer = csv.writer(f, dialect=csv.excel)
             writer.writerows(rows)
+
+
+def export_corr(open_file, tr_path, p):
+    bins = p.ab_analysis.corr_bins
+    hist = p.ab_analysis.corr_hist / 1E3
+    rows = list()
+    rows.append(['Bin #', 'Bin Time (ns)', f'Correlation (counts/bin)'])
+    for i in range(len(bins)):
+        rows.append([str(i + 1), str(bins[i]), str(hist[i])])
+    with open_file(tr_path) as f:
+        writer = csv.writer(f, dialect=csv.excel)
+        writer.writerows(rows)
 
 
 def write_dataframe_to_file(dataframe: pd.DataFrame, path: str, filename: str, file_type: dict):

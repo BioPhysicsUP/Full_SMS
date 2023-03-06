@@ -80,6 +80,10 @@ class WorkerSignals(QObject):
     plot_spectra_export_lock = pyqtSignal(object, bool, str, bool)
     plot_raster_scan_export = pyqtSignal(object, object, bool, str)
     plot_raster_scan_export_lock = pyqtSignal(object, object, bool, str, bool)
+    plot_corr = pyqtSignal(object, bool)
+    plot_corr_lock = pyqtSignal(object, bool, bool)
+    plot_corr_export = pyqtSignal(object, bool, str)
+    plot_corr_export_lock = pyqtSignal(object, bool, str, bool)
 
 
 class WorkerSigPassType(IntEnum):

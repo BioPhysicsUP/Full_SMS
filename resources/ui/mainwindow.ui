@@ -20,15 +20,15 @@
   <property name="minimumSize">
    <size>
     <width>1200</width>
-    <height>700</height>
+    <height>600</height>
    </size>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QHBoxLayout" name="horizontalLayout_10">
-    <item>
+   <layout class="QGridLayout" name="gridLayout_4">
+    <item row="0" column="0">
      <layout class="QVBoxLayout" name="layTree">
       <property name="spacing">
        <number>1</number>
@@ -240,7 +240,7 @@
       </item>
      </layout>
     </item>
-    <item>
+    <item row="0" column="1">
      <widget class="QTabWidget" name="tabWidget">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -267,7 +267,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>4</number>
       </property>
       <property name="iconSize">
        <size>
@@ -590,7 +590,7 @@
           <item row="1" column="3" colspan="3">
            <layout class="QHBoxLayout" name="layInt_Chbs">
             <property name="spacing">
-             <number>20</number>
+             <number>10</number>
             </property>
             <item>
              <spacer name="horizontalSpacer_2">
@@ -606,9 +606,16 @@
              </spacer>
             </item>
             <item>
+             <widget class="QCheckBox" name="chbSecondCard">
+              <property name="text">
+               <string>2nd Card</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QCheckBox" name="chbInt_Exp_Trace">
               <property name="text">
-               <string>Show Exp Trace</string>
+               <string>Exp Trace</string>
               </property>
              </widget>
             </item>
@@ -2279,9 +2286,6 @@
                  <height>0</height>
                 </size>
                </property>
-               <property name="renderHints">
-                <set>QPainter::HighQualityAntialiasing|QPainter::TextAntialiasing</set>
-               </property>
               </widget>
              </item>
              <item>
@@ -2441,6 +2445,245 @@
           <property name="bottomMargin">
            <number>6</number>
           </property>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabAntibunching">
+       <property name="autoFillBackground">
+        <bool>true</bool>
+       </property>
+       <attribute name="icon">
+        <iconset>
+         <normaloff>../icons/AB_icon.png</normaloff>../icons/AB_icon.png</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Antibunching</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_25">
+        <item>
+         <widget class="PlotWidget" name="pgAntibunching_PlotWidget">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <property name="topMargin">
+           <number>10</number>
+          </property>
+          <item>
+           <widget class="QPushButton" name="btnLoadIRFCorr">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Load IRF</string>
+            </property>
+            <property name="icon">
+             <iconset resource="../icons.qrc">
+              <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="chbIRFCorrLoaded">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_4">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Maximum</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_7">
+            <property name="text">
+             <string>Time diff:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QDoubleSpinBox" name="spbCorrDiff">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="suffix">
+             <string> ns</string>
+            </property>
+            <property name="minimum">
+             <double>-99.989999999999995</double>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_24" stretch="0,0">
+            <property name="sizeConstraint">
+             <enum>QLayout::SetMinimumSize</enum>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QCheckBox" name="chbIRFCorrDiff">
+              <property name="text">
+               <string>From IRF</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbCurrCorrDiff">
+              <property name="text">
+               <string>From current decay</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_7">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="gridLayout_5">
+            <property name="rightMargin">
+             <number>6</number>
+            </property>
+            <item row="1" column="1">
+             <widget class="QSpinBox" name="spbBinSizeCorr">
+              <property name="suffix">
+               <string> ps</string>
+              </property>
+              <property name="maximum">
+               <number>1000</number>
+              </property>
+              <property name="singleStep">
+               <number>1</number>
+              </property>
+              <property name="value">
+               <number>500</number>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_9">
+              <property name="text">
+               <string>Bin size:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QSpinBox" name="spbWindow">
+              <property name="suffix">
+               <string> ns</string>
+              </property>
+              <property name="maximum">
+               <number>2000</number>
+              </property>
+              <property name="value">
+               <number>500</number>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_8">
+              <property name="text">
+               <string>Time window:</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_5">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnCorrCurrent">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Correlate current</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnCorrSelected">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Correlate selected</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnCorrAll">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Correlate all</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </item>
        </layout>
@@ -2657,10 +2900,312 @@
              </spacer>
             </item>
             <item>
+             <spacer name="horizontalSpacer_11">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Minimum</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>10</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
              <layout class="QHBoxLayout" name="layExport_Options">
               <property name="spacing">
                <number>0</number>
               </property>
+              <item>
+               <widget class="QGroupBox" name="gbxExport_Int">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="font">
+                 <font>
+                  <pointsize>12</pointsize>
+                  <weight>75</weight>
+                  <bold>true</bold>
+                  <underline>true</underline>
+                  <strikeout>false</strikeout>
+                 </font>
+                </property>
+                <property name="title">
+                 <string>Intensity</string>
+                </property>
+                <property name="flat">
+                 <bool>false</bool>
+                </property>
+                <layout class="QVBoxLayout" name="verticalLayout_12">
+                 <property name="spacing">
+                  <number>10</number>
+                 </property>
+                 <item>
+                  <spacer name="verticalSpacer_7">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::Fixed</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>15</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QGroupBox" name="gbxDFIntensity">
+                   <property name="font">
+                    <font>
+                     <pointsize>8</pointsize>
+                     <weight>50</weight>
+                     <bold>false</bold>
+                     <underline>true</underline>
+                     <strikeout>false</strikeout>
+                    </font>
+                   </property>
+                   <property name="layoutDirection">
+                    <enum>Qt::LeftToRight</enum>
+                   </property>
+                   <property name="title">
+                    <string>Pandas DataFrame</string>
+                   </property>
+                   <layout class="QVBoxLayout" name="verticalLayout_18">
+                    <property name="spacing">
+                     <number>3</number>
+                    </property>
+                    <property name="leftMargin">
+                     <number>6</number>
+                    </property>
+                    <property name="topMargin">
+                     <number>6</number>
+                    </property>
+                    <property name="rightMargin">
+                     <number>6</number>
+                    </property>
+                    <property name="bottomMargin">
+                     <number>6</number>
+                    </property>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_DF_Traces">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>8</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                        <strikeout>false</strikeout>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Traces</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_DF_Levels">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>8</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                        <strikeout>false</strikeout>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Resolved Levels</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QFrame" name="frame_7">
+                      <property name="frameShape">
+                       <enum>QFrame::StyledPanel</enum>
+                      </property>
+                      <property name="frameShadow">
+                       <enum>QFrame::Raised</enum>
+                      </property>
+                      <layout class="QVBoxLayout" name="verticalLayout_22">
+                       <property name="topMargin">
+                        <number>0</number>
+                       </property>
+                       <item>
+                        <widget class="QCheckBox" name="chbEx_DF_Levels_Lifetimes">
+                         <property name="enabled">
+                          <bool>false</bool>
+                         </property>
+                         <property name="font">
+                          <font>
+                           <pointsize>8</pointsize>
+                           <weight>50</weight>
+                           <bold>false</bold>
+                           <underline>false</underline>
+                           <strikeout>false</strikeout>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>with Lifetimes</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_DF_Grouped_Levels">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>8</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                        <strikeout>false</strikeout>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Grouped Levels</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QFrame" name="frame_8">
+                      <property name="frameShape">
+                       <enum>QFrame::StyledPanel</enum>
+                      </property>
+                      <property name="frameShadow">
+                       <enum>QFrame::Raised</enum>
+                      </property>
+                      <layout class="QVBoxLayout" name="verticalLayout_23">
+                       <property name="topMargin">
+                        <number>0</number>
+                       </property>
+                       <item>
+                        <widget class="QCheckBox" name="chbEx_DF_Grouped_Levels_Lifetimes">
+                         <property name="enabled">
+                          <bool>false</bool>
+                         </property>
+                         <property name="font">
+                          <font>
+                           <pointsize>8</pointsize>
+                           <weight>50</weight>
+                           <bold>false</bold>
+                           <underline>false</underline>
+                           <strikeout>false</strikeout>
+                          </font>
+                         </property>
+                         <property name="text">
+                          <string>with Lifetimes</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
+                 <item>
+                  <spacer name="verticalSpacer_8">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeType">
+                    <enum>QSizePolicy::Fixed</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>15</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="chbEx_Trace">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>10</pointsize>
+                     <weight>50</weight>
+                     <bold>false</bold>
+                     <underline>false</underline>
+                     <strikeout>false</strikeout>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Binned Trace</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="chbEx_Levels">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>10</pointsize>
+                     <weight>50</weight>
+                     <bold>false</bold>
+                     <underline>false</underline>
+                     <strikeout>false</strikeout>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Resolved Levels</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="chbEx_Grouped_Levels">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>10</pointsize>
+                     <weight>50</weight>
+                     <bold>false</bold>
+                     <underline>false</underline>
+                     <strikeout>false</strikeout>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Grouped Levels</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
               <item>
                <spacer name="spcEx_Options_1">
                 <property name="orientation">
@@ -2671,7 +3216,7 @@
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
-                  <width>40</width>
+                  <width>20</width>
                   <height>20</height>
                  </size>
                 </property>
@@ -2698,363 +3243,6 @@
                  <enum>QFrame::Raised</enum>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_3">
-                 <property name="spacing">
-                  <number>0</number>
-                 </property>
-                 <property name="leftMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="topMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="rightMargin">
-                  <number>0</number>
-                 </property>
-                 <property name="bottomMargin">
-                  <number>0</number>
-                 </property>
-                 <item>
-                  <widget class="QGroupBox" name="gbxExport_Int">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="minimumSize">
-                    <size>
-                     <width>0</width>
-                     <height>0</height>
-                    </size>
-                   </property>
-                   <property name="font">
-                    <font>
-                     <pointsize>12</pointsize>
-                     <weight>75</weight>
-                     <bold>true</bold>
-                     <underline>true</underline>
-                     <strikeout>false</strikeout>
-                    </font>
-                   </property>
-                   <property name="title">
-                    <string>Intensity</string>
-                   </property>
-                   <property name="flat">
-                    <bool>false</bool>
-                   </property>
-                   <layout class="QVBoxLayout" name="verticalLayout_12">
-                    <property name="spacing">
-                     <number>10</number>
-                    </property>
-                    <item>
-                     <spacer name="verticalSpacer_7">
-                      <property name="orientation">
-                       <enum>Qt::Vertical</enum>
-                      </property>
-                      <property name="sizeType">
-                       <enum>QSizePolicy::Fixed</enum>
-                      </property>
-                      <property name="sizeHint" stdset="0">
-                       <size>
-                        <width>20</width>
-                        <height>15</height>
-                       </size>
-                      </property>
-                     </spacer>
-                    </item>
-                    <item>
-                     <widget class="QGroupBox" name="gbxDFIntensity">
-                      <property name="font">
-                       <font>
-                        <pointsize>8</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>true</underline>
-                        <strikeout>false</strikeout>
-                       </font>
-                      </property>
-                      <property name="layoutDirection">
-                       <enum>Qt::LeftToRight</enum>
-                      </property>
-                      <property name="title">
-                       <string>Pandas DataFrame</string>
-                      </property>
-                      <layout class="QVBoxLayout" name="verticalLayout_18">
-                       <property name="spacing">
-                        <number>3</number>
-                       </property>
-                       <property name="leftMargin">
-                        <number>6</number>
-                       </property>
-                       <property name="topMargin">
-                        <number>6</number>
-                       </property>
-                       <property name="rightMargin">
-                        <number>6</number>
-                       </property>
-                       <property name="bottomMargin">
-                        <number>6</number>
-                       </property>
-                       <item>
-                        <widget class="QCheckBox" name="chbEx_DF_Traces">
-                         <property name="enabled">
-                          <bool>false</bool>
-                         </property>
-                         <property name="font">
-                          <font>
-                           <pointsize>8</pointsize>
-                           <weight>50</weight>
-                           <bold>false</bold>
-                           <underline>false</underline>
-                           <strikeout>false</strikeout>
-                          </font>
-                         </property>
-                         <property name="text">
-                          <string>Traces</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QCheckBox" name="chbEx_DF_Levels">
-                         <property name="enabled">
-                          <bool>false</bool>
-                         </property>
-                         <property name="font">
-                          <font>
-                           <pointsize>8</pointsize>
-                           <weight>50</weight>
-                           <bold>false</bold>
-                           <underline>false</underline>
-                           <strikeout>false</strikeout>
-                          </font>
-                         </property>
-                         <property name="text">
-                          <string>Resolved Levels</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QFrame" name="frame_7">
-                         <property name="frameShape">
-                          <enum>QFrame::StyledPanel</enum>
-                         </property>
-                         <property name="frameShadow">
-                          <enum>QFrame::Raised</enum>
-                         </property>
-                         <layout class="QVBoxLayout" name="verticalLayout_22">
-                          <property name="topMargin">
-                           <number>0</number>
-                          </property>
-                          <item>
-                           <widget class="QCheckBox" name="chbEx_DF_Levels_Lifetimes">
-                            <property name="enabled">
-                             <bool>false</bool>
-                            </property>
-                            <property name="font">
-                             <font>
-                              <pointsize>8</pointsize>
-                              <weight>50</weight>
-                              <bold>false</bold>
-                              <underline>false</underline>
-                              <strikeout>false</strikeout>
-                             </font>
-                            </property>
-                            <property name="text">
-                             <string>with Lifetimes</string>
-                            </property>
-                           </widget>
-                          </item>
-                         </layout>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QCheckBox" name="chbEx_DF_Grouped_Levels">
-                         <property name="enabled">
-                          <bool>false</bool>
-                         </property>
-                         <property name="font">
-                          <font>
-                           <pointsize>8</pointsize>
-                           <weight>50</weight>
-                           <bold>false</bold>
-                           <underline>false</underline>
-                           <strikeout>false</strikeout>
-                          </font>
-                         </property>
-                         <property name="text">
-                          <string>Grouped Levels</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QFrame" name="frame_8">
-                         <property name="frameShape">
-                          <enum>QFrame::StyledPanel</enum>
-                         </property>
-                         <property name="frameShadow">
-                          <enum>QFrame::Raised</enum>
-                         </property>
-                         <layout class="QVBoxLayout" name="verticalLayout_23">
-                          <property name="topMargin">
-                           <number>0</number>
-                          </property>
-                          <item>
-                           <widget class="QCheckBox" name="chbEx_DF_Grouped_Levels_Lifetimes">
-                            <property name="enabled">
-                             <bool>false</bool>
-                            </property>
-                            <property name="font">
-                             <font>
-                              <pointsize>8</pointsize>
-                              <weight>50</weight>
-                              <bold>false</bold>
-                              <underline>false</underline>
-                              <strikeout>false</strikeout>
-                             </font>
-                            </property>
-                            <property name="text">
-                             <string>with Lifetimes</string>
-                            </property>
-                           </widget>
-                          </item>
-                         </layout>
-                        </widget>
-                       </item>
-                      </layout>
-                     </widget>
-                    </item>
-                    <item>
-                     <spacer name="verticalSpacer_8">
-                      <property name="orientation">
-                       <enum>Qt::Vertical</enum>
-                      </property>
-                      <property name="sizeType">
-                       <enum>QSizePolicy::Fixed</enum>
-                      </property>
-                      <property name="sizeHint" stdset="0">
-                       <size>
-                        <width>20</width>
-                        <height>15</height>
-                       </size>
-                      </property>
-                     </spacer>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Trace">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Binned Trace</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Levels">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Resolved Levels</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Grouped_Levels">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                        <strikeout>false</strikeout>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Grouped Levels</string>
-                      </property>
-                     </widget>
-                    </item>
-                   </layout>
-                  </widget>
-                 </item>
-                 <item>
-                  <spacer name="spcEx_Int">
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                   <property name="sizeType">
-                    <enum>QSizePolicy::MinimumExpanding</enum>
-                   </property>
-                   <property name="sizeHint" stdset="0">
-                    <size>
-                     <width>20</width>
-                     <height>40</height>
-                    </size>
-                   </property>
-                  </spacer>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item>
-               <spacer name="spcEx_Options_2">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Fixed</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-              <item>
-               <widget class="QFrame" name="frame_2">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>0</width>
-                  <height>0</height>
-                 </size>
-                </property>
-                <property name="frameShape">
-                 <enum>QFrame::NoFrame</enum>
-                </property>
-                <property name="frameShadow">
-                 <enum>QFrame::Raised</enum>
-                </property>
-                <layout class="QVBoxLayout" name="verticalLayout_4">
                  <property name="spacing">
                   <number>0</number>
                  </property>
@@ -3234,7 +3422,7 @@
                   </widget>
                  </item>
                  <item>
-                  <spacer name="verticalSpacer">
+                  <spacer name="spcEx_Int">
                    <property name="orientation">
                     <enum>Qt::Vertical</enum>
                    </property>
@@ -3253,7 +3441,7 @@
                </widget>
               </item>
               <item>
-               <spacer name="spcEx_Options_6">
+               <spacer name="spcEx_Options_2">
                 <property name="orientation">
                  <enum>Qt::Horizontal</enum>
                 </property>
@@ -3269,7 +3457,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QFrame" name="frame_4">
+               <widget class="QFrame" name="frame_2">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
                   <horstretch>0</horstretch>
@@ -3288,7 +3476,7 @@
                 <property name="frameShadow">
                  <enum>QFrame::Raised</enum>
                 </property>
-                <layout class="QVBoxLayout" name="verticalLayout_6">
+                <layout class="QVBoxLayout" name="verticalLayout_4">
                  <property name="spacing">
                   <number>0</number>
                  </property>
@@ -3391,8 +3579,49 @@
                    </layout>
                   </widget>
                  </item>
+                 <item alignment="Qt::AlignTop">
+                  <widget class="QGroupBox" name="groupBox">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>12</pointsize>
+                     <weight>75</weight>
+                     <bold>true</bold>
+                     <underline>true</underline>
+                    </font>
+                   </property>
+                   <property name="title">
+                    <string>Antibunching</string>
+                   </property>
+                   <layout class="QVBoxLayout" name="verticalLayout_13">
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_Corr">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Corr. Histograms</string>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                 </item>
                  <item>
-                  <spacer name="spcEx_Lifetime">
+                  <spacer name="verticalSpacer">
                    <property name="orientation">
                     <enum>Qt::Vertical</enum>
                    </property>
@@ -3411,7 +3640,7 @@
                </widget>
               </item>
               <item>
-               <spacer name="spcEx_Options_4">
+               <spacer name="spcEx_Options_6">
                 <property name="orientation">
                  <enum>Qt::Horizontal</enum>
                 </property>
@@ -3427,7 +3656,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QFrame" name="frame_5">
+               <widget class="QFrame" name="frame_4">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
                   <horstretch>0</horstretch>
@@ -3446,7 +3675,7 @@
                 <property name="frameShadow">
                  <enum>QFrame::Raised</enum>
                 </property>
-                <layout class="QVBoxLayout" name="verticalLayout_8">
+                <layout class="QVBoxLayout" name="verticalLayout_6">
                  <property name="spacing">
                   <number>0</number>
                  </property>
@@ -3621,7 +3850,7 @@
                   </widget>
                  </item>
                  <item>
-                  <spacer name="spcEx_Spectra">
+                  <spacer name="spcEx_Lifetime">
                    <property name="orientation">
                     <enum>Qt::Vertical</enum>
                    </property>
@@ -3637,6 +3866,29 @@
                   </spacer>
                  </item>
                 </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="spcEx_Options_4">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeType">
+                 <enum>QSizePolicy::Fixed</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="Line" name="line">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
                </widget>
               </item>
               <item>
@@ -3656,30 +3908,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="Line" name="line">
-                <property name="orientation">
-                 <enum>Qt::Vertical</enum>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <spacer name="spcEx_Options_8">
-                <property name="orientation">
-                 <enum>Qt::Horizontal</enum>
-                </property>
-                <property name="sizeType">
-                 <enum>QSizePolicy::Fixed</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>10</width>
-                  <height>20</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-              <item>
-               <widget class="QFrame" name="frame_3">
+               <widget class="QFrame" name="frame_5">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
                   <horstretch>0</horstretch>
@@ -3698,7 +3927,7 @@
                 <property name="frameShadow">
                  <enum>QFrame::Raised</enum>
                 </property>
-                <layout class="QVBoxLayout" name="verticalLayout_5">
+                <layout class="QVBoxLayout" name="verticalLayout_8">
                  <property name="spacing">
                   <number>0</number>
                  </property>
@@ -3742,11 +3971,8 @@
                    <property name="title">
                     <string>Plots</string>
                    </property>
-                   <layout class="QVBoxLayout" name="verticalLayout_13">
-                    <property name="spacing">
-                     <number>1</number>
-                    </property>
-                    <item>
+                   <layout class="QGridLayout" name="gridLayout_6">
+                    <item row="0" column="1">
                      <spacer name="verticalSpacer_10">
                       <property name="orientation">
                        <enum>Qt::Vertical</enum>
@@ -3762,8 +3988,8 @@
                       </property>
                      </spacer>
                     </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Plot_Intensity">
+                    <item row="4" column="1">
+                     <widget class="QCheckBox" name="chbEx_Plot_Group_BIC">
                       <property name="enabled">
                        <bool>false</bool>
                       </property>
@@ -3776,11 +4002,47 @@
                        </font>
                       </property>
                       <property name="text">
-                       <string>Intensity</string>
+                       <string>Grouping BICs</string>
                       </property>
                      </widget>
                     </item>
-                    <item>
+                    <item row="1" column="2">
+                     <widget class="QCheckBox" name="chbEx_Plot_Lifetimes">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Lifetimes</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="4" column="2">
+                     <widget class="QCheckBox" name="chbEx_Plot_Spectra">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Spectra</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="2" column="1">
                      <widget class="QFrame" name="frmPlot_Int_Selection">
                       <property name="enabled">
                        <bool>true</bool>
@@ -3870,75 +4132,7 @@
                       </layout>
                      </widget>
                     </item>
-                    <item>
-                     <spacer name="spcEx_Grouping_2">
-                      <property name="orientation">
-                       <enum>Qt::Vertical</enum>
-                      </property>
-                      <property name="sizeType">
-                       <enum>QSizePolicy::Minimum</enum>
-                      </property>
-                      <property name="sizeHint" stdset="0">
-                       <size>
-                        <width>20</width>
-                        <height>5</height>
-                       </size>
-                      </property>
-                     </spacer>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Plot_Group_BIC">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Grouping BICs</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <spacer name="spcEx_Grouping_3">
-                      <property name="orientation">
-                       <enum>Qt::Vertical</enum>
-                      </property>
-                      <property name="sizeType">
-                       <enum>QSizePolicy::Minimum</enum>
-                      </property>
-                      <property name="sizeHint" stdset="0">
-                       <size>
-                        <width>20</width>
-                        <height>5</height>
-                       </size>
-                      </property>
-                     </spacer>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Plot_Lifetimes">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Lifetimes</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
+                    <item row="2" column="2">
                      <widget class="QFrame" name="frmPlot_Lifetime_Selection">
                       <property name="enabled">
                        <bool>true</bool>
@@ -4077,57 +4271,7 @@
                       </layout>
                      </widget>
                     </item>
-                    <item>
-                     <spacer name="spcEx_Grouping_4">
-                      <property name="orientation">
-                       <enum>Qt::Vertical</enum>
-                      </property>
-                      <property name="sizeType">
-                       <enum>QSizePolicy::Minimum</enum>
-                      </property>
-                      <property name="sizeHint" stdset="0">
-                       <size>
-                        <width>20</width>
-                        <height>5</height>
-                       </size>
-                      </property>
-                     </spacer>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Plot_Spectra">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Spectra</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <spacer name="spcEx_Grouping_8">
-                      <property name="orientation">
-                       <enum>Qt::Vertical</enum>
-                      </property>
-                      <property name="sizeType">
-                       <enum>QSizePolicy::Minimum</enum>
-                      </property>
-                      <property name="sizeHint" stdset="0">
-                       <size>
-                        <width>20</width>
-                        <height>5</height>
-                       </size>
-                      </property>
-                     </spacer>
-                    </item>
-                    <item>
+                    <item row="6" column="1">
                      <widget class="QCheckBox" name="chbEx_Plot_Raster_Scans">
                       <property name="enabled">
                        <bool>false</bool>
@@ -4145,16 +4289,84 @@
                       </property>
                      </widget>
                     </item>
+                    <item row="3" column="1">
+                     <spacer name="spcEx_Grouping_2">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Minimum</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>20</width>
+                        <height>5</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                    <item row="5" column="1">
+                     <spacer name="spcEx_Grouping_3">
+                      <property name="orientation">
+                       <enum>Qt::Vertical</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Minimum</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>20</width>
+                        <height>5</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QCheckBox" name="chbEx_Plot_Intensity">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Intensity</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item row="6" column="2">
+                     <widget class="QCheckBox" name="chbEx_Plot_Corr">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>10</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Corr. Hists</string>
+                      </property>
+                     </widget>
+                    </item>
                    </layout>
                   </widget>
                  </item>
                  <item>
-                  <spacer name="verticalSpacer_2">
+                  <spacer name="spcEx_Spectra">
                    <property name="orientation">
                     <enum>Qt::Vertical</enum>
                    </property>
                    <property name="sizeType">
-                    <enum>QSizePolicy::Expanding</enum>
+                    <enum>QSizePolicy::MinimumExpanding</enum>
                    </property>
                    <property name="sizeHint" stdset="0">
                     <size>
@@ -4164,6 +4376,61 @@
                    </property>
                   </spacer>
                  </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="spcEx_Options_8">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeType">
+                 <enum>QSizePolicy::Fixed</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>10</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QFrame" name="frame_3">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>0</height>
+                 </size>
+                </property>
+                <property name="frameShape">
+                 <enum>QFrame::NoFrame</enum>
+                </property>
+                <property name="frameShadow">
+                 <enum>QFrame::Raised</enum>
+                </property>
+                <layout class="QVBoxLayout" name="verticalLayout_5">
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
                 </layout>
                </widget>
               </item>
@@ -4192,6 +4459,28 @@
               </property>
              </spacer>
             </item>
+            <item alignment="Qt::AlignTop">
+             <widget class="QLabel" name="lblDataFrameFormat">
+              <property name="font">
+               <font>
+                <pointsize>10</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>DataFrame format</string>
+              </property>
+             </widget>
+            </item>
+            <item alignment="Qt::AlignTop">
+             <widget class="QComboBox" name="cmbEx_DataFrame_Format">
+              <property name="minimumSize">
+               <size>
+                <width>120</width>
+                <height>0</height>
+               </size>
+              </property>
+             </widget>
+            </item>
             <item>
              <widget class="QLabel" name="label_2">
               <property name="sizePolicy">
@@ -4202,7 +4491,7 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>320</width>
+                <width>260</width>
                 <height>0</height>
                </size>
               </property>
@@ -4237,51 +4526,6 @@ Python: import pandas.read_feather)</string>
            </layout>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="layEx_Buttons_7">
-            <property name="sizeConstraint">
-             <enum>QLayout::SetDefaultConstraint</enum>
-            </property>
-            <item>
-             <spacer name="spcEx_Buttons_Left_7">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeType">
-               <enum>QSizePolicy::Expanding</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>100</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QLabel" name="lblDataFrameFormat">
-              <property name="font">
-               <font>
-                <pointsize>10</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>DataFrame format</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QComboBox" name="cmbEx_DataFrame_Format">
-              <property name="minimumSize">
-               <size>
-                <width>120</width>
-                <height>0</height>
-               </size>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item>
            <spacer name="spcEx_Mid">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
@@ -4292,7 +4536,7 @@ Python: import pandas.read_feather)</string>
             <property name="sizeHint" stdset="0">
              <size>
               <width>20</width>
-              <height>50</height>
+              <height>20</height>
              </size>
             </property>
            </spacer>
@@ -4450,7 +4694,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

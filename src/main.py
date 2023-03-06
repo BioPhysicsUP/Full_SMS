@@ -15,8 +15,8 @@ import sys
 from platform import system
 import ctypes
 
-from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot
-from PyQt5.QtGui import QIcon  # , QResizeEvent
+from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot, QRegExp
+from PyQt5.QtGui import QIcon, QRegExpValidator  # , QResizeEvent
 from PyQt5.QtWidgets import QMainWindow, QProgressBar, QFileDialog, QMessageBox, QInputDialog, \
     QApplication, QStyleFactory  # , QTreeWidget
 from PyQt5 import uic
@@ -27,12 +27,11 @@ from multiprocessing import Process, freeze_support
 from threading import Lock
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController, \
-    RasterScanController
+    RasterScanController, AntibunchingController
 from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
 # import save_analysis
-
 from settings_dialog import SettingsDialog, Settings
 from filtering_normalization_dialog import FilteringNormalizationDialog
 
@@ -152,6 +151,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
         # self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
         self.chbInt_Exp_Trace.stateChanged.connect(i_c.exp_trace_chb_changed)
+        self.chbSecondCard.stateChanged.connect(i_c.plot_all)
 
         self.lifetime_controller = \
             LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
@@ -193,6 +193,19 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.raster_scan_controller = \
             RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
                                  list_text=self.txtRaster_Scan_List)
+
+        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget)
+        a_c = self.antibunch_controller
+        self.btnLoadIRFCorr.clicked.connect(a_c.gui_load_irf)
+        self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
+        self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
+        self.btnCorrAll.clicked.connect(a_c.gui_correlate_all)
+        self.chbIRFCorrDiff.stateChanged.connect(a_c.gui_irf_chb)
+        self.chbCurrCorrDiff.stateChanged.connect(a_c.gui_curr_chb)
+
+        # reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
+        # reg_val = QRegExpValidator(reg_exp)
+        # self.spbCorrDiff.setValidator(reg_val)
 
         self.btnSubBackground.clicked.connect(self.spectra_controller.gui_sub_bkg)
 
@@ -732,6 +745,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
             elif cur_tab_name == 'tabRaster_Scan' and self.current_particle.has_raster_scan:
                 self.raster_scan_controller.plot_raster_scan()
 
+            elif cur_tab_name == 'tabAntibunching':
+                self.antibunch_controller.plot_corr()
+
             elif cur_tab_name == 'tabExport':
                 self.set_export_options()
 
@@ -954,6 +970,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         all_have_lifetimes = all([p.has_fit_a_lifetime for p in particles])
         all_have_raster_scans = all([p.has_raster_scan for p in particles])
         all_have_spectra = all([p.has_spectra for p in particles])
+        all_have_corr = all([p.has_corr for p in particles])
 
         self.chbEx_Levels.setEnabled(all_have_levels)
         self.chbEx_DF_Levels.setEnabled(all_have_levels)
@@ -1003,6 +1020,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.chbEx_Raster_Scan_2D.setEnabled(all_have_raster_scans)
         self.chbEx_Plot_Raster_Scans.setEnabled(all_have_raster_scans)
+
+        self.chbEx_Corr.setEnabled(all_have_corr)
+        self.chbEx_Plot_Corr.setEnabled(all_have_corr)
 
     def select_all_export_options(self):
         self.chbEx_Trace.setChecked(self.chbEx_Trace.isEnabled())
@@ -1225,6 +1245,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         sigs.plot_residuals_export_lock.connect(self.lifetime_controller.plot_residuals)
         sigs.plot_spectra_export_lock.connect(self.spectra_controller.plot_spectra)
         sigs.plot_raster_scan_export_lock.connect(self.raster_scan_controller.plot_raster_scan)
+        sigs.plot_corr_lock.connect(self.antibunch_controller.plot_corr)
+        sigs.plot_corr_export_lock.connect(self.antibunch_controller.plot_corr)
 
         self.threadpool.start(export_worker)
 
