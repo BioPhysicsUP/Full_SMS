@@ -5,8 +5,6 @@ __docformat__ = 'NumPy'
 from typing import TYPE_CHECKING
 
 import pickle
-import copy
-import os
 import lzma
 
 import h5pickle
@@ -15,14 +13,14 @@ from PyQt5.QtCore import QRunnable, pyqtSlot
 import smsh5
 from tree_model import DatasetTreeNode
 from threads import WorkerSignals
-import smsh5_file_reader as h5_fr
+from antibunching import AntibunchingAnalysis
 
 if TYPE_CHECKING:
     from smsh5 import H5dataset
     from main import MainWindow
 
 
-SAVING_VERSION = '1.06'
+SAVING_VERSION = '1.07'
 SAVE_FORMAT = 'pickle'  # 'pickle' or 'lzma'
 
 
@@ -131,8 +129,14 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
     loaded_dataset.load_file(h5_file)
 
     if not hasattr(loaded_dataset, 'save_version') or loaded_dataset.save_version != SAVING_VERSION:
-        if loaded_dataset.save_version == '1.05':
-            loaded_dataset = convert_v1_05_to_v1_06(loaded_dataset)
+        if float(loaded_dataset.save_version) >= 1.05:
+            for particle in loaded_dataset.particles:
+                if float(loaded_dataset.save_version) <= 1.05:  # Added in version 1.06
+                    particle.is_secondary_part = False
+                    particle.tcspc_card = 'TCSPC Card'
+                    particle.sec_part = None
+                if float(loaded_dataset.save_version) <= 1.06:  # Added in version 1.07
+                    particle.ab_analysis = AntibunchingAnalysis(particle=particle)
         else:
             signals.save_file_version_outdated.emit()
             signals.status_message.emit("Done")

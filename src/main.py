@@ -47,7 +47,7 @@ import file_manager as fm
 from my_logger import setup_logger
 from convert_pt3 import ConvertPt3Dialog
 from exporting import export_data, ExportWorker, DATAFRAME_FORMATS
-from save_analysis import SaveAnalysisWorker, LoadAnalysisWorker
+from save_and_load import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
