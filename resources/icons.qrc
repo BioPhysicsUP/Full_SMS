@@ -1,6 +1,9 @@
 <RCC>
   <qresource prefix="/icons">
+    <file>icons/not-used.png</file>
+    <file>icons/used.png</file>
     <file>icons/raster-scan.png</file>
+    <file>icons/filtering.png</file>
     <file>icons/apply-all.png</file>
     <file>icons/apply-one.png</file>
     <file>icons/arrow-left.png</file>
@@ -19,8 +22,8 @@
     <file>icons/group-current.png</file>
     <file>icons/grouping.png</file>
     <file>icons/group-selected.png</file>
-    <file>icons/Icons.afdesign</file>
     <file>icons/intensity.png</file>
+    <file>icons/antibunching.png</file>
     <file>icons/lifetime.png</file>
     <file>icons/load-irf.png</file>
     <file>icons/new-file.png</file>

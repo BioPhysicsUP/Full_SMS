@@ -27,7 +27,7 @@ from multiprocessing import Process, freeze_support
 from threading import Lock
 
 from controllers import IntController, LifetimeController, GroupingController, SpectraController, \
-    RasterScanController, AntibunchingController
+    RasterScanController, AntibunchingController, FilteringController
 from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
@@ -202,6 +202,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnCorrAll.clicked.connect(a_c.gui_correlate_all)
         self.chbIRFCorrDiff.stateChanged.connect(a_c.gui_irf_chb)
         self.chbCurrCorrDiff.stateChanged.connect(a_c.gui_curr_chb)
+
+        self.filtering_controller = FilteringController(main_window=self)
 
         # reg_exp = QRegExp("[+-]?(\d+(\.\d+)?|\.\d+)([eE][+-]?\d+)?")
         # reg_val = QRegExpValidator(reg_exp)

@@ -50,14 +50,14 @@ class H5dataset:
         all_keys = self.file.keys()
         part_keys = [part_key for part_key in all_keys if 'Particle ' in part_key]
 
-        natural_p_names = [None]*len(part_keys)
+        natural_p_names = [None] * len(part_keys)
         natural_key = []
         for name in part_keys:
             for seg in re.split('(\d+)', name):
                 if seg.isdigit():
                     natural_key.append(int(seg))
         for num, key_num in enumerate(natural_key):
-            natural_p_names[key_num-1] = part_keys[num]
+            natural_p_names[key_num - 1] = part_keys[num]
 
         self.all_sums = CPSums(n_min=10, n_max=1000, prog_fb=prog_fb)
 
@@ -134,7 +134,7 @@ class H5dataset:
         file_keys = self.file.keys()
         for num, particle_name in enumerate(particle_names):
             if particle_name in file_keys:
-                particle = h5_fr.particle(particle_num=num+1, dataset=self)
+                particle = h5_fr.particle(particle_num=num + 1, dataset=self)
                 if h5_fr.has_raster_scan(particle=particle):
                     raster_scans.append((h5_fr.raster_scan(particle=particle), num))
 
@@ -157,7 +157,7 @@ class H5dataset:
                                            particle_num=num,
                                            h5dataset_index=raster_scan_num,
                                            particle_indexes=group_indexes)
-                                )
+                            )
                             raster_scan_counter += 1
                             raster_scan_num = len(self.all_raster_scans)
                         else:  # Last one
@@ -173,7 +173,7 @@ class H5dataset:
                                                particle_num=num,
                                                h5dataset_index=raster_scan_num,
                                                particle_indexes=group_indexes)
-                                   )
+                                )
                                 raster_scan_counter += 1
                                 group_indexes = [num]
                                 raster_scan_num = len(self.all_raster_scans)
@@ -182,7 +182,7 @@ class H5dataset:
                                            particle_num=num,
                                            h5dataset_index=raster_scan_counter,
                                            particle_indexes=group_indexes)
-                                )
+                            )
                             raster_scan_counter += 1
                     else:
                         raster_scan_num = 0
@@ -193,7 +193,7 @@ class H5dataset:
                                            particle_num=num,
                                            h5dataset_index=raster_scan_counter,
                                            particle_indexes=group_indexes)
-                                )
+                            )
                     group_indexes = [num]
                     prev_raster_scan = raster_scan
 
@@ -208,7 +208,7 @@ class H5dataset:
         for particle in self.particles:
             particle.makehistograms(remove_zeros, startpoint, channel)
 
-    def bin_all_ints(self, binsize:float,
+    def bin_all_ints(self, binsize: float,
                      sig_fb: PassSigFeedback = None,
                      prog_fb: ProcessProgFeedback = None):
         """Bin the absolute times into traces using binsize
@@ -249,10 +249,10 @@ class H5dataset:
 
         for i, selected in enumerate(selected_nums):
             new_h5file.copy(self.file[f'/Particle {selected}'],
-                            new_h5file, name=f'/Particle {num_existing+i+1}')
+                            new_h5file, name=f'/Particle {num_existing + i + 1}')
 
         if add:
-            new_h5file.attrs.modify('# Particles', num_existing+len(selected_nums))
+            new_h5file.attrs.modify('# Particles', num_existing + len(selected_nums))
         else:
             new_h5file.attrs.create('# Particles', len(selected_nums))
         new_h5file.close()
@@ -361,7 +361,7 @@ class Particle:
         self.binnedtrace = None
         self.bin_size = None
         try:
-            self.roi_region = (0, self.abstimes[-1]/1E9)
+            self.roi_region = (0, self.abstimes[-1] / 1E9)
         except IndexError:
             self.roi_region = (0, 0)
 
@@ -426,9 +426,9 @@ class Particle:
         roi_start = self.roi_region[0]
         roi_end = self.roi_region[1]
         epsilon_t = 0.1
-        end_t = self.abstimes[-1]/1E9
-        if roi_start >= 0 + epsilon_t/2 or not roi_end - epsilon_t/2 <= end_t <= roi_end + epsilon_t/2:
-            times = self.abstimes[:]/1E9
+        end_t = self.abstimes[-1] / 1E9
+        if roi_start >= 0 + epsilon_t / 2 or not roi_end - epsilon_t / 2 <= end_t <= roi_end + epsilon_t / 2:
+            times = self.abstimes[:] / 1E9
             first_photon = np.argmin(roi_start > times)
             last_photon = np.argmin(roi_end > times)
         return first_photon, last_photon
@@ -449,7 +449,7 @@ class Particle:
 
     @property
     def microtimes_roi(self) -> np.ndarray:
-        times = np.array(self.abstimes)/1E9
+        times = np.array(self.abstimes) / 1E9
         if self.roi_region[0] == 0:
             first_ind = 0
         else:
@@ -611,7 +611,7 @@ class Particle:
             return self.levels_roi[-1].times_s[1] - self.levels_roi[0].times_s[0]
         else:
             first_photon_ind, last_photon_ind = self.roi_region_photon_inds
-            return (self.abstimes[last_photon_ind] - self.abstimes[first_photon_ind])/1E9
+            return (self.abstimes[last_photon_ind] - self.abstimes[first_photon_ind]) / 1E9
 
     @property
     def level_ints(self):
@@ -712,6 +712,46 @@ class Particle:
 
         return ints, times
 
+    def lifetimes2data(self, use_grouped: bool = None, use_roi: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Uses the Particle objects' levels to generate two arrays for
+        plotting the levels.
+        Parameters
+        ----------
+        use_grouped
+        use_roi
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+        """
+        assert self.has_fit_a_lifetime, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        if use_grouped is None:
+            use_grouped = self.has_groups and self.using_group_levels
+
+        if not use_grouped:
+            if not use_roi:
+                levels = self.cpts.levels
+            else:
+                levels = self.levels_roi
+        else:
+            if not use_roi:
+                levels = self.group_levels
+            else:
+                levels = self.group_levels_roi
+
+        times = np.array(
+            [[level.times_s[0], level.times_s[1]] for level in levels if level.histogram.fitted]
+        )
+        times = times.flatten()
+
+        lifetimes = np.array(
+            [[level.histogram.avtau, level.histogram.avtau] for level in levels if level.histogram.fitted]
+        )
+        lifetimes = lifetimes.flatten()
+
+        return lifetimes, times
+
     def current2data(self, level_ind: int, use_roi: bool = False) -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for plotting level num.
@@ -739,7 +779,7 @@ class Particle:
         assert self.has_groups, 'ChangePointAnalysis:\tNo groups to convert to data.'
 
         group = self.groups[group_ind]
-        times = np.array([self.abstimes[0], self.abstimes[-1]]) /1E9
+        times = np.array([self.abstimes[0], self.abstimes[-1]]) / 1E9
         group_int = np.array([group.int_p_s, group.int_p_s])
         return group_int, times
 
@@ -859,7 +899,7 @@ class Trace:
 
         binned = np.zeros(endbin + 1, dtype=np.int)
         for step in range(endbin):
-            binned[step+1] = np.size(data[((step+1)*binsize_ns > data)*(data > step*binsize_ns)])
+            binned[step + 1] = np.size(data[((step + 1) * binsize_ns > data) * (data > step * binsize_ns)])
             if step == 0:
                 binned[step] = binned[step + 1]
 
@@ -1059,7 +1099,7 @@ class Histogram:
         levelobj = self._particle.levels[level]
         tmin = levelobj.microtimes[:].min()
         tmax = levelobj.microtimes[:].max()
-        window = tmax-tmin
+        window = tmax - tmin
         numpoints = int(window // self._particle.channelwidth)
         t = np.linspace(0, window, numpoints)
 
