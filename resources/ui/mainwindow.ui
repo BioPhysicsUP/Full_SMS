@@ -2643,7 +2643,7 @@
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_13">
               <item>
-               <widget class="QLabel" name="lblResults">
+               <widget class="QLabel" name="lblFiltResults">
                 <property name="font">
                  <font>
                   <pointsize>10</pointsize>
@@ -2671,7 +2671,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QLabel" name="lblNumDatapoints">
+               <widget class="QLabel" name="lblFiltNumDatapoints">
                 <property name="maximumSize">
                  <size>
                   <width>180</width>
@@ -2719,7 +2719,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QSpinBox" name="spnNumBins">
+               <widget class="QSpinBox" name="spnFiltNumBins">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -2773,7 +2773,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QCheckBox" name="chbAutoNumBins">
+               <widget class="QCheckBox" name="chbFiltAutoNumBins">
                 <property name="maximumSize">
                  <size>
                   <width>50</width>
@@ -2863,7 +2863,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QComboBox" name="cmbParticlesToUse">
+               <widget class="QComboBox" name="cmbFiltParticlesToUse">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -2910,7 +2910,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QComboBox" name="cmbUseResolvedOrGrouped">
+               <widget class="QComboBox" name="cmbFiltUseResolvedOrGrouped">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -2936,7 +2936,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QCheckBox" name="chbUseROI">
+               <widget class="QCheckBox" name="chbFiltUseROI">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -3075,7 +3075,7 @@
                <number>0</number>
               </property>
               <property name="currentIndex">
-               <number>0</number>
+               <number>5</number>
               </property>
               <property name="tabSpacing">
                <number>3</number>
@@ -3109,7 +3109,7 @@
                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                   </property>
                   <item row="0" column="0">
-                   <widget class="QCheckBox" name="chbMinPhotons">
+                   <widget class="QCheckBox" name="chbFiltMinPhotons">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                       <horstretch>0</horstretch>
@@ -3132,7 +3132,7 @@
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QSpinBox" name="spnMinPhotons">
+                   <widget class="QSpinBox" name="spnFiltMinPhotons">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3193,7 +3193,7 @@
                    </spacer>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnPhotonNumberDistribution">
+                   <widget class="QPushButton" name="btnFiltPhotonNumberDistribution">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                       <horstretch>0</horstretch>
@@ -3292,7 +3292,7 @@
                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                   </property>
                   <item row="0" column="0">
-                   <widget class="QCheckBox" name="chbMinIntensity">
+                   <widget class="QCheckBox" name="chbFiltMinIntensity">
                     <property name="font">
                      <font>
                       <pointsize>8</pointsize>
@@ -3309,7 +3309,7 @@
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QDoubleSpinBox" name="dsbMinIntensity">
+                   <widget class="QDoubleSpinBox" name="dsbFiltMinIntensity">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3350,7 +3350,7 @@
                    </widget>
                   </item>
                   <item row="1" column="0">
-                   <widget class="QCheckBox" name="chbMaxIntensity">
+                   <widget class="QCheckBox" name="chbFiltMaxIntensity">
                     <property name="font">
                      <font>
                       <pointsize>8</pointsize>
@@ -3367,7 +3367,7 @@
                    </widget>
                   </item>
                   <item row="1" column="1">
-                   <widget class="QDoubleSpinBox" name="dsbMaxIntensity">
+                   <widget class="QDoubleSpinBox" name="dsbFiltMaxIntensity">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3434,7 +3434,7 @@
                    </spacer>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnIntensityDistribution">
+                   <widget class="QPushButton" name="btnFiltIntensityDistribution">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                       <horstretch>0</horstretch>
@@ -3512,8 +3512,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>199</width>
-                 <height>91</height>
+                 <width>268</width>
+                 <height>114</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3533,7 +3533,7 @@
                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                   </property>
                   <item row="0" column="0">
-                   <widget class="QCheckBox" name="chbMaxLifetime">
+                   <widget class="QCheckBox" name="chbFiltMaxLifetime">
                     <property name="font">
                      <font>
                       <pointsize>8</pointsize>
@@ -3550,7 +3550,7 @@
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QDoubleSpinBox" name="dsbMinLifetime">
+                   <widget class="QDoubleSpinBox" name="dsbFiltMinLifetime">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3585,7 +3585,7 @@
                    </widget>
                   </item>
                   <item row="1" column="0">
-                   <widget class="QCheckBox" name="chbMinLifetime">
+                   <widget class="QCheckBox" name="chbFiltMinLifetime">
                     <property name="font">
                      <font>
                       <pointsize>8</pointsize>
@@ -3602,7 +3602,7 @@
                    </widget>
                   </item>
                   <item row="1" column="1">
-                   <widget class="QDoubleSpinBox" name="dsbMaxLifetime">
+                   <widget class="QDoubleSpinBox" name="dsbFiltMaxLifetime">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3666,7 +3666,7 @@
                    </spacer>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnLifetimeDistribution">
+                   <widget class="QPushButton" name="btnFiltLifetimeDistribution">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                       <horstretch>0</horstretch>
@@ -3744,8 +3744,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>164</width>
-                 <height>65</height>
+                 <width>268</width>
+                 <height>114</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3762,7 +3762,7 @@
                 <item>
                  <layout class="QFormLayout" name="formLayout_5">
                   <item row="0" column="0">
-                   <widget class="QCheckBox" name="chbUseDW">
+                   <widget class="QCheckBox" name="chbFiltUseDW">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
                       <horstretch>0</horstretch>
@@ -3785,7 +3785,7 @@
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QComboBox" name="cmbDWTest">
+                   <widget class="QComboBox" name="cmbFiltDWTest">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -3851,7 +3851,7 @@
                    </spacer>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnDWDistribution">
+                   <widget class="QPushButton" name="btnFiltDWDistribution">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                       <horstretch>0</horstretch>
@@ -3929,8 +3929,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>221</width>
-                 <height>91</height>
+                 <width>268</width>
+                 <height>114</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3950,7 +3950,7 @@
                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                   </property>
                   <item row="0" column="0">
-                   <widget class="QCheckBox" name="chbMinChiSquared">
+                   <widget class="QCheckBox" name="chbFiltMinChiSquared">
                     <property name="font">
                      <font>
                       <pointsize>8</pointsize>
@@ -3967,7 +3967,7 @@
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QDoubleSpinBox" name="dsbMinChiSquared">
+                   <widget class="QDoubleSpinBox" name="dsbFiltMinChiSquared">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -4011,7 +4011,7 @@
                    </widget>
                   </item>
                   <item row="1" column="0">
-                   <widget class="QCheckBox" name="chbMaxChiSquared">
+                   <widget class="QCheckBox" name="chbFiltMaxChiSquared">
                     <property name="font">
                      <font>
                       <pointsize>8</pointsize>
@@ -4028,7 +4028,7 @@
                    </widget>
                   </item>
                   <item row="1" column="1">
-                   <widget class="QDoubleSpinBox" name="dsbMaxChiSquared">
+                   <widget class="QDoubleSpinBox" name="dsbFiltMaxChiSquared">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -4092,7 +4092,7 @@
                    </spacer>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnChiSquaredDistribution">
+                   <widget class="QPushButton" name="btnFiltChiSquaredDistribution">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                       <horstretch>0</horstretch>
@@ -4170,8 +4170,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>204</width>
-                 <height>91</height>
+                 <width>268</width>
+                 <height>114</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -4191,7 +4191,7 @@
                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                   </property>
                   <item row="0" column="0">
-                   <widget class="QCheckBox" name="chbMinIRFShift">
+                   <widget class="QCheckBox" name="chbFiltMinIRFShift">
                     <property name="font">
                      <font>
                       <pointsize>8</pointsize>
@@ -4208,7 +4208,7 @@
                    </widget>
                   </item>
                   <item row="0" column="1">
-                   <widget class="QDoubleSpinBox" name="dsbMinIRFShift">
+                   <widget class="QDoubleSpinBox" name="dsbFiltMinIRFShift">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -4252,7 +4252,7 @@
                    </widget>
                   </item>
                   <item row="1" column="0">
-                   <widget class="QCheckBox" name="chbMaxIRFShift">
+                   <widget class="QCheckBox" name="chbFiltMaxIRFShift">
                     <property name="font">
                      <font>
                       <pointsize>8</pointsize>
@@ -4269,7 +4269,7 @@
                    </widget>
                   </item>
                   <item row="1" column="1">
-                   <widget class="QDoubleSpinBox" name="dsbMaxIRFShift">
+                   <widget class="QDoubleSpinBox" name="dsbFiltMaxIRFShift">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -4333,7 +4333,7 @@
                    </spacer>
                   </item>
                   <item>
-                   <widget class="QPushButton" name="btnIRFShiftDistribution">
+                   <widget class="QPushButton" name="btnFiltIRFShiftDistribution">
                     <property name="sizePolicy">
                      <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                       <horstretch>0</horstretch>
@@ -4520,7 +4520,7 @@
                   </widget>
                  </item>
                  <item row="1" column="2">
-                  <widget class="QComboBox" name="cmbFeatureX">
+                  <widget class="QComboBox" name="cmbFiltFeatureX">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -4571,7 +4571,7 @@
                   </widget>
                  </item>
                  <item row="1" column="0">
-                  <widget class="QComboBox" name="cmbFeatureY">
+                  <widget class="QComboBox" name="cmbFiltFeatureY">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -4660,7 +4660,7 @@
                   </widget>
                  </item>
                  <item row="1" column="1">
-                  <widget class="QToolButton" name="tlbSwitchFeatures">
+                  <widget class="QToolButton" name="tlbFiltSwitchFeatures">
                    <property name="maximumSize">
                     <size>
                      <width>25</width>
@@ -4702,7 +4702,7 @@
                   </spacer>
                  </item>
                  <item>
-                  <widget class="QCheckBox" name="chbApplyAllFilters">
+                  <widget class="QCheckBox" name="chbFiltApplyAllFilters">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -4744,7 +4744,7 @@
                   </spacer>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="btnPlotTwoFeatures">
+                  <widget class="QPushButton" name="btnFiltPlotTwoFeatures">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
                      <horstretch>0</horstretch>
@@ -4865,7 +4865,7 @@
                 <number>3</number>
                </property>
                <item>
-                <widget class="QCheckBox" name="chbForceOrigin">
+                <widget class="QCheckBox" name="chbFiltForceOrigin">
                  <property name="maximumSize">
                   <size>
                    <width>200</width>
@@ -4891,7 +4891,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="btnFit_2">
+                <widget class="QPushButton" name="btnFiltFit">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
                    <horstretch>0</horstretch>
@@ -4951,7 +4951,7 @@
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_22">
               <item>
-               <widget class="QPushButton" name="btnApplyFilters">
+               <widget class="QPushButton" name="btnFiltApplyFilters">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -4992,7 +4992,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="btnResetFilters">
+               <widget class="QPushButton" name="btnFiltResetFilters">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -5033,7 +5033,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="btnResetAllFilters">
+               <widget class="QPushButton" name="btnFiltResetAllFilters">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -5081,7 +5081,7 @@
                <number>4</number>
               </property>
               <item>
-               <widget class="QCheckBox" name="chbOnlyDriftNormalization">
+               <widget class="QCheckBox" name="chbFiltOnlyDriftNormalization">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -5113,7 +5113,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QCheckBox" name="chbApplyNormalizationAll">
+               <widget class="QCheckBox" name="chbFiltApplyNormalizationAll">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -5145,7 +5145,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="btnApplyNormalization">
+               <widget class="QPushButton" name="btnFiltApplyNormalization">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
                   <horstretch>0</horstretch>
@@ -5186,7 +5186,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="btnResetNormalization">
+               <widget class="QPushButton" name="btnFiltResetNormalization">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
                   <horstretch>0</horstretch>

@@ -976,6 +976,14 @@ class IntController(QObject):
                 target_particle = particles[result_part_ind]
                 result.new_task_obj._particle = target_particle
                 result.new_task_obj._cpa._particle = target_particle
+                if result.new_task_obj.has_levels:
+                    for level in result.new_task_obj.levels:
+                        level._particle = target_particle
+                        level.microtimes._particle = target_particle
+                if result.new_task_obj._cpa.has_levels:
+                    for level in result.new_task_obj._cpa.levels:
+                        level._particle = target_particle
+                        level.microtimes._particle = target_particle
                 target_particle.cpts = result.new_task_obj
                 # target_particle
             self.results_gathered = True
@@ -2366,39 +2374,66 @@ class GroupingController(QObject):
         if type(results) is not list:
             results = [results]
         result_part_uuids = [result.new_task_obj.uuid for result in results]
-        particles_updated = []
+        # particles_updated = []
         try:
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
                 new_part = self.mainwindow.current_dataset.particles[result_part_ind]
                 new_part.level_selected = None
 
+                result_ahca = None
                 if new_part.has_levels:
                     result_ahca = result.new_task_obj
                     result_ahca._particle = new_part
                     result_ahca.best_step._particle = new_part
                     for step in result_ahca.steps:
                         step._particle = new_part
-                        for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                        for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups', 'group_levels']:
                             if hasattr(step, group_attr_name):
                                 group_attr = getattr(step, group_attr_name)
-                                if group_attr is not None:
-                                    for group in group_attr:
-                                        for ahc_lvl in group.lvls:
+                                for group in group_attr:
+                                    lvls = new_part
+                                    if group_attr_name == 'group_levels':
+                                        lvls = group_attr
+                                    else:
+                                        if hasattr(group, 'lvls'):
+                                            lvls = group.lvls
+                                    if lvls is not None:
+                                        for ahc_lvl in lvls:
+                                            if hasattr(ahc_lvl, '_particle'):
+                                                ahc_lvl._particle = new_part
+                                            if hasattr(ahc_lvl.microtimes, '_particle'):
+                                                ahc_lvl.microtimes._particle = new_part
                                             ahc_hist = ahc_lvl.histogram
                                             if hasattr(ahc_hist, '_particle'):
                                                 ahc_hist._particle = new_part
+                new_part.ahca = result_ahca
 
-                    new_part.ahca = result_ahca
+                # if new_part.has_levels:
+                #     result_ahca = result.new_task_obj
+                #     result_ahca._particle = new_part
+                #     result_ahca.best_step._particle = new_part
+                #     for step in result_ahca.steps:
+                #         step._particle = new_part
+                #         for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                #             if hasattr(step, group_attr_name):
+                #                 group_attr = getattr(step, group_attr_name)
+                #                 if group_attr is not None:
+                #                     for group in group_attr:
+                #                         for ahc_lvl in group.lvls:
+                #                             ahc_hist = ahc_lvl.histogram
+                #                             if hasattr(ahc_hist, '_particle'):
+                #                                 ahc_hist._particle = new_part
+                #
+                #     new_part.ahca = result_ahca
+
                 if new_part.has_groups:
                     new_part.makegrouphists()
                     new_part.makegrouplevelhists()
                     # new_part.using_group_levels = True
                     # new_part.makelevelhists()
                     # new_part.using_group_levels = False
-                particles_updated.append(new_part)
-            if self.mainwindow.chbGroup_Auto_Apply.isChecked():
-                self.apply_groups(particles=particles)
+                # particles_updated.append(new_part)
 
             # self.results_gathered = True
         except ValueError as e:
@@ -2411,7 +2446,9 @@ class GroupingController(QObject):
                 results.append(pickle.load(f))
         self.temp_dir.cleanup()
         self.temp_dir = None
-        self.gather_replace_results(results=results)
+        # self.gather_replace_results(results=results)
+        if self.mainwindow.chbGroup_Auto_Apply.isChecked():
+            self.apply_groups(particles=self.mainwindow.current_dataset.particles)
         self.mainwindow.current_dataset.has_groups = True
         if self.mainwindow.current_particle is not None:
             self.mainwindow.display_data()
@@ -3131,24 +3168,25 @@ class FilteringController(QObject):
     def __init__(self, main_window: MainWindow):
         super().__init__()
         self.main_window = main_window
+        mw = main_window
 
-        self.plot_widget = main_window.pgFilteringPlotWidget
+        self.plot_widget = mw.pgFilteringPlotWidget
         self.plot = self.plot_widget.getPlotItem()
         self.plot_widget.setBackground(background=None)
         self.plot_widget.setAntialiasing(True)
 
         self.option_linker = {
-            'min_photons': (main_window.chbMinPhotons, main_window.spnMinPhotons),
-            'min_intensity': (main_window.chbMinIntensity, main_window.dsbMinIntensity),
-            'max_intensity': (main_window.chbMaxIntensity, main_window.dsbMaxIntensity),
-            'min_lifetime': (main_window.chbMinLifetime, main_window.dsbMinLifetime),
-            'max_lifetime': (main_window.chbMaxLifetime, main_window.dsbMaxLifetime),
-            'use_dw': (main_window.chbUseDW, main_window.cmbDWTest),
-            'min_chi_squared': (main_window.chbMinChiSquared, main_window.dsbMinChiSquared),
-            'max_chi_squared': (main_window.chbMaxChiSquared, main_window.dsbMaxChiSquared),
-            'min_irf_shift': (main_window.chbMinIRFShift, main_window.dsbMinIRFShift),
-            'max_irf_shift': (main_window.chbMaxIRFShift, main_window.dsbMaxIRFShift),
-            'force_through_origin': (main_window.chbForceOrigin, None),
+            'min_photons': (mw.chbFiltMinPhotons, mw.spnFiltMinPhotons),
+            'min_intensity': (mw.chbFiltMinIntensity, mw.dsbFiltMinIntensity),
+            'max_intensity': (mw.chbFiltMaxIntensity, mw.dsbFiltMaxIntensity),
+            'min_lifetime': (mw.chbFiltMinLifetime, mw.dsbFiltMinLifetime),
+            'max_lifetime': (mw.chbFiltMaxLifetime, mw.dsbFiltMaxLifetime),
+            'use_dw': (mw.chbFiltUseDW, mw.cmbFiltDWTest),
+            'min_chi_squared': (mw.chbFiltMinChiSquared, mw.dsbFiltMinChiSquared),
+            'max_chi_squared': (mw.chbFiltMaxChiSquared, mw.dsbFiltMaxChiSquared),
+            'min_irf_shift': (mw.chbFiltMinIRFShift, mw.dsbFiltMinIRFShift),
+            'max_irf_shift': (mw.chbFiltMaxIRFShift, mw.dsbFiltMaxIRFShift),
+            'force_through_origin': (mw.chbFiltForceOrigin, None),
         }
 
         for option, check_box_and_value_object in self.option_linker.items():
@@ -3156,28 +3194,28 @@ class FilteringController(QObject):
             if value_object is not None:
                 check_box.stateChanged.connect((lambda opt: lambda: self.filter_option_changed(option=opt))(option))
 
-        main_window.btnPhotonNumberDistribution.clicked \
+        mw.btnFiltPhotonNumberDistribution.clicked \
             .connect(lambda: self.plot_features(feature_x=PlotFeature.PhotonNumber))
-        main_window.btnIntensityDistribution.clicked \
+        mw.btnFiltIntensityDistribution.clicked \
             .connect(lambda: self.plot_features(feature_x=PlotFeature.Intensity))
-        main_window.btnLifetimeDistribution.clicked \
+        mw.btnFiltLifetimeDistribution.clicked \
             .connect(lambda: self.plot_features(feature_x=PlotFeature.Lifetime))
-        main_window.btnDWDistribution.clicked \
+        mw.btnFiltDWDistribution.clicked \
             .connect(lambda: self.plot_features(feature_x=PlotFeature.DW))
-        main_window.btnChiSquaredDistribution.clicked \
+        mw.btnFiltChiSquaredDistribution.clicked \
             .connect(lambda: self.plot_features(feature_x=PlotFeature.ChiSquared))
-        main_window.btnIRFShiftDistribution.clicked \
+        mw.btnFiltIRFShiftDistribution.clicked \
             .connect(lambda: self.plot_features(feature_x=PlotFeature.IRFShift))
 
         filter_nums = [
-            main_window.spnMinPhotons, main_window.dsbMinIntensity, main_window.dsbMaxIntensity,
-            main_window.dsbMinLifetime, main_window.dsbMaxLifetime, main_window.dsbMinChiSquared,
-            main_window.dsbMaxChiSquared, main_window.dsbMinIRFShift, main_window.dsbMaxIRFShift
+            mw.spnFiltMinPhotons, mw.dsbFiltMinIntensity, mw.dsbFiltMaxIntensity,
+            mw.dsbFiltMinLifetime, mw.dsbFiltMaxLifetime, mw.dsbFiltMinChiSquared,
+            mw.dsbFiltMaxChiSquared, mw.dsbFiltMinIRFShift, mw.dsbFiltMaxIRFShift
         ]
 
         for num_control in filter_nums:
             num_control.valueChanged.connect(lambda: self.plot_features(use_current_plot=True))
-        main_window.cmbDWTest.currentTextChanged.connect(lambda: self.plot_features(use_current_plot=True))
+        mw.cmbFiltDWTest.currentTextChanged.connect(lambda: self.plot_features(use_current_plot=True))
 
         self.current_plot_type = (None, None)  # (PlotFeature.Intensity, PlotFeature.Lifetime)
         self.current_particles_to_use = None
@@ -3190,27 +3228,27 @@ class FilteringController(QObject):
 
         self.setup_plot(*self.current_plot_type, clear_plot=False, is_first_setup=True)
 
-        main_window.cmbFeatureX.currentTextChanged.connect(lambda: self.two_features_changed(x_changed=True))
-        main_window.cmbFeatureY.currentTextChanged.connect(lambda: self.two_features_changed(x_changed=False))
-        main_window.tlbSwitchFeatures.clicked.connect(lambda: self.switch_two_features())
-        main_window.btnPlotTwoFeatures.clicked.connect(lambda: self.plot_features(use_selected_two_features=True))
-        main_window.btnFit.clicked.connect(self.fit_intensity_lifetime)
+        mw.cmbFiltFeatureX.currentTextChanged.connect(lambda: self.two_features_changed(x_changed=True))
+        mw.cmbFiltFeatureY.currentTextChanged.connect(lambda: self.two_features_changed(x_changed=False))
+        mw.tlbFiltSwitchFeatures.clicked.connect(lambda: self.switch_two_features())
+        mw.btnFiltPlotTwoFeatures.clicked.connect(lambda: self.plot_features(use_selected_two_features=True))
+        mw.btnFiltFit.clicked.connect(self.fit_intensity_lifetime)
 
-        main_window.chbAutoNumBins.stateChanged.connect(self.auto_num_bins_changed)
-        main_window.spnNumBins.valueChanged.connect(lambda: self.plot_features(use_current_plot=True))
+        mw.chbFiltAutoNumBins.stateChanged.connect(self.auto_num_bins_changed)
+        mw.spnFiltNumBins.valueChanged.connect(lambda: self.plot_features(use_current_plot=True))
 
-        main_window.cmbParticlesToUse.currentTextChanged.connect(lambda: self.plot_features(use_current_plot=True))
-        main_window.cmbUseResolvedOrGrouped.currentTextChanged.connect(
+        mw.cmbFiltParticlesToUse.currentTextChanged.connect(lambda: self.plot_features(use_current_plot=True))
+        mw.cmbFiltUseResolvedOrGrouped.currentTextChanged.connect(
             lambda: self.plot_features(use_current_plot=True))
-        main_window.chbUseROI.stateChanged.connect(lambda: self.plot_features(use_current_plot=True))
+        mw.chbFiltUseROI.stateChanged.connect(lambda: self.plot_features(use_current_plot=True))
 
-        main_window.chbApplyAllFilters.stateChanged.connect(lambda: self.plot_features(use_current_plot=True))
+        mw.chbFiltApplyAllFilters.stateChanged.connect(lambda: self.plot_features(use_current_plot=True))
 
-        main_window.btnApplyFilters.clicked.connect(self.apply_filters)
-        main_window.btnApplyNormalization.clicked.connect(self.apply_normalization)
-        main_window.btnResetFilters.clicked.connect(self.reset_filters)
-        main_window.btnResetAllFilters.clicked.connect(self.reset_dataset_filter)
-        main_window.btnResetNormalization.clicked.connect(self.reset_normalization)
+        mw.btnFiltApplyFilters.clicked.connect(self.apply_filters)
+        mw.btnFiltApplyNormalization.clicked.connect(self.apply_normalization)
+        mw.btnFiltResetFilters.clicked.connect(self.reset_filters)
+        mw.btnFiltResetAllFilters.clicked.connect(self.reset_dataset_filter)
+        mw.btnFiltResetNormalization.clicked.connect(self.reset_normalization)
 
         self.plot_pen = QPen()
         self.plot_pen.setCosmetic(True)
@@ -3289,11 +3327,11 @@ class FilteringController(QObject):
         self.plot_features(*self.current_plot_type)
 
     def auto_num_bins_changed(self):
-        self.main_window.spnNumBins.setEnabled(not self.main_window.chbAutoNumBins.isChecked())
+        self.main_window.spnFiltNumBins.setEnabled(not self.main_window.chbFiltAutoNumBins.isChecked())
         self.plot_features(*self.current_plot_type)
 
     def get_two_features(self) -> tuple:
-        return self.main_window.cmbFeatureX.currentText(), self.main_window.cmbFeatureY.currentText()
+        return self.main_window.cmbFiltFeatureX.currentText(), self.main_window.cmbFiltFeatureY.currentText()
 
     def change_plot_type(self, feature_x: Union[PlotFeature, str] = None, feature_y: Union[PlotFeature, str] = None):
         if feature_x is None and feature_y is None:
@@ -3302,7 +3340,7 @@ class FilteringController(QObject):
 
     def set_levels_to_use(self):
         particles_changed = False
-        particles_to_use = self.main_window.cmbParticlesToUse.currentText()
+        particles_to_use = self.main_window.cmbFiltParticlesToUse.currentText()
         if particles_to_use != self.current_particles_to_use:
             particles = list()
             if particles_to_use == 'Current':
@@ -3316,16 +3354,16 @@ class FilteringController(QObject):
             self.current_particles_to_use = particles_to_use
             particles_changed = True
 
-        data_points_to_use = self.main_window.cmbUseResolvedOrGrouped.currentText()
+        data_points_to_use = self.main_window.cmbFiltUseResolvedOrGrouped.currentText()
         if data_points_to_use != self.current_data_points_to_use or particles_changed:
             particles = self.current_particles
             if data_points_to_use == 'Grouped':
-                if not self.main_window.chbUseROI.isChecked():
+                if not self.main_window.chbFiltUseROI.isChecked():
                     levels = [particle.group_levels for particle in particles if particle.has_groups]
                 else:
                     levels = [particle.group_levels_roi for particle in particles if particle.has_groups]
             else:
-                if not self.main_window.chbUseROI.isChecked():
+                if not self.main_window.chbFiltUseROI.isChecked():
                     levels = [particle.cpts.levels for particle in particles if particle.has_levels]
                 else:
                     levels = [particle.levels_roi_force for particle in particles if particle.has_levels]
@@ -3349,8 +3387,8 @@ class FilteringController(QObject):
     def two_features_changed(self, x_changed: bool = None):
         if x_changed is None:
             raise ValueError('No argument provided.')
-        feature_changed_cmb = self.main_window.cmbFeatureX if x_changed else self.main_window.cmbFeatureY
-        other_feature_cmb = self.main_window.cmbFeatureY if x_changed else self.main_window.cmbFeatureX
+        feature_changed_cmb = self.main_window.cmbFiltFeatureX if x_changed else self.main_window.cmbFiltFeatureY
+        other_feature_cmb = self.main_window.cmbFiltFeatureY if x_changed else self.main_window.cmbFiltFeatureX
 
         feature_changed_cmb.blockSignals(True)
         other_feature_cmb.blockSignals(True)
@@ -3377,8 +3415,8 @@ class FilteringController(QObject):
             self.plot_features(use_current_plot=True)
 
     def switch_two_features(self):
-        selected_feature_x = self.main_window.cmbFeatureX.currentText()
-        selected_feature_y = self.main_window.cmbFeatureY.currentText()
+        selected_feature_x = self.main_window.cmbFiltFeatureX.currentText()
+        selected_feature_y = self.main_window.cmbFiltFeatureY.currentText()
         items_x = PlotFeature.get_dict()
         _ = items_x.pop(selected_feature_y)
         items_y = PlotFeature.get_dict()
@@ -3387,17 +3425,17 @@ class FilteringController(QObject):
         selected_feature_x, selected_feature_y = selected_feature_y, selected_feature_x
         items_x, items_y = items_y, items_x
 
-        self.main_window.cmbFeatureX.blockSignals(True)
-        self.main_window.cmbFeatureX.clear()
-        self.main_window.cmbFeatureX.addItems(items_x)
-        self.main_window.cmbFeatureX.setCurrentText(selected_feature_x)
-        self.main_window.cmbFeatureX.blockSignals(False)
+        self.main_window.cmbFiltFeatureX.blockSignals(True)
+        self.main_window.cmbFiltFeatureX.clear()
+        self.main_window.cmbFiltFeatureX.addItems(items_x)
+        self.main_window.cmbFiltFeatureX.setCurrentText(selected_feature_x)
+        self.main_window.cmbFiltFeatureX.blockSignals(False)
 
-        self.main_window.cmbFeatureY.blockSignals(True)
-        self.main_window.cmbFeatureY.clear()
-        self.main_window.cmbFeatureY.addItems(items_y)
-        self.main_window.cmbFeatureY.setCurrentText(selected_feature_y)
-        self.main_window.cmbFeatureY.blockSignals(False)
+        self.main_window.cmbFiltFeatureY.blockSignals(True)
+        self.main_window.cmbFiltFeatureY.clear()
+        self.main_window.cmbFiltFeatureY.addItems(items_y)
+        self.main_window.cmbFiltFeatureY.setCurrentText(selected_feature_y)
+        self.main_window.cmbFiltFeatureY.blockSignals(False)
 
         self.plot_features(use_selected_two_features=True)
 
@@ -3419,8 +3457,8 @@ class FilteringController(QObject):
                 if not use_current_plot and (feature_x is not None or feature_y is not None):
                     raise ValueError('Use selected two features excludes provided features')
                 else:
-                    feature_x = self.main_window.cmbFeatureX.currentText()
-                    feature_y = self.main_window.cmbFeatureY.currentText()
+                    feature_x = self.main_window.cmbFiltFeatureX.currentText()
+                    feature_y = self.main_window.cmbFiltFeatureY.currentText()
             else:
                 if feature_x is None and feature_y is not None:
                     raise ValueError('Can not provide only a plot feature for the Y-Axis')
@@ -3508,11 +3546,12 @@ class FilteringController(QObject):
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
-                feature_data=feature_data, are_used_flags=are_used_flags,
-                test_min=self.main_window.chbMinIntensity.isChecked(),
-                test_max=self.main_window.chbMaxIntensity.isChecked(),
-                min_value=self.main_window.dsbMinIntensity.value(),
-                max_value=self.main_window.dsbMaxIntensity.value())
+                feature_data=feature_data,
+                are_used_flags=are_used_flags,
+                test_min=self.main_window.chbFiltMinIntensity.isChecked(),
+                test_max=self.main_window.chbFiltMaxIntensity.isChecked(),
+                min_value=self.main_window.dsbFiltMinIntensity.value(),
+                max_value=self.main_window.dsbFiltMaxIntensity.value())
             are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
             is_intensity_or_histogram = 'level'
 
@@ -3525,11 +3564,12 @@ class FilteringController(QObject):
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
-                feature_data=feature_data, are_used_flags=are_used_flags,
-                test_min=self.main_window.chbMinLifetime.isChecked(),
-                test_max=self.main_window.chbMaxLifetime.isChecked(),
-                min_value=self.main_window.dsbMinLifetime.value(),
-                max_value=self.main_window.dsbMaxLifetime.value())
+                feature_data=feature_data,
+                are_used_flags=are_used_flags,
+                test_min=self.main_window.chbFiltMinLifetime.isChecked(),
+                test_max=self.main_window.chbFiltMaxLifetime.isChecked(),
+                min_value=self.main_window.dsbFiltMinLifetime.value(),
+                max_value=self.main_window.dsbFiltMaxLifetime.value())
             are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
             is_intensity_or_histogram = 'histogram'
 
@@ -3540,8 +3580,8 @@ class FilteringController(QObject):
                  for histogram, is_used in zip(histograms, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
-            if self.main_window.chbUseDW.isChecked():
-                selected_dw_test = self.main_window.cmbDWTest.currentText()
+            if self.main_window.chbFiltUseDW.isChecked():
+                selected_dw_test = self.main_window.cmbFiltDWTest.currentText()
                 dw_ind = None
                 if selected_dw_test == '5%':
                     dw_ind = 0
@@ -3570,9 +3610,10 @@ class FilteringController(QObject):
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
                 feature_data=feature_data, are_used_flags=are_used_flags,
-                test_min=self.main_window.chbMinIRFShift.isChecked(),
-                test_max=self.main_window.chbMaxIRFShift.isChecked(), min_value=self.main_window.dsbMinIRFShift.value(),
-                max_value=self.main_window.dsbMaxIRFShift.value())
+                test_min=self.main_window.chbFiltMinIRFShift.isChecked(),
+                test_max=self.main_window.chbFiltMaxIRFShift.isChecked(),
+                min_value=self.main_window.dsbFiltMinIRFShift.value(),
+                max_value=self.main_window.dsbFiltMaxIRFShift.value())
             are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
             is_intensity_or_histogram = 'histogram'
 
@@ -3583,11 +3624,12 @@ class FilteringController(QObject):
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
-                feature_data=feature_data, are_used_flags=are_used_flags,
-                test_min=self.main_window.chbMinChiSquared.isChecked(),
-                test_max=self.main_window.chbMaxChiSquared.isChecked(),
-                min_value=self.main_window.dsbMinChiSquared.value(),
-                max_value=self.main_window.dsbMaxChiSquared.value())
+                feature_data=feature_data,
+                are_used_flags=are_used_flags,
+                test_min=self.main_window.chbFiltMinChiSquared.isChecked(),
+                test_max=self.main_window.chbFiltMaxChiSquared.isChecked(),
+                min_value=self.main_window.dsbFiltMinChiSquared.value(),
+                max_value=self.main_window.dsbFiltMaxChiSquared.value())
             are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
             is_intensity_or_histogram = 'histogram'
 
@@ -3646,19 +3688,19 @@ class FilteringController(QObject):
         if feature_data is not None:
             self.set_limits(feature_x=feature)
 
-            is_auto_num_bins = self.main_window.chbAutoNumBins.isChecked()
+            is_auto_num_bins = self.main_window.chbFiltAutoNumBins.isChecked()
             if is_auto_num_bins:
                 bin_edges = 'auto'
             else:
-                num_bins = self.main_window.spnNumBins.value()
+                num_bins = self.main_window.spnFiltNumBins.value()
                 bin_edges = np.histogram_bin_edges(feature_data, num_bins)
 
             bin_edges, hist_data = np.histogram(feature_data, bins=bin_edges, density=False)
 
             if is_auto_num_bins:
-                self.main_window.spnNumBins.blockSignals(True)
-                self.main_window.spnNumBins.setValue(len(bin_edges))
-                self.main_window.spnNumBins.blockSignals(False)
+                self.main_window.spnFiltNumBins.blockSignals(True)
+                self.main_window.spnFiltNumBins.setValue(len(bin_edges))
+                self.main_window.spnFiltNumBins.blockSignals(False)
 
             self.distribution_item.setData(x=hist_data, y=bin_edges)
 
@@ -3681,7 +3723,7 @@ class FilteringController(QObject):
 
         not_nan_values = (~np.isnan(featured_x_data)) & (~np.isnan(featured_y_data))
         did_all_filter = False
-        if self.main_window.chbApplyAllFilters.isChecked():
+        if self.main_window.chbFiltApplyAllFilters.isChecked():
             all_filter = self.get_all_filter()
             did_all_filter = np.sum(all_filter) < np.sum(not_nan_values)
             not_nan_values &= all_filter
@@ -3697,7 +3739,7 @@ class FilteringController(QObject):
         else:
             num_data_filtered = np.sum(not_nan_values)
             num_datapoints_text = f'# Datapoints: {num_data_filtered} ({num_data} unfiltered)'
-        self.main_window.lblNumDatapoints.setText(num_datapoints_text)
+        self.main_window.lblFiltNumDatapoints.setText(num_datapoints_text)
 
         if (feature_x, feature_y) == (PlotFeature.Intensity, PlotFeature.Lifetime) and self.has_fit:
             self.plot_fit_result()
@@ -3708,24 +3750,24 @@ class FilteringController(QObject):
         if (feature_x, feature_y) != (PlotFeature.Intensity, PlotFeature.Lifetime):
             self.plot_features(feature_x=PlotFeature.Intensity, feature_y=PlotFeature.Lifetime)
             feature_x, feature_y = (PlotFeature.Intensity, PlotFeature.Lifetime)
-            self.main_window.cmbFeatureX.blockSignals(True)
-            self.main_window.cmbFeatureY.blockSignals(True)
+            self.main_window.cmbFiltFeatureX.blockSignals(True)
+            self.main_window.cmbFiltFeatureY.blockSignals(True)
 
             other_x_features = PlotFeature.get_dict()
             _ = other_x_features.pop(feature_x)
             other_y_features = PlotFeature.get_dict()
             _ = other_y_features.pop(feature_y)
 
-            self.main_window.cmbFeatureX.clear()
-            self.main_window.cmbFeatureX.addItems(other_y_features.keys())
-            self.main_window.cmbFeatureX.setCurrentText(feature_x)
+            self.main_window.cmbFiltFeatureX.clear()
+            self.main_window.cmbFiltFeatureX.addItems(other_y_features.keys())
+            self.main_window.cmbFiltFeatureX.setCurrentText(feature_x)
 
-            self.main_window.cmbFeatureY.clear()
-            self.main_window.cmbFeatureY.addItems(other_x_features.keys())
-            self.main_window.cmbFeatureY.setCurrentText(feature_y)
+            self.main_window.cmbFiltFeatureY.clear()
+            self.main_window.cmbFiltFeatureY.addItems(other_x_features.keys())
+            self.main_window.cmbFiltFeatureY.setCurrentText(feature_y)
 
-            self.main_window.cmbFeatureX.blockSignals(False)
-            self.main_window.cmbFeatureY.blockSignals(False)
+            self.main_window.cmbFiltFeatureX.blockSignals(False)
+            self.main_window.cmbFiltFeatureY.blockSignals(False)
 
     def plot_fit_result(self):
         assert self.has_fit, "No fit to plot"
@@ -3754,11 +3796,11 @@ class FilteringController(QObject):
         fit_result_text = f"Fit: tau = ({slope:.3e} +- {slope_err:.1e})*int"
         fit_result_text += f" + ({intercept:.3e} +- {intercept_err:.1e})" if has_intercept else ''
         fit_result_text += f"  with R^2 = {rsquared:.3f}"
-        self.main_window.lblResults.setText(fit_result_text)
+        self.main_window.lblFiltResults.setText(fit_result_text)
 
     def fit_intensity_lifetime(self):
         self.prepare_plot_for_int_lifetime_fit()
-        force_origin = self.main_window.chbForceOrigin.isChecked()
+        force_origin = self.main_window.chbFiltForceOrigin.isChecked()
         int_data, lifetime_data = self.two_feature_item.getData()
         df = pd.DataFrame(data={'int': int_data, 'tau': lifetime_data})
         formula = 'tau ~ int + 0' if force_origin else 'tau ~ int'
@@ -3790,12 +3832,12 @@ class FilteringController(QObject):
         all_filters = self.get_all_filter()
         for level, level_filter in zip(self.levels_to_use, all_filters):
             level.is_filtered_out = not level_filter
-        self.main_window.lblResults.setText('Filters Applied')
+        self.main_window.lblFiltResults.setText('Filters Applied')
 
     def reset_filters(self):
         for level in self.levels_to_use:
             level.is_filtered_out = False
-        self.main_window.lblResults.setText('Filters Reset')
+        self.main_window.lblFiltResults.setText('Filters Reset')
 
     def reset_dataset_filter(self):
         for particle in self.main_window.current_dataset.particles:
@@ -3806,11 +3848,11 @@ class FilteringController(QObject):
                     for step in particle.ahca.steps:
                         for group_level in step.group_levels:
                             group_level.is_filtered_out = False
-        self.lblResults.setText('All Filters Reset')
+        self.lblFiltResults.setText('All Filters Reset')
 
     def get_all_levels_with_lifetime(self) -> list:
         levels = list()
-        if not self.main_window.chbApplyNormalizationAll.isChecked():
+        if not self.main_window.chbFiltApplyNormalizationAll.isChecked():
             levels = self.levels_to_use
         else:
             for particle in self.main_window.current_dataset.particles:
@@ -3837,7 +3879,7 @@ class FilteringController(QObject):
         fit_result = self.fit_result
         intercept = fit_result['intercept']
         intercept = 0 if intercept is None else intercept
-        only_drift = self.main_window.chbOnlyDriftNormalization.isChecked()
+        only_drift = self.main_window.chbFiltOnlyDriftNormalization.isChecked()
 
         levels_to_norm = self.get_all_levels_with_lifetime()
 
@@ -3860,5 +3902,5 @@ class FilteringController(QObject):
             level.is_normalized = True
 
         self.is_normalized = True
-        self.main_window.lblResults.setText('Applied Normalization')
+        self.main_window.lblFiltResults.setText('Applied Normalization')
         self.plot_features(use_current_plot=True)

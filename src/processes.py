@@ -1,4 +1,5 @@
 from __future__ import annotations
+import dbg
 import multiprocessing as mp
 from multiprocessing import managers
 from enum import IntEnum, auto
@@ -29,6 +30,8 @@ if TYPE_CHECKING:
 
 logger = setup_logger(__name__)
 orig_AutoProxy = managers.AutoProxy
+
+
 
 
 @wraps(managers.AutoProxy)
@@ -380,8 +383,16 @@ class SingleProcess(mp.Process):
                     if task.method_name == 'run_cpa':
                         task.obj._particle = None
                         task.obj._cpa._particle = None
+                        if task.obj.has_levels:
+                            for level in task.obj.levels:
+                                level._particle = None
+                                level.microtimes._particle = None
+                        if task.obj._cpa.has_levels:
+                            for level in task.obj._cpa.levels:
+                                level._particle = None
+                                level.microtimes._particle = None
                     elif task.method_name == "run_grouping":
-                        dont_send = True
+                        # dont_send = True
                         task_name = task.obj._particle.name
                         if task.obj._particle.is_secondary_part:
                             task_name = task_name + '_2'
@@ -389,24 +400,34 @@ class SingleProcess(mp.Process):
                             task.obj.best_step._particle = None
                             for step in task.obj.steps:
                                 step._particle = None
-                                for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups']:
+                                for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups', 'group_levels']:
                                     if hasattr(step, group_attr_name):
                                         group_attr = getattr(step, group_attr_name)
-                                        if group_attr is not None:
-                                            for group in group_attr:
-                                                for ahc_lvl in group.lvls:
+                                        for group in group_attr:
+                                            lvls = None
+                                            if group_attr_name == 'group_levels':
+                                                lvls = group_attr
+                                            else:
+                                                if hasattr(group, 'lvls'):
+                                                    lvls = group.lvls
+                                            if lvls is not None:
+                                                for ahc_lvl in lvls:
+                                                    if hasattr(ahc_lvl, '_particle'):
+                                                        ahc_lvl._particle = None
+                                                    if hasattr(ahc_lvl.microtimes, '_particle'):
+                                                        ahc_lvl.microtimes._particle = None
                                                     ahc_hist = ahc_lvl.histogram
                                                     if hasattr(ahc_hist, '_particle'):
                                                         ahc_hist._particle = None
                         task.obj._particle = None
-                        assert self._temp_dir is not None, "temp_folder has not been set"
-                        assert task_name is not None, "task_name has not been set"
-                        file_path = os.path.join(self._temp_dir.name, task_name)
-                        pickle_result = ProcessTaskResult(task_uuid=task.uuid,
-                                                          task_return=task_return,
-                                                          new_task_obj=task.obj)
-                        with open(file_path, 'wb') as f:
-                            pickle.dump(obj=pickle_result, file=f)
+                        # assert self._temp_dir is not None, "temp_folder has not been set"
+                        # assert task_name is not None, "task_name has not been set"
+                        # file_path = os.path.join(self._temp_dir.name, task_name)
+                        # pickle_result = ProcessTaskResult(task_uuid=task.uuid,
+                        #                                   task_return=task_return,
+                        #                                   new_task_obj=task.obj)
+                        # with open(file_path, 'wb') as f:
+                        #     pickle.dump(obj=pickle_result, file=f)
                     elif task.method_name == 'fit_part_and_levels':
                         task.obj.part_hist._particle = None
                         task.obj.part_hist.microtimes = None

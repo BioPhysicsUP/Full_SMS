@@ -68,14 +68,14 @@ class Group:
     def group_times_ns(self):
         times_ns = np.array([])
         for level in self.lvls:
-            times_ns = np.append(level.times_ns)
+            times_ns = np.append(times_ns, level.times_ns)
         return times_ns
 
     @property
     def group_microtimes(self):
         microtimes = np.array([])
         for level in self.lvls:
-            times_ns = np.append(level.microtimes)
+            microtimes = np.append(microtimes, level.microtimes)
         return microtimes
 
 
