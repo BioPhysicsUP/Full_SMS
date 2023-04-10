@@ -12,12 +12,13 @@ import ast
 import os
 import re
 import traceback
-from typing import List, Union, TYPE_CHECKING, Tuple
+from typing import List, Union, TYPE_CHECKING, Tuple, Any
 from uuid import uuid1
 
 import h5pickle
 import h5py
 import numpy as np
+from numpy import ndarray
 from pyqtgraph import ScatterPlotItem, SpotItem
 
 import dbg
@@ -712,7 +713,8 @@ class Particle:
 
         return ints, times
 
-    def lifetimes2data(self, use_grouped: bool = None, use_roi: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def lifetimes2data(self, use_grouped: bool = None, use_roi: bool = False, return_is_consecutive: bool = False)\
+            -> tuple[ndarray, ndarray] | tuple[ndarray, ndarray, list[Any]]:
         """
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
@@ -750,7 +752,11 @@ class Particle:
         )
         lifetimes = lifetimes.flatten()
 
-        return lifetimes, times
+        if not return_is_consecutive:
+            return lifetimes, times
+        else:
+            is_consecutive = [level.histogram.fitted for level in levels]
+            return lifetimes, times, is_consecutive
 
     def current2data(self, level_ind: int, use_roi: bool = False) -> [np.ndarray, np.ndarray]:
         """

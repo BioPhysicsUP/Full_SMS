@@ -86,54 +86,44 @@ def export_plot_item(plot_item: pg.PlotItem, path: str, text: str = None):
 
 class IntController(QObject):
 
-    def __init__(self, mainwindow: MainWindow,
-                 int_widget: pg.PlotWidget,
-                 int_hist_container: QWidget,
-                 int_hist_line: QFrame,
-                 int_hist_widget: pg.PlotWidget,
-                 lifetime_widget: pg.PlotWidget,
-                 groups_int_widget: pg.PlotWidget,
-                 groups_hist_widget: pg.PlotWidget,
-                 level_info_container: QWidget,
-                 level_info_text: QTextBrowser,
-                 int_level_line: QFrame):
+    def __init__(self, mainwindow: MainWindow):
         super().__init__()
         self.mainwindow = mainwindow
         self.resolve_mode = None
         self.results_gathered = False
 
-        self.int_widget = int_widget
-        self.int_plot = int_widget.getPlotItem()
+        self.int_widget = self.mainwindow.pgIntensity_PlotWidget
+        self.int_plot = self.int_widget.getPlotItem()
 
         self.setup_widget(self.int_widget)
         self.setup_plot(self.int_plot)
 
-        self.int_hist_container = int_hist_container
+        self.int_hist_container = self.mainwindow.wdgInt_Hist_Container
         self.show_int_hist = self.mainwindow.chbInt_Show_Hist.isChecked()
-        self.int_hist_line = int_hist_line
-        self.int_hist_widget = int_hist_widget
-        self.int_hist_plot = int_hist_widget.getPlotItem()
+        self.int_hist_line = self.mainwindow.lineInt_Hist
+        self.int_hist_widget = self.mainwindow.pgInt_Hist_PlotWidget
+        self.int_hist_plot = self.int_hist_widget.getPlotItem()
         self.setup_widget(self.int_hist_widget)
         self.setup_plot(self.int_hist_plot, is_int_hist=True)
 
-        self.lifetime_widget = lifetime_widget
-        self.lifetime_plot = lifetime_widget.getPlotItem()
+        self.lifetime_widget = self.mainwindow.pgLifetime_Int_PlotWidget
+        self.lifetime_plot = self.lifetime_widget.getPlotItem()
         self.setup_widget(self.lifetime_widget)
         self.setup_plot(self.lifetime_plot)
 
-        self.group_int_widget = groups_int_widget
-        self.groups_int_plot = groups_int_widget.getPlotItem()
+        self.group_int_widget = self.mainwindow.pgGroups_Int_PlotWidget
+        self.groups_int_plot = self.groups_int_widget.getPlotItem()
         self.setup_widget(self.group_int_widget)
         self.setup_plot(self.groups_int_plot)
 
-        self.groups_hist_widget = groups_hist_widget
-        self.groups_hist_plot = groups_hist_widget.getPlotItem()
+        self.groups_hist_widget = self.mainwindow.pgGroups_Hist_PlotWidget
+        self.groups_hist_plot = self.groups_hist_widget.getPlotItem()
         self.setup_widget(self.groups_hist_widget)
         self.setup_plot(self.groups_hist_plot, is_group_hist=True)
 
-        self.int_level_info_container = level_info_container
-        self.level_info_text = level_info_text
-        self.int_level_line = int_level_line
+        self.int_level_info_container = self.mainwindow.wdgInt_Level_Info_Container
+        self.level_info_text = self.mainwindow.txtLevelInfoInt
+        self.int_level_line = self.mainwindow.lineInt_Level
         self.show_level_info = self.mainwindow.chbInt_Show_Level_Info.isChecked()
         self.hide_show_chb(chb_obj=self.mainwindow.chbInt_Show_Level_Info, show=False)
         mw_bg_colour = self.mainwindow.palette().color(QPalette.Background)
@@ -595,6 +585,66 @@ class IntController(QObject):
                 plot_pen.setColor(QColor(0, 0, 0, 100))
             else:
                 return
+
+            # plot_pen.brush()
+            plot_pen.setJoinStyle(Qt.RoundJoin)
+            plot_pen.setCosmetic(True)
+
+            curve = plot_item.plot(x=times, y=level_ints, pen=plot_pen, symbol=None)
+        else:
+            self.temp_ax['int_ax'].plot(times, level_ints, linewidth=0.7)
+            self.temp_fig.suptitle(f"{particle.name} Intensity Trace with Levels")
+            self.plot_hist(particle=particle,
+                           for_export=True,
+                           export_path=export_path,
+                           for_levels=True)
+
+        if not for_export and (cur_tab_name == 'tabLifetime' or cur_tab_name == 'tabIntensity'):
+            current_level = particle.level_selected
+            if current_level is not None:
+                if current_level <= particle.num_levels - 1:
+                    current_ints, current_times = particle.current2data(current_level)
+                else:
+                    current_group = current_level - particle.num_levels
+                    current_ints, current_times = particle.current_group2data(current_group)
+                current_ints = current_ints * self.get_bin() / 1E3
+
+                if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
+                    level_plot_pen = QPen()
+                    level_plot_pen.setCosmetic(True)
+                    level_plot_pen.setJoinStyle(Qt.RoundJoin)
+                    level_plot_pen.setColor(QColor('red'))
+                    level_plot_pen.setWidthF(3)
+                    plot_item.plot(x=current_times, y=current_ints, pen=level_plot_pen, symbol=None)
+                else:
+                    logger.info('Infinity in level')
+        if lock:
+            self.mainwindow.lock.release()
+
+    def plot_lifetimes(self, particle: Particle = None,
+                       for_export: bool = False,
+                       export_path: str = None,
+                       lock: bool = False):
+        """ Used to plot the resolved intensity levels of the current particle. """
+        if type(export_path) is bool:
+            lock = export_path
+            export_path = None
+        if particle is None:
+            particle = self.mainwindow.current_particle
+        if not particle.has_fit_a_lifetime:
+            return
+        try:
+            use_roi = self.mainwindow.chbInt_Show_ROI.isChecked()
+            lifetimes, times, is_consecutive = particle.lifetimes2data(use_roi=use_roi, return_is_consecutive=True)
+        except AttributeError:
+            logger.error('No levels!')
+
+        if not for_export:
+            plot_pen = QPen()
+            plot_item = self.int_plot
+            # pen_width = 1.5
+            plot_pen.setWidthF(1.5)
+            plot_pen.setColor(QColor('black'))
 
             # plot_pen.brush()
             plot_pen.setJoinStyle(Qt.RoundJoin)
@@ -1119,19 +1169,17 @@ class IntController(QObject):
 class LifetimeController(QObject):
 
     def __init__(self,
-                 mainwindow: MainWindow,
-                 lifetime_hist_widget: pg.PlotWidget,
-                 residual_widget: pg.PlotWidget):
+                 mainwindow: MainWindow):
         super().__init__()
         self.all_should_apply = None
         self.mainwindow = mainwindow
 
-        self.lifetime_hist_widget = lifetime_hist_widget
-        self.life_hist_plot = lifetime_hist_widget.getPlotItem()
+        self.lifetime_hist_widget = self.mainwindow.pgLifetime_Hist_PlotWidget
+        self.life_hist_plot = self.lifetime_hist_widget.getPlotItem()
         self.setup_widget(self.lifetime_hist_widget)
 
-        self.residual_widget = residual_widget
-        self.residual_plot = residual_widget.getPlotItem()
+        self.residual_widget = self.mainwindow.pgLieftime_Residuals_PlotWidget
+        self.residual_plot = self.residual_widget.getPlotItem()
         self.setup_widget(self.residual_widget)
         self.residual_widget.hide()
 
@@ -2098,7 +2146,7 @@ class LifetimeController(QObject):
 
 class GroupingController(QObject):
 
-    def __init__(self, mainwidow: MainWindow, bic_plot_widget: pg.PlotWidget):
+    def __init__(self, mainwidow: MainWindow):
         super().__init__()
         self.mainwindow = mainwidow
 
@@ -2106,7 +2154,7 @@ class GroupingController(QObject):
         # self.groups_hist_plot = groups_hist_widget.addPlot()
         # self.groups_hist_widget.setBackground(background=None)
 
-        self.bic_plot_widget = bic_plot_widget
+        self.bic_plot_widget = self.mainwindow.pgGroups_BIC_PlotWidget
         self.bic_scatter_plot = self.bic_plot_widget.getPlotItem()
         self.bic_plot_widget.setBackground(background=None)
 
@@ -2852,14 +2900,14 @@ class RasterScanController(QObject):
 
 class AntibunchingController(QObject):
 
-    def __init__(self, mainwindow: MainWindow, corr_widget: pg.PlotWidget):
+    def __init__(self, mainwindow: MainWindow):
         super().__init__()
         self.mainwindow = mainwindow
         self.resolve_mode = None
         self.results_gathered = False
 
-        self.corr_widget = corr_widget
-        self.corr_plot = corr_widget.getPlotItem()
+        self.corr_widget = self.mainwindow.pgAntibunching_PlotWidget
+        self.corr_plot = self.corr_widget.getPlotItem()
 
         self.setup_widget(self.corr_widget)
         self.setup_plot(self.corr_plot)

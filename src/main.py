@@ -122,16 +122,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbInt_Disp_Using_Groups.hide()
         self.chbInt_Show_Groups.setEnabled(False)
 
-        self.int_controller = IntController(self, int_widget=self.pgIntensity_PlotWidget,
-                                            int_hist_container=self.wdgInt_Hist_Container,
-                                            int_hist_line=self.lineInt_Hist,
-                                            int_hist_widget=self.pgInt_Hist_PlotWidget,
-                                            lifetime_widget=self.pgLifetime_Int_PlotWidget,
-                                            groups_int_widget=self.pgGroups_Int_PlotWidget,
-                                            groups_hist_widget=self.pgGroups_Hist_PlotWidget,
-                                            level_info_container=self.wdgInt_Level_Info_Container,
-                                            level_info_text=self.txtLevelInfoInt,
-                                            int_level_line=self.lineInt_Level)
+        self.int_controller = IntController(self)
         # Connect all GUI buttons with outside class functions
         i_c = self.int_controller
         self.btnApplyBin.clicked.connect(i_c.gui_apply_bin)
@@ -153,9 +144,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbInt_Exp_Trace.stateChanged.connect(i_c.exp_trace_chb_changed)
         self.chbSecondCard.stateChanged.connect(i_c.plot_all)
 
-        self.lifetime_controller = \
-            LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
-                               residual_widget=self.pgLieftime_Residuals_PlotWidget)
+        self.lifetime_controller = LifetimeController(self)
         l_c = self.lifetime_controller
         self.btnPrevLevel.clicked.connect(l_c.gui_prev_lev)
         self.btnNextLevel.clicked.connect(l_c.gui_next_lev)
@@ -175,7 +164,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnFitAll.clicked.connect(l_c.gui_fit_all)
 
         self.grouping_controller = \
-            GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
+            GroupingController(self)
         g_c = self.grouping_controller
         self.btnGroupCurrent.clicked.connect(g_c.gui_group_current)
         self.btnGroupSelected.clicked.connect(g_c.gui_group_selected)
@@ -194,7 +183,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
                                  list_text=self.txtRaster_Scan_List)
 
-        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget)
+        self.antibunch_controller = AntibunchingController(self)
         a_c = self.antibunch_controller
         self.btnLoadIRFCorr.clicked.connect(a_c.gui_load_irf)
         self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
@@ -727,6 +716,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.int_controller.update_level_info()
                 if cur_tab_name != 'tabLifetime':
                     self.int_controller.plot_hist()
+                    if self.current_particle.has_fit_a_lifetime:
+                        self.int_controller.plot_lifetimes()
                 else:
                     self.lifetime_controller.plot_decay(remove_empty=False)
                     self.lifetime_controller.plot_convd()
