@@ -2646,7 +2646,7 @@
                <widget class="QLabel" name="lblFiltResults">
                 <property name="font">
                  <font>
-                  <pointsize>10</pointsize>
+                  <pointsize>8</pointsize>
                  </font>
                 </property>
                 <property name="text">
@@ -3075,7 +3075,7 @@
                <number>0</number>
               </property>
               <property name="currentIndex">
-               <number>5</number>
+               <number>2</number>
               </property>
               <property name="tabSpacing">
                <number>3</number>
@@ -3532,7 +3532,7 @@
                   <property name="labelAlignment">
                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                   </property>
-                  <item row="0" column="0">
+                  <item row="1" column="0">
                    <widget class="QCheckBox" name="chbFiltMaxLifetime">
                     <property name="font">
                      <font>
@@ -3546,6 +3546,23 @@
                     </property>
                     <property name="text">
                      <string>Max Lifetime</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0">
+                   <widget class="QCheckBox" name="chbFiltMinLifetime">
+                    <property name="font">
+                     <font>
+                      <pointsize>8</pointsize>
+                      <weight>50</weight>
+                      <bold>false</bold>
+                     </font>
+                    </property>
+                    <property name="layoutDirection">
+                     <enum>Qt::RightToLeft</enum>
+                    </property>
+                    <property name="text">
+                     <string>Min Lifetime</string>
                     </property>
                    </widget>
                   </item>
@@ -3581,23 +3598,6 @@
                     </property>
                     <property name="maximum">
                      <double>199.990000000000009</double>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="1" column="0">
-                   <widget class="QCheckBox" name="chbFiltMinLifetime">
-                    <property name="font">
-                     <font>
-                      <pointsize>8</pointsize>
-                      <weight>50</weight>
-                      <bold>false</bold>
-                     </font>
-                    </property>
-                    <property name="layoutDirection">
-                     <enum>Qt::RightToLeft</enum>
-                    </property>
-                    <property name="text">
-                     <string>Min Lifetime</string>
                     </property>
                    </widget>
                   </item>
@@ -3744,8 +3744,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>268</width>
-                 <height>114</height>
+                 <width>164</width>
+                 <height>65</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3929,8 +3929,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>268</width>
-                 <height>114</height>
+                 <width>221</width>
+                 <height>91</height>
                 </rect>
                </property>
                <attribute name="icon">

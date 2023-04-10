@@ -3534,8 +3534,8 @@ class FilteringController(QObject):
             num_datapoints = np.sum(~np.isnan(feature_data))
             feature_data, num_datapoints_filtered, passed_filter_flags = self._filter_numeric_data(
                 feature_data=feature_data, are_used_flags=are_used_flags,
-                test_min=self.main_window.chbMinPhotons.isChecked(),
-                min_value=self.main_window.spnMinPhotons.value())
+                test_min=self.main_window.chbFiltMinPhotons.isChecked(),
+                min_value=self.main_window.spnFiltMinPhotons.value())
             are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
             is_intensity_or_histogram = 'level'
 
@@ -3708,7 +3708,7 @@ class FilteringController(QObject):
                 num_datapoints_text = f'# Datapoints: {num_datapoints}'
             else:
                 num_datapoints_text = f'# Datapoints: {num_datapoints_filtered} ({num_datapoints} unfiltered)'
-            self.main_window.lblNumDatapoints.setText(num_datapoints_text)
+            self.main_window.lblFiltNumDatapoints.setText(num_datapoints_text)
             self.plot.autoRange()
         else:
             logger.warning('No feature data found')
