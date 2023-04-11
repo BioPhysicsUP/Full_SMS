@@ -3367,7 +3367,7 @@ class FilteringController(QObject):
                     levels = [particle.cpts.levels for particle in particles if particle.has_levels]
                 else:
                     levels = [particle.levels_roi_force for particle in particles if particle.has_levels]
-            self.levels_to_use = np.concatenate(levels) if len(levels) > 0 else list()
+            self.levels_to_use = list(np.concatenate(levels)) if len(levels) > 0 else list()
             self.current_data_points_to_use = data_points_to_use
 
     def get_data(self) -> tuple:
@@ -3385,6 +3385,7 @@ class FilteringController(QObject):
         return ints, taus
 
     def two_features_changed(self, x_changed: bool = None):
+        self.set_levels_to_use()
         if x_changed is None:
             raise ValueError('No argument provided.')
         feature_changed_cmb = self.main_window.cmbFiltFeatureX if x_changed else self.main_window.cmbFiltFeatureY
@@ -3415,6 +3416,7 @@ class FilteringController(QObject):
             self.plot_features(use_current_plot=True)
 
     def switch_two_features(self):
+        self.set_levels_to_use()
         selected_feature_x = self.main_window.cmbFiltFeatureX.currentText()
         selected_feature_y = self.main_window.cmbFiltFeatureY.currentText()
         items_x = PlotFeature.get_dict()
@@ -3444,6 +3446,7 @@ class FilteringController(QObject):
                       feature_y: Union[PlotFeature, str] = None,
                       use_current_plot: bool = False,
                       use_selected_two_features: bool = False):
+        self.set_levels_to_use()
         if use_current_plot:
             if use_selected_two_features:
                 raise ValueError("Conflicting options")
@@ -3523,7 +3526,7 @@ class FilteringController(QObject):
         feature_data = None
         num_datapoints = 0
         num_datapoints_filtered = None
-        is_level_or_histogram = None
+        is_intensity_or_histogram = None
         are_used_flags = None
 
         if feature == PlotFeature.PhotonNumber:
@@ -3633,7 +3636,7 @@ class FilteringController(QObject):
             are_used_flags = np.logical_and(are_used_flags, passed_filter_flags)
             is_intensity_or_histogram = 'histogram'
 
-        return feature_data, num_datapoints, num_datapoints_filtered, are_used_flags, is_level_or_histogram
+        return feature_data, num_datapoints, num_datapoints_filtered, are_used_flags, is_intensity_or_histogram
 
     def get_all_feature_data(self) -> tuple[dict[Any, dict[str, Any]], list[bool] | Any, list[bool] | Any]:
         all_features = PlotFeature.get_dict()
@@ -3829,12 +3832,14 @@ class FilteringController(QObject):
         self.plot_fit_result()
 
     def apply_filters(self):
+        self.set_levels_to_use()
         all_filters = self.get_all_filter()
         for level, level_filter in zip(self.levels_to_use, all_filters):
             level.is_filtered_out = not level_filter
         self.main_window.lblFiltResults.setText('Filters Applied')
 
     def reset_filters(self):
+        self.set_levels_to_use()
         for level in self.levels_to_use:
             level.is_filtered_out = False
         self.main_window.lblFiltResults.setText('Filters Reset')
@@ -3848,7 +3853,7 @@ class FilteringController(QObject):
                     for step in particle.ahca.steps:
                         for group_level in step.group_levels:
                             group_level.is_filtered_out = False
-        self.lblFiltResults.setText('All Filters Reset')
+        self.main_window.lblFiltResults.setText('All Filters Reset')
 
     def get_all_levels_with_lifetime(self) -> list:
         levels = list()
@@ -3884,6 +3889,12 @@ class FilteringController(QObject):
         levels_to_norm = self.get_all_levels_with_lifetime()
 
         for level in levels_to_norm:
+            if hasattr(level, 'is_filtered_out') and level.is_filtered_out is True:
+                if hasattr(level, 'is_normalized') and level.is_normalized is True:
+                    level.num_photons = level.unnorm_num_photons
+                    level.int_p_s = level.unnorm_int_p_s
+                    level.is_normalized = False
+                continue
             level.unnorm_int_p_s = level.int_p_s
             level.unnorm_num_photons = level.num_photons
             avtau = level.histogram.tau

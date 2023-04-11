@@ -33,7 +33,6 @@ from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
 # import save_analysis
 from settings_dialog import SettingsDialog, Settings
-from filtering_normalization_dialog import FilteringNormalizationDialog
 
 try:
     import pkg_resources.py2_warn
@@ -113,8 +112,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.settings_dialog = SettingsDialog(self, get_saved_settings=True)
         self.settings = self.settings_dialog.settings
 
-        self.intensity_lifetime_normalization_dialog = \
-            FilteringNormalizationDialog(main_window=self)
+        # self.intensity_lifetime_normalization_dialog = \
+        #     FilteringNormalizationDialog(main_window=self)
 
         self.chbInt_Disp_Resolved.hide()
         self.chbInt_Disp_Photon_Bursts.hide()
@@ -626,8 +625,18 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def tab_change(self, active_tab_index: int):
         if self.data_loaded and hasattr(self, 'current_particle'):
-            if self.tabWidget.currentIndex() in [0, 1, 2, 3, 4, 5]:
+            tabs_to_display = [
+                'tabIntensity',
+                'tabLifetime',
+                'tabGrouping',
+                'tabAntibunching',
+                'tabSpectra',
+                'tabRaster_Scan'
+            ]
+            if self.tabWidget.currentWidget().objectName() in tabs_to_display:
                 self.display_data()
+            elif self.tabWidget.currentWidget().objectName() == 'tabFiltering':
+                self.filtering_controller.set_levels_to_use()
 
     def update_int_gui(self):
         cur_part = self.current_particle
@@ -1317,6 +1326,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             enable_levels = self.current_dataset.has_levels
         self.actionTrim_Dead_Traces.setEnabled(enable_levels)
         self.chbGroup_Auto_Apply.setEnabled(enable_levels)
+        self.menuRegion_of_Interest.setEnabled(enable_levels)
 
         # Lifetime
         self.tabLifetime.setEnabled(new_state)
