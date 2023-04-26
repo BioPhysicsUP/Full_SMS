@@ -83,6 +83,10 @@ class AntibunchingAnalysis:
         ind = all_times.argsort()
         all_times = all_times[ind]
         channel = channel[ind]  # sort channel array to match times
+
+        all_times_full = np.concatenate((all_times, all_times[::-1]))
+        channel_full = np.concatenate((channel, channel[::-1]))
+
         events = []
         for i, time1 in enumerate(all_times):
             for j, time2 in enumerate(all_times[i:]):
@@ -91,10 +95,19 @@ class AntibunchingAnalysis:
                 if channel1 == channel2:
                     continue  # ignore photons from same card
                 difftime = time2 - time1
-                if difftime > window:  # 500 ns window
+                if channel1 == 1:
+                    difftime = - difftime  # channel 0 is start channel
+                if abs(difftime) > window:  # 500 ns window
                     break
                 events.append(difftime)
         numbins = int(window / binsize)
         corr, bins = np.histogram(events, numbins)
         events = np.array(events)
         return bins[:-1], corr, events
+
+    def rebin_corr(self, window, binsize):
+        numbins = int(window / binsize)
+        corr, bins = np.histogram(self.corr_events, numbins)
+        self.corr_bins = bins[:-1]
+        self.corr_hist = corr
+

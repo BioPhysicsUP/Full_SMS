@@ -2889,7 +2889,7 @@ class AntibunchingController(QObject):
 
         left_axis.setLabel('Number of occur.', 'counts/bin')
         bottom_axis.setLabel('Delay time', 'ns')
-        plot_item.vb.setLimits(xMin=0, yMin=0)
+        # plot_item.vb.setLimits(xMin=0, yMin=0)
 
     @staticmethod
     def setup_widget(plot_widget: pg.PlotWidget):
@@ -3133,6 +3133,18 @@ class AntibunchingController(QObject):
             self.mainwindow.status_message("Done")
         self.mainwindow.current_dataset.has_corr = True
         logger.info('Correlation complete')
+
+    def rebin_corrs(self):
+        window = self.mainwindow.spbWindow.value()
+        binsize = self.mainwindow.spbBinSizeCorr.value()
+        if binsize == 0:
+            return
+        binsize = binsize / 1000  # convert to ns
+        ab_objs = [part.ab_analysis for part in self.mainwindow.current_dataset.particles]
+        for ab in ab_objs:
+            if ab.has_corr:
+                ab.rebin_corr(window, binsize)
+        self.mainwindow.display_data()
 
     def error(self, e):
         logger.error(e)
