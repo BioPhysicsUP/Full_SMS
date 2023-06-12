@@ -52,6 +52,10 @@ def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSi
 
     dataset.save_selected = [node.checked() for node in main_window.part_nodes]
     dataset.settings = main_window.settings_dialog.settings
+    dataset.global_settings = {
+        "int_global_groups_checked": main_window.chbInt_Show_Global_Groups.isChecked(),
+        "global_grouping_mode_selected": main_window.tabGroupingMode.currentWidget().objectName()
+    }
 
     save_file_name = dataset.name[:-2] + 'smsa'
 
@@ -155,9 +159,9 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
         if not hasattr(particle.ahca, 'plots_need_to_be_updated'):
             particle.ahca.plots_need_to_be_updated = None
 
-    datasetnode = DatasetTreeNode(analysis_file[analysis_file.rfind('/') + 1:-3], loaded_dataset, 'dataset')
+    dataset_node = DatasetTreeNode(analysis_file[analysis_file.rfind('/') + 1:-3], loaded_dataset, 'dataset')
 
-    all_nodes = [(datasetnode, -1)]
+    all_nodes = [(dataset_node, -1)]
     all_has_lifetimes = list()
     for i, particle in enumerate(loaded_dataset.particles):
         particlenode = DatasetTreeNode(particle.name, particle, 'particle')
@@ -173,8 +177,22 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
     main_window.add_all_nodes(all_nodes=all_nodes)
     for i, node in enumerate(main_window.part_nodes):
         node.setChecked(loaded_dataset.save_selected[i])
+    dataset_node.setChecked(all([node.checked() for node in main_window.part_nodes]))
     num_checked = sum([node.checked() for node in main_window.part_nodes])
     main_window.lblNum_Selected.setText(str(num_checked))
+
+    show_global_checked = loaded_dataset.global_settings['int_global_groups_checked']
+    main_window.chbInt_Show_Global_Groups.blockSignals(True)
+    main_window.chbInt_Show_Global_Groups.setChecked(show_global_checked)
+    main_window.chbInt_Show_Global_Groups.blockSignals(False)
+    main_window.chbInt_Show_Groups.blockSignals(True)
+    main_window.chbInt_Show_Groups.setChecked(not show_global_checked)
+    main_window.chbInt_Show_Groups.blockSignals(False)
+
+    grouping_mode_index = 1 if loaded_dataset.global_settings['global_grouping_mode_selected'] == 'tabGlobal' else 0
+    main_window.tabGroupingMode.blockSignals(True)
+    main_window.tabGroupingMode.setCurrentIndex(grouping_mode_index)
+    main_window.tabGroupingMode.blockSignals(False)
 
     if hasattr(loaded_dataset, 'settings'):
         main_window.settings_dialog.load_settings(loaded_dataset.settings)

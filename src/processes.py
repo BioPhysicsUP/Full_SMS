@@ -26,7 +26,7 @@ from functools import wraps
 # from smsh5 import Histogram
 
 if TYPE_CHECKING:
-    from smsh5 import H5dataset, Histogram
+    from smsh5 import H5dataset, Histogram, Particle, GlobalParticle
 
 logger = setup_logger(__name__)
 orig_AutoProxy = managers.AutoProxy
@@ -217,6 +217,8 @@ def prog_sig_pass(signals: ProcessThreadSignals, cmd: ProcessProgressCmd, args):
         signals.step_progress.emit(*args)
     elif cmd is ProcessProgressCmd.Complete:
         signals.end_progress.emit()
+    elif cmd is ProcessProgressCmd.SetValue:
+        signals.set_progress.emit(*args)
     else:
         logger.error(f"Feedback return not configured for: {cmd}")
 
@@ -359,7 +361,7 @@ class SingleProcess(mp.Process):
                 #     time.sleep(0.1)
                 #     continue
                 task = self.task_queue.get()
-                task_name = None
+                # task_name = None
                 if task is None:
                     done = True
                     self.task_queue.task_done()
@@ -393,9 +395,13 @@ class SingleProcess(mp.Process):
                                 level.microtimes._particle = None
                     elif task.method_name == "run_grouping":
                         # dont_send = True
-                        task_name = task.obj._particle.name
-                        if task.obj._particle.is_secondary_part:
-                            task_name = task_name + '_2'
+                        is_global = hasattr(task.obj._particle, 'is_global') and task.obj._particle.is_global
+                        if not is_global:
+                            task_name = task.obj._particle.name
+                            # if task.obj._particle.is_secondary_part:
+                                # task_name = task_name + '_2'
+                        else:
+                            pass
                         if task.obj._particle.has_levels:
                             task.obj.best_step._particle = None
                             for step in task.obj.steps:
@@ -414,12 +420,16 @@ class SingleProcess(mp.Process):
                                                 for ahc_lvl in lvls:
                                                     if hasattr(ahc_lvl, '_particle'):
                                                         ahc_lvl._particle = None
-                                                    if hasattr(ahc_lvl.microtimes, '_particle'):
-                                                        ahc_lvl.microtimes._particle = None
-                                                    ahc_hist = ahc_lvl.histogram
-                                                    if hasattr(ahc_hist, '_particle'):
-                                                        ahc_hist._particle = None
+                                                    if hasattr(ahc_lvl, 'particle'):
+                                                        ahc_lvl.particle = None
+                                                    if not is_global:
+                                                        if hasattr(ahc_lvl.microtimes, '_particle'):
+                                                            ahc_lvl.microtimes._particle = None
+                                                        ahc_hist = ahc_lvl.histogram
+                                                        if hasattr(ahc_hist, '_particle'):
+                                                            ahc_hist._particle = None
                         task.obj._particle = None
+
                         # assert self._temp_dir is not None, "temp_folder has not been set"
                         # assert task_name is not None, "task_name has not been set"
                         # file_path = os.path.join(self._temp_dir.name, task_name)
@@ -453,7 +463,7 @@ class SingleProcess(mp.Process):
         except Exception as e:
             traceback.print_exc()
             raise e
-            self.result_queue.put(e)
-            print(e)
+            # self.result_queue.put(e)
+            # print(e)
             # logger(e)
 

@@ -103,6 +103,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.setWindowIcon(QIcon(fm.path('Full-SMS.ico', fm.Type.Icons)))
 
         self.tabWidget.setCurrentIndex(0)
+        self.tabGroupingMode.setCurrentIndex(0)
 
         self.setWindowTitle("Full SMS")
 
@@ -120,87 +121,19 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbInt_Disp_Grouped.hide()
         self.chbInt_Disp_Using_Groups.hide()
         self.chbInt_Show_Groups.setEnabled(False)
+        self.chbInt_Show_Global_Groups.setEnabled(False)
 
-        self.int_controller = IntController(self, int_widget=self.pgIntensity_PlotWidget,
-                                            int_hist_container=self.wdgInt_Hist_Container,
-                                            int_hist_line=self.lineInt_Hist,
-                                            int_hist_widget=self.pgInt_Hist_PlotWidget,
-                                            lifetime_widget=self.pgLifetime_Int_PlotWidget,
-                                            groups_int_widget=self.pgGroups_Int_PlotWidget,
-                                            groups_hist_widget=self.pgGroups_Hist_PlotWidget,
-                                            level_info_container=self.wdgInt_Level_Info_Container,
-                                            level_info_text=self.txtLevelInfoInt,
-                                            int_level_line=self.lineInt_Level)
-        # Connect all GUI buttons with outside class functions
-        i_c = self.int_controller
-        self.btnApplyBin.clicked.connect(i_c.gui_apply_bin)
-        self.btnApplyBinAll.clicked.connect(i_c.gui_apply_bin_all)
-        self.btnResolve.clicked.connect(i_c.gui_resolve)
-        self.btnResolve_Selected.clicked.connect(i_c.gui_resolve_selected)
-        self.btnResolveAll.clicked.connect(i_c.gui_resolve_all)
-        self.chbInt_Show_ROI.stateChanged.connect(i_c.roi_chb_changed)
-        self.chbInt_Show_Hist.stateChanged.connect(i_c.hist_chb_changed)
-        self.chbInt_Show_Level_Info.stateChanged.connect(i_c.level_info_chb_changed)
-        self.chbInt_Show_Groups.stateChanged.connect(i_c.plot_all)
-        self.actionInt_Trim_Traces.triggered.connect(i_c.gui_trim_traces)
-        self.actionInt_Reset_ROI_Current.triggered.connect(i_c.gui_reset_roi_current)
-        self.actionInt_Reset_ROI_Selected.triggered.connect(i_c.gui_reset_roi_selected)
-        self.actionInt_Reset_ROI_All.triggered.connect(i_c.gui_reset_roi_all)
-        # self.actionTime_Resolve_Current.triggered.connect(i_c.time_resolve_current)
-        # self.actionTime_Resolve_Selected.triggered.connect(i_c.time_resolve_selected)
-        # self.actionTime_Resolve_All.triggered.connect(i_c.time_resolve_all)
-        self.chbInt_Exp_Trace.stateChanged.connect(i_c.exp_trace_chb_changed)
-        self.chbSecondCard.stateChanged.connect(i_c.plot_all)
+        self.intensity_controller = IntController(main_window=self)
 
-        self.lifetime_controller = \
-            LifetimeController(self, lifetime_hist_widget=self.pgLifetime_Hist_PlotWidget,
-                               residual_widget=self.pgLieftime_Residuals_PlotWidget)
-        l_c = self.lifetime_controller
-        self.btnPrevLevel.clicked.connect(l_c.gui_prev_lev)
-        self.btnNextLevel.clicked.connect(l_c.gui_next_lev)
-        self.btnWholeTrace.clicked.connect(l_c.gui_whole_trace)
-        self.chbLifetime_Show_Groups.stateChanged.connect(l_c.plot_all)
-        self.chbShow_Residuals.stateChanged.connect(l_c.gui_show_hide_residuals)
-        self.chbLifetime_Use_ROI.stateChanged.connect(l_c.gui_use_roi_changed)
-        self.btnLifetime_Apply_ROI.clicked.connect(l_c.gui_apply_roi_current)
-        self.btnLifetime_Apply_ROI_Selected.clicked.connect(l_c.gui_apply_roi_selected)
-        self.btnLifetime_Apply_ROI_All.clicked.connect(l_c.gui_apply_roi_all)
-        self.btnJumpToGroups.clicked.connect(l_c.gui_jump_to_groups)
-        self.btnLoadIRF.clicked.connect(l_c.gui_load_irf)
-        self.btnFitParameters.clicked.connect(l_c.gui_fit_param)
-        self.btnFitCurrent.clicked.connect(l_c.gui_fit_current)
-        self.btnFit.clicked.connect(l_c.gui_fit_levels)
-        self.btnFitSelected.clicked.connect(l_c.gui_fit_selected)
-        self.btnFitAll.clicked.connect(l_c.gui_fit_all)
+        self.lifetime_controller = LifetimeController(main_window=self)
 
-        self.grouping_controller = \
-            GroupingController(self, bic_plot_widget=self.pgGroups_BIC_PlotWidget)
-        g_c = self.grouping_controller
-        self.btnGroupCurrent.clicked.connect(g_c.gui_group_current)
-        self.btnGroupSelected.clicked.connect(g_c.gui_group_selected)
-        self.btnGroupAll.clicked.connect(g_c.gui_group_all)
-        self.btnApplyGroupsCurrent.clicked.connect(g_c.gui_apply_groups_current)
-        self.btnApplyGroupsSelected.clicked.connect(g_c.gui_apply_groups_selected)
-        self.btnApplyGroupsAll.clicked.connect(g_c.gui_apply_groups_all)
+        self.grouping_controller = GroupingController(main_widow=self)
 
-        self.pgSpectra_Image_View = pg.ImageView(view=pg.PlotItem())
-        self.laySpectra.addWidget(self.pgSpectra_Image_View)
-        self.pgSpectra_Image_View.show()
-        self.spectra_controller = \
-            SpectraController(self, spectra_image_view=self.pgSpectra_Image_View)
+        self.spectra_controller = SpectraController(main_window=self)
 
-        self.raster_scan_controller = \
-            RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
-                                 list_text=self.txtRaster_Scan_List)
+        self.raster_scan_controller = RasterScanController(main_window=self)
 
-        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget)
-        a_c = self.antibunch_controller
-        self.btnLoadIRFCorr.clicked.connect(a_c.gui_load_irf)
-        self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
-        self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
-        self.btnCorrAll.clicked.connect(a_c.gui_correlate_all)
-        self.chbIRFCorrDiff.stateChanged.connect(a_c.gui_irf_chb)
-        self.chbCurrCorrDiff.stateChanged.connect(a_c.gui_curr_chb)
+        self.antibunch_controller = AntibunchingController(main_window=self)
 
         self.filtering_controller = FilteringController(main_window=self)
 
@@ -288,6 +221,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # self._current_level = None
 
         self.tabWidget.currentChanged.connect(self.tab_change)
+        self.tabGroupingMode.currentChanged.connect(self.tab_change)
+        # self.tabGroupingMode.currentChanged.connect(lambda: self.grouping_controller.plot_group_bic())
 
         self.current_dataset = None
         self.current_particle = None
@@ -661,6 +596,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         else:
             self.chbInt_Disp_Grouped.hide()
             self.chbInt_Show_Groups.setEnabled(False)
+        self.chbInt_Show_Global_Groups.setEnabled(cur_part.has_global_grouping)
 
         if cur_part.using_group_levels:
             self.chbInt_Disp_Using_Groups.show()
@@ -670,7 +606,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def card_selected(self) -> None:
         self.display_data(combocard=True)
 
-    def display_data(self, current=None, prev=None, combocard=False) -> None:
+    def display_data(self, current=None, prev=None, combocard=False, is_global_group=False) -> None:
         """ Displays the intensity trace and the histogram of the current particle.
 
             Directly called by the tree signal currentChanged, thus the two arguments.
@@ -731,11 +667,13 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if cur_tab_name in ['tabIntensity', 'tabGrouping', 'tabLifetime']:
                 if cur_tab_name == 'tabIntensity':
                     self.update_int_gui()
-                self.int_controller.set_bin(self.current_particle.bin_size)
-                self.int_controller.plot_trace()
-                self.int_controller.update_level_info()
+                self.intensity_controller.set_bin(self.current_particle.bin_size)
+                self.intensity_controller.plot_trace()
+                if self.current_particle.has_levels:
+                    self.intensity_controller.plot_levels()
+                self.intensity_controller.update_level_info()
                 if cur_tab_name != 'tabLifetime':
-                    self.int_controller.plot_hist()
+                    self.intensity_controller.plot_hist()
                 else:
                     self.lifetime_controller.plot_decay(remove_empty=False)
                     self.lifetime_controller.plot_convd()
@@ -743,10 +681,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.lifetime_controller.update_results()
                     self.lifetime_controller.update_apply_roi_button_colors()
 
-                if self.current_particle.has_groups:
-                    self.int_controller.plot_group_bounds()
+                if self.current_particle.has_groups or self.current_particle.has_global_grouping or is_global_group:
+                    # if not is_global_group:
+                    self.intensity_controller.plot_group_bounds()
                     if cur_tab_name == 'tabGrouping':
-                        self.grouping_controller.plot_group_bic()
+                        self.grouping_controller.plot_group_bic(is_global_group=is_global_group)
                 else:
                     self.grouping_controller.clear_bic()
 
@@ -763,22 +702,22 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 self.set_export_options()
 
             # Set Enables
-            set_apply_groups = False
-            if self.current_particle.has_levels:
-                self.int_controller.plot_levels()
-                set_group = True
-                if self.current_particle.has_groups:
-                    set_apply_groups = True
-                else:
-                    set_apply_groups = False
-            else:
-                set_group = False
-            self.btnGroupCurrent.setEnabled(set_group)
-            self.btnGroupSelected.setEnabled(set_group)
-            self.btnGroupAll.setEnabled(set_group)
-            self.btnApplyGroupsCurrent.setEnabled(set_apply_groups)
-            self.btnApplyGroupsSelected.setEnabled(set_apply_groups)
-            self.btnApplyGroupsAll.setEnabled(set_apply_groups)
+            # set_apply_groups = False
+            # if self.current_particle.has_levels:
+            #     self.int_controller.plot_levels()
+            #     set_group = True
+            #     if self.current_particle.has_groups:
+            #         set_apply_groups = True
+            #     else:
+            #         set_apply_groups = False
+            # else:
+            #     set_group = False
+            # self.btnGroupCurrent.setEnabled(set_group)
+            # self.btnGroupSelected.setEnabled(set_group)
+            # self.btnGroupAll.setEnabled(set_group)
+            # self.btnApplyGroupsCurrent.setEnabled(set_apply_groups)
+            # self.btnApplyGroupsSelected.setEnabled(set_apply_groups)
+            # self.btnApplyGroupsAll.setEnabled(set_apply_groups)
 
             logger.info('Current data displayed')
 
@@ -941,7 +880,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             index = list(self.confidence_index.values()).index(int(float(item) * 100))
                     if index is not None:
                         self.cmbConfIndex.setCurrentIndex(index)
-                    self.int_controller.start_resolve_thread('all')
+                    self.intensity_controller.start_resolve_thread('all')
 
             if self.data_loaded:
                 self.actionSave_Analysis.setEnabled(True)
@@ -1212,7 +1151,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         checked_particles = list()
         for ind in range(self.treemodel.rowCount(self.dataset_index)):
             if self.part_nodes[ind].checked():
-                checked_particles.append(self.tree2particle(ind))
+                particle = self.tree2particle(ind)
+                if type(particle) is smsh5.Particle:
+                    checked_particles.append(self.tree2particle(ind))
         return checked_particles
 
     def set_particle_check_state(self, particle_number: int, set_checked: bool):
@@ -1239,11 +1180,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
         sigs.status_message.connect(self.status_message)
         sigs.error.connect(self.error_handler)
 
-        sigs.plot_trace_lock.connect(self.int_controller.plot_trace)
-        sigs.plot_trace_export_lock.connect(self.int_controller.plot_trace)
-        sigs.plot_levels_lock.connect(self.int_controller.plot_levels)
-        sigs.plot_levels_export_lock.connect(self.int_controller.plot_levels)
-        sigs.plot_group_bounds_export_lock.connect(self.int_controller.plot_group_bounds)
+        sigs.plot_trace_lock.connect(self.intensity_controller.plot_trace)
+        sigs.plot_trace_export_lock.connect(self.intensity_controller.plot_trace)
+        sigs.plot_levels_lock.connect(self.intensity_controller.plot_levels)
+        sigs.plot_levels_export_lock.connect(self.intensity_controller.plot_levels)
+        sigs.plot_group_bounds_export_lock.connect(self.intensity_controller.plot_group_bounds)
         sigs.plot_grouping_bic_export_lock.connect(self.grouping_controller.plot_group_bic)
         sigs.plot_decay_lock.connect(self.lifetime_controller.plot_decay)
         sigs.plot_decay_export_lock.connect(self.lifetime_controller.plot_decay)
@@ -1305,10 +1246,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def reset_gui(self):
         """ Sets the GUI elements to enabled if it should be accessible. """
         logger.info('Reset GUI')
-        if self.data_loaded:
-            new_state = True
-        else:
-            new_state = False
+        new_state = self.data_loaded
 
         # Intensity
         self.tabIntensity.setEnabled(new_state)
@@ -1324,9 +1262,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         enable_levels = False
         if new_state:
             enable_levels = self.current_dataset.has_levels
-        self.actionTrim_Dead_Traces.setEnabled(enable_levels)
-        self.chbGroup_Auto_Apply.setEnabled(enable_levels)
-        self.menuRegion_of_Interest.setEnabled(enable_levels)
+        # self.actionTrim_Dead_Traces.setEnabled(enable_levels)
+        # self.chbGroup_Auto_Apply.setEnabled(enable_levels)
+        # self.menuRegion_of_Interest.setEnabled(enable_levels)
 
         # Lifetime
         self.tabLifetime.setEnabled(new_state)
@@ -1344,6 +1282,23 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnNextLevel.setEnabled(enable_levels)
         self.btnPrevLevel.setEnabled(enable_levels)
         # print(enable_levels)
+
+        # Grouping
+        if self.current_dataset is not None:
+            has_levels = any([particle.has_levels for particle in self.current_dataset.particles])
+            self.tabGrouping.setEnabled(has_levels)
+            self.btnGroupCurrent.setEnabled(has_levels)
+            self.btnGroupSelected.setEnabled(has_levels)
+            self.btnGroupAll.setEnabled(has_levels)
+            self.btnGroupGlobal.setEnabled(has_levels)
+            if has_levels:
+                has_groups = any([particle.has_groups for particle in self.current_dataset.particles])
+                self.btnApplyGroupsCurrent.setEnabled(has_groups)
+                self.btnApplyGroupsSelected.setEnabled(has_groups)
+                self.btnApplyGroupsAll.setEnabled(has_groups)
+
+                has_global_grouping = any([particle.has_global_grouping for particle in self.current_dataset.particles])
+                self.chbInt_Show_Global_Groups.setEnabled(has_global_grouping)
 
         # Spectral
         if self.current_dataset and self.current_dataset.has_spectra:

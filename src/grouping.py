@@ -11,15 +11,18 @@ University of Pretoria
 from __future__ import annotations
 # from math import lgamma
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import Union, List, Tuple, TYPE_CHECKING
 import numpy as np
 from scipy.stats import poisson
 # from matplotlib import pyplot as plt
 from change_point import Level
 from my_logger import setup_logger
+from processes import ProcessProgressTask, ProcessProgressCmd
 
 if TYPE_CHECKING:
-    from smsh5 import Particle
+    from smsh5 import Particle, GlobalParticle
+    from change_point import ParticleMicrotimesSubset
+    from multiprocessing import JoinableQueue
 
 import dbg
 
@@ -225,6 +228,7 @@ class ClusteringStep:
 
         i = 0
         diff_p_mj = 1
+        p_hat_g = None
         while diff_p_mj > 1E-5 and i < 50:
 
             i += 1
@@ -274,7 +278,7 @@ class ClusteringStep:
         log_l = 0
         for m in range(self._num_prev_groups - 1):
             for j in range(self._num_levels):
-                if p_hat_g[m, j] > 1E-300 and eff_p_mj[m, j] != 0:  # Close to smallest value that doesn't result in -inf
+                if p_hat_g[m, j] > 1E-200 and eff_p_mj[m, j] != 0:  # Close to smallest value that doesn't result in -inf
                     log_l += eff_p_mj[m, j] * np.log(p_hat_g[m, j])
         self._em_log_l = log_l
 
@@ -310,9 +314,10 @@ class ClusteringStep:
         group_levels = []
         busy_joining = False
         start_ind = None
+        is_global = hasattr(self._particle, 'is_global') and self._particle.is_global
         for i, part_level in enumerate(part_levels):
             if not busy_joining:
-                start_ind = part_level.level_inds[0]
+                start_ind = part_level.level_inds[0] if not is_global else None
             if i == len(part_levels) - 1:
                 busy_joining = False
             else:
@@ -321,12 +326,21 @@ class ClusteringStep:
                 else:
                     busy_joining = False
             if not busy_joining:
-                end_ind = part_level.level_inds[1]
-                group_int = self.group_ints[self.level_group_ind[i]]
-                group_levels.append(Level(particle=self._particle,
-                                          level_inds=(start_ind, end_ind),
-                                          int_p_s=group_int,
-                                          group_ind=self.level_group_ind[i]))
+                if not is_global:
+                    end_ind = part_level.level_inds[1]
+                    group_levels.append(Level(particle=self._particle,
+                                              level_inds=(start_ind, end_ind),
+                                              int_p_s=self.group_ints[self.level_group_ind[i]],
+                                              group_ind=self.level_group_ind[i]))
+                else:
+                    start_time_offset_ns = 0 if len(group_levels) == 0 else group_levels[-1].times_ns[1]
+                    group_ind = self.level_group_ind[i]
+                    group_levels.append(GlobalLevel(global_particle=self._particle,
+                                                    particle_levels=[part_level],
+                                                    int_p_s=self.group_ints[group_ind],
+                                                    start_time_offset_ns=start_time_offset_ns,
+                                                    dwell_time_ns=self.groups[group_ind].dwell_time_s*1E9,
+                                                    num_photons=self.groups[group_ind].num_photons))
 
         self.group_levels = group_levels
 
@@ -425,7 +439,7 @@ class AHCA:
             self.has_groups = True
             self.backup = None
 
-    def run_grouping(self):
+    def run_grouping(self, feedback_queue: JoinableQueue = None):
         """
         Run grouping
 
@@ -454,6 +468,11 @@ class AHCA:
                         current_num_groups = self._particle.num_levels
                     else:
                         current_num_groups = self._particle.num_levels_roi
+                    if feedback_queue is not None:
+                        feedback_queue.put(
+                            ProcessProgressTask(task_cmd=ProcessProgressCmd.Start, args=(current_num_groups,))
+                        )
+                    inital_num_groups = current_num_groups
                     while current_num_groups != 1:
                         c_step.ahc()
                         c_step.emc()
@@ -463,9 +482,18 @@ class AHCA:
                         steps.append(c_step)
                         current_num_groups = c_step.num_groups
                         if current_num_groups != 1:
-                            # print(current_num_groups)
+                            print(current_num_groups)
                             c_step = c_step.setup_next_step()
+                            if feedback_queue is not None:
+                                feedback_queue.put(
+                                    ProcessProgressTask(
+                                        task_cmd=ProcessProgressCmd.SetValue,
+                                        args=(inital_num_groups - current_num_groups,)
+                                    )
+                                )
 
+                    if feedback_queue is not None:
+                        feedback_queue.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.Complete))
                     self.steps = steps
                     self.num_steps = len(steps)
                     self.bics = [step.bic for step in steps]
@@ -496,4 +524,48 @@ class AHCA:
 
     def reset_selected_step(self):
         self.selected_step_ind = self.best_step_ind
+
+
+class GlobalLevel:
+
+    def __init__(self,
+                 global_particle: GlobalParticle,
+                 particle_levels: List[Union[Level, GlobalLevel]],
+                 int_p_s: float,
+                 start_time_offset_ns: int,
+                 dwell_time_ns: float,
+                 num_photons: int,
+                 ):
+
+        self.is_global_level = True
+
+        self.particle = global_particle
+        # self.particle_levels = particle_levels
+
+        self.start_time_offset_ns = start_time_offset_ns
+        self.times_ns = (particle_levels[0].times_ns[0] + start_time_offset_ns,
+                         particle_levels[-1].times_ns[1] + start_time_offset_ns)
+        self.int_p_s = int_p_s
+        self.dwell_time_ns = dwell_time_ns
+        self.num_photons = num_photons
+        microtimes_particle_inds_pairs = tuple()
+        for level in particle_levels:
+            if type(particle_levels) is Level:
+                microtimes_particle_inds_pairs = (level._particle.dataset_ind, particle_levels.level_inds)
+            elif type(particle_levels) is GlobalLevel:
+                microtimes_particle_inds_pairs.extend(level.microtimes_particle_inds_pairs)
+        self.microtimes_particle_inds_pairs = microtimes_particle_inds_pairs
+        # self.microtimes = particle_levels.microtimes
+        # self.histogram = particle_levels.histogram
+
+    @property
+    def times_s(self):
+        return self.times_ns[0]/1E9, self.times_ns[1]/1E9
+
+    @property
+    def dwell_time_s(self):
+        if self.dwell_time_ns is not None:
+            return self.dwell_time_ns / 1e9
+        else:
+            return None
 
