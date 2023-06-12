@@ -24,7 +24,7 @@ import dbg
 import tcspcfit
 from change_point import ChangePoints
 from generate_sums import CPSums
-from grouping import AHCA
+from grouping import AHCA, GlobalLevel
 from my_logger import setup_logger
 from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
 from tcspcfit import FittingParameters
@@ -33,17 +33,19 @@ from antibunching import AntibunchingAnalysis
 
 if TYPE_CHECKING:
     from change_point import Level
+    from grouping import GlobalLevel
 
 logger = setup_logger(__name__)
 
 
 class H5dataset:
 
-    def __init__(self, filename, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
+    def __init__(self, filename, sig_fb: PassSigFeedback = None, prog_fb: ProcessProgFeedback = None):
         self.cpa_has_run = False
         self.use_parallel = False
         self.name = filename
-        prog_fb.set_status(status="Reading file...")
+        if prog_fb is not None:
+            prog_fb.set_status(status="Reading file...")
         self._file = h5pickle.File(self.name, 'r')
         self.file_version = h5_fr.file_version(dataset=self)
 
@@ -102,6 +104,7 @@ class H5dataset:
         self.has_irf = False
         self.has_spectra = False
         self.has_corr = False
+        self.global_particle = None
 
     @property
     def file(self):
@@ -266,7 +269,7 @@ class Particle:
     def __init__(self, name: str, dataset_ind: int, dataset: H5dataset,
                  raster_scan_dataset_index: int = None, raster_scan: RasterScan = None,
                  is_secondary_part: bool = False, prim_part: Particle = None,
-                 sec_part: Particle = None, tmin=None, tmax=None, channelwidth=None):
+                 sec_part: Particle = None, tmin=None, tmax=None, channelwidth=None, is_global:bool=False):
         """
         Creates an instance of Particle
 
@@ -302,75 +305,82 @@ class Particle:
         # self.get_file = lambda: dataset.get_file()
         self.file_version = h5_fr.file_version(dataset=dataset)
         # self.dataset_particle = self.file[self.name]
-        self.is_secondary_part = is_secondary_part
-        self.prim_part = prim_part
-        self.sec_part = sec_part
-        if not self.is_secondary_part:
-            # self.microtimes = h5_fr.microtimes(particle=self)
-            # self.abstimes = h5_fr.abstimes(particle=self)
-            self.num_photons = len(self.abstimes)
-        else:
-            # self.microtimes = h5_fr.microtimes2(particle=self)
-            # self.abstimes = h5_fr.abstimes2(particle=self)
-            self.num_photons = len(self.abstimes)
-        self.tcspc_card = h5_fr.tcspc_card(particle=self)
-        self.int_trace = h5_fr.int_trace(particle=self)
-        self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
-        self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
-        self.ab_analysis = AntibunchingAnalysis(self)
-        self.avg_int_weighted = None
-        self.int_std_weighted = None
+        if not is_global:
+            self.is_secondary_part = is_secondary_part
+            self.prim_part = prim_part
+            self.sec_part = sec_part
+            if not self.is_secondary_part:
+                # self.microtimes = h5_fr.microtimes(particle=self)
+                # self.abstimes = h5_fr.abstimes(particle=self)
+                self.num_photons = len(self.abstimes)
+            else:
+                # self.microtimes = h5_fr.microtimes2(particle=self)
+                # self.abstimes = h5_fr.abstimes2(particle=self)
+                self.num_photons = len(self.abstimes)
+            self.tcspc_card = h5_fr.tcspc_card(particle=self)
+            self.int_trace = h5_fr.int_trace(particle=self)
+            self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
+            self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
+            self.ab_analysis = AntibunchingAnalysis(self)
+            self.avg_int_weighted = None
+            self.int_std_weighted = None
 
-        if self.is_secondary_part:
-            self.spectra = self.prim_part.spectra
-            self._raster_scan_dataset_index = self.prim_part._raster_scan_dataset_index
-            self.raster_scan = self.prim_part.raster_scan
-            self.has_raster_scan = self.prim_part.has_raster_scan
-            self.description = self.prim_part.description
-        else:
-            self.spectra = Spectra(self)
-            self._raster_scan_dataset_index = raster_scan_dataset_index
-            self.raster_scan = raster_scan
-            self.has_raster_scan = raster_scan is not None
-            self.description = h5_fr.description(particle=self)
+            if self.is_secondary_part:
+                self.spectra = self.prim_part.spectra
+                self._raster_scan_dataset_index = self.prim_part._raster_scan_dataset_index
+                self.raster_scan = self.prim_part.raster_scan
+                self.has_raster_scan = self.prim_part.has_raster_scan
+                self.description = self.prim_part.description
+            else:
+                self.spectra = Spectra(self)
+                self._raster_scan_dataset_index = raster_scan_dataset_index
+                self.raster_scan = raster_scan
+                self.has_raster_scan = raster_scan is not None
+                self.description = h5_fr.description(particle=self)
 
-        self.irf = None
-        try:
-            if channelwidth is None:
-                differences = np.diff(np.sort(self.microtimes[:]))
-                channelwidth = np.unique(differences)[1]
-        except IndexError as e:
-            logger.error(f"channelwidth could not be determined. Inspect {self.name}.")
-            channelwidth = 0.01220703125
-        self.channelwidth = channelwidth
-        if tmin is None:
-            self.tmin = 0
-        else:
-            self.tmin = tmin
-        if tmax is None:
-            self.tmax = 25
-        else:
-            self.tmax = tmax
-        self.measured = None
-        self.t = None
-        self.ignore = False
-        self.bg = False
-        self._histogram = None
-        self._histogram_roi = None
-        self.use_roi_for_histogram = False
-        self.binnedtrace = None
-        self.bin_size = None
-        try:
-            self.roi_region = (0, self.abstimes[-1] / 1E9)
-        except IndexError:
-            self.roi_region = (0, 0)
+            self.irf = None
+            try:
+                if channelwidth is None:
+                    differences = np.diff(np.sort(self.microtimes[:]))
+                    channelwidth = np.unique(differences)[1]
+            except IndexError as e:
+                logger.error(f"channelwidth could not be determined. Inspect {self.name}.")
+                channelwidth = 0.01220703125
+            self.channelwidth = channelwidth
+            if tmin is None:
+                self.tmin = 0
+            else:
+                self.tmin = tmin
+            if tmax is None:
+                self.tmax = 25
+            else:
+                self.tmax = tmax
+            self.measured = None
+            self.t = None
+            self.ignore = False
+            self.bg = False
+            self._histogram = None
+            self._histogram_roi = None
+            self.use_roi_for_histogram = False
+            self.binnedtrace = None
+            self.bin_size = None
+            try:
+                self.roi_region = (0, self.abstimes[-1] / 1E9)
+            except IndexError:
+                self.roi_region = (0, 0)
 
-        self.startpoint = None
-        self.level_selected = None
-        self.using_group_levels = False
+            self.startpoint = None
+            self.level_selected = None
+            self.using_group_levels = False
 
-        self.has_fit_a_lifetime = False
-        self.has_exported = False
+            self.has_fit_a_lifetime = False
+            self.has_exported = False
+            self.is_global = False
+        else:
+
+            self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
+            self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
+            self.is_global = False
 
     @property
     def file(self):
@@ -668,6 +678,19 @@ class Particle:
         else:
             return self.name
 
+    @property
+    def has_global_grouping(self) -> bool:
+        if hasattr(self, 'dataset') and hasattr(self.dataset, 'global_particle'):
+            gp = self.dataset.global_particle
+            return True if gp is not None and self.dataset_ind in gp.contributing_particles_dataset_inds else False
+        else:
+            return False
+
+    @property
+    def global_particle(self) -> GlobalParticle:
+        if self.has_global_grouping:
+            return self.dataset.global_particle
+
     # @property
     # def icon(self):
     #     return ParticleIcons.test_icon
@@ -874,6 +897,115 @@ class Particle:
                     trimmed = True
         return trimmed
 
+
+class FakeCpts:
+    def __init__(self, num_levels: int, levels: list):
+        self.num_levels = num_levels
+        self.levels = levels
+        self.num_cpts = num_levels - 1
+        self.has_levels = True
+
+
+class GlobalParticle:
+
+    def __init__(self, particles: List[Particle], use_roi:bool=False):
+
+        self.is_global = True
+        self.name = 'Global Particle'
+
+        levels = []
+        start_time_offset_ns = 0
+        for p in particles:
+            p_levels = p.levels_roi if use_roi else p.levels
+            start_time_offset_ns -= p_levels[0].times_ns[0]
+            for l in p_levels:
+                level = GlobalLevel(
+                    global_particle=self,
+                    particle_levels=[l],
+                    int_p_s=l.int_p_s,
+                    start_time_offset_ns=start_time_offset_ns,
+                    dwell_time_ns=l.dwell_time_ns,
+                    num_photons=l.num_photons
+                )
+                levels.append(level)
+            start_time_offset_ns += p_levels[-1].times_ns[1]
+
+        self.contributing_particles_dataset_inds = [p.dataset_ind for p in particles]
+
+        self.levels = levels
+        self.num_levels = len(levels)
+        self.num_levels_roi = self.num_levels
+        self.dwell_time = np.sum([l.dwell_time_s for l in self.levels])
+        self.num_photons = np.sum([l.num_photons for l in self.levels])
+
+        self.uuid = uuid1()
+        self.use_roi_for_grouping = False
+        self.cpts = None
+
+        self.cpts = FakeCpts(num_levels=self.num_levels, levels=self.levels)
+
+        self.ahca = AHCA(particle=self)
+
+    @property
+    def has_levels(self):
+        return self.cpts.has_levels
+
+    @property
+    def has_groups(self):
+        return self.ahca.has_groups
+    @property
+    def groups(self):
+        if self.has_groups:
+            return self.ahca.selected_step.groups
+
+    @property
+    def num_groups(self):
+        if self.has_groups:
+            return self.ahca.selected_step.num_groups
+
+    @property
+    def groups_bounds(self):
+        return self.ahca.selected_step.calc_int_bounds()
+
+    @property
+    def groups_ints(self):
+        return self.ahca.selected_step.group_ints
+
+    @property
+    def grouping_bics(self):
+        return self.ahca.bics
+
+    @property
+    def grouping_selected_ind(self):
+        return self.ahca.selected_step_ind
+
+    @property
+    def best_grouping_ind(self):
+        return self.ahca.best_step_ind
+
+    @grouping_selected_ind.setter
+    def grouping_selected_ind(self, ind: int):
+        self.ahca.selected_step_ind = ind
+
+    @property
+    def grouping_num_groups(self):
+        return self.ahca.steps_num_groups
+
+    def run_grouping(self):
+        self.ahca.run_grouping()
+
+        # all_times = []
+        # all_ints = []
+        # all_particle_names = []
+        # for l in levels:
+        #     all_times.extend(l.times_s)
+        #     all_ints.extend([l.int_p_s, l.int_p_s])
+        #     all_particle_names.extend([l.particle.name, l.particle.name])
+        # df = pd.DataFrame(data={
+        #     "times": all_times,
+        #     "ints": all_ints,
+        #     "particle": all_particle_names
+        # })
 
 class Trace:
     """Binned intensity trace

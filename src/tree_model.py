@@ -128,7 +128,7 @@ class DatasetTreeModel(QAbstractItemModel):
         self._root = DatasetTreeNode(None, None, None)
         # for node in in_nodes:
         #     self._root.addChild(node)
-        height = 11
+        height = 14
         self.none = QPixmap(fm.path('particle-none.png', fm.Type.Icons)).scaledToHeight(height)
         self.e = QPixmap(fm.path('particle-e.png', fm.Type.Icons)).scaledToHeight(height)
         self.r = QPixmap(fm.path('particle-r.png', fm.Type.Icons)).scaledToHeight(height)
@@ -141,6 +141,18 @@ class DatasetTreeModel(QAbstractItemModel):
         self.rle = QPixmap(fm.path('particle-rle.png', fm.Type.Icons)).scaledToHeight(height)
         self.rgl = QPixmap(fm.path('particle-rgl.png', fm.Type.Icons)).scaledToHeight(height)
         self.rgle = QPixmap(fm.path('particle-rgle.png', fm.Type.Icons)).scaledToHeight(height)
+        self.ae = QPixmap(fm.path('particle-ae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.ra = QPixmap(fm.path('particle-ra.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rae = QPixmap(fm.path('particle-rae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rga = QPixmap(fm.path('particle-rga.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rgae = QPixmap(fm.path('particle-rgae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.la = QPixmap(fm.path('particle-la.png', fm.Type.Icons)).scaledToHeight(height)
+        self.lae = QPixmap(fm.path('particle-lae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rla = QPixmap(fm.path('particle-rla.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rlae = QPixmap(fm.path('particle-rlae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rgla = QPixmap(fm.path('particle-rgla.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rglae = QPixmap(fm.path('particle-rglae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.global_particle = QPixmap(fm.path('particle-global.png', fm.Type.Icons)).scaledToHeight(height)
 
     def flags(self, index):
         # return self.flags(index) | Qt.ItemIsUserCheckable
@@ -270,42 +282,71 @@ class DatasetTreeModel(QAbstractItemModel):
             if hasattr(node, 'datatype') and node.datatype == 'particle':
                 p = node.dataobj
                 r = p.has_levels
-                g = p.has_groups
+                g = p.has_groups or p.has_global_grouping
                 l = p.has_fit_a_lifetime
+                a = p.has_corr
                 e = p.has_exported
 
+                is_global = hasattr(p, 'is_global') and p.is_global
+
                 icon = None
-                if not any([r, g, l, e]):
+                if not any([r, g, l, a, e]):
                     icon = self.none
-                elif e and not any([r, g, l]):
+                elif e and not any([r, g, l, a]):
                     icon = self.e
-                elif r and not any([g, l, e]):
+                elif r and not any([g, l, a, e]):
                     icon = self.r
-                elif r and e and not any([g, l]):
+                elif all([r, e]) and not any([g, l, a]):
                     icon = self.re
-                elif r and g and not any([l, e]):
+                elif all([r, g]) and not any([l, a, e]):
                     icon = self.rg
-                elif r and g and e and not l:
+                elif all([r, g, e]) and not any([l, a]):
                     icon = self.rge
-                elif l and not any([r, g, e]):
+                elif l and not any([r, g, a, e]):
                     icon = self.l
-                elif l and e and not any([r, g]):
+                elif all([l, e]) and not any([r, g, a]):
                     icon = self.le
-                elif r and l and not any([g, e]):
+                elif all([r, l]) and not any([g, e, a]):
                     icon = self.rl
-                elif r and l and e and not g:
+                elif all([r, l, e]) and not any([g, a]):
                     icon = self.rle
-                elif r and g and l and not e:
+                elif all([r, g, l]) and not any([a, e]):
                     icon = self.rgl
-                elif all([r, g, l, e]):
-                    icon = self.rgle
+                elif all([e, a]) and not any([r, g, l]):
+                    icon = self.ae
+                elif all([r, a]) and not any([g, l, e]):
+                    icon = self.ra
+                elif all([r, e, a]) and not any([g, l]):
+                    icon = self.rae
+                elif all([r, g, a]) and not any([l, e]):
+                    icon = self.rga
+                elif all([r, g, e]) and not any([l, a]):
+                    icon = self.rge
+                elif all([l, a]) and not any([r, g, a, e]):
+                    icon = self.la
+                elif all([l, a, e]) and not any([r, g, a]):
+                    icon = self.lae
+                elif all([r, l, a]) and not any([g, e, a]):
+                    icon = self.rla
+                elif all([r, l, a, e]) and not any([g, a]):
+                    icon = self.rlae
+                elif all([r, g, l, a]) and not any([a, e]):
+                    icon = self.rgla
+                elif all([r, g, l, a, e]):
+                    icon = self.rglae
+                elif is_global:
+                    icon = self.global_particle
                 return icon
+
         if role == Qt.UserRole:
             return node.dataobj
+
         if role == Qt.CheckStateRole:
             if node.checked():
                 return Qt.Checked
+
             return Qt.Unchecked
+
         return None
 
     def setData(self, index, value, role=Qt.EditRole):

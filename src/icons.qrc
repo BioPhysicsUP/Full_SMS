@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="/icons">
+    <file>icons/group-global.png</file>
     <file>icons/not-used.png</file>
     <file>icons/used.png</file>
     <file>icons/raster-scan.png</file>

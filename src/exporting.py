@@ -211,9 +211,9 @@ def export_data(mainwindow: MainWindow,
                     while lock.locked():
                         sleep(0.1)
                 else:
-                    mainwindow.int_controller.plot_trace(particle=p,
-                                                         for_export=True,
-                                                         export_path=f_dir)
+                    mainwindow.intensity_controller.plot_trace(particle=p,
+                                                               for_export=True,
+                                                               export_path=f_dir)
 
             if ex_levels:
                 if p.has_levels:
@@ -244,10 +244,10 @@ def export_data(mainwindow: MainWindow,
                         while lock.locked():
                             sleep(0.1)
                     else:
-                        mainwindow.int_controller.plot_trace(particle=p, for_export=True)
-                        mainwindow.int_controller.plot_levels(particle=p,
-                                                              for_export=True,
-                                                              export_path=f_dir)
+                        mainwindow.intensity_controller.plot_trace(particle=p, for_export=True)
+                        mainwindow.intensity_controller.plot_levels(particle=p,
+                                                                    for_export=True,
+                                                                    export_path=f_dir)
 
             if ex_grouped_levels:
                 if p.has_groups:
@@ -299,11 +299,11 @@ def export_data(mainwindow: MainWindow,
                         while lock.locked():
                             sleep(0.1)
                     else:
-                        mainwindow.int_controller.plot_trace(particle=p, for_export=True)
-                        mainwindow.int_controller.plot_levels(particle=p, for_export=True)
-                        mainwindow.int_controller.plot_group_bounds(particle=p,
-                                                                    for_export=True,
-                                                                    export_path=f_dir)
+                        mainwindow.intensity_controller.plot_trace(particle=p, for_export=True)
+                        mainwindow.intensity_controller.plot_levels(particle=p, for_export=True)
+                        mainwindow.intensity_controller.plot_group_bounds(particle=p,
+                                                                          for_export=True,
+                                                                          export_path=f_dir)
 
             if ex_grouping_info:
                 if p.has_groups:

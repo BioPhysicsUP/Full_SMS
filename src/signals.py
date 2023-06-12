@@ -98,6 +98,7 @@ class WorkerSigPassType(IntEnum):
     auto_progress = auto()
     start_progress = auto()
     end_progress = auto()
+    progress_decrement = auto()
     status_message = auto()
 
     add_datasetindex = auto()

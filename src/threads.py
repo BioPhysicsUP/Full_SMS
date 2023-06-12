@@ -177,10 +177,10 @@ class ProcessThread(QRunnable):
             if rest < 0:
                 init_num += rest
 
+            process_progress = None
             if not single_task:
                 prog_fb = ProcessProgFeedback(feedback_queue=self.feedback_queue)
-                process_progress = ProcessProgress(prog_fb=prog_fb,
-                                                   num_iterations=num_init_tasks)
+                process_progress = ProcessProgress(prog_fb=prog_fb, num_iterations=num_init_tasks)
                 process_progress.start_progress()
 
             next_task_ind = 0
@@ -268,13 +268,17 @@ class ProcessThread(QRunnable):
     def check_fbk_queue(self):
         fbk_return = self.feedback_queue.get()
         if type(fbk_return) is PPTask:
-            prog_sig_pass(signals=self.signals,
-                          cmd=fbk_return.task_cmd,
-                          args=fbk_return.args)
+            prog_sig_pass(
+                signals=self.signals,
+                cmd=fbk_return.task_cmd,
+                args=fbk_return.args
+            )
         elif type(fbk_return) is PSTask:
-            worker_sig_pass(signals=self.worker_signals,
-                            sig_type=fbk_return.sig_pass_type,
-                            args=fbk_return.sig_args)
+            worker_sig_pass(
+                signals=self.worker_signals,
+                sig_type=fbk_return.sig_pass_type,
+                args=fbk_return.sig_args
+            )
 
 
 class WorkerFitLifetimes(QRunnable):
