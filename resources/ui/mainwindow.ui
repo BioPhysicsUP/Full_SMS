@@ -2267,8 +2267,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>268</width>
-                 <height>84</height>
+                 <width>254</width>
+                 <height>70</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2447,8 +2447,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>206</width>
-                 <height>93</height>
+                 <width>211</width>
+                 <height>101</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2683,8 +2683,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>203</width>
-                 <height>93</height>
+                 <width>208</width>
+                 <height>101</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2910,8 +2910,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>165</width>
-                 <height>66</height>
+                 <width>169</width>
+                 <height>69</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3092,8 +3092,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>227</width>
-                 <height>93</height>
+                 <width>230</width>
+                 <height>101</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3328,8 +3328,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>206</width>
-                 <height>93</height>
+                 <width>209</width>
+                 <height>101</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -4935,6 +4935,26 @@
         <string>Antibunching</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_25">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_10">
+          <property name="bottomMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="PlotWidget" name="graphicsView">
+            <property name="minimumSize">
+             <size>
+              <width>750</width>
+              <height>0</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QListView" name="listView"/>
+          </item>
+         </layout>
+        </item>
         <item>
          <widget class="PlotWidget" name="pgAntibunching_PlotWidget">
           <property name="sizePolicy">
@@ -7221,7 +7241,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>22</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
