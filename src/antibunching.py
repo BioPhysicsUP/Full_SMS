@@ -12,6 +12,9 @@ from __future__ import annotations
 __docformat__ = 'NumPy'
 
 import numpy as np
+from my_logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class AntibunchingAnalysis:
@@ -37,6 +40,7 @@ class AntibunchingAnalysis:
         self.corr_hist = hist
         self.corr_events = events
         self.has_corr = True
+        logger.info(msg=f"{self._particle.name} levels resolved")
 
     @staticmethod
     def correlate_times(abstimes1, abstimes2, microtimes1, microtimes2, difftime=0., window=500., binsize=0.5):

@@ -193,7 +193,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
             RasterScanController(self, raster_scan_image_view=self.pgRaster_Scan_Image_View,
                                  list_text=self.txtRaster_Scan_List)
 
-        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget)
+        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
+                                                           corr_sum_widget=self.pgAntibunching_Sum_PlotWidget)
         a_c = self.antibunch_controller
         self.btnLoadIRFCorr.clicked.connect(a_c.gui_load_irf)
         self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
@@ -202,6 +203,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbIRFCorrDiff.stateChanged.connect(a_c.gui_irf_chb)
         self.chbCurrCorrDiff.stateChanged.connect(a_c.gui_curr_chb)
         self.spbBinSizeCorr.valueChanged.connect(a_c.rebin_corrs)
+
 
         self.filtering_controller = FilteringController(main_window=self)
 
@@ -261,6 +263,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.treeViewParticles.clicked.connect(self.tree_view_clicked)
         # self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
         self._root_was_checked = False
+
+        self.treeViewAntibunching.setModel(self.treemodel)
 
         self.comboSelectCard.currentIndexChanged.connect(self.card_selected)
 

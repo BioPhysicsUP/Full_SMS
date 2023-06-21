@@ -4,6 +4,7 @@ __docformat__ = 'NumPy'
 
 import os
 import pickle
+import random
 import tempfile
 import time
 from copy import copy
@@ -2852,7 +2853,7 @@ class RasterScanController(QObject):
 
 class AntibunchingController(QObject):
 
-    def __init__(self, mainwindow: MainWindow, corr_widget: pg.PlotWidget):
+    def __init__(self, mainwindow: MainWindow, corr_widget: pg.PlotWidget, corr_sum_widget: pg.PlotWidget):
         super().__init__()
         self.mainwindow = mainwindow
         self.resolve_mode = None
@@ -2860,9 +2861,14 @@ class AntibunchingController(QObject):
 
         self.corr_widget = corr_widget
         self.corr_plot = corr_widget.getPlotItem()
-
         self.setup_widget(self.corr_widget)
         self.setup_plot(self.corr_plot)
+
+        self.corr_sum_widget = corr_sum_widget
+        self.corr_sum_plot = corr_sum_widget.getPlotItem()
+        self.setup_widget(self.corr_sum_widget)
+        self.setup_plot(self.corr_sum_plot)
+
         self.temp_fig = None
         self.temp_ax = None
 
@@ -2971,6 +2977,8 @@ class AntibunchingController(QObject):
                   export_path: str = None,
                   lock: bool = False) -> None:
 
+        self.update_corr_diff()
+
         if type(export_path) is bool:
             lock = export_path
             export_path = None
@@ -2997,6 +3005,7 @@ class AntibunchingController(QObject):
 
             plot_pen.setJoinStyle(Qt.RoundJoin)
             plot_item.plot(x=bins, y=corr, pen=plot_pen, symbol=None)
+            self.plot_corr_sum()
         else:
             if self.temp_fig is None:
                 self.temp_fig = plt.figure()
@@ -3026,6 +3035,34 @@ class AntibunchingController(QObject):
         if lock:
             self.mainwindow.lock.release()
 
+    def plot_corr_sum(self):
+        plot_item = self.corr_sum_widget
+        plot_item.clear()
+
+        allcorr = None
+        bins = None
+        for particle in self.mainwindow.get_checked_particles():
+            ab_analysis = particle.ab_analysis
+            if not ab_analysis.has_corr:
+                logger.info(particle.name + ' has no correlation')
+                return
+            else:
+                bins = ab_analysis.corr_bins
+                corr = ab_analysis.corr_hist
+                if allcorr is None:
+                    allcorr = corr.copy()
+                else:
+                    allcorr += corr
+
+        plot_pen = QPen()
+        plot_pen.setCosmetic(True)
+
+        plot_pen.setWidthF(1.5)
+        plot_pen.setColor(QColor('green'))
+
+        plot_pen.setJoinStyle(Qt.RoundJoin)
+        plot_item.plot(x=bins, y=allcorr, pen=plot_pen, symbol=None)
+
     def gui_curr_chb(self, checked):
         mw = self.mainwindow
         if checked or mw.chbIRFCorrDiff.isChecked():
@@ -3035,17 +3072,20 @@ class AntibunchingController(QObject):
         if checked:
             if mw.chbIRFCorrDiff.isChecked():
                 mw.chbIRFCorrDiff.setChecked(False)
-            irfhist1 = mw.current_particle.histogram
-            irfhist2 = mw.current_particle.sec_part.histogram
-            decay1 = irfhist1.decay
-            decay2 = irfhist2.decay
-            t1 = irfhist1.t
-            t2 = irfhist2.t
+            self.update_corr_diff()
 
-            irf1_maxt = t1[np.argmax(decay1)]
-            irf2_maxt = t2[np.argmax(decay2)]
-            irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
-            self.mainwindow.spbCorrDiff.setValue(irfdiff)
+    def update_corr_diff(self):
+        mw = self.mainwindow
+        irfhist1 = mw.current_particle.histogram
+        irfhist2 = mw.current_particle.sec_part.histogram
+        decay1 = irfhist1.decay
+        decay2 = irfhist2.decay
+        t1 = irfhist1.t
+        t2 = irfhist2.t
+        irf1_maxt = t1[np.argmax(decay1)]
+        irf2_maxt = t2[np.argmax(decay2)]
+        irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
+        self.mainwindow.spbCorrDiff.setValue(irfdiff)
 
     def gui_irf_chb(self, checked):
         mw = self.mainwindow
@@ -3927,3 +3967,4 @@ class FilteringController(QObject):
         self.is_normalized = True
         self.main_window.lblFiltResults.setText('Applied Normalization')
         self.plot_features(use_current_plot=True)
+
