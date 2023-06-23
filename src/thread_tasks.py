@@ -1,14 +1,19 @@
-
 from __future__ import annotations
 import os
 
 import numpy as np
 
 import multiprocessing as mp
-from processes import ProgressTracker, ProcessProgressTask as PProgTask,\
-    ProcessSigPassTask as PSigTask, ProcessProgressCmd as PProgCmd, ProcessProgress, \
-    ProcessProgFeedback, PassSigFeedback
-from signals import WorkerSigPassType as WSType  #, PassSigFeedback
+from processes import (
+    ProgressTracker,
+    ProcessProgressTask as PProgTask,
+    ProcessSigPassTask as PSigTask,
+    ProcessProgressCmd as PProgCmd,
+    ProcessProgress,
+    ProcessProgFeedback,
+    PassSigFeedback,
+)
+from signals import WorkerSigPassType as WSType  # , PassSigFeedback
 import multiprocessing as mp
 import smsh5
 from my_logger import setup_logger
@@ -20,12 +25,15 @@ logger = setup_logger(__name__)
 
 
 class OpenFile:
-    """ A QRunnable class to create a worker thread for opening h5 file. """
+    """A QRunnable class to create a worker thread for opening h5 file."""
 
-    def __init__(self, file_path: str,
-                 is_irf: bool = False,
-                 tmin=None,
-                 progress_tracker: ProgressTracker = None):
+    def __init__(
+        self,
+        file_path: str,
+        is_irf: bool = False,
+        tmin=None,
+        progress_tracker: ProgressTracker = None,
+    ):
         """
         Initiate Open File Worker
 
@@ -52,8 +60,9 @@ class OpenFile:
     @file_path.setter
     def file_path(self, file_path: str):
         assert type(file_path) is str, "file_path must be of type str"
-        assert os.path.exists(file_path) and os.path.isfile(file_path), \
-            'file_path is not a path to a valid file'
+        assert os.path.exists(file_path) and os.path.isfile(
+            file_path
+        ), "file_path is not a path to a valid file"
         self._file_path = file_path
 
     @property
@@ -62,7 +71,7 @@ class OpenFile:
 
     @irf.setter
     def irf(self, is_irf: bool):
-        assert type(is_irf) is bool, 'is_irf is not of type bool'
+        assert type(is_irf) is bool, "is_irf is not of type bool"
         self._is_irf = is_irf
 
     @property
@@ -95,10 +104,15 @@ class OpenFile:
             sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
             prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
 
-            dataset = self.load_data(fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb)
+            dataset = self.load_data(
+                fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb
+            )
 
-            datasetnode = DatasetTreeNode(self.file_path[0][self.file_path[0].rfind('/') + 1:-3],
-                                          dataset, 'dataset')
+            datasetnode = DatasetTreeNode(
+                self.file_path[0][self.file_path[0].rfind("/") + 1 : -3],
+                dataset,
+                "dataset",
+            )
 
             # sig_fb.add_datasetnode(node=datasetnode)
             prog_fb.set_status(status="Adding particles...")
@@ -106,8 +120,10 @@ class OpenFile:
 
             all_nodes = [(datasetnode, -1)]
             for i, particle in enumerate(dataset.particles):
-                if not particle.is_secondary_part:  # "secondary" particles contain data from second TCSPC card
-                    particlenode = DatasetTreeNode(particle.name, particle, 'particle')
+                if (
+                    not particle.is_secondary_part
+                ):  # "secondary" particles contain data from second TCSPC card
+                    particlenode = DatasetTreeNode(particle.name, particle, "particle")
                     all_nodes.append((particlenode, i))
             sig_fb.add_all_particlenodes(all_nodes=all_nodes)
 
@@ -117,7 +133,7 @@ class OpenFile:
             tmins = []
             for particle in dataset.particles:
                 if not particle.is_secondary_part:
-                        # Find max, then search backward for first zero to find the best startpoint
+                    # Find max, then search backward for first zero to find the best startpoint
                     decay = particle.histogram.decay
                     histmax_ind = np.argmax(decay)
                     reverse = decay[:histmax_ind][::-1]
@@ -178,7 +194,9 @@ class OpenFile:
             sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
             prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
 
-            dataset = self.load_data(fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb)
+            dataset = self.load_data(
+                fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb
+            )
 
             for particle in dataset.particles:
                 particle.tmin = self.tmin
@@ -195,19 +213,28 @@ class OpenFile:
         except Exception as err:
             self.signals.error.emit(err)
 
-    def load_data(self, fname: str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
-
+    def load_data(
+        self, fname: str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback
+    ):
         dataset = smsh5.H5dataset(fname[0], sig_fb=sig_fb, prog_fb=prog_fb)
-        bin_all(dataset=dataset, bin_size=100, for_irf=self.irf, sig_fb=sig_fb,
-                prog_fb=prog_fb)
+        bin_all(
+            dataset=dataset,
+            bin_size=100,
+            for_irf=self.irf,
+            sig_fb=sig_fb,
+            prog_fb=prog_fb,
+        )
         dataset.makehistograms()
         return dataset
 
 
 class BinAll:
-    def __init__(self, dataset: smsh5.H5dataset,
-                 bin_size: float,
-                 progress_tracker: ProgressTracker = None):
+    def __init__(
+        self,
+        dataset: smsh5.H5dataset,
+        bin_size: float,
+        progress_tracker: ProgressTracker = None,
+    ):
         self.dataset = dataset
         self.bin_size = bin_size
         self.bin_all_func = bin_all
@@ -216,17 +243,18 @@ class BinAll:
     def run_bin_all(self, feedback_queue: mp.JoinableQueue):
         sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
         prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
-        self.bin_all_func(dataset=self.dataset,
-                          bin_size=self.bin_size,
-                          sig_fb=sig_fb,
-                          prog_fb=prog_fb)
+        self.bin_all_func(
+            dataset=self.dataset, bin_size=self.bin_size, sig_fb=sig_fb, prog_fb=prog_fb
+        )
 
 
-def bin_all(dataset: smsh5.H5dataset,
-            bin_size: float,
-            for_irf: bool = False,
-            sig_fb: PassSigFeedback = None,
-            prog_fb: ProcessProgFeedback = None) -> None:
+def bin_all(
+    dataset: smsh5.H5dataset,
+    bin_size: float,
+    for_irf: bool = False,
+    sig_fb: PassSigFeedback = None,
+    prog_fb: ProcessProgFeedback = None,
+) -> None:
     """
 
     Parameters

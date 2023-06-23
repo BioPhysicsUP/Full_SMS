@@ -7,6 +7,7 @@ from queue import Empty
 from typing import List, Union, TYPE_CHECKING
 from uuid import UUID, uuid1
 import traceback
+
 # import time
 from numpy import ndarray
 import os
@@ -30,8 +31,6 @@ if TYPE_CHECKING:
 
 logger = setup_logger(__name__)
 orig_AutoProxy = managers.AutoProxy
-
-
 
 
 @wraps(managers.AutoProxy)
@@ -95,7 +94,7 @@ def get_max_num_processes() -> int:
 
 
 def locate_uuid(object_list: List[object], wanted_uuid: UUID):
-    all_have_uuid = all([hasattr(obj, 'uuid') for obj in object_list])
+    all_have_uuid = all([hasattr(obj, "uuid") for obj in object_list])
     assert all_have_uuid, "Not all objects in object_list have uuid's"
     uuid_list = [obj.uuid for obj in object_list]
     if wanted_uuid not in uuid_list:
@@ -110,18 +109,28 @@ class PassSigFeedback:
         self.fbq = feedback_queue
 
     def add_particlenode(self, node: DatasetTreeNode, num: int):
-        self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.add_particlenode,
-                                        sig_args=(node, num)))
+        self.fbq.put(
+            ProcessSigPassTask(
+                sig_pass_type=WorkerSigPassType.add_particlenode, sig_args=(node, num)
+            )
+        )
         self.fbq.task_done()
 
     def add_all_particlenodes(self, all_nodes: list):
-        self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.add_all_particlenodes,
-                                        sig_args=all_nodes))
+        self.fbq.put(
+            ProcessSigPassTask(
+                sig_pass_type=WorkerSigPassType.add_all_particlenodes,
+                sig_args=all_nodes,
+            )
+        )
         self.fbq.task_done()
 
     def add_datasetnode(self, node: DatasetTreeNode):
-        self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.add_datasetindex,
-                                        sig_args=node))
+        self.fbq.put(
+            ProcessSigPassTask(
+                sig_pass_type=WorkerSigPassType.add_datasetindex, sig_args=node
+            )
+        )
         self.fbq.task_done()
 
     def reset_tree(self):
@@ -129,27 +138,38 @@ class PassSigFeedback:
         self.fbq.task_done()
 
     def bin_size(self, bin_size: int):
-        self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.bin_size,
-                                        sig_args=bin_size))
+        self.fbq.put(
+            ProcessSigPassTask(
+                sig_pass_type=WorkerSigPassType.bin_size, sig_args=bin_size
+            )
+        )
         self.fbq.task_done()
 
     def set_start(self, start: float):
-        self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.set_start,
-                                        sig_args=start))
+        self.fbq.put(
+            ProcessSigPassTask(
+                sig_pass_type=WorkerSigPassType.set_start, sig_args=start
+            )
+        )
         self.fbq.task_done()
 
     def set_tmin(self, tmin: float):
-        self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.set_tmin,
-                                        sig_args=tmin))
+        self.fbq.put(
+            ProcessSigPassTask(sig_pass_type=WorkerSigPassType.set_tmin, sig_args=tmin)
+        )
         self.fbq.task_done()
 
     def data_loaded(self):
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.data_loaded))
         self.fbq.task_done()
 
-    def add_irf(self, decay:ndarray, time_series:ndarray, dataset:H5dataset):
-        self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.add_irf,
-                                        sig_args=(decay, time_series, dataset)))
+    def add_irf(self, decay: ndarray, time_series: ndarray, dataset: H5dataset):
+        self.fbq.put(
+            ProcessSigPassTask(
+                sig_pass_type=WorkerSigPassType.add_irf,
+                sig_args=(decay, time_series, dataset),
+            )
+        )
         self.fbq.task_done()
 
 
@@ -175,10 +195,14 @@ class ProcessProgFeedback:
         self.fbq = feedback_queue
 
     def set_max(self, max_value: int):
-        self.fbq.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.SetMax, args=max_value))
+        self.fbq.put(
+            ProcessProgressTask(task_cmd=ProcessProgressCmd.SetMax, args=max_value)
+        )
 
     def add_max(self, max_to_add: int):
-        self.fbq.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.AddMax, args=max_to_add))
+        self.fbq.put(
+            ProcessProgressTask(task_cmd=ProcessProgressCmd.AddMax, args=max_to_add)
+        )
 
     def single(self):
         self.fbq.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.Single))
@@ -189,18 +213,24 @@ class ProcessProgFeedback:
         self.fbq.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.Step, args=value))
 
     def set_value(self, value: int):
-        self.fbq.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.SetValue, args=value))
+        self.fbq.put(
+            ProcessProgressTask(task_cmd=ProcessProgressCmd.SetValue, args=value)
+        )
 
     def end(self):
         self.fbq.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.Complete))
 
     def set_status(self, status):
-        self.fbq.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.SetStatus, args=status))
+        self.fbq.put(
+            ProcessProgressTask(task_cmd=ProcessProgressCmd.SetStatus, args=status)
+        )
 
     def start(self, max_value: int = None):
         if max_value is None:
             max_value = 100
-        self.fbq.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.Start, args=max_value))
+        self.fbq.put(
+            ProcessProgressTask(task_cmd=ProcessProgressCmd.Start, args=max_value)
+        )
 
 
 def prog_sig_pass(signals: ProcessThreadSignals, cmd: ProcessProgressCmd, args):
@@ -243,7 +273,7 @@ class ProgressTracker:
 
     @num_iterations.setter
     def num_iterations(self, num_iterations: int):
-        assert type(num_iterations) is int, 'num_iterations is not of type int'
+        assert type(num_iterations) is int, "num_iterations is not of type int"
         self.has_num_iterations = True
         self._num_iterations = num_iterations
 
@@ -253,7 +283,7 @@ class ProgressTracker:
 
     @num_trackers.setter
     def num_tracker(self, num_tracker: int):
-        assert type(num_tracker) is int, 'num_tracker is not of type int'
+        assert type(num_tracker) is int, "num_tracker is not of type int"
         self._num_trackers = num_tracker
 
     def calc_step_value(self):
@@ -263,7 +293,7 @@ class ProgressTracker:
     def iterate(self) -> int:
         prev_value = self._current_value
         self._current_value += self._step_value
-        diff_mod = self._current_value//1 - prev_value//1
+        diff_mod = self._current_value // 1 - prev_value // 1
         return int(diff_mod)
 
     def strict_iterate(self) -> float:
@@ -280,10 +310,12 @@ class ProgressTracker:
 
 
 class ProcessProgress(ProgressTracker):
-    def __init__(self,
-                 prog_fb: ProcessProgFeedback,
-                 num_iterations: int = None,
-                 num_of_processes: int = 1):
+    def __init__(
+        self,
+        prog_fb: ProcessProgFeedback,
+        num_iterations: int = None,
+        num_of_processes: int = 1,
+    ):
         super().__init__(num_iterations=num_iterations, num_trackers=num_of_processes)
         self._prog_fb = prog_fb
         self._accum_step = float(0)
@@ -307,6 +339,7 @@ class ProcessTask:
         self.obj = obj
         self.method_name = method_name
         self.args = args
+
     #     self.progress_queue = None
     #
     # def set_progress_queue(self, progress_queue: mp.JoinableQueue):
@@ -315,18 +348,20 @@ class ProcessTask:
 
 
 class ProcessSigPassTask:
-    def __init__(self, sig_pass_type: WorkerSigPassType,
-                 sig_args=None):
+    def __init__(self, sig_pass_type: WorkerSigPassType, sig_args=None):
         self.sig_pass_type = sig_pass_type
         self.sig_args = sig_args
 
 
 class ProcessTaskResult:
-    def __init__(self, task_uuid: UUID = None,
-                 task_return = None,
-                 new_task_obj: ProcessTask = None,
-                 task_complete: bool = True,
-                 dont_send: bool = False):
+    def __init__(
+        self,
+        task_uuid: UUID = None,
+        task_return=None,
+        new_task_obj: ProcessTask = None,
+        task_complete: bool = True,
+        dont_send: bool = False,
+    ):
         self.task_uuid = task_uuid
         self.task_return = task_return
         self.new_task_obj = new_task_obj
@@ -335,10 +370,13 @@ class ProcessTaskResult:
 
 
 class SingleProcess(mp.Process):
-    def __init__(self, task_queue: mp.JoinableQueue,
-                 result_queue: mp.JoinableQueue,
-                 feedback_queue: mp.JoinableQueue = None,
-                 temp_dir: TemporaryDirectory = None):
+    def __init__(
+        self,
+        task_queue: mp.JoinableQueue,
+        result_queue: mp.JoinableQueue,
+        feedback_queue: mp.JoinableQueue = None,
+        temp_dir: TemporaryDirectory = None,
+    ):
         mp.Process.__init__(self)
         # assert type(task_queue) in [mp.queues.JoinableQueue, mp.managers.AutoProxy[Queue]], \
         #     'task_queue is not of type JoinableQueue'
@@ -368,11 +406,15 @@ class SingleProcess(mp.Process):
                     self.result_queue.put(True)
                 else:
                     task_run = getattr(task.obj, task.method_name)
-                    if self.feedback_queue and \
-                            'feedback_queue' in task_run.__func__.__code__.co_varnames:
+                    if (
+                        self.feedback_queue
+                        and "feedback_queue" in task_run.__func__.__code__.co_varnames
+                    ):
                         if task.args is not None:
                             task_args = task.args
-                            task_return = task_run(feedback_queue=self.feedback_queue, *task_args)
+                            task_return = task_run(
+                                feedback_queue=self.feedback_queue, *task_args
+                            )
                         else:
                             task_return = task_run(feedback_queue=self.feedback_queue)
                     else:
@@ -382,7 +424,7 @@ class SingleProcess(mp.Process):
                         else:
                             task_return = task_run()
                     dont_send = False
-                    if task.method_name == 'run_cpa':
+                    if task.method_name == "run_cpa":
                         task.obj._particle = None
                         task.obj._cpa._particle = None
                         if task.obj.has_levels:
@@ -395,38 +437,53 @@ class SingleProcess(mp.Process):
                                 level.microtimes._particle = None
                     elif task.method_name == "run_grouping":
                         # dont_send = True
-                        is_global = hasattr(task.obj._particle, 'is_global') and task.obj._particle.is_global
+                        is_global = (
+                            hasattr(task.obj._particle, "is_global")
+                            and task.obj._particle.is_global
+                        )
                         if not is_global:
                             task_name = task.obj._particle.name
                             # if task.obj._particle.is_secondary_part:
-                                # task_name = task_name + '_2'
+                            # task_name = task_name + '_2'
                         else:
                             pass
                         if task.obj._particle.has_levels:
                             task.obj.best_step._particle = None
                             for step in task.obj.steps:
                                 step._particle = None
-                                for group_attr_name in ['_ahc_groups', 'groups', '_seed_groups', 'group_levels']:
+                                for group_attr_name in [
+                                    "_ahc_groups",
+                                    "groups",
+                                    "_seed_groups",
+                                    "group_levels",
+                                ]:
                                     if hasattr(step, group_attr_name):
                                         group_attr = getattr(step, group_attr_name)
                                         for group in group_attr:
                                             lvls = None
-                                            if group_attr_name == 'group_levels':
+                                            if group_attr_name == "group_levels":
                                                 lvls = group_attr
                                             else:
-                                                if hasattr(group, 'lvls'):
+                                                if hasattr(group, "lvls"):
                                                     lvls = group.lvls
                                             if lvls is not None:
                                                 for ahc_lvl in lvls:
-                                                    if hasattr(ahc_lvl, '_particle'):
+                                                    if hasattr(ahc_lvl, "_particle"):
                                                         ahc_lvl._particle = None
-                                                    if hasattr(ahc_lvl, 'particle'):
+                                                    if hasattr(ahc_lvl, "particle"):
                                                         ahc_lvl.particle = None
                                                     if not is_global:
-                                                        if hasattr(ahc_lvl.microtimes, '_particle'):
-                                                            ahc_lvl.microtimes._particle = None
+                                                        if hasattr(
+                                                            ahc_lvl.microtimes,
+                                                            "_particle",
+                                                        ):
+                                                            ahc_lvl.microtimes._particle = (
+                                                                None
+                                                            )
                                                         ahc_hist = ahc_lvl.histogram
-                                                        if hasattr(ahc_hist, '_particle'):
+                                                        if hasattr(
+                                                            ahc_hist, "_particle"
+                                                        ):
                                                             ahc_hist._particle = None
                         task.obj._particle = None
 
@@ -438,7 +495,7 @@ class SingleProcess(mp.Process):
                         #                                   new_task_obj=task.obj)
                         # with open(file_path, 'wb') as f:
                         #     pickle.dump(obj=pickle_result, file=f)
-                    elif task.method_name == 'fit_part_and_levels':
+                    elif task.method_name == "fit_part_and_levels":
                         task.obj.part_hist._particle = None
                         task.obj.part_hist.microtimes = None
                         levels_groups_hists = list()
@@ -450,9 +507,11 @@ class SingleProcess(mp.Process):
                             hist.level = None
 
                     if not dont_send:
-                        process_result = ProcessTaskResult(task_uuid=task.uuid,
-                                                           task_return=task_return,
-                                                           new_task_obj=task.obj)
+                        process_result = ProcessTaskResult(
+                            task_uuid=task.uuid,
+                            task_return=task_return,
+                            new_task_obj=task.obj,
+                        )
                     else:
                         process_result = ProcessTaskResult(dont_send=True)
 
@@ -466,4 +525,3 @@ class SingleProcess(mp.Process):
             # self.result_queue.put(e)
             # print(e)
             # logger(e)
-

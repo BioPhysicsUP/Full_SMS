@@ -9,13 +9,12 @@ University of Pretoria
 """
 from __future__ import annotations
 
-__docformat__ = 'NumPy'
+__docformat__ = "NumPy"
 
 import numpy as np
 
 
 class AntibunchingAnalysis:
-
     def __init__(self, particle):
         self._particle = particle
         self.uuid = self._particle.uuid
@@ -31,15 +30,24 @@ class AntibunchingAnalysis:
         abstimes2 = self._particle.sec_part.abstimes[:]
         microtimes1 = self._particle.microtimes[:]
         microtimes2 = self._particle.sec_part.microtimes[:]
-        bins, hist, events = self.correlate_times(abstimes1, abstimes2, microtimes1, microtimes2, difftime,
-                                                  window, binsize)
+        bins, hist, events = self.correlate_times(
+            abstimes1, abstimes2, microtimes1, microtimes2, difftime, window, binsize
+        )
         self.corr_bins = bins
         self.corr_hist = hist
         self.corr_events = events
         self.has_corr = True
 
     @staticmethod
-    def correlate_times(abstimes1, abstimes2, microtimes1, microtimes2, difftime=0., window=500., binsize=0.5):
+    def correlate_times(
+        abstimes1,
+        abstimes2,
+        microtimes1,
+        microtimes2,
+        difftime=0.0,
+        window=500.0,
+        binsize=0.5,
+    ):
         """Calculate second-order correlation based on time-tagged time-resolved photon data.
 
         The function is a simple nested loop that runs through every photon within a certain window and
@@ -78,7 +86,8 @@ class AntibunchingAnalysis:
         size1 = np.size(abstimes1)
         size2 = np.size(abstimes2)
         channel = np.concatenate(
-            (np.zeros(size1), np.ones(size2)))  # create list of channels for each photon (ch. 0 or ch. 1)
+            (np.zeros(size1), np.ones(size2))
+        )  # create list of channels for each photon (ch. 0 or ch. 1)
         all_times = np.concatenate((abstimes1, abstimes2))
         ind = all_times.argsort()
         all_times = all_times[ind]

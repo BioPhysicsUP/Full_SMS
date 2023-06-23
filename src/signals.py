@@ -15,8 +15,8 @@ logger = setup_logger(__name__)
 
 
 class WorkerSignals(QObject):
-    """ A QObject with attributes  of pyqtSignal's that can be used
-    to communicate between worker threads and the main thread. """
+    """A QObject with attributes  of pyqtSignal's that can be used
+    to communicate between worker threads and the main thread."""
 
     resolve_finished = pyqtSignal(str)
     fitting_finished = pyqtSignal(str)
@@ -117,9 +117,7 @@ class WorkerSigPassType(IntEnum):
     set_tmin = auto()
 
 
-def worker_sig_pass(signals: WorkerSignals,
-                    sig_type: WorkerSigPassType,
-                    args=None):
+def worker_sig_pass(signals: WorkerSignals, sig_type: WorkerSigPassType, args=None):
     assert type(signals) is WorkerSignals, "signals is incorrect type."
     assert type(sig_type) is WorkerSigPassType, "sig_type is incorrect type."
 

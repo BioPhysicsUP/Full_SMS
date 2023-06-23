@@ -267,7 +267,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>3</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -1225,7 +1225,7 @@
              <string>Load IRF</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
             </property>
             <property name="iconSize">
@@ -4752,7 +4752,7 @@
                <bool>true</bool>
               </property>
               <property name="currentIndex">
-               <number>1</number>
+               <number>0</number>
               </property>
               <widget class="QWidget" name="tabIndividual">
                <property name="maximumSize">
@@ -5202,7 +5202,7 @@
              <string>Load IRF</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset>
               <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
             </property>
            </widget>
@@ -5533,7 +5533,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../icons.qrc">
+        <iconset>
          <normaloff>:/icons/icons/raster-scan.png</normaloff>:/icons/icons/raster-scan.png</iconset>
        </attribute>
        <attribute name="title">
@@ -5967,6 +5967,25 @@
                       </layout>
                      </widget>
                     </item>
+                    <item>
+                     <widget class="QCheckBox" name="chbEx_DF_Global_Grouped_Levels">
+                      <property name="enabled">
+                       <bool>false</bool>
+                      </property>
+                      <property name="font">
+                       <font>
+                        <pointsize>8</pointsize>
+                        <weight>50</weight>
+                        <bold>false</bold>
+                        <underline>false</underline>
+                        <strikeout>false</strikeout>
+                       </font>
+                      </property>
+                      <property name="text">
+                       <string>Global Grouped Levels</string>
+                      </property>
+                     </widget>
+                    </item>
                    </layout>
                   </widget>
                  </item>
@@ -6040,6 +6059,25 @@
                    </property>
                    <property name="text">
                     <string>Grouped Levels</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QCheckBox" name="chbEx_Global_Grouped_Levels">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>10</pointsize>
+                     <weight>50</weight>
+                     <bold>false</bold>
+                     <underline>false</underline>
+                     <strikeout>false</strikeout>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>Global Grouped Levels</string>
                    </property>
                   </widget>
                  </item>
@@ -6594,42 +6632,6 @@
                       </property>
                       <property name="text">
                        <string>2D Array</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Spectra_Fitting">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Fitting Results</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item>
-                     <widget class="QCheckBox" name="chbEx_Spectra_Traces">
-                      <property name="enabled">
-                       <bool>false</bool>
-                      </property>
-                      <property name="font">
-                       <font>
-                        <pointsize>10</pointsize>
-                        <weight>50</weight>
-                        <bold>false</bold>
-                        <underline>false</underline>
-                       </font>
-                      </property>
-                      <property name="text">
-                       <string>Traces</string>
                       </property>
                      </widget>
                     </item>
@@ -7449,7 +7451,7 @@ Python: import pandas.read_feather)</string>
                <string>Export Selected</string>
               </property>
               <property name="icon">
-               <iconset resource="../icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/export-selected.png</normaloff>:/icons/icons/export-selected.png</iconset>
               </property>
               <property name="iconSize">
@@ -7478,7 +7480,7 @@ Python: import pandas.read_feather)</string>
                <string>Export All</string>
               </property>
               <property name="icon">
-               <iconset resource="../icons.qrc">
+               <iconset>
                 <normaloff>:/icons/icons/export-all.png</normaloff>:/icons/icons/export-all.png</iconset>
               </property>
               <property name="iconSize">

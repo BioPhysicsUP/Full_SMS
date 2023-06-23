@@ -6,7 +6,7 @@ University of Pretoria
 """
 from __future__ import annotations
 
-__docformat__ = 'NumPy'
+__docformat__ = "NumPy"
 
 import ast
 import os
@@ -39,23 +39,27 @@ logger = setup_logger(__name__)
 
 
 class H5dataset:
-
-    def __init__(self, filename, sig_fb: PassSigFeedback = None, prog_fb: ProcessProgFeedback = None):
+    def __init__(
+        self,
+        filename,
+        sig_fb: PassSigFeedback = None,
+        prog_fb: ProcessProgFeedback = None,
+    ):
         self.cpa_has_run = False
         self.use_parallel = False
         self.name = filename
         if prog_fb is not None:
             prog_fb.set_status(status="Reading file...")
-        self._file = h5pickle.File(self.name, 'r')
+        self._file = h5pickle.File(self.name, "r")
         self.file_version = h5_fr.file_version(dataset=self)
 
         all_keys = self.file.keys()
-        part_keys = [part_key for part_key in all_keys if 'Particle ' in part_key]
+        part_keys = [part_key for part_key in all_keys if "Particle " in part_key]
 
         natural_p_names = [None] * len(part_keys)
         natural_key = []
         for name in part_keys:
-            for seg in re.split('(\d+)', name):
+            for seg in re.split("(\d+)", name):
                 if seg.isdigit():
                     natural_key.append(int(seg))
         for num, key_num in enumerate(natural_key):
@@ -79,14 +83,26 @@ class H5dataset:
             else:
                 this_raster_scan_index = None
                 this_raster_scan = None
-            prim_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
-                                 raster_scan_dataset_index=this_raster_scan_index,
-                                 raster_scan=this_raster_scan)
-            if h5_fr.abstimes2(prim_part) is not None:  # if second card data exists, create secondary particle
+            prim_part = Particle(
+                name=particle_name,
+                dataset_ind=num,
+                dataset=self,
+                raster_scan_dataset_index=this_raster_scan_index,
+                raster_scan=this_raster_scan,
+            )
+            if (
+                h5_fr.abstimes2(prim_part) is not None
+            ):  # if second card data exists, create secondary particle
                 print(particle_name)
-                sec_part = Particle(name=particle_name, dataset_ind=num, dataset=self,
-                                    raster_scan_dataset_index=this_raster_scan_index,
-                                    raster_scan=this_raster_scan, is_secondary_part=True, prim_part=prim_part)
+                sec_part = Particle(
+                    name=particle_name,
+                    dataset_ind=num,
+                    dataset=self,
+                    raster_scan_dataset_index=this_raster_scan_index,
+                    raster_scan=this_raster_scan,
+                    is_secondary_part=True,
+                    prim_part=prim_part,
+                )
                 prim_part.sec_part = sec_part
                 self.particles.append(prim_part)
                 self.particles.append(sec_part)
@@ -128,9 +144,9 @@ class H5dataset:
             return True
         else:
             if type(new_file) is h5pickle.File and new_file.__bool__() is False:
-                logger.error('Provided H5 file file is closed.')
+                logger.error("Provided H5 file file is closed.")
             else:
-                logger.error('Provided H5 file invalid.')
+                logger.error("Provided H5 file invalid.")
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
         raster_scans = list()
@@ -156,10 +172,12 @@ class H5dataset:
                         if num != len(raster_scans) - 1:  # Not last one
                             # Save previous raster scan with previous group indexes
                             self.all_raster_scans.append(
-                                RasterScan(h5dataset=self,
-                                           particle_num=num,
-                                           h5dataset_index=raster_scan_num,
-                                           particle_indexes=group_indexes)
+                                RasterScan(
+                                    h5dataset=self,
+                                    particle_num=num,
+                                    h5dataset_index=raster_scan_num,
+                                    particle_indexes=group_indexes,
+                                )
                             )
                             raster_scan_counter += 1
                             raster_scan_num = len(self.all_raster_scans)
@@ -172,19 +190,23 @@ class H5dataset:
                             else:
                                 # Last one part of new group
                                 self.all_raster_scans.append(
-                                    RasterScan(h5dataset=self,
-                                               particle_num=num,
-                                               h5dataset_index=raster_scan_num,
-                                               particle_indexes=group_indexes)
+                                    RasterScan(
+                                        h5dataset=self,
+                                        particle_num=num,
+                                        h5dataset_index=raster_scan_num,
+                                        particle_indexes=group_indexes,
+                                    )
                                 )
                                 raster_scan_counter += 1
                                 group_indexes = [num]
                                 raster_scan_num = len(self.all_raster_scans)
                             self.all_raster_scans.append(
-                                RasterScan(h5dataset=self,
-                                           particle_num=num,
-                                           h5dataset_index=raster_scan_counter,
-                                           particle_indexes=group_indexes)
+                                RasterScan(
+                                    h5dataset=self,
+                                    particle_num=num,
+                                    h5dataset_index=raster_scan_counter,
+                                    particle_indexes=group_indexes,
+                                )
                             )
                             raster_scan_counter += 1
                     else:
@@ -192,10 +214,12 @@ class H5dataset:
                         if len(raster_scans) == 1:
                             group_indexes = [0]
                             self.all_raster_scans.append(
-                                RasterScan(h5dataset=self,
-                                           particle_num=num,
-                                           h5dataset_index=raster_scan_counter,
-                                           particle_indexes=group_indexes)
+                                RasterScan(
+                                    h5dataset=self,
+                                    particle_num=num,
+                                    h5dataset_index=raster_scan_counter,
+                                    particle_indexes=group_indexes,
+                                )
                             )
                     group_indexes = [num]
                     prev_raster_scan = raster_scan
@@ -211,14 +235,19 @@ class H5dataset:
         for particle in self.particles:
             particle.makehistograms(remove_zeros, startpoint, channel)
 
-    def bin_all_ints(self, binsize: float,
-                     sig_fb: PassSigFeedback = None,
-                     prog_fb: ProcessProgFeedback = None):
+    def bin_all_ints(
+        self,
+        binsize: float,
+        sig_fb: PassSigFeedback = None,
+        prog_fb: ProcessProgFeedback = None,
+    ):
         """Bin the absolute times into traces using binsize
-            binsize is in ms
+        binsize is in ms
         """
         if prog_fb:
-            proc_tracker = ProcessProgress(prog_fb=prog_fb, num_iterations=len(self.particles))
+            proc_tracker = ProcessProgress(
+                prog_fb=prog_fb, num_iterations=len(self.particles)
+            )
 
         # if proc_tracker:
         #     if not proc_tracker.has_num_iterations:
@@ -232,7 +261,7 @@ class H5dataset:
         # dbg.p('Binning all done', 'H5Dataset')
 
     def save_particles(self, file_path, selected_nums: List[int]):
-        """ Save selected particle to a new or existing HDF5 file.
+        """Save selected particle to a new or existing HDF5 file.
 
         Parameters
         ----------
@@ -244,20 +273,23 @@ class H5dataset:
 
         add = os.path.exists(file_path)
         if add:
-            new_h5file = h5pickle.File(file_path, mode='r+')
-            num_existing = new_h5file.attrs.get('# Particles')
+            new_h5file = h5pickle.File(file_path, mode="r+")
+            num_existing = new_h5file.attrs.get("# Particles")
         else:
-            new_h5file = h5pickle.File(file_path, mode='w')
+            new_h5file = h5pickle.File(file_path, mode="w")
             num_existing = 0
 
         for i, selected in enumerate(selected_nums):
-            new_h5file.copy(self.file[f'/Particle {selected}'],
-                            new_h5file, name=f'/Particle {num_existing + i + 1}')
+            new_h5file.copy(
+                self.file[f"/Particle {selected}"],
+                new_h5file,
+                name=f"/Particle {num_existing + i + 1}",
+            )
 
         if add:
-            new_h5file.attrs.modify('# Particles', num_existing + len(selected_nums))
+            new_h5file.attrs.modify("# Particles", num_existing + len(selected_nums))
         else:
-            new_h5file.attrs.create('# Particles', len(selected_nums))
+            new_h5file.attrs.create("# Particles", len(selected_nums))
         new_h5file.close()
 
 
@@ -266,10 +298,21 @@ class Particle:
     Class for particle in H5dataset.
     """
 
-    def __init__(self, name: str, dataset_ind: int, dataset: H5dataset,
-                 raster_scan_dataset_index: int = None, raster_scan: RasterScan = None,
-                 is_secondary_part: bool = False, prim_part: Particle = None,
-                 sec_part: Particle = None, tmin=None, tmax=None, channelwidth=None, is_global:bool=False):
+    def __init__(
+        self,
+        name: str,
+        dataset_ind: int,
+        dataset: H5dataset,
+        raster_scan_dataset_index: int = None,
+        raster_scan: RasterScan = None,
+        is_secondary_part: bool = False,
+        prim_part: Particle = None,
+        sec_part: Particle = None,
+        tmin=None,
+        tmax=None,
+        channelwidth=None,
+        is_global: bool = False,
+    ):
         """
         Creates an instance of Particle
 
@@ -319,15 +362,21 @@ class Particle:
                 self.num_photons = len(self.abstimes)
             self.tcspc_card = h5_fr.tcspc_card(particle=self)
             self.int_trace = h5_fr.int_trace(particle=self)
-            self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
-            self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
+            self.cpts = ChangePoints(
+                self
+            )  # Added by Josh: creates an object for Change Point Analysis (cpa)
+            self.ahca = AHCA(
+                self
+            )  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
             self.ab_analysis = AntibunchingAnalysis(self)
             self.avg_int_weighted = None
             self.int_std_weighted = None
 
             if self.is_secondary_part:
                 self.spectra = self.prim_part.spectra
-                self._raster_scan_dataset_index = self.prim_part._raster_scan_dataset_index
+                self._raster_scan_dataset_index = (
+                    self.prim_part._raster_scan_dataset_index
+                )
                 self.raster_scan = self.prim_part.raster_scan
                 self.has_raster_scan = self.prim_part.has_raster_scan
                 self.description = self.prim_part.description
@@ -344,7 +393,9 @@ class Particle:
                     differences = np.diff(np.sort(self.microtimes[:]))
                     channelwidth = np.unique(differences)[1]
             except IndexError as e:
-                logger.error(f"channelwidth could not be determined. Inspect {self.name}.")
+                logger.error(
+                    f"channelwidth could not be determined. Inspect {self.name}."
+                )
                 channelwidth = 0.01220703125
             self.channelwidth = channelwidth
             if tmin is None:
@@ -365,7 +416,7 @@ class Particle:
             self.binnedtrace = None
             self.bin_size = None
             try:
-                self.roi_region = (0, self.abstimes[-1] / 1E9)
+                self.roi_region = (0, self.abstimes[-1] / 1e9)
             except IndexError:
                 self.roi_region = (0, 0)
 
@@ -377,9 +428,12 @@ class Particle:
             self.has_exported = False
             self.is_global = False
         else:
-
-            self.cpts = ChangePoints(self)  # Added by Josh: creates an object for Change Point Analysis (cpa)
-            self.ahca = AHCA(self)  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
+            self.cpts = ChangePoints(
+                self
+            )  # Added by Josh: creates an object for Change Point Analysis (cpa)
+            self.ahca = AHCA(
+                self
+            )  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
             self.is_global = False
 
     @property
@@ -436,9 +490,12 @@ class Particle:
         roi_start = self.roi_region[0]
         roi_end = self.roi_region[1]
         epsilon_t = 0.1
-        end_t = self.abstimes[-1] / 1E9
-        if roi_start >= 0 + epsilon_t / 2 or not roi_end - epsilon_t / 2 <= end_t <= roi_end + epsilon_t / 2:
-            times = self.abstimes[:] / 1E9
+        end_t = self.abstimes[-1] / 1e9
+        if (
+            roi_start >= 0 + epsilon_t / 2
+            or not roi_end - epsilon_t / 2 <= end_t <= roi_end + epsilon_t / 2
+        ):
+            times = self.abstimes[:] / 1e9
             first_photon = np.argmin(roi_start > times)
             last_photon = np.argmin(roi_end > times)
         return first_photon, last_photon
@@ -459,7 +516,7 @@ class Particle:
 
     @property
     def microtimes_roi(self) -> np.ndarray:
-        times = np.array(self.abstimes) / 1E9
+        times = np.array(self.abstimes) / 1e9
         if self.roi_region[0] == 0:
             first_ind = 0
         else:
@@ -488,7 +545,9 @@ class Particle:
             last_roi_ind = self.roi_region[2]
         else:
             end_times = np.array([level.times_s[1] for level in self.cpts.levels])
-            last_roi_ind = np.argmax(np.round(end_times, 3) >= np.round(self.roi_region[1], 3))
+            last_roi_ind = np.argmax(
+                np.round(end_times, 3) >= np.round(self.roi_region[1], 3)
+            )
         return int(last_roi_ind)
 
     @property
@@ -506,7 +565,9 @@ class Particle:
             #     last_roi_ind = self.roi_region[2]
             # else:
             end_times = np.array([level.times_s[1] for level in self.group_levels])
-            last_group_roi_ind = np.argmax(np.round(end_times, 3) >= np.round(self.roi_region[1], 3))
+            last_group_roi_ind = np.argmax(
+                np.round(end_times, 3) >= np.round(self.roi_region[1], 3)
+            )
             return int(last_group_roi_ind)
 
     @property
@@ -583,11 +644,15 @@ class Particle:
         if self.has_groups and self.using_group_levels:
             return self.group_levels
         else:
-            return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi + 1]
+            return self.cpts.levels[
+                self.first_level_ind_in_roi : self.last_level_ind_in_roi + 1
+            ]
 
     @property
     def levels_roi_force(self):
-        return self.cpts.levels[self.first_level_ind_in_roi: self.last_level_ind_in_roi + 1]
+        return self.cpts.levels[
+            self.first_level_ind_in_roi : self.last_level_ind_in_roi + 1
+        ]
 
     @property
     def group_levels(self) -> List[Level]:
@@ -598,7 +663,9 @@ class Particle:
     def group_levels_roi(self) -> List[Level]:
         if self.has_groups:
             group_levels = self.group_levels
-            return group_levels[self.first_group_level_ind_in_roi: self.last_group_level_ind_in_roi + 1]
+            return group_levels[
+                self.first_group_level_ind_in_roi : self.last_group_level_ind_in_roi + 1
+            ]
 
     @property
     def num_levels(self):
@@ -613,7 +680,7 @@ class Particle:
 
     @property
     def dwell_time(self):
-        return (self.abstimes[-1] - self.abstimes[0]) / 1E9
+        return (self.abstimes[-1] - self.abstimes[0]) / 1e9
 
     @property
     def dwell_time_roi(self):
@@ -621,7 +688,9 @@ class Particle:
             return self.levels_roi[-1].times_s[1] - self.levels_roi[0].times_s[0]
         else:
             first_photon_ind, last_photon_ind = self.roi_region_photon_inds
-            return (self.abstimes[last_photon_ind] - self.abstimes[first_photon_ind]) / 1E9
+            return (
+                self.abstimes[last_photon_ind] - self.abstimes[first_photon_ind]
+            ) / 1e9
 
     @property
     def level_ints(self):
@@ -635,7 +704,9 @@ class Particle:
         if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_ints
         else:
-            return self.cpts.level_ints[self.first_level_ind_in_roi:self.last_level_ind_in_roi]
+            return self.cpts.level_ints[
+                self.first_level_ind_in_roi : self.last_level_ind_in_roi
+            ]
 
     @property
     def level_dwelltimes(self):
@@ -649,7 +720,9 @@ class Particle:
         if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_dwelltimes
         else:
-            return self.cpts.level_dwelltimes[self.first_level_ind_in_roi:self.last_level_ind_in_roi]
+            return self.cpts.level_dwelltimes[
+                self.first_level_ind_in_roi : self.last_level_ind_in_roi
+            ]
 
     @property
     def has_burst(self) -> bool:
@@ -674,15 +747,18 @@ class Particle:
     @property
     def unique_name(self):
         if self.is_secondary_part:
-            return self.name + '_2'
+            return self.name + "_2"
         else:
             return self.name
 
     @property
     def has_global_grouping(self) -> bool:
-        if hasattr(self, 'dataset') and hasattr(self.dataset, 'global_particle'):
+        if hasattr(self, "dataset") and hasattr(self.dataset, "global_particle"):
             gp = self.dataset.global_particle
-            return True if gp is not None and self.dataset_ind in gp.contributing_particles_dataset_inds else False
+            return (
+                gp is not None
+                and self.dataset_ind in gp.contributing_particles_dataset_inds
+            )
         else:
             return False
 
@@ -690,6 +766,17 @@ class Particle:
     def global_particle(self) -> GlobalParticle:
         if self.has_global_grouping:
             return self.dataset.global_particle
+
+    @property
+    def global_group_levels(self):
+        if self.has_global_grouping:
+            gp = self.global_particle
+            return list(
+                filter(
+                    lambda l: l.parent_particle_dataset_ind == self.dataset_ind,
+                    gp.global_levels,
+                )
+            )
 
     # @property
     # def icon(self):
@@ -699,12 +786,19 @@ class Particle:
         self.ahca = AHCA(particle=self)
         self.using_group_levels = False
 
-    def levels2data(self, use_grouped: bool = None, use_roi: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def levels2data(
+        self,
+        use_grouped: bool = None,
+        use_roi: bool = False,
+        use_global_groups: bool = False,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
+
         Parameters
         ----------
+        use_global_groups
         use_grouped
         use_roi
 
@@ -712,22 +806,37 @@ class Particle:
         -------
         Tuple[np.ndarray, np.ndarray]
         """
-        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        assert self.has_levels, "ChangePointAnalysis:\tNo levels to convert to data."
         if use_grouped is None:
             use_grouped = self.has_groups and self.using_group_levels
 
-        if not use_grouped:
+        did_use_global = False
+        if use_grouped or use_global_groups:
+            if use_global_groups:
+                levels = self.global_group_levels
+                did_use_global = True
+            elif not use_roi:
+                levels = self.group_levels
+            else:
+                levels = self.group_levels_roi
+        else:
             if not use_roi:
                 levels = self.cpts.levels
             else:
                 levels = self.levels_roi
-        else:
-            if not use_roi:
-                levels = self.group_levels
-            else:
-                levels = self.group_levels_roi
 
-        times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
+        if not use_global_groups:
+            times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
+        else:
+            times = np.array(
+                [
+                    [
+                        level.times_s[0] - level.start_time_offset_ns / 1e9,
+                        level.times_s[1] - level.start_time_offset_ns / 1e9,
+                    ]
+                    for level in levels
+                ]
+            )
         times = times.flatten()
 
         ints = np.array([[level.int_p_s, level.int_p_s] for level in levels])
@@ -735,7 +844,9 @@ class Particle:
 
         return ints, times
 
-    def lifetimes2data(self, use_grouped: bool = None, use_roi: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def lifetimes2data(
+        self, use_grouped: bool = None, use_roi: bool = False
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
@@ -748,7 +859,9 @@ class Particle:
         -------
         Tuple[np.ndarray, np.ndarray]
         """
-        assert self.has_fit_a_lifetime, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        assert (
+            self.has_fit_a_lifetime
+        ), "ChangePointAnalysis:\tNo levels to convert to data."
         if use_grouped is None:
             use_grouped = self.has_groups and self.using_group_levels
 
@@ -764,18 +877,28 @@ class Particle:
                 levels = self.group_levels_roi
 
         times = np.array(
-            [[level.times_s[0], level.times_s[1]] for level in levels if level.histogram.fitted]
+            [
+                [level.times_s[0], level.times_s[1]]
+                for level in levels
+                if level.histogram.fitted
+            ]
         )
         times = times.flatten()
 
         lifetimes = np.array(
-            [[level.histogram.avtau, level.histogram.avtau] for level in levels if level.histogram.fitted]
+            [
+                [level.histogram.avtau, level.histogram.avtau]
+                for level in levels
+                if level.histogram.fitted
+            ]
         )
         lifetimes = lifetimes.flatten()
 
         return lifetimes, times
 
-    def current2data(self, level_ind: int, use_roi: bool = False) -> [np.ndarray, np.ndarray]:
+    def current2data(
+        self, level_ind: int, use_roi: bool = False
+    ) -> [np.ndarray, np.ndarray]:
         """
         Uses the Particle objects' levels to generate two arrays for plotting level num.
         Parameters
@@ -787,22 +910,22 @@ class Particle:
         [np.ndarray, np.ndarray]
         """
         # TODO: Cleanup this function anc the one above it
-        assert self.has_levels, 'ChangePointAnalysis:\tNo levels to convert to data.'
+        assert self.has_levels, "ChangePointAnalysis:\tNo levels to convert to data."
 
         if not use_roi:
             level = self.levels[level_ind]
         else:
             level = self.levels_roi[level_ind]
-        times = np.array(level.times_ns) / 1E9
+        times = np.array(level.times_ns) / 1e9
         levels_data = np.array([level.int_p_s, level.int_p_s])
 
         return levels_data, times
 
     def current_group2data(self, group_ind: int) -> [np.ndarray, np.ndarray]:
-        assert self.has_groups, 'ChangePointAnalysis:\tNo groups to convert to data.'
+        assert self.has_groups, "ChangePointAnalysis:\tNo groups to convert to data."
 
         group = self.groups[group_ind]
-        times = np.array([self.abstimes[0], self.abstimes[-1]]) / 1E9
+        times = np.array([self.abstimes[0], self.abstimes[-1]]) / 1e9
         group_int = np.array([group.int_p_s, group.int_p_s])
         return group_int, times
 
@@ -825,12 +948,17 @@ class Particle:
 
         self._histogram = Histogram(self, start_point=self.startpoint, channel=channel)
         if add_roi:
-            self._histogram_roi = Histogram(self, start_point=self.startpoint, channel=channel, is_for_roi=True)
+            self._histogram_roi = Histogram(
+                self, start_point=self.startpoint, channel=channel, is_for_roi=True
+            )
         # print(np.max(self.histogram.decay))
 
-    def makelevelhists(self, channel: bool = True,
-                       force_cpts_levels: bool = False,
-                       force_group_levels: bool = False):
+    def makelevelhists(
+        self,
+        channel: bool = True,
+        force_cpts_levels: bool = False,
+        force_group_levels: bool = False,
+    ):
         """Make level histograms"""
 
         if self.has_levels:
@@ -844,7 +972,9 @@ class Particle:
                 levels = self.levels
 
             for level in levels:
-                level.histogram = Histogram(self, level, self.startpoint, channel=channel)
+                level.histogram = Histogram(
+                    self, level, self.startpoint, channel=channel
+                )
 
     def makegrouplevelhists(self):
         if self.has_groups and self.ahca.selected_step.groups_have_hists:
@@ -857,10 +987,11 @@ class Particle:
                     group_level.histogram = groups[g_ind].histogram
 
     def makegrouphists(self, channel=True):
-
         if self.has_groups:
             for group in self.groups:
-                group.histogram = Histogram(self, group.lvls_inds, self.startpoint, channel=channel)
+                group.histogram = Histogram(
+                    self, group.lvls_inds, self.startpoint, channel=channel
+                )
             self.ahca.selected_step.groups_have_hists = True
 
     def binints(self, binsize):
@@ -869,7 +1000,9 @@ class Particle:
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
 
-    def trim_trace(self, min_level_dwell_time: float, min_level_int: int, reset_roi: bool = True):
+    def trim_trace(
+        self, min_level_dwell_time: float, min_level_int: int, reset_roi: bool = True
+    ):
         trimmed = None
         if self.has_levels and self.level_ints[-1] < min_level_int:
             trimmed = False
@@ -886,14 +1019,21 @@ class Particle:
                 last_active_time = self.levels[first_valid_reversed_ind].times_s[1]
                 min_time = 0
                 if not reset_roi:
-                    if last_active_time > self.roi_region[0] and last_active_time - self.roi_region[0] > 0.5:
+                    if (
+                        last_active_time > self.roi_region[0]
+                        and last_active_time - self.roi_region[0] > 0.5
+                    ):
                         min_time = self.roi_region[0]
                     else:
                         min_time = last_active_time - 0.5
                     if last_active_time > self.roi_region[1]:
                         last_active_time = self.roi_region[1]
                 if min_time >= 0:
-                    self.roi_region = (min_time, last_active_time, first_valid_reversed_ind)
+                    self.roi_region = (
+                        min_time,
+                        last_active_time,
+                        first_valid_reversed_ind,
+                    )
                     trimmed = True
         return trimmed
 
@@ -907,11 +1047,9 @@ class FakeCpts:
 
 
 class GlobalParticle:
-
-    def __init__(self, particles: List[Particle], use_roi:bool=False):
-
+    def __init__(self, particles: List[Particle], use_roi: bool = False):
         self.is_global = True
-        self.name = 'Global Particle'
+        self.name = "Global Particle"
 
         levels = []
         start_time_offset_ns = 0
@@ -921,11 +1059,13 @@ class GlobalParticle:
             for l in p_levels:
                 level = GlobalLevel(
                     global_particle=self,
+                    parent_particle_dataset_ind=p.dataset_ind,
                     particle_levels=[l],
                     int_p_s=l.int_p_s,
+                    group_ind=l.group_ind,
                     start_time_offset_ns=start_time_offset_ns,
                     dwell_time_ns=l.dwell_time_ns,
-                    num_photons=l.num_photons
+                    num_photons=l.num_photons,
                 )
                 levels.append(level)
             start_time_offset_ns += p_levels[-1].times_ns[1]
@@ -953,6 +1093,7 @@ class GlobalParticle:
     @property
     def has_groups(self):
         return self.ahca.has_groups
+
     @property
     def groups(self):
         if self.has_groups:
@@ -991,6 +1132,15 @@ class GlobalParticle:
     def grouping_num_groups(self):
         return self.ahca.steps_num_groups
 
+    @property
+    def level_particle_dataset_inds(self):
+        return [l.parent_particle_dataset_ind for l in self.global_levels]
+
+    @property
+    def global_levels(self) -> list:
+        if self.ahca.has_groups:
+            return self.ahca.selected_step.group_levels
+
     def run_grouping(self):
         self.ahca.run_grouping()
 
@@ -1006,6 +1156,7 @@ class GlobalParticle:
         #     "ints": all_ints,
         #     "particle": all_particle_names
         # })
+
 
 class Trace:
     """Binned intensity trace
@@ -1023,7 +1174,7 @@ class Trace:
         self.binsize = binsize
         data = particle.abstimes[:]
 
-        binsize_ns = binsize * 1E6  # Convert ms to ns
+        binsize_ns = binsize * 1e6  # Convert ms to ns
         try:
             endbin = np.int(np.max(data) / binsize_ns)
         except ValueError:
@@ -1031,24 +1182,27 @@ class Trace:
 
         binned = np.zeros(endbin + 1, dtype=np.int)
         for step in range(endbin):
-            binned[step + 1] = np.size(data[((step + 1) * binsize_ns > data) * (data > step * binsize_ns)])
+            binned[step + 1] = np.size(
+                data[((step + 1) * binsize_ns > data) * (data > step * binsize_ns)]
+            )
             if step == 0:
                 binned[step] = binned[step + 1]
 
         # binned *= (1000 / 100)
         self.intdata = binned
-        self.inttimes = np.array(
-            range(0, binsize + (endbin * binsize), binsize))
+        self.inttimes = np.array(range(0, binsize + (endbin * binsize), binsize))
 
 
 class Histogram:
-
-    def __init__(self, particle: Particle,
-                 level: Union[Level, List[int]] = None,
-                 start_point: float = None,
-                 channel: bool = True,
-                 trim_start: bool = False,
-                 is_for_roi: bool = False):
+    def __init__(
+        self,
+        particle: Particle,
+        level: Union[Level, List[int]] = None,
+        start_point: float = None,
+        channel: bool = True,
+        trim_start: bool = False,
+        is_for_roi: bool = False,
+    ):
         assert not (level is not None and is_for_roi), "ROI can't be used for a Level"
         self.is_for_roi = is_for_roi
         self.fitted_with_roi = None
@@ -1056,9 +1210,11 @@ class Histogram:
         no_sort = False
         self._particle = particle
         self.level = level
-        self.original_kwargs = {'start_point': start_point,
-                                'channel': channel,
-                                'trim_start': trim_start}
+        self.original_kwargs = {
+            "start_point": start_point,
+            "channel": channel,
+            "trim_start": trim_start,
+        }
         self.microtimes = None
         self.setup(level=level, use_roi=is_for_roi, **self.original_kwargs)
 
@@ -1087,11 +1243,14 @@ class Histogram:
         self.decay_roi_end_ns = None
         self.num_photons_used = None
 
-    def setup(self, level: Union[Level, List[int]] = None,
-              start_point: float = None,
-              channel: bool = True,
-              trim_start: bool = False,
-              use_roi: bool = False):
+    def setup(
+        self,
+        level: Union[Level, List[int]] = None,
+        start_point: float = None,
+        channel: bool = True,
+        trim_start: bool = False,
+        use_roi: bool = False,
+    ):
         no_sort = False
         if level is None:
             if not use_roi:
@@ -1105,8 +1264,9 @@ class Histogram:
                 raise RuntimeError("Multiple levels provided, but has no groups")
             self.microtimes = np.array([])
             for ind in level:
-                self.microtimes = np.append(self.microtimes, self._particle.cpts.levels[
-                    ind].microtimes)
+                self.microtimes = np.append(
+                    self.microtimes, self._particle.cpts.levels[ind].microtimes
+                )
         else:
             self.microtimes = self.level.microtimes[:]
         if self.microtimes.size == 0:
@@ -1130,8 +1290,12 @@ class Histogram:
 
             sorted_micro = np.sort(self.microtimes)
             if not no_sort and trim_start:
-                tmin = sorted_micro[np.searchsorted(sorted_micro, tmin)]  # Make sure bins align with TCSPC bins
-            tmax = sorted_micro[np.searchsorted(sorted_micro, tmax) - 1]  # - 1  # Fix if max is end
+                tmin = sorted_micro[
+                    np.searchsorted(sorted_micro, tmin)
+                ]  # Make sure bins align with TCSPC bins
+            tmax = sorted_micro[
+                np.searchsorted(sorted_micro, tmax) - 1
+            ]  # - 1  # Fix if max is end
 
             window = tmax - tmin
             numpoints = int(window // self._particle.channelwidth)
@@ -1144,8 +1308,9 @@ class Histogram:
             self.t = np.delete(self.t, where_neg)
             self.decay = np.delete(self.decay, where_neg)
 
-            assert len(self.t) == len(self.decay), "Time series must be same length as decay " \
-                                                   "histogram"
+            assert len(self.t) == len(self.decay), (
+                "Time series must be same length as decay " "histogram"
+            )
             if start_point is None and trim_start:
                 try:
                     self.decaystart = np.nonzero(self.decay)[0][0]
@@ -1153,15 +1318,20 @@ class Histogram:
                     pass
                 else:
                     if level is not None:
-                        self.decay, self.t = start_at_value(self.decay, self.t, neg_t=False, decaystart=self.decaystart)
+                        self.decay, self.t = start_at_value(
+                            self.decay, self.t, neg_t=False, decaystart=self.decaystart
+                        )
             else:
                 self.decaystart = 0
 
             try:
                 self.t -= self.t.min()
             except ValueError:
-                dbg.p(f"Histogram object of {self._particle.name} does not have a valid"
-                      f" self.t attribute", "Histogram")
+                dbg.p(
+                    f"Histogram object of {self._particle.name} does not have a valid"
+                    f" self.t attribute",
+                    "Histogram",
+                )
 
     def update_roi(self):
         self.setup(level=self.level, use_roi=True, **self.original_kwargs)
@@ -1174,7 +1344,19 @@ class Histogram:
     def t(self, value):
         self._t = value
 
-    def fit(self, numexp, tauparam, ampparam, shift, decaybg, irfbg, boundaries, addopt, irf, fwhm=None):
+    def fit(
+        self,
+        numexp,
+        tauparam,
+        ampparam,
+        shift,
+        decaybg,
+        irfbg,
+        boundaries,
+        addopt,
+        irf,
+        fwhm=None,
+    ):
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
@@ -1183,20 +1365,55 @@ class Histogram:
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
             if numexp == 1:
-                fit = tcspcfit.OneExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                      tauparam, None, shift, decaybg, irfbg, boundaries, addopt, fwhm=fwhm)
+                fit = tcspcfit.OneExp(
+                    irf,
+                    self.decay,
+                    self.t,
+                    self._particle.channelwidth,
+                    tauparam,
+                    None,
+                    shift,
+                    decaybg,
+                    irfbg,
+                    boundaries,
+                    addopt,
+                    fwhm=fwhm,
+                )
             elif numexp == 2:
-                fit = tcspcfit.TwoExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                      tauparam, ampparam, shift, decaybg, irfbg, boundaries, addopt, fwhm=fwhm)
+                fit = tcspcfit.TwoExp(
+                    irf,
+                    self.decay,
+                    self.t,
+                    self._particle.channelwidth,
+                    tauparam,
+                    ampparam,
+                    shift,
+                    decaybg,
+                    irfbg,
+                    boundaries,
+                    addopt,
+                    fwhm=fwhm,
+                )
             elif numexp == 3:
-                fit = tcspcfit.ThreeExp(irf, self.decay, self.t, self._particle.channelwidth,
-                                        tauparam, ampparam, shift, decaybg,
-                                        irfbg, boundaries, addopt, fwhm=fwhm)
+                fit = tcspcfit.ThreeExp(
+                    irf,
+                    self.decay,
+                    self.t,
+                    self._particle.channelwidth,
+                    tauparam,
+                    ampparam,
+                    shift,
+                    decaybg,
+                    irfbg,
+                    boundaries,
+                    addopt,
+                    fwhm=fwhm,
+                )
         except Exception as e:
-            trace_string = ''
+            trace_string = ""
             for trace_part in traceback.format_tb(e.__traceback__):
                 trace_string = trace_string + trace_part
-            logger.error(e.args[0] + '\n\n' + trace_string[:-1])
+            logger.error(e.args[0] + "\n\n" + trace_string[:-1])
             # print(traceback.format_exc().split('\n')[-2])
             return False
 
@@ -1250,7 +1467,7 @@ class ParticleAllHists:
         self.level_hists = list()
         if particle.has_levels:
             for level in particle.cpts.levels:
-                if hasattr(level, 'histogram') and level.histogram is not None:
+                if hasattr(level, "histogram") and level.histogram is not None:
                     self.level_hists.append(level.histogram)
 
         self.has_group_hists = particle.has_groups
@@ -1258,11 +1475,16 @@ class ParticleAllHists:
         if particle.has_groups:
             for group in particle.groups:
                 if group.histogram is None:
-                    group.histogram = Histogram(particle=particle, level=group.lvls_inds,
-                                                start_point=particle.startpoint)
+                    group.histogram = Histogram(
+                        particle=particle,
+                        level=group.lvls_inds,
+                        start_point=particle.startpoint,
+                    )
                 self.group_hists.append(group.histogram)
 
-    def fit_part_and_levels(self, channelwidth, start, end, fit_param: FittingParameters):
+    def fit_part_and_levels(
+        self, channelwidth, start, end, fit_param: FittingParameters
+    ):
         self.numexp = fit_param.numexp
         all_hists = [self.part_hist]
         all_hists.extend(self.level_hists)
@@ -1275,21 +1497,31 @@ class ParticleAllHists:
         for hist in all_hists:
             if hist.microtimes.size > 10:
                 try:
-                    if not hist.fit(fit_param.numexp, fit_param.tau, fit_param.amp,
-                                    shift, fit_param.decaybg,
-                                    fit_param.irfbg, boundaries, fit_param.addopt,
-                                    fit_param.irf, fit_param.fwhm):
+                    if not hist.fit(
+                        fit_param.numexp,
+                        fit_param.tau,
+                        fit_param.amp,
+                        shift,
+                        fit_param.decaybg,
+                        fit_param.irfbg,
+                        boundaries,
+                        fit_param.addopt,
+                        fit_param.irf,
+                        fit_param.fwhm,
+                    ):
                         pass  # fit unsuccessful
                 except AttributeError:
-                    logger.info('Level or trace not fitted. No decay.')
+                    logger.info("Level or trace not fitted. No decay.")
 
 
 class RasterScan:
-    def __init__(self,
-                 h5dataset: H5dataset,
-                 particle_num: int,
-                 h5dataset_index: int,
-                 particle_indexes: List[int]):
+    def __init__(
+        self,
+        h5dataset: H5dataset,
+        particle_num: int,
+        h5dataset_index: int,
+        particle_indexes: List[int],
+    ):
         self.h5dataset = h5dataset
         self.particle_num = particle_num
         self.h5dataset_index = h5dataset_index
@@ -1300,8 +1532,12 @@ class RasterScan:
         self.x_start = h5_fr.rs_x_start(part_or_rs=self)
         self.y_start = h5_fr.rs_y_start(part_or_rs=self)
 
-        self.x_axis_pos = np.linspace(self.x_start, self.x_start + self.range, self.pixel_per_line)
-        self.y_axis_pos = np.linspace(self.y_start, self.y_start + self.range, self.pixel_per_line)
+        self.x_axis_pos = np.linspace(
+            self.x_start, self.x_start + self.range, self.pixel_per_line
+        )
+        self.y_axis_pos = np.linspace(
+            self.y_start, self.y_start + self.range, self.pixel_per_line
+        )
 
     @property
     def dataset(self) -> h5pickle.Dataset:
@@ -1326,12 +1562,20 @@ class Spectra:
     @property
     def wavelengths(self) -> np.ndarray:
         if self._particle.file is not None and self._particle.file.__bool__() is True:
-            return h5_fr.spectra_wavelengths(particle=self._particle) if self._has_spectra else None
+            return (
+                h5_fr.spectra_wavelengths(particle=self._particle)
+                if self._has_spectra
+                else None
+            )
 
     @property
     def series_times(self) -> np.ndarray:
         if self._particle.file is not None and self._particle.file.__bool__() is True:
-            return h5_fr.spectra_abstimes(particle=self._particle) if self._has_spectra else None
+            return (
+                h5_fr.spectra_abstimes(particle=self._particle)
+                if self._has_spectra
+                else None
+            )
 
 
 def start_at_value(decay, t, neg_t=True, decaystart=None):

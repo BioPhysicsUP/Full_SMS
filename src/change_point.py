@@ -10,7 +10,7 @@ University of Pretoria
 
 from __future__ import annotations
 
-__docformat__ = 'NumPy'
+__docformat__ = "NumPy"
 
 import os
 from typing import Tuple, Optional, TYPE_CHECKING
@@ -40,10 +40,9 @@ logger = setup_logger(__name__)
 
 
 class ParticleMicrotimesSubset:
-    """ A container for a custom list that accesses a subset of a H5 dataset"""
+    """A container for a custom list that accesses a subset of a H5 dataset"""
 
     def __init__(self, particle: Particle, start_ind: int, end_ind: int):
-
         self._particle = particle
 
         if not 0 <= start_ind < len(self._micro_dataset) - 1:
@@ -99,19 +98,21 @@ class ParticleMicrotimesSubset:
             return self._micro_dataset[new_slice]
 
     def __iter__(self):
-        for elem in self._micro_dataset[self._start_ind:self._end_ind]:
+        for elem in self._micro_dataset[self._start_ind : self._end_ind]:
             yield elem
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} with index range ({self._start_ind}, " \
-               f"{self._end_ind}) of {self._micro_dataset.__repr__()[1:-1]}>"
+        return (
+            f"<{self.__class__.__name__} with index range ({self._start_ind}, "
+            f"{self._end_ind}) of {self._micro_dataset.__repr__()[1:-1]}>"
+        )
 
     def __eq__(self, other):
         return self.__getitem__(slice(None)) == other
 
 
 class ChangePoints:
-    """ Contains all the attributes to describe the found change points in an analysed particles. """
+    """Contains all the attributes to describe the found change points in an analysed particles."""
 
     def __init__(self, particle, confidence=None, run_levels: bool = None):
         """
@@ -218,7 +219,9 @@ class ChangePoints:
     #     if self.cpa_has_run:
     #         self._cpa.dt_uncertainty = dt_uncertainty
 
-    def run_cpa(self, all_sums: CPSums, confidence=None, run_levels=None, end_time_s=None):
+    def run_cpa(
+        self, all_sums: CPSums, confidence=None, run_levels=None, end_time_s=None
+    ):
         """
         Run change point analysis.
 
@@ -240,11 +243,15 @@ class ChangePoints:
             if confidence in [69, 90, 95, 99]:
                 confidence = confidence / 100
             self.confidence = confidence
-        assert self.confidence is not None, "ChangePoint\tConfidence not set, can not run cpa"
+        assert (
+            self.confidence is not None
+        ), "ChangePoint\tConfidence not set, can not run cpa"
 
         if self.cpa_has_run:
             self._cpa.reset(confidence)
-        self._cpa.run_cpa(all_sums=all_sums, confidence=confidence, end_time_s=end_time_s)
+        self._cpa.run_cpa(
+            all_sums=all_sums, confidence=confidence, end_time_s=end_time_s
+        )
         if self._run_levels:
             self._cpa.define_levels()
             if self.has_levels:
@@ -252,7 +259,9 @@ class ChangePoints:
         logger.info(msg=f"{self._particle.name} levels resolved")
 
     def calc_mean_std(self):  # , intensities: np.ndarray = None
-        assert self.has_levels, "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."
+        assert (
+            self.has_levels
+        ), "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."
         # num_levels = self._particle.num_levels
         # if intensities is None:
         #     intensities = np.array([level.int_p_s for level in self._particle.levels])
@@ -268,18 +277,23 @@ class ChangePoints:
         sigam_int_thresh = self._cpa.settings.pb_sigma_int_thresh
         defined_int_thresh = self._cpa.settings.pb_defined_int_thresh
 
-        assert self._particle.has_levels, "ChangePoints\tNeeds to have levels to check photon bursts."
+        assert (
+            self._particle.has_levels
+        ), "ChangePoints\tNeeds to have levels to check photon bursts."
         if self.bursts_deleted is not None:
             self.restore_bursts()
         if use_sigma:
             self.calc_mean_std()  # self.level_ints
-            burst_def = self._particle.avg_int_weighted + \
-                (self._particle.int_std_weighted * sigam_int_thresh)
+            burst_def = self._particle.avg_int_weighted + (
+                self._particle.int_std_weighted * sigam_int_thresh
+            )
         else:
             burst_def = defined_int_thresh
         # Chaning to logical_and, instead of logical_or
-        burst_bools = np.logical_and(self.level_ints > burst_def,
-                                    np.array(self.level_dwelltimes) < min_dwell_time)
+        burst_bools = np.logical_and(
+            self.level_ints > burst_def,
+            np.array(self.level_dwelltimes) < min_dwell_time,
+        )
         burst_levels = np.where(burst_bools)[0]
         if len(burst_levels):
             self.has_burst = True
@@ -314,9 +328,17 @@ class ChangePoints:
                 deleted_cpt = cpt_inds[del_ind]
                 cpt_inds = np.delete(cpt_inds, del_ind)
                 deleted_conf_region = conf_regions.pop(del_ind)
-                photon_bursts_deleted.append({'pos_ind': del_ind, 'cpt_ind': deleted_cpt, 'conf_region': deleted_conf_region})
+                photon_bursts_deleted.append(
+                    {
+                        "pos_ind": del_ind,
+                        "cpt_ind": deleted_cpt,
+                        "conf_region": deleted_conf_region,
+                    }
+                )
         except IndexError as e:
-            logger.error(f"Index error while removing photon burst for {self._particle}")
+            logger.error(
+                f"Index error while removing photon burst for {self._particle}"
+            )
             logger.error(e)
         else:
             self.cpt_inds = cpt_inds
@@ -328,8 +350,10 @@ class ChangePoints:
     def restore_bursts(self):
         if self.bursts_deleted is not None:
             for burst in self.bursts_deleted:
-                self._cpa.cpt_inds = np.insert(self.cpt_inds, burst['pos_ind'], burst['cpt_ind'])
-                self._cpa.conf_regions.insert(burst['pos_ind'], burst['conf_region'])
+                self._cpa.cpt_inds = np.insert(
+                    self.cpt_inds, burst["pos_ind"], burst["cpt_ind"]
+                )
+                self._cpa.conf_regions.insert(burst["pos_ind"], burst["conf_region"])
             self.bursts_deleted = None
             self.num_cpts = len(self.cpt_inds)
             self._cpa.define_levels(remove_prev=True)
@@ -343,10 +367,15 @@ class Err:
 
 
 class Level:
-    """ Defines the start, end and intensity of a single level. """
+    """Defines the start, end and intensity of a single level."""
 
-    def __init__(self, particle: Particle,
-                 level_inds: Tuple[int, int], int_p_s: float = None, group_ind: int = None):
+    def __init__(
+        self,
+        particle: Particle,
+        level_inds: Tuple[int, int],
+        int_p_s: float = None,
+        group_ind: int = None,
+    ):
         """
         Initiate Level
 
@@ -364,11 +393,15 @@ class Level:
         self._particle = particle
         # assert abs_times is not None, "Levels:\tParameter 'abstimes' not given."
         assert level_inds is not None, "Levels:\tParameter 'level_inds' not given."
-        assert type(level_inds) is tuple, "Level:\tLevel indexes argument is not a " \
-                                          "tuple (start, end)."
+        assert type(level_inds) is tuple, (
+            "Level:\tLevel indexes argument is not a " "tuple (start, end)."
+        )
         self.level_inds = level_inds  # (first_ind, last_ind)
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
-        self.times_ns = (self.abs_times[self.level_inds[0]], self.abs_times[self.level_inds[1]])
+        self.times_ns = (
+            self.abs_times[self.level_inds[0]],
+            self.abs_times[self.level_inds[1]],
+        )
         self.dwell_time_ns = self.times_ns[1] - self.times_ns[0]
         if int_p_s is not None:
             self.int_p_s = int_p_s
@@ -377,9 +410,11 @@ class Level:
                 self.int_p_s = self.num_photons / self.dwell_time_s
             except RuntimeWarning as e:
                 print("here")
-        self.microtimes = ParticleMicrotimesSubset(particle=self._particle,
-                                                   start_ind=self.level_inds[0],
-                                                   end_ind=self.level_inds[1])
+        self.microtimes = ParticleMicrotimesSubset(
+            particle=self._particle,
+            start_ind=self.level_inds[0],
+            end_ind=self.level_inds[1],
+        )
         # self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
         self.group_ind = group_ind
         self.histogram = None
@@ -405,7 +440,7 @@ class Level:
 
     @property
     def times_s(self):
-        return self.times_ns[0]/1E9, self.times_ns[1]/1E9
+        return self.times_ns[0] / 1e9, self.times_ns[1] / 1e9
 
     @property
     def dwell_time_s(self):
@@ -416,8 +451,8 @@ class Level:
 
 
 class TauData:
-    """ Loads and stores the tau_a and tau_b files from text files for
-        specific confidence and stores as attributes. """
+    """Loads and stores the tau_a and tau_b files from text files for
+    specific confidence and stores as attributes."""
 
     def __init__(self, confidence=None):
         """
@@ -428,37 +463,51 @@ class TauData:
         :type confidence: float
         """
         try:
-            tau_data_path = fm.folder_path(folder_name='tau_data', resource_type=fm.Type.Data)
-            assert os.path.isdir(tau_data_path), "TauData:\tTau data directory not found."
-            tau_data_files = {'99_a': 'Ta-99.txt',
-                              '99_b': 'Tb-99.txt',
-                              '95_a': 'Ta-95.txt',
-                              '95_b': 'Tb-95.txt',
-                              '90_a': 'Ta-90.txt',
-                              '90_b': 'Tb-90.txt',
-                              '69_a': 'Ta-69.txt',
-                              '69_b': 'Tb-69.txt'}
+            tau_data_path = fm.folder_path(
+                folder_name="tau_data", resource_type=fm.Type.Data
+            )
+            assert os.path.isdir(
+                tau_data_path
+            ), "TauData:\tTau data directory not found."
+            tau_data_files = {
+                "99_a": "Ta-99.txt",
+                "99_b": "Tb-99.txt",
+                "95_a": "Ta-95.txt",
+                "95_b": "Tb-95.txt",
+                "90_a": "Ta-90.txt",
+                "90_b": "Tb-90.txt",
+                "69_a": "Ta-69.txt",
+                "69_b": "Tb-69.txt",
+            }
 
-            assert confidence in [0.99, 0.95, 0.90, 0.69],\
-                "TauData:\tInvalid confidence provided. Can not provide confidence key."
+            assert confidence in [
+                0.99,
+                0.95,
+                0.90,
+                0.69,
+            ], "TauData:\tInvalid confidence provided. Can not provide confidence key."
             if confidence == 0.99:
-                conf_keys = ['99_a', '99_b']
+                conf_keys = ["99_a", "99_b"]
             elif confidence == 0.95:
-                conf_keys = ['95_a', '95_b']
+                conf_keys = ["95_a", "95_b"]
             elif confidence == 0.90:
-                conf_keys = ['90_a', '90_b']
+                conf_keys = ["90_a", "90_b"]
             else:
-                conf_keys = ['69_a', '69_b']
+                conf_keys = ["69_a", "69_b"]
 
             for tau_type in conf_keys:
                 file_name = tau_data_files[tau_type]
                 full_path = tau_data_path + os.path.sep + file_name
-                assert os.path.isfile(full_path),\
-                    'TauData:\tTau data file ' + file_name + ' does not exist. Look in' +\
-                    full_path + '.'
+                assert os.path.isfile(full_path), (
+                    "TauData:\tTau data file "
+                    + file_name
+                    + " does not exist. Look in"
+                    + full_path
+                    + "."
+                )
 
                 data = np.loadtxt(full_path, usecols=1)
-                if tau_type[-1] == 'a':
+                if tau_type[-1] == "a":
                     self._a = data
                 else:
                     self._b = data
@@ -497,7 +546,7 @@ class TauData:
 
 
 class ChangePointAnalysis:
-    """ Perform analysis of particle abstimes data to resolve change points. """
+    """Perform analysis of particle abstimes data to resolve change points."""
 
     def __init__(self, particle: Particle = None, confidence=None):
         """
@@ -541,9 +590,9 @@ class ChangePointAnalysis:
             return self._particle.microtimes
 
     def load_settings(self):
-        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
-        with open(settings_file_path, 'r') as settings_file:
-            if not hasattr(self, 'settings'):
+        settings_file_path = fm.path("settings.json", fm.Type.ProjectRoot)
+        with open(settings_file_path, "r") as settings_file:
+            if not hasattr(self, "settings"):
                 self.settings = Settings()
             self.settings.load_settings_from_file(file_or_path=settings_file)
 
@@ -577,24 +626,25 @@ class ChangePointAnalysis:
         else:
             return None
 
-    def __weighted_likelihood_ratio(self, all_sums: CPSums,
-                                    seg_inds=None) -> Tuple[bool, Optional[int]]:
+    def __weighted_likelihood_ratio(
+        self, all_sums: CPSums, seg_inds=None
+    ) -> Tuple[bool, Optional[int]]:
         """
         Calculates the Weighted & Standardised Likelihood ratio and detects the possible change point.
 
         Based on 'Detection of Intensity Change Points in Time-Resolved Single-Molecule Measurements'
         from Watkins nad Yang, J. Phys. Chem. B 2005, 109, 617-628 (http://pubs.acs.org/doi/abs/10.1021/jp0467548)
-        
+
         If the possible change point is greater than the tau_a value for the corresponding
         confidence interval and number of data points the detected change points, it's
         confidence region (as defined by tau_b), and the corresponding uncertainty in time
         is added to this instance of ChangePointAnalysis.
-        
+
         Parameters
         ----------
         seg_inds : (int, int), optional
             Segment indexes (start, end).
-            
+
         Returns
         -------
         cpt_found : bool
@@ -607,10 +657,14 @@ class ChangePointAnalysis:
         min_num_photons = self.settings.cpa_min_num_photons
         min_boundary_offset = self.settings.cpa_min_boundary_offset
 
-        assert type(seg_inds) is tuple, 'ChangePointAnalysis:\tSegment index\'s not given.'
+        assert (
+            type(seg_inds) is tuple
+        ), "ChangePointAnalysis:\tSegment index's not given."
         start_ind, end_ind = seg_inds
         n = end_ind - start_ind
-        assert n <= 1000, "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
+        assert (
+            n <= 1000
+        ), "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
         if n < min_num_photons:
             cpt_found = False
             return cpt_found, None
@@ -630,30 +684,43 @@ class ChangePointAnalysis:
             cap_v_k = (time_data[k] - ini_time) / period  # Just after eq. 4
 
             # u_k = -sum(1 / j for j in range(k, (n - 1) + 1))  # Just after eq. 6
-            u_k = sum_set['u_k']
+            u_k = sum_set["u_k"]
 
             # u_n_k = -sum(1 / j for j in range(n - k, (n - 1) + 1))  # Just after eq. 6
-            u_n_k = sum_set['u_n_k']
+            u_n_k = sum_set["u_n_k"]
 
-            l0_minus_expec_l0 = -2 * k * np.log(cap_v_k) + 2 * k * u_k - 2 * (n - k) *\
-                                np.log(1 - cap_v_k) + 2 * (n - k) * u_n_k  # Just after eq. 6
+            l0_minus_expec_l0 = (
+                -2 * k * np.log(cap_v_k)
+                + 2 * k * u_k
+                - 2 * (n - k) * np.log(1 - cap_v_k)
+                + 2 * (n - k) * u_n_k
+            )  # Just after eq. 6
 
             # v_k2 = sum(1 / j ** 2 for j in range(k, (n - 1) + 1))  # Just before eq. 7
-            v2_k = sum_set['v2_k']
+            v2_k = sum_set["v2_k"]
 
             # v2_n_k = sum(1 / j ** 2 for j in range(n - k, (n - 1) + 1))  # Just before eq. 7
-            v2_n_k = sum_set['v2_n_k']
+            v2_n_k = sum_set["v2_n_k"]
 
-            sigma_k = np.sqrt( 4*(k**2)*v2_k + 4*((n - k)**2)*v2_n_k - 8*k*(n - k)*sig_e)  # Just before eq. 7, and note errata
-            w_k = (1 / 2) * np.log((4 * k * (n - k)) / n ** 2)  # Just after eq. 6
+            sigma_k = np.sqrt(
+                4 * (k**2) * v2_k
+                + 4 * ((n - k) ** 2) * v2_n_k
+                - 8 * k * (n - k) * sig_e
+            )  # Just before eq. 7, and note errata
+            w_k = (1 / 2) * np.log((4 * k * (n - k)) / n**2)  # Just after eq. 6
 
-            wlr.itemset(k, l0_minus_expec_l0 / sigma_k + w_k)  # Eq. 6 and just after eq. 6
+            wlr.itemset(
+                k, l0_minus_expec_l0 / sigma_k + w_k
+            )  # Eq. 6 and just after eq. 6
 
         max_ind_local = int(wlr.argmax())
 
         cpt = None
-        if max_ind_local >= min_boundary_offset and n - max_ind_local >= min_boundary_offset and\
-                wlr[max_ind_local] >= self._tau.get_tau_a(n):
+        if (
+            max_ind_local >= min_boundary_offset
+            and n - max_ind_local >= min_boundary_offset
+            and wlr[max_ind_local] >= self._tau.get_tau_a(n)
+        ):
             cpt = max_ind_local + start_ind
             self.cpt_inds = np.append(self.cpt_inds, max_ind_local + start_ind)
             tau_b_inv = wlr.max() - self._tau.get_tau_b(n)
@@ -668,10 +735,12 @@ class ChangePointAnalysis:
 
         return cpt_found, cpt
 
-    def _next_seg_ind(self,
-                      prev_seg_inds: Tuple[int, int] = None,
-                      side: str = None,
-                      rights_cpt: int = None) -> Tuple[int, int]:
+    def _next_seg_ind(
+        self,
+        prev_seg_inds: Tuple[int, int] = None,
+        side: str = None,
+        rights_cpt: int = None,
+    ) -> Tuple[int, int]:
         """
         Calculates the next segments indexes.
 
@@ -708,7 +777,9 @@ class ChangePointAnalysis:
             # assert self.num_photons >= 200, 'ChangePointAnalysis:\tData set needs to ' \
             #                                 'be at least 200 photons for change point detection.'
             if self.num_photons < 200:
-                logger.info('ChangePointAnalysis:\tData set needs to be at least 200 photons for change point detection.')
+                logger.info(
+                    "ChangePointAnalysis:\tData set needs to be at least 200 photons for change point detection."
+                )
                 next_start_ind, next_end_ind = None, None
                 return next_start_ind, next_end_ind
             if self.num_photons > 1000:
@@ -719,20 +790,34 @@ class ChangePointAnalysis:
             prev_start_ind, prev_end_ind = prev_seg_inds
             if len(self.cpt_inds) == 0:
                 if last_photon_ind >= prev_end_ind + 800:
-                    next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
-                elif last_photon_ind - prev_end_ind >= self.settings.cpa_min_num_photons:  # Next segment needs to be at least 10 photons large.
+                    next_start_ind, next_end_ind = (
+                        prev_end_ind - 200,
+                        prev_end_ind + 800,
+                    )
+                elif (
+                    last_photon_ind - prev_end_ind >= self.settings.cpa_min_num_photons
+                ):  # Next segment needs to be at least 10 photons large.
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
                 else:
                     next_start_ind, next_end_ind = None, None
-                    dbg.p(f"Warning, last photon segment smaller than {self.settings.cpa_min_num_photons} photons and was not tested", "Change Point")
+                    dbg.p(
+                        f"Warning, last photon segment smaller than {self.settings.cpa_min_num_photons} photons and was not tested",
+                        "Change Point",
+                    )
             elif side is not None:  # or prev_start_ind < self.cpts[-1] < prev_end_ind
                 if side is not None:
-                    assert side in ['left',
-                                    'right'], "ChangePointAnalysis:\tSide of change point invalid or not specified"
-                if side == 'left':
-                    next_start_ind, next_end_ind = prev_start_ind, int(self.cpt_inds[-1] - 1)
+                    assert side in [
+                        "left",
+                        "right",
+                    ], "ChangePointAnalysis:\tSide of change point invalid or not specified"
+                if side == "left":
+                    next_start_ind, next_end_ind = prev_start_ind, int(
+                        self.cpt_inds[-1] - 1
+                    )
                 else:
-                    assert rights_cpt is not None, "ChangePointAnalysis\tRight side's change point not provided."
+                    assert (
+                        rights_cpt is not None
+                    ), "ChangePointAnalysis\tRight side's change point not provided."
                     next_start_ind = rights_cpt
                     # if len(self.cpt_inds) > 1:
                     #     i = -1
@@ -745,25 +830,47 @@ class ChangePointAnalysis:
             elif last_photon_ind >= prev_end_ind + 800:
                 if prev_end_ind - 200 < self.cpt_inds[-1] < prev_end_ind:
                     if last_photon_ind >= self.cpt_inds[-1] + 1000:
-                        next_start_ind, next_end_ind = int(self.cpt_inds[-1]), int(self.cpt_inds[-1]) + 1000
+                        next_start_ind, next_end_ind = (
+                            int(self.cpt_inds[-1]),
+                            int(self.cpt_inds[-1]) + 1000,
+                        )
                     else:
-                        next_start_ind, next_end_ind = int(self.cpt_inds[-1]), last_photon_ind
+                        next_start_ind, next_end_ind = (
+                            int(self.cpt_inds[-1]),
+                            last_photon_ind,
+                        )
                 else:
-                    next_start_ind, next_end_ind = prev_end_ind - 200, prev_end_ind + 800
-            elif last_photon_ind - prev_end_ind >= 10:  # Next segment needs to be at least 10 photons large.
+                    next_start_ind, next_end_ind = (
+                        prev_end_ind - 200,
+                        prev_end_ind + 800,
+                    )
+            elif (
+                last_photon_ind - prev_end_ind >= 10
+            ):  # Next segment needs to be at least 10 photons large.
                 if prev_end_ind - 200 < self.cpt_inds[-1] < prev_end_ind:
-                    next_start_ind, next_end_ind = int(max(self.cpt_inds)), last_photon_ind
+                    next_start_ind, next_end_ind = (
+                        int(max(self.cpt_inds)),
+                        last_photon_ind,
+                    )
                 else:
                     next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
             else:
                 next_start_ind, next_end_ind = None, None
                 if prev_end_ind != last_photon_ind:
-                    dbg.p("Warning, last photon segment smaller than 10 photons and was not tested", "Change Point")
+                    dbg.p(
+                        "Warning, last photon segment smaller than 10 photons and was not tested",
+                        "Change Point",
+                    )
 
         return next_start_ind, next_end_ind
 
-    def _find_all_cpts(self, all_sums: CPSums, _seg_inds: Tuple[int, int] = None,
-                       _side: str = None, _right_cpt: int = None):
+    def _find_all_cpts(
+        self,
+        all_sums: CPSums,
+        _seg_inds: Tuple[int, int] = None,
+        _side: str = None,
+        _right_cpt: int = None,
+    ):
         """
         Find all change points in particle.
 
@@ -791,24 +898,32 @@ class ChangePointAnalysis:
         if self._finding is False:
             is_top_level = True
             self._finding = True
-            assert _seg_inds is None, "ChangePointAnalysis:\tDo not provide seg_inds when calling, it's used for " \
-                                      "recursive calling only. "
+            assert _seg_inds is None, (
+                "ChangePointAnalysis:\tDo not provide seg_inds when calling, it's used for "
+                "recursive calling only. "
+            )
 
         if is_top_level:
             _seg_inds = self._next_seg_ind()
             self._i = 0
         else:
-            _seg_inds = self._next_seg_ind(prev_seg_inds=_seg_inds, side=_side, rights_cpt=_right_cpt)
+            _seg_inds = self._next_seg_ind(
+                prev_seg_inds=_seg_inds, side=_side, rights_cpt=_right_cpt
+            )
         self._i += 1
 
         if _seg_inds != (None, None):
-            cpt_found, _right_cpt = self.__weighted_likelihood_ratio(all_sums, _seg_inds)
+            cpt_found, _right_cpt = self.__weighted_likelihood_ratio(
+                all_sums, _seg_inds
+            )
 
             if cpt_found:
                 # Left side of change point
-                self._find_all_cpts(all_sums, _seg_inds, _side='left')
+                self._find_all_cpts(all_sums, _seg_inds, _side="left")
                 # Right side of change point
-                self._find_all_cpts(all_sums, _seg_inds, _side='right', _right_cpt=_right_cpt)
+                self._find_all_cpts(
+                    all_sums, _seg_inds, _side="right", _right_cpt=_right_cpt
+                )
                 pass  # Exits if recursive
 
             if self.end_at_photon is not None:
@@ -834,11 +949,18 @@ class ChangePointAnalysis:
 
             # TODO: Revisit necessity of duplicate removal
             cpt_inds, unique_inds = np.unique(cpt_inds, return_inverse=True)
-            dups = np.append([False], [unique_inds[i] == unique_inds[i - 1] for i in range(len(unique_inds)) if i > 0])
+            dups = np.append(
+                [False],
+                [
+                    unique_inds[i] == unique_inds[i - 1]
+                    for i in range(len(unique_inds))
+                    if i > 0
+                ],
+            )
             dups = np.flip(np.where(dups)[0].tolist())
             if len(dups) != 0:
                 for i in dups:
-                    del (conf_regions[i])
+                    del conf_regions[i]
 
             self.num_cpts = len(cpt_inds)
             self.cpt_inds = cpt_inds
@@ -868,8 +990,10 @@ class ChangePointAnalysis:
                 self.levels = None
                 self.num_levels = None
 
-            assert self.found_cpts, "ChangePointAnalysis:\tChange point analysis " \
-                                    "not done, or found no change points. "
+            assert self.found_cpts, (
+                "ChangePointAnalysis:\tChange point analysis "
+                "not done, or found no change points. "
+            )
             self.num_levels = self.num_cpts + 1
             self.levels = [object()] * self.num_levels
 
@@ -883,26 +1007,32 @@ class ChangePointAnalysis:
                         else:
                             end_ind = self.num_photons
                         level_inds = (cpt, end_ind - 1)
-                        self.levels[num + 1] = Level(particle=self._particle,
-                                                     level_inds=level_inds)
+                        self.levels[num + 1] = Level(
+                            particle=self._particle, level_inds=level_inds
+                        )
 
                         level_inds = (self.cpt_inds[num - 1], cpt - 1)
                     else:
                         level_inds = (self.cpt_inds[num - 1], cpt)
 
-                    self.levels[num] = Level(particle=self._particle,
-                                             level_inds=level_inds)
+                    self.levels[num] = Level(
+                        particle=self._particle, level_inds=level_inds
+                    )
             else:
-                self.levels[0] = Level(particle=self._particle,
-                                       level_inds=(0, self.cpt_inds[0] - 1))
-                self.levels[1] = Level(particle=self._particle,
-                                       level_inds=(self.cpt_inds[0], self.num_photons - 1))
+                self.levels[0] = Level(
+                    particle=self._particle, level_inds=(0, self.cpt_inds[0] - 1)
+                )
+                self.levels[1] = Level(
+                    particle=self._particle,
+                    level_inds=(self.cpt_inds[0], self.num_photons - 1),
+                )
 
             self.has_levels = True
         elif self.has_run:  # Has run, no cpts -> One single level
             if self.num_photons >= 200:
-                self.levels = [Level(particle=self._particle,
-                                     level_inds=(0, self.num_photons-1))]
+                self.levels = [
+                    Level(particle=self._particle, level_inds=(0, self.num_photons - 1))
+                ]
                 self.num_levels = 1
                 self.num_cpts = 0
                 self.has_levels = True
@@ -939,15 +1069,22 @@ class ChangePointAnalysis:
         """
         self.load_settings()
         if confidence is not None:
-            assert confidence in [0.99, 0.95, 0.90, 0.69], "ChangePointAnalysis:\tConfidence value given not valid."
+            assert confidence in [
+                0.99,
+                0.95,
+                0.90,
+                0.69,
+            ], "ChangePointAnalysis:\tConfidence value given not valid."
             self.confidence = confidence
             self._tau = TauData(confidence)
         else:
-            assert self.confidence is not None, "ChangePointAnalysis:\tNo confidence value provided."
+            assert (
+                self.confidence is not None
+            ), "ChangePointAnalysis:\tNo confidence value provided."
 
         if end_time_s is not None:
             if self._abstimes.size != 0:
-                self.end_at_photon = np.argmax(self._abstimes[:] > (end_time_s * 1E9))
+                self.end_at_photon = np.argmax(self._abstimes[:] > (end_time_s * 1e9))
             else:
                 self.end_at_photon = 0
             if self.end_at_photon == 0:
@@ -964,5 +1101,5 @@ def main():
     pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
