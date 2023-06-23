@@ -4,6 +4,7 @@ from __future__ import annotations
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog
 from PyQt5.QtWidgets import QDialogButtonBox
+
 # from my_logger import setup_logger
 # import sys
 # import os
@@ -17,7 +18,6 @@ UI_Quick_ROI_Dialog, _ = uic.loadUiType(quick_roi_dialog_file)
 
 
 class QuickROIDialog(QDialog, UI_Quick_ROI_Dialog):
-
     def __init__(self, mainwindow):
         QDialog.__init__(self)
         UI_Quick_ROI_Dialog.__init__(self)
@@ -26,14 +26,16 @@ class QuickROIDialog(QDialog, UI_Quick_ROI_Dialog):
         self.mainwindow = mainwindow
         self.parent = mainwindow
 
-        print('here')
+        print("here")
         self.rdbManual.toggled.connect(self.mode_changed)
 
         self.btnResetCurrent.clicked.connect(self.gui_reset_roi_current)
         self.btnResetSelected.clicked.connect(self.gui_reset_roi_selected)
         self.btnResetAll.clicked.connect(self.gui_reset_roi_all)
 
-        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.accepted_callback)
+        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(
+            self.accepted_callback
+        )
         self.buttonBox.rejected.connect(self.rejected_callback)
 
         self.should_trim_traces = False
@@ -44,20 +46,20 @@ class QuickROIDialog(QDialog, UI_Quick_ROI_Dialog):
         self.gpbAuto.setEnabled(not is_manual)
 
     def gui_reset_roi_current(self):
-        self.reset_roi(mode='current')
+        self.reset_roi(mode="current")
 
     def gui_reset_roi_selected(self):
-        self.reset_roi(mode='selected')
+        self.reset_roi(mode="selected")
 
     def gui_reset_roi_all(self):
-        self.reset_roi(mode='all')
+        self.reset_roi(mode="all")
 
-    def reset_roi(self, mode: str = 'all'):
-        if mode == 'current':
+    def reset_roi(self, mode: str = "all"):
+        if mode == "current":
             particles = [self.mainwindow.current_particle]
-        elif mode == 'selected':
+        elif mode == "selected":
             particles = self.mainwindow.get_checked_particles()
-        elif mode == 'all':
+        elif mode == "all":
             particles = self.mainwindow.current_dataset.particles
         else:
             return
@@ -78,11 +80,15 @@ class QuickROIDialog(QDialog, UI_Quick_ROI_Dialog):
 
         for particle in particles:
             if self.rdbManual.isChecked():
-                trimmed = particle.trim_trace(min_level_int=self.spbManual_Min_Int.value(),
-                                              min_level_dwell_time=self.dsbManual_Min_Time.value(),
-                                              reset_roi=self.chbReset_ROI.isChecked())
+                trimmed = particle.trim_trace(
+                    min_level_int=self.spbManual_Min_Int.value(),
+                    min_level_dwell_time=self.dsbManual_Min_Time.value(),
+                    reset_roi=self.chbReset_ROI.isChecked(),
+                )
                 if trimmed is False and self.chbUncheck_If_Not_Valid.isChecked():
-                    self.mainwindow.set_particle_check_state(particle.dataset_ind, False)
+                    self.mainwindow.set_particle_check_state(
+                        particle.dataset_ind, False
+                    )
         self.mainwindow.lifetime_controller.test_need_roi_apply()
         self.mainwindow.intensity_controller.plot_all()
 

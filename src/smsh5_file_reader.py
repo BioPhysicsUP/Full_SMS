@@ -10,14 +10,14 @@ if TYPE_CHECKING:
 
 # File Attributes
 def num_parts(dataset: H5dataset) -> np.int32:
-    return dataset.file.attrs['# Particles']
+    return dataset.file.attrs["# Particles"]
 
 
 def file_version(dataset: H5dataset) -> str:
-    if 'Version' in dataset.file.attrs.keys():
-        version = dataset.file.attrs['Version']
+    if "Version" in dataset.file.attrs.keys():
+        version = dataset.file.attrs["Version"]
     else:
-        version = '1.0'
+        version = "1.0"
     return version
 
 
@@ -28,19 +28,19 @@ def particle(particle_num: int, dataset: H5dataset) -> h5pickle.Dataset:
 
 # Particle Group Attributes
 def date(particle: Particle) -> str:
-    return particle.file_group['Date']
+    return particle.file_group["Date"]
 
 
 def description(particle: Particle) -> str:
-    if particle.file_version in ['1.0', '1.01', '1.02']:
-        descrip_text = particle.file_group.attrs['Discription']
+    if particle.file_version in ["1.0", "1.01", "1.02"]:
+        descrip_text = particle.file_group.attrs["Discription"]
     else:
-        descrip_text = particle.file_group.attrs['Description']
+        descrip_text = particle.file_group.attrs["Description"]
     return descrip_text
 
 
 def has_power_measurement(particle: Particle) -> bool:
-    if particle.file_version in ['1.0', '1.01', '1.02']:
+    if particle.file_version in ["1.0", "1.01", "1.02"]:
         has_power = False
     else:
         has_power = bool(particle.file_group.attrs["Has Power Measurement?"])
@@ -67,41 +67,65 @@ def user(particle: Particle) -> str:
     return particle.file_group.attrs["User"]
 
 
-#Particle Groups
+# Particle Groups
 def abstimes(particle: Particle) -> h5pickle.Dataset:
     return particle.file_group["Absolute Times (ns)"]
 
 
 def abstimes2(particle: Particle) -> h5pickle.Dataset:
-    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
-        abstimes_dataset = particle.file_group['Absolute Times 2 (ns)']
+    if particle.file_version not in [
+        "1.0",
+        "1.01",
+        "1.02",
+        "1.03",
+        "1.04",
+        "1.05",
+        "1.06",
+    ]:
+        abstimes_dataset = particle.file_group["Absolute Times 2 (ns)"]
     else:
         abstimes_dataset = None
     return abstimes_dataset
 
 
 def microtimes(particle: Particle) -> h5pickle.Dataset:
-    if particle.file_version in ['1.0', '1.01', '1.02']:
-        microtimes_dataset = particle.file_group['Micro Times (s)']
+    if particle.file_version in ["1.0", "1.01", "1.02"]:
+        microtimes_dataset = particle.file_group["Micro Times (s)"]
     else:
-        microtimes_dataset = particle.file_group['Micro Times (ns)']
+        microtimes_dataset = particle.file_group["Micro Times (ns)"]
     return microtimes_dataset
 
 
 def microtimes2(particle: Particle) -> h5pickle.Dataset:
-    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
-        microtimes_dataset = particle.file_group['Micro Times 2 (ns)']
+    if particle.file_version not in [
+        "1.0",
+        "1.01",
+        "1.02",
+        "1.03",
+        "1.04",
+        "1.05",
+        "1.06",
+    ]:
+        microtimes_dataset = particle.file_group["Micro Times 2 (ns)"]
     else:
         microtimes_dataset = None
     return microtimes_dataset
 
 
 def tcspc_card(particle: Particle) -> str:
-    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03', '1.04', '1.05', '1.06']:
+    if particle.file_version not in [
+        "1.0",
+        "1.01",
+        "1.02",
+        "1.03",
+        "1.04",
+        "1.05",
+        "1.06",
+    ]:
         if particle.is_secondary_part:
-            tcspc_card = particle.file_group['Absolute Times 2 (ns)'].attrs['bh Card']
+            tcspc_card = particle.file_group["Absolute Times 2 (ns)"].attrs["bh Card"]
         else:
-            tcspc_card = particle.file_group['Absolute Times (ns)'].attrs['bh Card']
+            tcspc_card = particle.file_group["Absolute Times (ns)"].attrs["bh Card"]
     else:
         tcspc_card = None
     return tcspc_card
@@ -113,7 +137,7 @@ def has_raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> bool:
     elif str(type(particle)) == "<class 'h5pickle.Group'>":
         has_rs = "Raster Scan" in particle.keys()
     else:
-        raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
+        raise TypeError("Type provided must be smsh5.Particle or smsh5.RasterScan")
     return has_rs
 
 
@@ -123,7 +147,7 @@ def raster_scan(particle: Union[Particle, h5pickle.Dataset]) -> h5pickle.Dataset
     elif str(type(particle)) == "<class 'h5pickle.Group'>":
         rs = particle["Raster Scan"]
     else:
-        raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
+        raise TypeError("Type provided must be smsh5.Particle or smsh5.RasterScan")
     return rs
 
 
@@ -136,18 +160,21 @@ def spectra(particle: Particle) -> h5pickle.Dataset:
 
 
 def int_trace(particle: Particle) -> h5pickle.Dataset:
-    if particle.file_version not in ['1.0', '1.01', '1.02', '1.03']:
+    if particle.file_version not in ["1.0", "1.01", "1.02", "1.03"]:
         return particle.file_group["Intensity Trace (cps)"][0]
 
 
 # Raster Scan Attributes
 def __get_rs_dataset(part_or_rs: Union[Particle, RasterScan]) -> h5pickle.Dataset:
-    if str(type(part_or_rs)) in ["<class 'smsh5.Particle'>", "<class 'h5pickle.Dataset'>"]:
+    if str(type(part_or_rs)) in [
+        "<class 'smsh5.Particle'>",
+        "<class 'h5pickle.Dataset'>",
+    ]:
         raster_scan_dataset = raster_scan(particle=part_or_rs)
     elif str(type(part_or_rs)) == "<class 'smsh5.RasterScan'>":
         raster_scan_dataset = part_or_rs.dataset
     else:
-        raise TypeError('Type provided must be smsh5.Particle or smsh5.RasterScan')
+        raise TypeError("Type provided must be smsh5.Particle or smsh5.RasterScan")
     return raster_scan_dataset
 
 

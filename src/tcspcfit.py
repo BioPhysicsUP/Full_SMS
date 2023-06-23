@@ -9,7 +9,7 @@ University of Pretoria
 
 from __future__ import annotations
 
-__docformat__ = 'NumPy'
+__docformat__ = "NumPy"
 
 import numpy as np
 import pyqtgraph as pg
@@ -36,15 +36,15 @@ logger = setup_logger(__name__)
 fitting_dialog_file = fm.path(name="fitting_dialog.ui", file_type=fm.Type.UI)
 UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
 
-
 BACKGOURD_SECTION_LENGTH = 50
 
 
-def moving_avg(vector: Union[list, np.ndarray], window_length: int,
-               pad_same_size: bool = True) -> np.ndarray:
+def moving_avg(
+    vector: Union[list, np.ndarray], window_length: int, pad_same_size: bool = True
+) -> np.ndarray:
     vector_size = vector.size
-    left_window = int(np.floor(window_length/2))
-    right_window = int(np.ceil(window_length/2))
+    left_window = int(np.floor(window_length / 2))
+    right_window = int(np.ceil(window_length / 2))
     offset = 0
     if pad_same_size:
         start_pad = np.zeros(left_window)
@@ -53,10 +53,12 @@ def moving_avg(vector: Union[list, np.ndarray], window_length: int,
     else:
         offset = window_length
 
-    new_vector = np.array([
-        np.mean(vector[i - left_window: i + right_window])
-        for i in range(left_window, left_window + vector_size - offset)
-    ])
+    new_vector = np.array(
+        [
+            np.mean(vector[i - left_window : i + right_window])
+            for i in range(left_window, left_window + vector_size - offset)
+        ]
+    )
     return new_vector
 
 
@@ -64,8 +66,9 @@ def max_continuous_zeros(vector: np.ndarray) -> int:
     if type(vector) is list:
         vector = np.array(vector)
     is_zero = vector == 0
-    continous_zeros = np.diff(np.where(np.concatenate(([is_zero[0]], is_zero[:-1] != is_zero[1:],
-                                                       [True])))[0])[::2]
+    continous_zeros = np.diff(
+        np.where(np.concatenate(([is_zero[0]], is_zero[:-1] != is_zero[1:], [True])))[0]
+    )[::2]
     return np.max(continous_zeros) if len(continous_zeros) > 0 else 0
 
 
@@ -94,11 +97,17 @@ def colorshift(irf, shift, irflength=None):
     irf = irf.flatten()
     irflength = np.size(irf)
     t = np.arange(irflength)
-    new_index_left = np.fmod(np.fmod(t - np.floor(shift), irflength) + irflength, irflength).astype(int)
-    new_index_right = np.fmod(np.fmod(t - np.ceil(shift), irflength) + irflength, irflength).astype(int)
+    new_index_left = np.fmod(
+        np.fmod(t - np.floor(shift), irflength) + irflength, irflength
+    ).astype(int)
+    new_index_right = np.fmod(
+        np.fmod(t - np.ceil(shift), irflength) + irflength, irflength
+    ).astype(int)
     integer_left_shift = irf[new_index_left]
     integer_right_shift = irf[new_index_right]
-    irs = (1 - shift + np.floor(shift)) * integer_left_shift + (shift - np.floor(shift)) * integer_right_shift
+    irs = (1 - shift + np.floor(shift)) * integer_left_shift + (
+        shift - np.floor(shift)
+    ) * integer_right_shift
     return irs
 
 
@@ -141,9 +150,22 @@ class FluoFit:
 
     """
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 boundaries=None, ploton=False, fwhm=None, numexp=None):
-
+    def __init__(
+        self,
+        irf,
+        measured,
+        t,
+        channelwidth,
+        tau=None,
+        amp=None,
+        shift=None,
+        bg=None,
+        irfbg=None,
+        boundaries=None,
+        ploton=False,
+        fwhm=None,
+        numexp=None,
+    ):
         self.numexp = numexp
         self.channelwidth = channelwidth
         self.ploton = ploton
@@ -182,16 +204,19 @@ class FluoFit:
 
         self.startpoint = None
         self.endpoint = None
-        self.startpoint, self.endpoint = self.calculate_boundaries(measured, boundaries, self.bg,
-                                                                   self.settings, channelwidth)
+        self.startpoint, self.endpoint = self.calculate_boundaries(
+            measured, boundaries, self.bg, self.settings, channelwidth
+        )
 
         self.meas_bef_bg = measured.copy()
-        measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
+        measured = (
+            measured - self.bg
+        )  # This will result in negative counts, and can't see where it's dealt with
         measured[measured <= 0] = 0
 
         self.measured_unbounded = measured
-        measured = measured[self.startpoint:self.endpoint]
-        self.measured_not_normalized = self.meas_bef_bg[self.startpoint:self.endpoint]
+        measured = measured[self.startpoint : self.endpoint]
+        self.measured_not_normalized = self.meas_bef_bg[self.startpoint : self.endpoint]
         self.meas_max = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
         self.bg_n = None
@@ -209,9 +234,9 @@ class FluoFit:
         self.is_fit = False
 
     def load_settings(self):
-        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
-        with open(settings_file_path, 'r') as settings_file:
-            if not hasattr(self, 'settings'):
+        settings_file_path = fm.path("settings.json", fm.Type.ProjectRoot)
+        with open(settings_file_path, "r") as settings_file:
+            if not hasattr(self, "settings"):
                 self.settings = Settings()
             self.settings.load_settings_from_file(file_or_path=settings_file)
 
@@ -240,7 +265,7 @@ class FluoFit:
             Duration of a single channel
         """
         if boundaries is None:
-            boundaries = [None, None, 'Manual', False]
+            boundaries = [None, None, "Manual", False]
 
         startpoint = boundaries[0]
         endpoint = boundaries[1]
@@ -249,26 +274,29 @@ class FluoFit:
 
         startmax = None
         if settings.lt_use_moving_avg:
-            measured = moving_avg(vector=measured,
-                                  window_length=min(settings.lt_moving_avg_window,
-                                                    int(0.1 * measured.size)),
-                                  pad_same_size=True)
-        if autostart == 'Manual':
+            measured = moving_avg(
+                vector=measured,
+                window_length=min(
+                    settings.lt_moving_avg_window, int(0.1 * measured.size)
+                ),
+                pad_same_size=True,
+            )
+        if autostart == "Manual":
             if startpoint is None:
                 startpoint = 0
         else:
             maxpoint = measured.max()
             close_percentage = settings.lt_start_percent / 100
-            close_to_max, = np.where(measured > close_percentage * maxpoint)
+            (close_to_max,) = np.where(measured > close_percentage * maxpoint)
             startmax = close_to_max[0]
             startmin = FluoFit.estimate_bg(measured, return_bglim=True)
-            if autostart == '(Close to) max':
+            if autostart == "(Close to) max":
                 startpoint = startmax
-            elif autostart == 'Rise middle':
+            elif autostart == "Rise middle":
                 startpoint = int(0.5 * (startmin + startmax))
-            elif autostart == 'Rise start':
+            elif autostart == "Rise start":
                 startpoint = startmin
-            elif autostart == 'Safe rise start':
+            elif autostart == "Safe rise start":
                 startpoint = startmin - min((startmax - startmin), 10)
 
         if autoend:
@@ -280,31 +308,36 @@ class FluoFit:
                 end_percent = 0.01
             min_val = max(end_multiple * bg, end_percent * measured.max())
             if not np.isnan(min_val):
-                great_than_bg, = np.where(measured[startpoint:] > min_val)
+                (great_than_bg,) = np.where(measured[startpoint:] > min_val)
                 great_than_bg += startpoint
-                if great_than_bg.size != 0 and \
-                        great_than_bg[-1] == measured.size - 1:
+                if great_than_bg.size != 0 and great_than_bg[-1] == measured.size - 1:
                     great_than_bg = great_than_bg[:-1]
                 if not great_than_bg.size == 0:
                     endpoint = great_than_bg.max()
                 else:
-                    endpoint = startpoint + int(np.round(
-                        settings.lt_minimum_decay_window/channel_width))
+                    endpoint = startpoint + int(
+                        np.round(settings.lt_minimum_decay_window / channel_width)
+                    )
             if settings.lt_use_moving_avg:
-                endpoint += int(np.round(settings.lt_moving_avg_window/2))
+                endpoint += int(np.round(settings.lt_moving_avg_window / 2))
         elif endpoint is not None:
             endpoint = min(endpoint, measured.size - 1)
         else:
             endpoint = measured.size - 1
 
         if settings is not None:
-            if channel_width*(endpoint - startpoint) < settings.lt_minimum_decay_window:
+            if (
+                channel_width * (endpoint - startpoint)
+                < settings.lt_minimum_decay_window
+            ):
                 start = startmax if startmax is not None else startpoint
-                endpoint = start + int(np.round(
-                    settings.lt_minimum_decay_window/channel_width))
-                if autostart == 'Safe rise start':
-                    startpoint -= int(np.round(
-                        0.3*settings.lt_minimum_decay_window/channel_width))
+                endpoint = start + int(
+                    np.round(settings.lt_minimum_decay_window / channel_width)
+                )
+                if autostart == "Safe rise start":
+                    startpoint -= int(
+                        np.round(0.3 * settings.lt_minimum_decay_window / channel_width)
+                    )
 
         return startpoint, endpoint
 
@@ -370,22 +403,34 @@ class FluoFit:
         maxind = np.argmax(measured)
 
         meas_real_start = np.nonzero(measured)[0][0]
-        bg_section = measured[meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+        bg_section = measured[
+            meas_real_start : meas_real_start + BACKGOURD_SECTION_LENGTH
+        ]
 
         # Attempt to remove low `island` of counts before real start
-        if max_continuous_zeros(bg_section)/BACKGOURD_SECTION_LENGTH >= 0.5 \
-                and len(measured[meas_real_start:]) > 2*BACKGOURD_SECTION_LENGTH:
+        if (
+            max_continuous_zeros(bg_section) / BACKGOURD_SECTION_LENGTH >= 0.5
+            and len(measured[meas_real_start:]) > 2 * BACKGOURD_SECTION_LENGTH
+        ):
             original_start = meas_real_start.copy()
-            while max_continuous_zeros(bg_section)/BACKGOURD_SECTION_LENGTH >= 0.5:
+            while max_continuous_zeros(bg_section) / BACKGOURD_SECTION_LENGTH >= 0.5:
                 next_seg_start = meas_real_start + np.argmax(bg_section == 0) + 1
-                if len(measured[meas_real_start + next_seg_start:]) < 2*BACKGOURD_SECTION_LENGTH:
-                    logger.warning('No reasonable background estimate could be made')
+                if (
+                    len(measured[meas_real_start + next_seg_start :])
+                    < 2 * BACKGOURD_SECTION_LENGTH
+                ):
+                    logger.warning("No reasonable background estimate could be made")
                     meas_real_start = original_start
                     bg_section = measured[
-                                 meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+                        meas_real_start : meas_real_start + BACKGOURD_SECTION_LENGTH
+                    ]
                     break
-                meas_real_start = np.nonzero(measured[next_seg_start:])[0][0] + next_seg_start
-                bg_section = measured[meas_real_start:meas_real_start + BACKGOURD_SECTION_LENGTH]
+                meas_real_start = (
+                    np.nonzero(measured[next_seg_start:])[0][0] + next_seg_start
+                )
+                bg_section = measured[
+                    meas_real_start : meas_real_start + BACKGOURD_SECTION_LENGTH
+                ]
 
         bg_section_mean = np.mean(bg_section)
         found = False
@@ -401,7 +446,9 @@ class FluoFit:
             bg_percent = settings.lt_bg_percent / 100
         else:
             bg_percent = 0.05
-        bg_est = min(bg_est, bg_percent * measured.max())  # bg shouldn't be more than given % of measured max
+        bg_est = min(
+            bg_est, bg_percent * measured.max()
+        )  # bg shouldn't be more than given % of measured max
         if np.isnan(bg_est):  # bg also shouldn't be NaN
             bg_est = 0
         if return_bglim:
@@ -524,7 +571,7 @@ class FluoFit:
 
         self.tau = tau
         self.amp = amp
-        self.shift = shift*self.channelwidth
+        self.shift = shift * self.channelwidth
         self.fwhm = fwhm
         self.stds = stds
         self.avtaustd = avtaustd
@@ -532,7 +579,7 @@ class FluoFit:
         param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
 
         measured = self.meas_bef_bg
-        measured = measured[self.startpoint:self.endpoint]
+        measured = measured[self.startpoint : self.endpoint]
         measured = measured / self.meas_max
 
         convd = self.convd + self.bg_n
@@ -542,31 +589,43 @@ class FluoFit:
         residuals = residuals / np.sqrt(np.abs(convd * self.meas_max))
 
         residualsnotinf = np.abs(residuals) != np.inf
-        residuals = residuals[residualsnotinf]  # For some reason this is the only way I could find that works
-        chisquared = np.sum((residuals ** 2)) / (np.size(measured) - param_df - 1)
+        residuals = residuals[
+            residualsnotinf
+        ]  # For some reason this is the only way I could find that works
+        chisquared = np.sum((residuals**2)) / (np.size(measured) - param_df - 1)
         self.chisq = chisquared
-        self.t = self.t[self.startpoint:self.endpoint]
+        self.t = self.t[self.startpoint : self.endpoint]
         self.residuals = residuals
-        self.dw = np.sum(np.diff(residuals) ** 2) / np.sum(residuals ** 2)  # Durbin-Watson parameter
+        self.dw = np.sum(np.diff(residuals) ** 2) / np.sum(
+            residuals**2
+        )  # Durbin-Watson parameter
         self.dw_bound = self.durbinwatson()
 
         if self.ploton:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-            ax1.set_yscale('log')
-            ax1.plot(self.t, measured.flatten(), color='gray', linewidth=1)
-            ax1.plot(self.t, self.convd.flatten(), color='C3', linewidth=1)
+            ax1.set_yscale("log")
+            ax1.plot(self.t, measured.flatten(), color="gray", linewidth=1)
+            ax1.plot(self.t, self.convd.flatten(), color="C3", linewidth=1)
             textx = (self.endpoint - self.startpoint) * self.channelwidth * 1.4
             texty = measured.max()
             try:
-                ax1.text(textx, texty, 'Tau = ' + ' '.join('{:#.3g}'.format(F) for F in tau))
-                ax1.text(textx, texty / 2, 'Amp = ' + ' '.join('{:#.3g} '.format(F) for F in amp))
+                ax1.text(
+                    textx, texty, "Tau = " + " ".join("{:#.3g}".format(F) for F in tau)
+                )
+                ax1.text(
+                    textx,
+                    texty / 2,
+                    "Amp = " + " ".join("{:#.3g} ".format(F) for F in amp),
+                )
             except TypeError:  # only one component
-                ax1.text(textx, texty, 'Tau = {:#.3g}'.format(tau))
-            ax2.plot(self.t[residualsnotinf], residuals, '.', markersize=2)
-            ax2.text(textx, residuals.max() / 1.1, r'$\chi ^2 = $ {:3.4f}'.format(chisquared))
-            ax2.set_xlabel('Time (ns)')
-            ax2.set_ylabel('Weighted residual')
-            ax1.set_ylabel('Number of photons in channel')
+                ax1.text(textx, texty, "Tau = {:#.3g}".format(tau))
+            ax2.plot(self.t[residualsnotinf], residuals, ".", markersize=2)
+            ax2.text(
+                textx, residuals.max() / 1.1, r"$\chi ^2 = $ {:3.4f}".format(chisquared)
+            )
+            ax2.set_xlabel("Time (ns)")
+            ax2.set_ylabel("Weighted residual")
+            ax1.set_ylabel("Number of photons in channel")
             plt.show()
 
     def makeconvd(self, shift, model, fwhm=None):
@@ -589,7 +648,7 @@ class FluoFit:
 
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
-        convd = convd[self.startpoint:self.endpoint]
+        convd = convd[self.startpoint : self.endpoint]
         convd = convd / convd.sum()
         return convd
 
@@ -599,7 +658,7 @@ class FluoFit:
         c = fwhm / 2.35482
         t = np.arange(np.size(measured))
         maxind = np.argmax(measured)
-        gauss = np.exp(-(t - maxind) ** 2 / (2 * c ** 2))
+        gauss = np.exp(-((t - maxind) ** 2) / (2 * c**2))
         irf = gauss * measured.max() / gauss.max()
         irft = t * channelwidth
         return irf, irft
@@ -650,8 +709,13 @@ class FluoFit:
                     beta3 = -15.25711
                     beta4 = 96.32291
 
-            dw = 2 + beta1 / np.sqrt(numpoints) + beta2 / numpoints + \
-                 beta3 / (np.sqrt(numpoints) ** 3) + beta4 / numpoints ** 2
+            dw = (
+                2
+                + beta1 / np.sqrt(numpoints)
+                + beta2 / numpoints
+                + beta3 / (np.sqrt(numpoints) ** 3)
+                + beta4 / numpoints**2
+            )
             dw = np.round(dw, 3)
             if conf == 5:
                 dw5 = dw
@@ -659,7 +723,9 @@ class FluoFit:
                 dw1 = dw
 
         # For < 1% use normal distribution
-        var = (4 * numpoints ** 2 * (numpoints - 2)) / ((numpoints + 1) * (numpoints - 1) ** 3)
+        var = (4 * numpoints**2 * (numpoints - 2)) / (
+            (numpoints + 1) * (numpoints - 1) ** 3
+        )
         std = np.sqrt(var)
         dw03 = np.round(2 - 3 * std, 3)
         dw01 = np.round(2 - 3.28 * std, 3)
@@ -668,17 +734,44 @@ class FluoFit:
 
 
 class OneExp(FluoFit):
-    """"Single exponential fit. Takes exact same arguments as Fluofit"""
+    """ "Single exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 boundaries=None, addopt=None, ploton=False, fwhm=None):
-
+    def __init__(
+        self,
+        irf,
+        measured,
+        t,
+        channelwidth,
+        tau=None,
+        amp=None,
+        shift=None,
+        bg=None,
+        irfbg=None,
+        boundaries=None,
+        addopt=None,
+        ploton=False,
+        fwhm=None,
+    ):
         if tau is None:
             tau = 5
         if amp is None:
             amp = 1
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg,
-                         boundaries, ploton, fwhm, numexp=1)
+        FluoFit.__init__(
+            self,
+            irf,
+            measured,
+            t,
+            channelwidth,
+            tau,
+            amp,
+            shift,
+            bg,
+            irfbg,
+            boundaries,
+            ploton,
+            fwhm,
+            numexp=1,
+        )
 
         if self.simulate_irf:
             paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
@@ -691,13 +784,24 @@ class OneExp(FluoFit):
 
         try:
             if addopt is None:
-                param, pcov = curve_fit(self.fitfunc, self.t,#, self.t[self.startpoint: self.endpoint],
-                                        self.measured, bounds=(paramin, paramax), p0=paraminit)
+                param, pcov = curve_fit(
+                    self.fitfunc,
+                    self.t,  # , self.t[self.startpoint: self.endpoint],
+                    self.measured,
+                    bounds=(paramin, paramax),
+                    p0=paraminit,
+                )
             else:
-                param, pcov = curve_fit(self.fitfunc, self.t[self.startpoint: self.endpoint],
-                                        self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
+                param, pcov = curve_fit(
+                    self.fitfunc,
+                    self.t[self.startpoint : self.endpoint],
+                    self.measured,
+                    bounds=(paramin, paramax),
+                    p0=paraminit,
+                    **addopt,
+                )
         except ValueError as error:
-            logger.error('Fitting failed')
+            logger.error("Fitting failed")
         else:
             tau = param[0]
             amp = param[1]
@@ -716,23 +820,50 @@ class OneExp(FluoFit):
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
 
-        model = a * np.exp(-t/tau1)
+        model = a * np.exp(-t / tau1)
         return self.makeconvd(shift, model, fwhm)
 
 
 class TwoExp(FluoFit):
-    """"Double exponential fit. Takes exact same arguments as Fluofit"""
+    """ "Double exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 boundaries=None, addopt=None, ploton=False, fwhm=None):
-
+    def __init__(
+        self,
+        irf,
+        measured,
+        t,
+        channelwidth,
+        tau=None,
+        amp=None,
+        shift=None,
+        bg=None,
+        irfbg=None,
+        boundaries=None,
+        addopt=None,
+        ploton=False,
+        fwhm=None,
+    ):
         if tau is None:
             tau = [1, 5]
         if amp is None:
             amp = [1, 1]
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
-                         fwhm, numexp=2)
+        FluoFit.__init__(
+            self,
+            irf,
+            measured,
+            t,
+            channelwidth,
+            tau,
+            amp,
+            shift,
+            bg,
+            irfbg,
+            boundaries,
+            ploton,
+            fwhm,
+            numexp=2,
+        )
 
         if self.simulate_irf:
             paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
@@ -744,18 +875,32 @@ class TwoExp(FluoFit):
             paraminit = self.tau + self.amp + [self.shift]
 
         if addopt is None:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+            param, pcov = curve_fit(
+                self.fitfunc,
+                self.t,
+                self.measured,
+                bounds=(paramin, paramax),
+                p0=paraminit,
+            )
         else:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit,
-                                    **addopt)
+            param, pcov = curve_fit(
+                self.fitfunc,
+                self.t,
+                self.measured,
+                bounds=(paramin, paramax),
+                p0=paraminit,
+                **addopt,
+            )
 
         tau = param[0:2]
         amp = np.append(param[2], 1 - param[2])
         shift = param[4]
         stds = np.sqrt(np.diag(pcov))
         stds[3] = stds[2]  # second amplitude std is same as that of the first
-        avtaustd = np.sqrt(tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0])) +
-                           tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1])))
+        avtaustd = np.sqrt(
+            tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]))
+            + tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1]))
+        )
 
         if self.simulate_irf:
             fwhm = param[5]
@@ -773,18 +918,45 @@ class TwoExp(FluoFit):
 
 
 class ThreeExp(FluoFit):
-    """"Triple exponential fit. Takes exact same arguments as Fluofit"""
+    """ "Triple exponential fit. Takes exact same arguments as Fluofit"""
 
-    def __init__(self, irf, measured, t, channelwidth, tau=None, amp=None, shift=None, bg=None, irfbg=None,
-                 boundaries=None, addopt=None, ploton=False, fwhm=None):
-
+    def __init__(
+        self,
+        irf,
+        measured,
+        t,
+        channelwidth,
+        tau=None,
+        amp=None,
+        shift=None,
+        bg=None,
+        irfbg=None,
+        boundaries=None,
+        addopt=None,
+        ploton=False,
+        fwhm=None,
+    ):
         if tau is None:
             tau = [0.1, 1, 5]
         if amp is None:
             amp = [1, 1, 1]
 
-        FluoFit.__init__(self, irf, measured, t, channelwidth, tau, amp, shift, bg, irfbg, boundaries, ploton,
-                         fwhm, numexp=3)
+        FluoFit.__init__(
+            self,
+            irf,
+            measured,
+            t,
+            channelwidth,
+            tau,
+            amp,
+            shift,
+            bg,
+            irfbg,
+            boundaries,
+            ploton,
+            fwhm,
+            numexp=3,
+        )
 
         if self.simulate_irf:
             paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
@@ -796,31 +968,54 @@ class ThreeExp(FluoFit):
             paraminit = self.tau + self.amp + [self.shift]
 
         if addopt is None:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit)
+            param, pcov = curve_fit(
+                self.fitfunc,
+                self.t,
+                self.measured,
+                bounds=(paramin, paramax),
+                p0=paraminit,
+            )
         else:
-            param, pcov = curve_fit(self.fitfunc, self.t, self.measured, bounds=(paramin, paramax), p0=paraminit, **addopt)
+            param, pcov = curve_fit(
+                self.fitfunc,
+                self.t,
+                self.measured,
+                bounds=(paramin, paramax),
+                p0=paraminit,
+                **addopt,
+            )
 
         tau = param[0:3]
         amp = np.append(param[3:5], 1 - param[3] - param[4])
         shift = param[6]
         stds = np.sqrt(np.diag(pcov))
-        stds[5] = np.sqrt(stds[3] ** 2 + stds[4] ** 2)  # third amp std is based on first two
-        avtaustd = np.sqrt(tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0])) +
-                           tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1])) +
-                           tau[2] * amp[2] * np.sqrt((stds[2] / tau[2]) ** 2 + (stds[5] / amp[2])))
+        stds[5] = np.sqrt(
+            stds[3] ** 2 + stds[4] ** 2
+        )  # third amp std is based on first two
+        avtaustd = np.sqrt(
+            tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0]))
+            + tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1]))
+            + tau[2] * amp[2] * np.sqrt((stds[2] / tau[2]) ** 2 + (stds[5] / amp[2]))
+        )
 
         if self.simulate_irf:
             fwhm = param[7]
         else:
             fwhm = None
 
-        self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
+        self.convd = self.fitfunc(
+            self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm
+        )
         self.results(tau, stds, avtaustd, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Function passed to curve_fit, to be fitted to data"""
 
-        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + (1 - a1 - a2) * np.exp(-t / tau3)
+        model = (
+            a1 * np.exp(-t / tau1)
+            + a2 * np.exp(-t / tau2)
+            + (1 - a1 - a2) * np.exp(-t / tau3)
+        )
         return self.makeconvd(shift, model, fwhm)
 
 
@@ -835,7 +1030,7 @@ class FittingParameters:
         self.decaybg = None
         self.irfbg = None
         self.start = None
-        self.autostart = 'Manual'
+        self.autostart = "Manual"
         self.end = None
         self.autoend = False
         self.numexp = None
@@ -845,52 +1040,143 @@ class FittingParameters:
     def getfromdialog(self):
         self.numexp = int(self.fpd.combNumExp.currentText())
         if self.numexp == 1:
-            self.tau = [[self.get_from_gui(i) for i in
-                         [self.fpd.line1Init, self.fpd.line1Min, self.fpd.line1Max,
-                          self.fpd.check1Fix]]]
-            self.amp = [[self.get_from_gui(i) for i in
-                         [self.fpd.line1AmpInit, self.fpd.line1AmpMin, self.fpd.line1AmpMax,
-                          self.fpd.check1AmpFix]]]
+            self.tau = [
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line1Init,
+                        self.fpd.line1Min,
+                        self.fpd.line1Max,
+                        self.fpd.check1Fix,
+                    ]
+                ]
+            ]
+            self.amp = [
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line1AmpInit,
+                        self.fpd.line1AmpMin,
+                        self.fpd.line1AmpMax,
+                        self.fpd.check1AmpFix,
+                    ]
+                ]
+            ]
             self.amp[0][0] = 1
 
         elif self.numexp == 2:
-            self.tau = [[self.get_from_gui(i) for i in
-                         [self.fpd.line2Init1, self.fpd.line2Min1, self.fpd.line2Max1,
-                          self.fpd.check2Fix1]],
-                        [self.get_from_gui(i) for i in
-                         [self.fpd.line2Init2, self.fpd.line2Min2, self.fpd.line2Max2,
-                          self.fpd.check2Fix2]]]
-            self.amp = [[self.get_from_gui(i) for i in
-                         [self.fpd.line2AmpInit1, self.fpd.line2AmpMin1, self.fpd.line2AmpMax1,
-                          self.fpd.check2AmpFix1]],
-                        [self.get_from_gui(i) for i in
-                         [self.fpd.line2AmpInit2, self.fpd.line2AmpMin2, self.fpd.line2AmpMax2,
-                          self.fpd.check2AmpFix2]]]
+            self.tau = [
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line2Init1,
+                        self.fpd.line2Min1,
+                        self.fpd.line2Max1,
+                        self.fpd.check2Fix1,
+                    ]
+                ],
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line2Init2,
+                        self.fpd.line2Min2,
+                        self.fpd.line2Max2,
+                        self.fpd.check2Fix2,
+                    ]
+                ],
+            ]
+            self.amp = [
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line2AmpInit1,
+                        self.fpd.line2AmpMin1,
+                        self.fpd.line2AmpMax1,
+                        self.fpd.check2AmpFix1,
+                    ]
+                ],
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line2AmpInit2,
+                        self.fpd.line2AmpMin2,
+                        self.fpd.line2AmpMax2,
+                        self.fpd.check2AmpFix2,
+                    ]
+                ],
+            ]
             self.amp[1][0] = 1 - self.amp[0][0]
 
         elif self.numexp == 3:
-            self.tau = [[self.get_from_gui(i) for i in
-                         [self.fpd.line3Init1, self.fpd.line3Min1, self.fpd.line3Max1,
-                          self.fpd.check3Fix1]],
-                        [self.get_from_gui(i) for i in
-                         [self.fpd.line3Init2, self.fpd.line3Min2, self.fpd.line3Max2,
-                          self.fpd.check3Fix2]],
-                        [self.get_from_gui(i) for i in
-                         [self.fpd.line3Init3, self.fpd.line3Min3, self.fpd.line3Max3,
-                          self.fpd.check3Fix3]]]
-            self.amp = [[self.get_from_gui(i) for i in
-                         [self.fpd.line3AmpInit1, self.fpd.line3AmpMin1, self.fpd.line3AmpMax1,
-                          self.fpd.check3AmpFix1]],
-                        [self.get_from_gui(i) for i in
-                         [self.fpd.line3AmpInit2, self.fpd.line3AmpMin2, self.fpd.line3AmpMax2,
-                          self.fpd.check3AmpFix2]],
-                        [self.get_from_gui(i) for i in
-                         [self.fpd.line3AmpInit3, self.fpd.line3AmpMin3, self.fpd.line3AmpMax3,
-                          self.fpd.check3AmpFix3]]]
+            self.tau = [
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line3Init1,
+                        self.fpd.line3Min1,
+                        self.fpd.line3Max1,
+                        self.fpd.check3Fix1,
+                    ]
+                ],
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line3Init2,
+                        self.fpd.line3Min2,
+                        self.fpd.line3Max2,
+                        self.fpd.check3Fix2,
+                    ]
+                ],
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line3Init3,
+                        self.fpd.line3Min3,
+                        self.fpd.line3Max3,
+                        self.fpd.check3Fix3,
+                    ]
+                ],
+            ]
+            self.amp = [
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line3AmpInit1,
+                        self.fpd.line3AmpMin1,
+                        self.fpd.line3AmpMax1,
+                        self.fpd.check3AmpFix1,
+                    ]
+                ],
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line3AmpInit2,
+                        self.fpd.line3AmpMin2,
+                        self.fpd.line3AmpMax2,
+                        self.fpd.check3AmpFix2,
+                    ]
+                ],
+                [
+                    self.get_from_gui(i)
+                    for i in [
+                        self.fpd.line3AmpInit3,
+                        self.fpd.line3AmpMin3,
+                        self.fpd.line3AmpMax3,
+                        self.fpd.check3AmpFix3,
+                    ]
+                ],
+            ]
             self.amp[2][0] = 1 - self.amp[0][0] - self.amp[1][0]
 
-        self.shift = [self.get_from_gui(i) for i in [self.fpd.lineShift, self.fpd.lineShiftMin, self.fpd.lineShiftMax,
-                                                     self.fpd.checkFixIRF]]
+        self.shift = [
+            self.get_from_gui(i)
+            for i in [
+                self.fpd.lineShift,
+                self.fpd.lineShiftMin,
+                self.fpd.lineShiftMax,
+                self.fpd.checkFixIRF,
+            ]
+        ]
         self.decaybg = self.get_from_gui(self.fpd.lineDecayBG)
         self.irfbg = self.get_from_gui(self.fpd.lineIRFBG)
         self.start = self.get_from_gui(self.fpd.lineStartTime)
@@ -898,14 +1184,21 @@ class FittingParameters:
         self.end = self.get_from_gui(self.fpd.lineEndTime)
         self.autoend = bool(self.get_from_gui(self.fpd.checkAutoEnd))
 
-        if self.fpd.lineAddOpt.text() != '':
+        if self.fpd.lineAddOpt.text() != "":
             self.addopt = self.fpd.lineAddOpt.text()
         else:
             self.addopt = None
 
         if self.fpd.checkSimIRF.isChecked():
-            self.fwhm = [self.get_from_gui(i) for i in [self.fpd.fwhmInit, self.fpd.fwhmMin,
-                                                        self.fpd.fwhmMax, self.fpd.checkfwhmFix]]
+            self.fwhm = [
+                self.get_from_gui(i)
+                for i in [
+                    self.fpd.fwhmInit,
+                    self.fpd.fwhmMin,
+                    self.fpd.fwhmMax,
+                    self.fpd.checkfwhmFix,
+                ]
+            ]
         else:
             self.fwhm = None
 
@@ -920,21 +1213,39 @@ class FittingParameters:
             elif guiobj in self.fpd.bg_edits:
                 invalid = None
 
-            if guiobj.text() == '':
+            if guiobj.text() == "":
                 return invalid
             else:
                 text = guiobj.text()
-                num_chs = ['-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',']
+                num_chs = [
+                    "-",
+                    "0",
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                    "7",
+                    "8",
+                    "9",
+                    ".",
+                    ",",
+                ]
                 if all([ch in num_chs for ch in text]):
-                    if text.count('-') > 1 or text.count(',') > 1 or text.count('.') > 1:
+                    if (
+                        text.count("-") > 1
+                        or text.count(",") > 1
+                        or text.count(".") > 1
+                    ):
                         return invalid
-                    if text[0] in ['.', ',']:
-                        text = '0' + text
-                    if text[0] == '-':
+                    if text[0] in [".", ","]:
+                        text = "0" + text
+                    if text[0] == "-":
                         if len(text) == 1:
                             text = 0
-                        elif text[1] in ['.', ',']:
-                            text = text[0] + '0' + text[1:]
+                        elif text[1] in [".", ","]:
+                            text = text[0] + "0" + text[1:]
                     float_text = float(text)
                     if float_text == 0:
                         float_text = invalid
@@ -964,19 +1275,55 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         self.checkSimIRF.stateChanged.connect(self.enable_sim_vals)
 
-        self.tau_edits = [self.line1Init, self.line2Init1, self.line2Init2, self.line3Init1,
-                          self.line3Init2, self.line3Init3]
-        self.tau_min_edits = [self.line1Min, self.line2Min1, self.line2Min2, self.line3Min1,
-                              self.line3Min2, self.line3Min3]
-        self.tau_max_edits = [self.line1Max, self.line2Max1, self.line2Max2, self.line3Max1,
-                              self.line3Max2, self.line3Max3]
+        self.tau_edits = [
+            self.line1Init,
+            self.line2Init1,
+            self.line2Init2,
+            self.line3Init1,
+            self.line3Init2,
+            self.line3Init3,
+        ]
+        self.tau_min_edits = [
+            self.line1Min,
+            self.line2Min1,
+            self.line2Min2,
+            self.line3Min1,
+            self.line3Min2,
+            self.line3Min3,
+        ]
+        self.tau_max_edits = [
+            self.line1Max,
+            self.line2Max1,
+            self.line2Max2,
+            self.line3Max1,
+            self.line3Max2,
+            self.line3Max3,
+        ]
 
-        self.amp_edits = [self.line1AmpInit, self.line2AmpInit1, self.line2AmpInit2,
-                          self.line3AmpInit1, self.line3AmpInit2, self.line3AmpInit3]
-        self.amp_min_edits = [self.line1AmpMin, self.line2AmpMin1, self.line2AmpMin2,
-                              self.line3AmpMin1, self.line3AmpMin2, self.line3AmpMin3]
-        self.amp_max_edits = [self.line1AmpMax, self.line2AmpMax1, self.line2AmpMax2,
-                              self.line3AmpMax1, self.line3AmpMax2, self.line3AmpMax3]
+        self.amp_edits = [
+            self.line1AmpInit,
+            self.line2AmpInit1,
+            self.line2AmpInit2,
+            self.line3AmpInit1,
+            self.line3AmpInit2,
+            self.line3AmpInit3,
+        ]
+        self.amp_min_edits = [
+            self.line1AmpMin,
+            self.line2AmpMin1,
+            self.line2AmpMin2,
+            self.line3AmpMin1,
+            self.line3AmpMin2,
+            self.line3AmpMin3,
+        ]
+        self.amp_max_edits = [
+            self.line1AmpMax,
+            self.line2AmpMax1,
+            self.line2AmpMax2,
+            self.line3AmpMax1,
+            self.line3AmpMax2,
+            self.line3AmpMax3,
+        ]
 
         self.bg_edits = [self.lineDecayBG, self.lineIRFBG]
         self.time_edits = [self.lineStartTime, self.lineEndTime]
@@ -1029,9 +1376,9 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         # self.lineEndTime.setValidator(QIntValidator())
 
     def load_settings(self):
-        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
-        with open(settings_file_path, 'r') as settings_file:
-            if not hasattr(self, 'settings'):
+        settings_file_path = fm.path("settings.json", fm.Type.ProjectRoot)
+        with open(settings_file_path, "r") as settings_file:
+            if not hasattr(self, "settings"):
                 self.settings = Settings()
             self.settings.load_settings_from_file(file_or_path=settings_file)
 
@@ -1043,7 +1390,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.updateplot()
 
     def updateplot(self, *args):
-        if not hasattr(self.lifetime_controller, 'fitparam'):
+        if not hasattr(self.lifetime_controller, "fitparam"):
             return
         else:
             self.lifetime_controller.fitparam.getfromdialog()
@@ -1057,7 +1404,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         try:
             model = self.make_model()
         except Exception as err:
-            logger.error('Error Occured: ' + str(err))
+            logger.error("Error Occured: " + str(err))
             return
 
         channelwidth = self.mainwindow.current_particle.channelwidth
@@ -1079,7 +1426,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             t = histogram.t
 
         except AttributeError:
-            logger.error('No Decay!')
+            logger.error("No Decay!")
         else:
             if fp.irf is not None or fp.fwhm is not None:
                 try:
@@ -1089,7 +1436,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     else:
                         irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], decay)
                 except AttributeError:
-                    logger.error('No IRF!')
+                    logger.error("No IRF!")
                     return
 
                 shift, decaybg, irfbg, start, autostart, end, autoend = self.getparams()
@@ -1098,20 +1445,25 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 # irf = tcspcfit.colorshift(irf, shift)
                 irf = colorshift(irf, shift)
                 convd = scipy.signal.convolve(irf, model)
-                convd = convd[:np.size(irf)]
+                convd = convd[: np.size(irf)]
                 convd = convd / convd.sum()
 
                 bg = FluoFit.estimate_bg(decay, settings=self.settings)
                 start = int(start / channelwidth)
                 end = int(end / channelwidth) if end is not None else None
                 print(end)
-                start, end = FluoFit.calculate_boundaries(decay, [start, end, autostart, autoend],
-                                                          bg, self.settings, channelwidth)
+                start, end = FluoFit.calculate_boundaries(
+                    decay,
+                    [start, end, autostart, autoend],
+                    bg,
+                    self.settings,
+                    channelwidth,
+                )
                 print(end)
-                if autostart != 'Manual':
-                    self.lineStartTime.setText(f'{start * channelwidth:.3g}')
+                if autostart != "Manual":
+                    self.lineStartTime.setText(f"{start * channelwidth:.3g}")
                 if autoend:
-                    self.lineEndTime.setText(f'{end * channelwidth:.3g}')
+                    self.lineEndTime.setText(f"{end * channelwidth:.3g}")
 
                 convd = convd[irft > 0]
                 irft = irft[irft > 0]
@@ -1122,22 +1474,30 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 plot_pen = QPen()
                 plot_pen.setWidthF(1.5)
                 plot_pen.setJoinStyle(Qt.RoundJoin)
-                plot_pen.setColor(QColor('blue'))
+                plot_pen.setColor(QColor("blue"))
                 plot_pen.setCosmetic(True)
 
                 plot_item.clear()
-                plot_item.plot(x=t, y=np.clip(decay, a_min=0.000001, a_max=None), pen=plot_pen,
-                               symbol=None)
+                plot_item.plot(
+                    x=t,
+                    y=np.clip(decay, a_min=0.000001, a_max=None),
+                    pen=plot_pen,
+                    symbol=None,
+                )
 
                 plot_pen = QPen()
                 plot_pen.setWidthF(2)
                 plot_pen.setJoinStyle(Qt.RoundJoin)
                 plot_pen.setCosmetic(True)
-                plot_pen.setColor(QColor('dark blue'))
-                plot_item.plot(x=irft, y=np.clip(convd, a_min=0.000001, a_max=None), pen=plot_pen,
-                               symbol=None)
+                plot_pen.setColor(QColor("dark blue"))
+                plot_item.plot(
+                    x=irft,
+                    y=np.clip(convd, a_min=0.000001, a_max=None),
+                    pen=plot_pen,
+                    symbol=None,
+                )
                 # unit = 'ns with ' + str(currentparticle.channelwidth) + 'ns bins'
-                plot_item.getAxis('bottom').setLabel('Decay time (ns)')
+                plot_item.getAxis("bottom").setLabel("Decay time (ns)")
                 # plot_item.getViewBox().setLimits(xMin=0, yMin=0.1, xMax=t[-1], yMax=1)
                 # plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
                 # self.MW_fitparam.axes.clear()
@@ -1150,9 +1510,13 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     plot_pen.setWidthF(2.5)
                     plot_pen.setJoinStyle(Qt.RoundJoin)
                     plot_pen.setCosmetic(True)
-                    plot_pen.setColor(QColor('gray'))
-                    startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
-                    endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
+                    plot_pen.setColor(QColor("gray"))
+                    startline = pg.InfiniteLine(
+                        angle=90, pen=plot_pen, movable=False, pos=t[start]
+                    )
+                    endline = pg.InfiniteLine(
+                        angle=90, pen=plot_pen, movable=False, pos=t[end]
+                    )
                     plot_item.addItem(startline)
                     plot_item.addItem(endline)
                     # self.MW_fitparam.axes.axvline(t[start])
@@ -1160,7 +1524,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 except IndexError:
                     msg = QMessageBox()
                     msg.setIcon(QMessageBox.Warning)
-                    msg.setText('Value out of bounds!')
+                    msg.setText("Value out of bounds!")
                     msg.exec_()
 
     def getparams(self):
@@ -1206,5 +1570,9 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             amp1 = fp.amp[0][0]
             amp2 = fp.amp[1][0]
             amp3 = fp.amp[2][0]
-            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2) + amp3 * np.exp(-t / tau3)
+            model = (
+                amp1 * np.exp(-t / tau1)
+                + amp2 * np.exp(-t / tau2)
+                + amp3 * np.exp(-t / tau3)
+            )
         return model

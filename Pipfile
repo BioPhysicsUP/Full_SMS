@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+dill = "*"
+h5pickle = "*"
+h5py = "*"
+matplotlib = "*"
+numpy = "*"
+pandas = "*"
+pyarrow = "*"
+pyqt5-qt5 = "*"
+pyqt5-sip = "*"
+pyqt5-stubs = "*"
+pyqt5 = "*"
+statsmodels = "*"
+pyqtgraph = "*"
+
+[dev-packages]
+black = {extras = ["d"], version = "*"}
+auto-py-to-exe = "*"
+pympler = "*"
+
+[requires]
+python_version = "3.9"
+python_full_version = "3.9.13"

@@ -9,17 +9,29 @@ from PyQt5.QtCore import QRunnable, pyqtSlot
 from my_logger import setup_logger
 from signals import WorkerSignals, ProcessThreadSignals, worker_sig_pass
 from smsh5 import H5dataset, Particle
-# from thread_commands import StatusCmd, ProgressCmd
-from processes import ProcessProgressCmd as PPCmd, ProcessSigPassTask as PSCmd,\
-    ProcessProgressTask as PPTask, ProcessSigPassTask as PSTask, ProcessTask, create_queue,\
-    get_max_num_processes, get_empty_queue_exception, SingleProcess, ProcessTaskResult, \
-    prog_sig_pass, ProcessProgress, ProcessProgFeedback, apply_autoproxy_fix, create_manager
-from tempfile import TemporaryDirectory
 
+# from thread_commands import StatusCmd, ProgressCmd
+from processes import (
+    ProcessProgressCmd as PPCmd,
+    ProcessSigPassTask as PSCmd,
+    ProcessProgressTask as PPTask,
+    ProcessSigPassTask as PSTask,
+    ProcessTask,
+    create_queue,
+    get_max_num_processes,
+    get_empty_queue_exception,
+    SingleProcess,
+    ProcessTaskResult,
+    prog_sig_pass,
+    ProcessProgress,
+    ProcessProgFeedback,
+    apply_autoproxy_fix,
+    create_manager,
+)
+from tempfile import TemporaryDirectory
 
 if TYPE_CHECKING:
     from generate_sums import CPSums
-
 
 logger = setup_logger(__name__)
 
@@ -29,13 +41,16 @@ class ProcessThread(QRunnable):
     Worker thread
     """
 
-    def __init__(self, num_processes: int = None,
-                 tasks: Union[ProcessTask, List[ProcessTask]] = None,
-                 signals: ProcessThreadSignals = None,
-                 worker_signals: WorkerSignals = None,
-                 task_buffer_size: int = None,
-                 status_message: str = None,
-                 temp_dir: TemporaryDirectory = None):
+    def __init__(
+        self,
+        num_processes: int = None,
+        tasks: Union[ProcessTask, List[ProcessTask]] = None,
+        signals: ProcessThreadSignals = None,
+        worker_signals: WorkerSignals = None,
+        task_buffer_size: int = None,
+        status_message: str = None,
+        temp_dir: TemporaryDirectory = None,
+    ):
         # logger.info("Inside ProcessThread __init__")
         super().__init__()
         # logger.info("After super().__init__()")
@@ -98,19 +113,20 @@ class ProcessThread(QRunnable):
         assert type(message) is str, "status_message must be str"
         self._status_message = message
 
-    def add_tasks(self, tasks: Union[ProcessTask,
-                                     List[ProcessTask]]):
+    def add_tasks(self, tasks: Union[ProcessTask, List[ProcessTask]]):
         if type(tasks) is not List:
             tasks = [tasks]
         all_valid = all([type(task) is ProcessTask for task in tasks])
         # assert all_valid, "At least some provided tasks are not correct type"
         if not all_valid:
-            raise TypeError("At least some of provided tasks are not of "
-                            "type ProcessTask")
+            raise TypeError(
+                "At least some of provided tasks are not of " "type ProcessTask"
+            )
         self.tasks.extend(tasks)
 
-    def add_tasks_from_methods(self, objects: Union[object, List[object]],
-                               method_name: str, args=None):
+    def add_tasks_from_methods(
+        self, objects: Union[object, List[object]], method_name: str, args=None
+    ):
         if type(objects) is not list:
             objects = [objects]
         # assert type(method_name) is str, 'Method_name is not str'
@@ -137,7 +153,7 @@ class ProcessThread(QRunnable):
         self.is_running = True
         num_active_processes = 0
         try:
-            self.results = [None]*len(self.tasks)
+            self.results = [None] * len(self.tasks)
             # self.signals.status_update.emit("Testing")
             # prog_tracker = prcs.ProgressTracker(len(self.tasks))
 
@@ -161,10 +177,12 @@ class ProcessThread(QRunnable):
                 num_used_processes = num_init_tasks
             num_active_processes = 0
             for _ in range(num_used_processes):
-                process = SingleProcess(task_queue=self.task_queue,
-                                        result_queue=self.result_queue,
-                                        feedback_queue=self.feedback_queue,
-                                        temp_dir=self._temp_dir)
+                process = SingleProcess(
+                    task_queue=self.task_queue,
+                    result_queue=self.result_queue,
+                    feedback_queue=self.feedback_queue,
+                    temp_dir=self._temp_dir,
+                )
                 self._processes.append(process)
                 process.start()
                 num_active_processes += 1
@@ -180,7 +198,9 @@ class ProcessThread(QRunnable):
             process_progress = None
             if not single_task:
                 prog_fb = ProcessProgFeedback(feedback_queue=self.feedback_queue)
-                process_progress = ProcessProgress(prog_fb=prog_fb, num_iterations=num_init_tasks)
+                process_progress = ProcessProgress(
+                    prog_fb=prog_fb, num_iterations=num_init_tasks
+                )
                 process_progress.start_progress()
 
             next_task_ind = 0
@@ -210,7 +230,9 @@ class ProcessThread(QRunnable):
                         if isinstance(result, Exception):
                             raise result
                         else:
-                            raise TypeError("Task result is not of type ProcessTaskResult")
+                            raise TypeError(
+                                "Task result is not of type ProcessTaskResult"
+                            )
 
                     elif not result.dont_send:
                         self.signals.results.emit(result)
@@ -243,7 +265,7 @@ class ProcessThread(QRunnable):
                         for _ in range(self.feedback_queue.qsize()):
                             self.check_fbk_queue()
                 except BrokenPipeError as exception:
-                    print('Warning: Broken Pipe')
+                    print("Warning: Broken Pipe")
                     self.signals.error.emit(exception)
             if process in self._processes:
                 for _ in range(num_used_processes):
@@ -269,23 +291,28 @@ class ProcessThread(QRunnable):
         fbk_return = self.feedback_queue.get()
         if type(fbk_return) is PPTask:
             prog_sig_pass(
-                signals=self.signals,
-                cmd=fbk_return.task_cmd,
-                args=fbk_return.args
+                signals=self.signals, cmd=fbk_return.task_cmd, args=fbk_return.args
             )
         elif type(fbk_return) is PSTask:
             worker_sig_pass(
                 signals=self.worker_signals,
                 sig_type=fbk_return.sig_pass_type,
-                args=fbk_return.sig_args
+                args=fbk_return.sig_args,
             )
 
 
 class WorkerFitLifetimes(QRunnable):
-    """ A QRunnable class to create a worker thread for fitting lifetimes. """
+    """A QRunnable class to create a worker thread for fitting lifetimes."""
 
-    def __init__(self, fit_lifetimes_func, data, currentparticle, fitparam, mode: str,
-                 resolve_selected=None) -> None:
+    def __init__(
+        self,
+        fit_lifetimes_func,
+        data,
+        currentparticle,
+        fitparam,
+        mode: str,
+        resolve_selected=None,
+    ) -> None:
         """
         Initiate Resolve Levels Worker
 
@@ -314,13 +341,20 @@ class WorkerFitLifetimes(QRunnable):
 
     @pyqtSlot()
     def run(self) -> None:
-        """ The code that will be run when the thread is started. """
+        """The code that will be run when the thread is started."""
 
         try:
-            self.fit_lifetimes_func(self.signals.start_progress, self.signals.progress,
-                                    self.signals.status_message, self.signals.reset_gui,
-                                    self.data, self.currentparticle, self.fitparam,
-                                    self.mode, self.resolve_selected)
+            self.fit_lifetimes_func(
+                self.signals.start_progress,
+                self.signals.progress,
+                self.signals.status_message,
+                self.signals.reset_gui,
+                self.data,
+                self.currentparticle,
+                self.fitparam,
+                self.mode,
+                self.resolve_selected,
+            )
         except Exception as err:
             self.signals.error.emit(err)
         finally:
@@ -328,13 +362,14 @@ class WorkerFitLifetimes(QRunnable):
 
 
 class WorkerGrouping(QRunnable):
-
-    def __init__(self,
-                 data: H5dataset,
-                 grouping_func,
-                 mode: str,
-                 currentparticle: Particle = None,
-                 group_selected=None) -> None:
+    def __init__(
+        self,
+        data: H5dataset,
+        grouping_func,
+        mode: str,
+        currentparticle: Particle = None,
+        group_selected=None,
+    ) -> None:
         """
         Initiate Resolve Levels Worker
 
@@ -363,17 +398,19 @@ class WorkerGrouping(QRunnable):
 
     @pyqtSlot()
     def run(self) -> None:
-        """ The code that will be run when the thread is started. """
+        """The code that will be run when the thread is started."""
 
         try:
-            self.grouping_func(start_progress_sig=self.signals.start_progress,
-                               progress_sig=self.signals.progress,
-                               status_sig=self.signals.status_message,
-                               reset_gui_sig=self.signals.reset_gui,
-                               data=self.data,
-                               mode=self.mode,
-                               currentparticle=self.currentparticle,
-                               group_selected=self.group_selected)
+            self.grouping_func(
+                start_progress_sig=self.signals.start_progress,
+                progress_sig=self.signals.progress,
+                status_sig=self.signals.status_message,
+                reset_gui_sig=self.signals.reset_gui,
+                data=self.data,
+                mode=self.mode,
+                currentparticle=self.currentparticle,
+                group_selected=self.group_selected,
+            )
         except Exception as err:
             self.signals.error.emit(err)
         finally:
@@ -382,13 +419,18 @@ class WorkerGrouping(QRunnable):
 
 
 class WorkerResolveLevels(QRunnable):
-    """ A QRunnable class to create a worker thread for resolving levels. """
+    """A QRunnable class to create a worker thread for resolving levels."""
 
-    def __init__(self, resolve_levels_func, conf: Union[int, float], data: H5dataset,
-                 currentparticle: Particle,
-                 mode: str,
-                 resolve_selected=None,
-                 end_time_s=None) -> None:
+    def __init__(
+        self,
+        resolve_levels_func,
+        conf: Union[int, float],
+        data: H5dataset,
+        currentparticle: Particle,
+        mode: str,
+        resolve_selected=None,
+        end_time_s=None,
+    ) -> None:
         """
         Initiate Resolve Levels Worker
 
@@ -419,14 +461,22 @@ class WorkerResolveLevels(QRunnable):
 
     @pyqtSlot()
     def run(self) -> None:
-        """ The code that will be run when the thread is started. """
+        """The code that will be run when the thread is started."""
 
         try:
-            self.resolve_levels_func(self.signals.start_progress, self.signals.progress,
-                                     self.signals.status_message, self.signals.reset_gui,
-                                     self.signals.level_resolved,
-                                     self.conf, self.data, self.currentparticle,
-                                     self.mode, self.resolve_selected, self.end_time_s)
+            self.resolve_levels_func(
+                self.signals.start_progress,
+                self.signals.progress,
+                self.signals.status_message,
+                self.signals.reset_gui,
+                self.signals.level_resolved,
+                self.conf,
+                self.data,
+                self.currentparticle,
+                self.mode,
+                self.resolve_selected,
+                self.end_time_s,
+            )
         except Exception as err:
             self.signals.error.emit(err)
         finally:
@@ -434,7 +484,7 @@ class WorkerResolveLevels(QRunnable):
 
 
 class WorkerBinAll(QRunnable):
-    """ A QRunnable class to create a worker thread for binning all the data. """
+    """A QRunnable class to create a worker thread for binning all the data."""
 
     def __init__(self, dataset, binall_func, bin_size):
         """
@@ -460,7 +510,7 @@ class WorkerBinAll(QRunnable):
 
     @pyqtSlot()
     def run(self) -> None:
-        """ The code that will be run when the thread is started. """
+        """The code that will be run when the thread is started."""
 
         try:
             self.binall_func(self.dataset, self.bin_size)

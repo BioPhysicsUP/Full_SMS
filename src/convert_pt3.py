@@ -4,7 +4,8 @@ import struct
 import codecs
 
 import numpy as np
-import progressbar
+
+# import progressbar
 from PyQt5.QtWidgets import QDialog, QFileDialog, QMessageBox
 from PyQt5 import uic
 import h5py
@@ -23,11 +24,11 @@ class Pt3Reader:
         self._file_path = pt3_file_path
         file_size = os.stat(pt3_file_path).st_size
 
-        with open(self._file_path, 'rb') as f:
+        with open(self._file_path, "rb") as f:
 
             def fr(num_bytes: int = 1):
                 read_bytes = f.read(num_bytes)
-                if read_bytes != '':
+                if read_bytes != "":
                     return read_bytes
                 else:
                     return False
@@ -38,7 +39,9 @@ class Pt3Reader:
                     converted_string = str()
                     for char_byte in str_bytes:
                         if char_byte != 0:
-                            converted_string += codecs.decode(char_byte.to_bytes(1, 'little'), 'ascii')
+                            converted_string += codecs.decode(
+                                char_byte.to_bytes(1, "little"), "ascii"
+                            )
                     return converted_string
                 else:
                     return False
@@ -46,21 +49,21 @@ class Pt3Reader:
             def fr_int32():
                 int_bytes = fr(4)
                 if int_bytes:
-                    return int.from_bytes(int_bytes, byteorder='little', signed=True)
+                    return int.from_bytes(int_bytes, byteorder="little", signed=True)
                 else:
                     return False
 
             def fr_uint32():
                 uint_bytes = fr(4)
                 if uint_bytes:
-                    return int.from_bytes(uint_bytes, byteorder='little', signed=False)
+                    return int.from_bytes(uint_bytes, byteorder="little", signed=False)
                 else:
                     return False
 
             def fr_float():
                 float_bytes = fr(4)
                 if float_bytes:
-                    return struct.unpack('<f', float_bytes)[0]
+                    return struct.unpack("<f", float_bytes)[0]
                 else:
                     return False
 
@@ -130,7 +133,7 @@ class Pt3Reader:
                 input_edge = None
                 cfd_present = None
                 cfd_level = None
-                cfd_zero_cross =  None
+                cfd_zero_cross = None
 
             self.channels_info = [RouterChannel()] * self.num_routing_channels
 
@@ -161,7 +164,7 @@ class Pt3Reader:
             # self._counter_err = 0
             self._wrap_around = 65536
 
-            self._sync_period = 1E9 / self.count_rate_0  # ns
+            self._sync_period = 1e9 / self.count_rate_0  # ns
             self._delay_times = np.zeros(self.num_records)
 
             class Records:
@@ -175,15 +178,21 @@ class Pt3Reader:
                         self.micro_times = None
                         self.macro_times = None
                     else:
-                        self.micro_times = np.delete(self.micro_times, np.s_[self.count:])
-                        self.macro_times = np.delete(self.macro_times, np.s_[self.count:])
+                        self.micro_times = np.delete(
+                            self.micro_times, np.s_[self.count :]
+                        )
+                        self.macro_times = np.delete(
+                            self.macro_times, np.s_[self.count :]
+                        )
 
-            self.channel_records = [Records(self.num_records) for _
-                                    in range(self.num_routing_channels)]
+            self.channel_records = [
+                Records(self.num_records) for _ in range(self.num_routing_channels)
+            ]
             overflow = 0
             bar = False
-            if '--dev' in sys.argv:
-                bar = progressbar.ProgressBar(max_value=file_size)
+            if "--dev" in sys.argv:
+                # bar = progressbar.ProgressBar(max_value=file_size)
+                pass
             for i in range(self.num_records):
                 # +---------------+   +---------------+  +---------------+   +---------------+
                 # |x|x|x|x|x|x|x|x|   |x|x|x|x|x|x|x|x|  |x|x|x|x|x|x|x|x|   |x|x|x|x|x|x|x|x|
@@ -198,7 +207,7 @@ class Pt3Reader:
                 # +---------------+   +---------------+  +---------------+   +---------------+
                 # |x|x|x|x| | | | |   | | | | | | | | |  | | | | | | | | |   | | | | | | | | |
                 # +---------------+   +---------------+  +---------------+   +---------------+
-                channel = (t3_record >> (32 - 4))  # -1  # Not sure about the -1?
+                channel = t3_record >> (32 - 4)  # -1  # Not sure about the -1?
                 # print('{0:32b}'.format(t3_record >> (32 - 4)))
 
                 if channel != 15:  # Valid record, not overflow
@@ -207,19 +216,21 @@ class Pt3Reader:
                     # +---------------+   +---------------+  +---------------+   +---------------+
                     # | | | | | | | | |   | | | | | | | | |  |x|x|x|x|x|x|x|x|   |x|x|x|x|x|x|x|x|
                     # +---------------+   +---------------+  +---------------+   +---------------+
-                    nsync = t3_record & int('11111111'*2, 2)
+                    nsync = t3_record & int("11111111" * 2, 2)
                     # print('{0:32b}'.format(t3_record & int('11111111'*2, 2)))
 
                     # +---------------+   +---------------+  +---------------+   +---------------+
                     # | | | | |x|x|x|x|   |x|x|x|x|x|x|x|x|  | | | | | | | | |   | | | | | | | | |
                     # +---------------+   +---------------+  +---------------+   +---------------+
-                    dtime = t3_record >> 16 & int('00001111' + '11111111', 2)
+                    dtime = t3_record >> 16 & int("00001111" + "11111111", 2)
                     # print('{0:32b}'.format(t3_record >> 16 & int('00001111' + '11111111', 2)))
 
                     c_r.micro_times[c_r.count] = dtime * self.resolution
 
                     true_sync = overflow + nsync
-                    macro_time = (true_sync * self._sync_period) + c_r.micro_times[c_r.count]
+                    macro_time = (true_sync * self._sync_period) + c_r.micro_times[
+                        c_r.count
+                    ]
                     c_r.macro_times[c_r.count] = macro_time
 
                     c_r.count += 1
@@ -227,10 +238,10 @@ class Pt3Reader:
                     # +---------------+   +---------------+  +---------------+   +---------------+
                     # | | | | | | | | |   | | | | |x|x|x|x|  | | | | | | | | |   | | | | | | | | |
                     # +---------------+   +---------------+  +---------------+   +---------------+
-                    markers = t3_record >> 16 & int('00000000' + '00001111', 2)
+                    markers = t3_record >> 16 & int("00000000" + "00001111", 2)
                     # print('{0:32b}'.format(t3_record >> 16 & int('00000000' + '00001111', 2)))
 
-                    if markers == int('0000', 2):  # then this is a overflow record
+                    if markers == int("0000", 2):  # then this is a overflow record
                         overflow += self._wrap_around
                 if bar:
                     bar.update(f.tell())
@@ -245,7 +256,6 @@ class Pt3Reader:
 
 
 class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
-
     def __init__(self, mainwindow):
         QDialog.__init__(self)
         UI_Convert_Pt3_Dialog.__init__(self)
@@ -266,28 +276,32 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
 
     def set_source_folder(self):
         f_dir = QFileDialog.getExistingDirectory(self)
-        if f_dir != ('', ''):
+        if f_dir != ("", ""):
             self._source_path = f_dir
 
             display_path = f_dir
             if len(f_dir) > 48:
-                display_path = f_dir[:22] + '...' + f_dir[-22:]
+                display_path = f_dir[:22] + "..." + f_dir[-22:]
             self.edtSourceFolder.setText(display_path)
             self.check_ready()
 
     def set_export_file(self):
         f_dir, _ = QFileDialog.getSaveFileName(filter="HDF5 file (*.h5)")
-        if f_dir != ('', ''):
+        if f_dir != ("", ""):
             if not os.path.exists(f_dir):
                 self._export_path = f_dir
                 display_path = f_dir
                 if len(f_dir) > 48:
-                    display_path = f_dir[:22] + '...' + f_dir[-22:]
+                    display_path = f_dir[:22] + "..." + f_dir[-22:]
                 self.edtExportFile.setText(display_path)
             else:
-                msg = QMessageBox(QMessageBox.Warning, 'Convert pt3', 'File exists!',
-                                  buttons=QMessageBox.Ok,
-                                  parent=self)
+                msg = QMessageBox(
+                    QMessageBox.Warning,
+                    "Convert pt3",
+                    "File exists!",
+                    buttons=QMessageBox.Ok,
+                    parent=self,
+                )
 
                 msg.exec_()
             self.check_ready()
@@ -302,25 +316,31 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
         if self._export_path and self._source_path:
             pt3_names = self.edtFileNames_pt3.text()
             spectra_names = self.edtFileNames_Spectra.text()
-            if pt3_names != '' and spectra_names != '':
+            if pt3_names != "" and spectra_names != "":
                 is_ready = True
 
         self.btnConvert.setEnabled(is_ready)
 
     def convert(self):
         self.setEnabled(False)
-        all_source_files = [f for f in os.listdir(self._source_path)
-                            if os.path.isfile(os.path.join(self._source_path, f))]
+        all_source_files = [
+            f
+            for f in os.listdir(self._source_path)
+            if os.path.isfile(os.path.join(self._source_path, f))
+        ]
 
         pt3_f_name = self.edtFileNames_pt3.text()
-        pt3_fs = [file for file in all_source_files if file.startswith(pt3_f_name) and
-                  file.endswith('.pt3')]
+        pt3_fs = [
+            file
+            for file in all_source_files
+            if file.startswith(pt3_f_name) and file.endswith(".pt3")
+        ]
         pt3_fs.sort()
         num_files = len(pt3_fs)
 
         all_okay = False
-        if all([file[-4:] == '.pt3' for file in pt3_fs]):
-            pt3_nums = [file[len(pt3_f_name):file.find('.')] for file in pt3_fs]
+        if all([file[-4:] == ".pt3" for file in pt3_fs]):
+            pt3_nums = [file[len(pt3_f_name) : file.find(".")] for file in pt3_fs]
             if all([num.isalnum() for num in pt3_nums]):
                 pt3_nums = [int(num) for num in pt3_nums]
                 pt3_nums.sort()
@@ -331,15 +351,18 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
         if add_spec:
             all_okay = False
             spec_file_name = self.edtFileNames_Spectra.text()
-            spec_fs = [file for file in all_source_files if file.startswith(spec_file_name)]
+            spec_fs = [
+                file for file in all_source_files if file.startswith(spec_file_name)
+            ]
             spec_fs.sort()
             if len(pt3_fs) == len(spec_fs):
-                spec_file_ext = spec_fs[0].find('.')
+                spec_file_ext = spec_fs[0].find(".")
                 if spec_file_ext == -1:
-                    spec_nums = [file[len(spec_file_name):] for file in spec_fs]
+                    spec_nums = [file[len(spec_file_name) :] for file in spec_fs]
                 else:
-                    spec_nums = [file[len(spec_file_name):file.find('.')]
-                                 for file in spec_fs]
+                    spec_nums = [
+                        file[len(spec_file_name) : file.find(".")] for file in spec_fs
+                    ]
                 if all([num.isalnum() for num in spec_nums]):
                     spec_nums = [int(num) for num in spec_nums]
                     spec_nums.sort()
@@ -347,55 +370,64 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
                         all_okay = True
 
         if not all_okay:
-            message = 'pt3 files and spectra files dont match, please check'
-            msg = QMessageBox(QMessageBox.Warning, 'Convert pt3', message,
-                              buttons= QMessageBox.Ok,
-                              parent=self)
+            message = "pt3 files and spectra files dont match, please check"
+            msg = QMessageBox(
+                QMessageBox.Warning,
+                "Convert pt3",
+                message,
+                buttons=QMessageBox.Ok,
+                parent=self,
+            )
             msg.exec_()
             return
 
-        with h5py.File(self._export_path, 'w') as h5_f:
-            h5_f.attrs.create(name='# Particles', data=num_files)
-            channel = self.spbChannel.value() -1
+        with h5py.File(self._export_path, "w") as h5_f:
+            h5_f.attrs.create(name="# Particles", data=num_files)
+            channel = self.spbChannel.value() - 1
 
             try:
                 for num in range(num_files):
                     pt3_reader = Pt3Reader(os.path.join(self._source_path, pt3_fs[num]))
-                    part_group = h5_f.create_group('Particle ' + str(num + 1))
-                    part_group.attrs.create('Date', pt3_reader.file_time)
-                    part_group.attrs.create('Discription', pt3_reader.comment_field)
-                    part_group.attrs.create('Intensity?', 1)
-                    part_group.attrs.create('RS Coord. (um)', [0, 0])
-                    part_group.attrs.create('Spectra?', int(add_spec))
-                    part_group.attrs.create('User', pt3_reader.creator_name)
+                    part_group = h5_f.create_group("Particle " + str(num + 1))
+                    part_group.attrs.create("Date", pt3_reader.file_time)
+                    part_group.attrs.create("Discription", pt3_reader.comment_field)
+                    part_group.attrs.create("Intensity?", 1)
+                    part_group.attrs.create("RS Coord. (um)", [0, 0])
+                    part_group.attrs.create("Spectra?", int(add_spec))
+                    part_group.attrs.create("User", pt3_reader.creator_name)
 
                     abs_times = pt3_reader.channel_records[channel].macro_times
                     micro_times = pt3_reader.channel_records[channel].micro_times
-                    part_group.create_dataset('Absolute Times (ns)',
-                                              dtype=np.uint64,
-                                              data=abs_times)
-                    part_group.create_dataset('Micro Times (s)',
-                                              dtype=np.float64,
-                                              data=micro_times)
+                    part_group.create_dataset(
+                        "Absolute Times (ns)", dtype=np.uint64, data=abs_times
+                    )
+                    part_group.create_dataset(
+                        "Micro Times (s)", dtype=np.float64, data=micro_times
+                    )
 
                     if add_spec:
-                        spec_data = np.loadtxt(os.path.join(self._source_path, spec_fs[num]))
-                        wavelengths = spec_data[:,0]
+                        spec_data = np.loadtxt(
+                            os.path.join(self._source_path, spec_fs[num])
+                        )
+                        wavelengths = spec_data[:, 0]
                         spec_data = np.delete(spec_data, 0, axis=1).T
                         exposure = self.spbExposure.value()
-                        spec_t_series = np.array([(n + 1) * exposure
-                                                  for n in range(spec_data.shape[0])])
+                        spec_t_series = np.array(
+                            [(n + 1) * exposure for n in range(spec_data.shape[0])]
+                        )
 
-                        spec_dataset = part_group.create_dataset('Spectra (counts\s)',
-                                                                 dtype=np.float64,
-                                                                 data=spec_data)
-                        spec_dataset.attrs.create('Exposure Times (s)', exposure)
-                        spec_dataset.attrs.create('Spectra Abs. Times (s)',
-                                                  dtype=np.float64,
-                                                  data=spec_t_series)
-                        spec_dataset.attrs.create('Wavelengths',
-                                                  dtype=np.float64,
-                                                  data=wavelengths)
+                        spec_dataset = part_group.create_dataset(
+                            "Spectra (counts\s)", dtype=np.float64, data=spec_data
+                        )
+                        spec_dataset.attrs.create("Exposure Times (s)", exposure)
+                        spec_dataset.attrs.create(
+                            "Spectra Abs. Times (s)",
+                            dtype=np.float64,
+                            data=spec_t_series,
+                        )
+                        spec_dataset.attrs.create(
+                            "Wavelengths", dtype=np.float64, data=wavelengths
+                        )
 
             except Exception as e:
                 logger.error(e)
@@ -403,7 +435,8 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
             self.setEnabled(True)
 
 
-if __name__ == '__main__':
-
-    pt3_file = Pt3Reader('C:\\Google Drive\\Current_Projects\\Full_SMS\\test_data\\trace0.pt3')
+if __name__ == "__main__":
+    pt3_file = Pt3Reader(
+        "C:\\Google Drive\\Current_Projects\\Full_SMS\\test_data\\trace0.pt3"
+    )
     # print('here')

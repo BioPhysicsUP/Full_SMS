@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__docformat__ = 'NumPy'
+__docformat__ = "NumPy"
 
 from matplotlib.font_manager import json_dump
 from PyQt5 import uic
@@ -20,11 +20,12 @@ UI_Settings_Dialog, _ = uic.loadUiType(settings_dialog_file)
 
 
 class Settings:
-
-    def __init__(self,
-                 save_file_or_path: str = None,
-                 settings_dict: dict = None,
-                 load_file_or_path: str = None):
+    def __init__(
+        self,
+        save_file_or_path: str = None,
+        settings_dict: dict = None,
+        load_file_or_path: str = None,
+    ):
         self.cpa_min_num_photons = None
         self.cpa_min_boundary_offset = None
         self.pb_min_dwell_time = None
@@ -40,26 +41,23 @@ class Settings:
         self.lt_bg_percent = None
 
         self.default_settings_dict = {
-                "change_point_analysis": {
-                    "min_num_photons": 20,
-                    "min_boundary_offset": 7
-                },
-                "photon_bursts": {
-                    "min_level_dwell_time": 0.001,
-                    "use_sigma_int_thresh": True,
-                    "sigma_int_thresh": 3.0,
-                    "defined_int_thresh": 5000
-                },
-                "lifetimes": {
-                    "use_moving_avg": True,
-                    "moving_avg_window": 10,
-                    "start_percent": 80,
-                    "end_multiple": 20,
-                    "end_percent": 1,
-                    "minimum_decay_window": 0.5,
-                    "bg_percent": 5
-                }
-            }
+            "change_point_analysis": {"min_num_photons": 20, "min_boundary_offset": 7},
+            "photon_bursts": {
+                "min_level_dwell_time": 0.001,
+                "use_sigma_int_thresh": True,
+                "sigma_int_thresh": 3.0,
+                "defined_int_thresh": 5000,
+            },
+            "lifetimes": {
+                "use_moving_avg": True,
+                "moving_avg_window": 10,
+                "start_percent": 80,
+                "end_multiple": 20,
+                "end_percent": 1,
+                "minimum_decay_window": 0.5,
+                "bg_percent": 5,
+            },
+        }
 
         if load_file_or_path:
             try:
@@ -79,42 +77,52 @@ class Settings:
         return Settings(settings_dict=self.default_settings_dict)
 
     def set_all_dict(self, settings_dict: dict):
-        self.cpa_min_num_photons = settings_dict["change_point_analysis"]["min_num_photons"]
-        self.cpa_min_boundary_offset = settings_dict["change_point_analysis"]["min_boundary_offset"]
+        self.cpa_min_num_photons = settings_dict["change_point_analysis"][
+            "min_num_photons"
+        ]
+        self.cpa_min_boundary_offset = settings_dict["change_point_analysis"][
+            "min_boundary_offset"
+        ]
         self.pb_min_dwell_time = settings_dict["photon_bursts"]["min_level_dwell_time"]
-        self.pb_use_sigma_thresh = settings_dict["photon_bursts"]["use_sigma_int_thresh"]
+        self.pb_use_sigma_thresh = settings_dict["photon_bursts"][
+            "use_sigma_int_thresh"
+        ]
         self.pb_sigma_int_thresh = settings_dict["photon_bursts"]["sigma_int_thresh"]
-        self.pb_defined_int_thresh = settings_dict["photon_bursts"]["defined_int_thresh"]
+        self.pb_defined_int_thresh = settings_dict["photon_bursts"][
+            "defined_int_thresh"
+        ]
         self.lt_use_moving_avg = settings_dict["lifetimes"]["use_moving_avg"]
         self.lt_moving_avg_window = settings_dict["lifetimes"]["moving_avg_window"]
         self.lt_start_percent = settings_dict["lifetimes"]["start_percent"]
         self.lt_end_multiple = settings_dict["lifetimes"]["end_multiple"]
         self.lt_end_percent = settings_dict["lifetimes"]["end_percent"]
-        self.lt_minimum_decay_window = settings_dict["lifetimes"]["minimum_decay_window"]
+        self.lt_minimum_decay_window = settings_dict["lifetimes"][
+            "minimum_decay_window"
+        ]
         self.lt_bg_percent = settings_dict["lifetimes"]["bg_percent"]
 
     def get_all_dict(self) -> dict:
         settings_dict = {
-                        "change_point_analysis": {
-                            "min_num_photons": self.cpa_min_num_photons,
-                            "min_boundary_offset": self.cpa_min_boundary_offset,
-                        },
-                        "photon_bursts": {
-                            "min_level_dwell_time": self.pb_min_dwell_time,
-                            "use_sigma_int_thresh": self.pb_use_sigma_thresh,
-                            "sigma_int_thresh": self.pb_sigma_int_thresh,
-                            "defined_int_thresh": self.pb_defined_int_thresh
-                        },
-                        "lifetimes": {
-                            "start_percent": self.lt_start_percent,
-                            "use_moving_avg": self.lt_use_moving_avg,
-                            "moving_avg_window": self.lt_moving_avg_window,
-                            "end_multiple": self.lt_end_multiple,
-                            "end_percent": self.lt_end_percent,
-                            "minimum_decay_window": self.lt_minimum_decay_window,
-                            "bg_percent": self.lt_bg_percent,
-                        }
-                    }
+            "change_point_analysis": {
+                "min_num_photons": self.cpa_min_num_photons,
+                "min_boundary_offset": self.cpa_min_boundary_offset,
+            },
+            "photon_bursts": {
+                "min_level_dwell_time": self.pb_min_dwell_time,
+                "use_sigma_int_thresh": self.pb_use_sigma_thresh,
+                "sigma_int_thresh": self.pb_sigma_int_thresh,
+                "defined_int_thresh": self.pb_defined_int_thresh,
+            },
+            "lifetimes": {
+                "start_percent": self.lt_start_percent,
+                "use_moving_avg": self.lt_use_moving_avg,
+                "moving_avg_window": self.lt_moving_avg_window,
+                "end_multiple": self.lt_end_multiple,
+                "end_percent": self.lt_end_percent,
+                "minimum_decay_window": self.lt_minimum_decay_window,
+                "bg_percent": self.lt_bg_percent,
+            },
+        }
         return settings_dict
 
     # def get_all_json_string(self):
@@ -147,7 +155,9 @@ class Settings:
             if not os.path.exists(file_or_path):
                 raise FileNotFoundError(f"Path provided does not exist. {file_or_path}")
             if not os.path.isfile(file_or_path):
-                raise FileNotFoundError(f"Path provided is not valid file. {file_or_path}")
+                raise FileNotFoundError(
+                    f"Path provided is not valid file. {file_or_path}"
+                )
             file = open(file_or_path, mode="r")
             opened_file = True
         else:
@@ -159,7 +169,7 @@ class Settings:
             self.set_all_dict(settings_dict=loaded_settings_dict)
         except KeyError as err:
             self.set_all_dict(self.default_settings_dict)
-            settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+            settings_file_path = fm.path("settings.json", fm.Type.ProjectRoot)
             self.save_settings_to_file(settings_file_path)
 
         if opened_file:
@@ -167,9 +177,12 @@ class Settings:
 
 
 class SettingsDialog(QDialog, UI_Settings_Dialog):
-
-    def __init__(self, mainwindow, current_settings: Settings = None,
-                 get_saved_settings: bool = None):
+    def __init__(
+        self,
+        mainwindow,
+        current_settings: Settings = None,
+        get_saved_settings: bool = None,
+    ):
         QDialog.__init__(self)
         UI_Settings_Dialog.__init__(self)
         self.setupUi(self)
@@ -180,7 +193,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         self.rdbPB_use_sigma.toggled.connect(self.pb_use_changed)
         self.rdbPB_use_defined_int.toggled.connect(self.pb_use_changed)
 
-        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
+        settings_file_path = fm.path("settings.json", fm.Type.ProjectRoot)
         if get_saved_settings:
             self.settings = Settings(load_file_or_path=settings_file_path)
             self.set_dialog_settings(self.settings)
@@ -189,16 +202,17 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         else:
             self.settings = Settings()
 
-        with open(settings_file_path, 'w') as save_settings_file:
+        with open(settings_file_path, "w") as save_settings_file:
             self.settings.save_settings_to_file(file_or_path=save_settings_file)
 
         self.default_settings = self.settings.get_default_settings()
 
         self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(
-            self.reset_to_default)
+            self.reset_to_default
+        )
         self.buttonBox.accepted.connect(self.accepted_callback)
         self.buttonBox.rejected.connect(self.rejected_callback)
-    
+
     def pb_use_changed(self):
         pb_use_sigma = self.rdbPB_use_sigma.isChecked()
         self.dsbPB_sigma_int_thresh.setEnabled(pb_use_sigma)
@@ -220,25 +234,25 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         lt_bg_percent = self.spb_bg_percent.value()
 
         new_settings_dict = {
-                    "change_point_analysis": {
-                        "min_num_photons": cpa_min_num_photons,
-                        "min_boundary_offset": cpa_min_boundary_offset,
-                    },
-                    "photon_bursts": {
-                        "min_level_dwell_time": pb_min_dwell_time,
-                        "use_sigma_int_thresh": pb_use_sigma_thresh,
-                        "sigma_int_thresh": pb_sigma_int_thresh,
-                        "defined_int_thresh": pb_defined_int_thresh
-                    },
-                    "lifetimes": {
-                        "use_moving_avg": lt_use_moving_avg,
-                        "moving_avg_window": lt_moving_avg_window,
-                        "start_percent": lt_start_percent,
-                        "end_multiple": lt_end_multiple,
-                        "end_percent": lt_end_percent,
-                        "minimum_decay_window": lt_minimum_decay_window,
-                        "bg_percent": lt_bg_percent,
-                    }
+            "change_point_analysis": {
+                "min_num_photons": cpa_min_num_photons,
+                "min_boundary_offset": cpa_min_boundary_offset,
+            },
+            "photon_bursts": {
+                "min_level_dwell_time": pb_min_dwell_time,
+                "use_sigma_int_thresh": pb_use_sigma_thresh,
+                "sigma_int_thresh": pb_sigma_int_thresh,
+                "defined_int_thresh": pb_defined_int_thresh,
+            },
+            "lifetimes": {
+                "use_moving_avg": lt_use_moving_avg,
+                "moving_avg_window": lt_moving_avg_window,
+                "start_percent": lt_start_percent,
+                "end_multiple": lt_end_multiple,
+                "end_percent": lt_end_percent,
+                "minimum_decay_window": lt_minimum_decay_window,
+                "bg_percent": lt_bg_percent,
+            },
         }
         self.settings.set_all_dict(new_settings_dict)
 
@@ -265,15 +279,15 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         self.set_dialog_settings()
 
     def save_settings_to_file(self):
-        settings_file_path = fm.path('settings.json', fm.Type.ProjectRoot)
-        with open(settings_file_path, 'w') as settings_file:
+        settings_file_path = fm.path("settings.json", fm.Type.ProjectRoot)
+        with open(settings_file_path, "w") as settings_file:
             self.settings.save_settings_to_file(file_or_path=settings_file)
 
     def reset_to_default(self) -> None:
         self.settings = copy.deepcopy(self.default_settings)
         self.set_dialog_settings()
         self.save_settings_to_file()
-    
+
     def accepted_callback(self):
         self.update_settings_from_dialog()
         self.save_settings_to_file()

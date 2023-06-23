@@ -6,7 +6,14 @@ from typing import Tuple
 
 
 class TimedMessageBox(QMessageBox):
-    def __init__(self, timeout=3, user_test=None, message_pretime=None, message_posttime=None, parent=None):
+    def __init__(
+        self,
+        timeout=3,
+        user_test=None,
+        message_pretime=None,
+        message_posttime=None,
+        parent=None,
+    ):
         super(TimedMessageBox, self).__init__(parent)
         self.default_button = None
         self.setWindowTitle("wait")
@@ -18,7 +25,9 @@ class TimedMessageBox(QMessageBox):
             message_posttime = " seconds.)"
         self.message_pretime = message_pretime
         self.message_posttime = message_posttime
-        self.setText(f"{self.user_text}\n\n{self.message_pretime}{timeout}{self.message_posttime}")
+        self.setText(
+            f"{self.user_text}\n\n{self.message_pretime}{timeout}{self.message_posttime}"
+        )
         self.setStandardButtons(QMessageBox.NoButton)
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(1000)
@@ -33,13 +42,15 @@ class TimedMessageBox(QMessageBox):
         self.user_text = a0
         self._new_set_text()
 
-    def set_timeout_text(self,  message_pretime: str, message_posttime: str):
+    def set_timeout_text(self, message_pretime: str, message_posttime: str):
         self.message_pretime = message_pretime
         self.message_posttime = message_posttime
         self._new_set_text()
 
     def _new_set_text(self):
-        super().setText(f"{self.user_text}\n\n{self.message_pretime}{self.time_to_wait}{self.message_posttime}")
+        super().setText(
+            f"{self.user_text}\n\n{self.message_pretime}{self.time_to_wait}{self.message_posttime}"
+        )
 
     def exec(self) -> Tuple[int, bool]:
         self.timer.start()

@@ -128,31 +128,43 @@ class DatasetTreeModel(QAbstractItemModel):
         self._root = DatasetTreeNode(None, None, None)
         # for node in in_nodes:
         #     self._root.addChild(node)
-        height = 14
+        height = 16
+
         self.none = QPixmap(fm.path('particle-none.png', fm.Type.Icons)).scaledToHeight(height)
-        self.e = QPixmap(fm.path('particle-e.png', fm.Type.Icons)).scaledToHeight(height)
+
         self.r = QPixmap(fm.path('particle-r.png', fm.Type.Icons)).scaledToHeight(height)
-        self.re = QPixmap(fm.path('particle-re.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rg = QPixmap(fm.path('particle-rg.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rge = QPixmap(fm.path('particle-rge.png', fm.Type.Icons)).scaledToHeight(height)
         self.l = QPixmap(fm.path('particle-l.png', fm.Type.Icons)).scaledToHeight(height)
-        self.le = QPixmap(fm.path('particle-le.png', fm.Type.Icons)).scaledToHeight(height)
+        self.a = QPixmap(fm.path('particle-a.png', fm.Type.Icons)).scaledToHeight(height)
+        self.e = QPixmap(fm.path('particle-e.png', fm.Type.Icons)).scaledToHeight(height)
+
         self.rl = QPixmap(fm.path('particle-rl.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rle = QPixmap(fm.path('particle-rle.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rgl = QPixmap(fm.path('particle-rgl.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rgle = QPixmap(fm.path('particle-rgle.png', fm.Type.Icons)).scaledToHeight(height)
-        self.ae = QPixmap(fm.path('particle-ae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rg = QPixmap(fm.path('particle-rg.png', fm.Type.Icons)).scaledToHeight(height)
         self.ra = QPixmap(fm.path('particle-ra.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rae = QPixmap(fm.path('particle-rae.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rga = QPixmap(fm.path('particle-rga.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rgae = QPixmap(fm.path('particle-rgae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.re = QPixmap(fm.path('particle-re.png', fm.Type.Icons)).scaledToHeight(height)
+
         self.la = QPixmap(fm.path('particle-la.png', fm.Type.Icons)).scaledToHeight(height)
-        self.lae = QPixmap(fm.path('particle-lae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.le = QPixmap(fm.path('particle-le.png', fm.Type.Icons)).scaledToHeight(height)
+
+        self.ae = QPixmap(fm.path('particle-ae.png', fm.Type.Icons)).scaledToHeight(height)
+
+        self.rlg = QPixmap(fm.path('particle-rlg.png', fm.Type.Icons)).scaledToHeight(height)
         self.rla = QPixmap(fm.path('particle-rla.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rle = QPixmap(fm.path('particle-rle.png', fm.Type.Icons)).scaledToHeight(height)
+
+        self.rga = QPixmap(fm.path('particle-rga.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rge = QPixmap(fm.path('particle-rge.png', fm.Type.Icons)).scaledToHeight(height)
+
+        self.rae = QPixmap(fm.path('particle-rae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.lae = QPixmap(fm.path('particle-lae.png', fm.Type.Icons)).scaledToHeight(height)
+
+        self.rlga = QPixmap(fm.path('particle-rlga.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rlge = QPixmap(fm.path('particle-rlge.png', fm.Type.Icons)).scaledToHeight(height)
+
         self.rlae = QPixmap(fm.path('particle-rlae.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rgla = QPixmap(fm.path('particle-rgla.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rglae = QPixmap(fm.path('particle-rglae.png', fm.Type.Icons)).scaledToHeight(height)
-        self.global_particle = QPixmap(fm.path('particle-global.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rgae = QPixmap(fm.path('particle-rgae.png', fm.Type.Icons)).scaledToHeight(height)
+
+        self.rlgae = QPixmap(fm.path('particle-rlgae.png', fm.Type.Icons)).scaledToHeight(height)
+
 
     def flags(self, index):
         # return self.flags(index) | Qt.ItemIsUserCheckable
@@ -287,8 +299,6 @@ class DatasetTreeModel(QAbstractItemModel):
                 a = p.has_corr
                 e = p.has_exported
 
-                is_global = hasattr(p, 'is_global') and p.is_global
-
                 icon = None
                 if not any([r, g, l, a, e]):
                     icon = self.none
@@ -311,7 +321,7 @@ class DatasetTreeModel(QAbstractItemModel):
                 elif all([r, l, e]) and not any([g, a]):
                     icon = self.rle
                 elif all([r, g, l]) and not any([a, e]):
-                    icon = self.rgl
+                    icon = self.rlg
                 elif all([e, a]) and not any([r, g, l]):
                     icon = self.ae
                 elif all([r, a]) and not any([g, l, e]):
@@ -330,12 +340,12 @@ class DatasetTreeModel(QAbstractItemModel):
                     icon = self.rla
                 elif all([r, l, a, e]) and not any([g, a]):
                     icon = self.rlae
-                elif all([r, g, l, a]) and not any([a, e]):
-                    icon = self.rgla
+                elif all([r, g, l, a]) and not e:
+                    icon = self.rlga
+                elif all([r, g, l, e]) and not a:
+                    icon = self.rlge
                 elif all([r, g, l, a, e]):
-                    icon = self.rglae
-                elif is_global:
-                    icon = self.global_particle
+                    icon = self.rlgae
                 return icon
 
         if role == Qt.UserRole:

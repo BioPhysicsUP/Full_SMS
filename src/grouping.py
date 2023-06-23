@@ -9,11 +9,13 @@ University of Pretoria
 """
 
 from __future__ import annotations
+
 # from math import lgamma
 
 from typing import Union, List, Tuple, TYPE_CHECKING
 import numpy as np
 from scipy.stats import poisson
+
 # from matplotlib import pyplot as plt
 from change_point import Level
 from my_logger import setup_logger
@@ -30,7 +32,7 @@ logger = setup_logger(__name__)
 
 
 def max_jm(array: np.ndarray):
-    """ Finds the j and m index for the max value. """
+    """Finds the j and m index for the max value."""
     max_n = np.argmax(array)
     (xD, yD) = array.shape
     if max_n >= xD:
@@ -43,7 +45,6 @@ def max_jm(array: np.ndarray):
 
 
 class Group:
-
     def __init__(self, lvls_inds: List[int_p_s] = None, particle: Particle = None):
         self.lvls_inds = lvls_inds
         self.lvls = None
@@ -83,13 +84,13 @@ class Group:
 
 
 class ClusteringStep:
-
-    def __init__(self,
-                 particle: Particle,
-                 first: bool = False,
-                 seed_groups: List[Group] = None,
-                 single_level: bool = False):
-
+    def __init__(
+        self,
+        particle: Particle,
+        first: bool = False,
+        seed_groups: List[Group] = None,
+        single_level: bool = False,
+    ):
         self._particle = particle
         if not self._particle.use_roi_for_grouping:
             self._num_levels = particle.cpts.num_levels
@@ -139,8 +140,8 @@ class ClusteringStep:
         if self.groups is not None:
             return [group.int_p_s for group in self.groups]
 
-    def calc_int_bounds(self, order: str = 'descending') -> List[Tuple[float, float]]:
-        """ Calculates the bounds between the groups.
+    def calc_int_bounds(self, order: str = "descending") -> List[Tuple[float, float]]:
+        """Calculates the bounds between the groups.
 
         Parameters
         ----------
@@ -149,30 +150,32 @@ class ClusteringStep:
         """
 
         if self.groups is not None and self.single_level is False:
-            assert order in ['descending', 'ascending'], "Solution: Order provided not valid"
+            assert order in [
+                "descending",
+                "ascending",
+            ], "Solution: Order provided not valid"
 
             g_ints = self.group_ints.copy()
-            g_ints.sort(reverse=(order == 'descending'))
+            g_ints.sort(reverse=(order == "descending"))
 
             int_bounds = []
             for i in range(self.num_groups):
-
                 if i == self.num_groups - 1:
-                    if order == 'descending':
+                    if order == "descending":
                         int_bounds.append((0, prev_mid_int))
                     else:
                         int_bounds.append((prev_mid_int, np.inf))
                 else:
                     mid_int = (g_ints[i + 1] + g_ints[i]) / 2
                     if i == 0:
-                        if order == 'descending':
+                        if order == "descending":
                             int_bounds.append((mid_int, np.inf))
                         else:
                             int_bounds.append((0, mid_int))
                         prev_mid_int = mid_int
 
                     else:
-                        if order == 'descending':
+                        if order == "descending":
                             int_bounds.append((mid_int, prev_mid_int))
                         else:
                             int_bounds.append((prev_mid_int, mid_int))
@@ -182,7 +185,9 @@ class ClusteringStep:
             return int_bounds
 
     def ahc(self):
-        merge = np.full(shape=(self._num_prev_groups, self._num_prev_groups), fill_value=-np.inf)
+        merge = np.full(
+            shape=(self._num_prev_groups, self._num_prev_groups), fill_value=-np.inf
+        )
         for j, group_j in enumerate(self._seed_groups):  # Row
             for m, group_m in enumerate(self._seed_groups):  # Column
                 if j < m:
@@ -191,8 +196,11 @@ class ClusteringStep:
                     t_m = group_m.dwell_time_s
                     t_j = group_j.dwell_time_s
 
-                    merge[j, m] = (n_m + n_j) * np.log((n_m + n_j) / (t_m + t_j)) - n_m * np.log(n_m / t_m) - n_j * np.log(
-                        n_j / t_j)
+                    merge[j, m] = (
+                        (n_m + n_j) * np.log((n_m + n_j) / (t_m + t_j))
+                        - n_m * np.log(n_m / t_m)
+                        - n_j * np.log(n_j / t_j)
+                    )
         max_j, max_m = max_jm(merge)
 
         new_groups = []
@@ -205,7 +213,9 @@ class ClusteringStep:
                     merge_lvls = group_i.lvls_inds.copy()
                     merge_lvls.extend(self._seed_groups[max_m].lvls_inds.copy())
                     merge_lvls.sort()
-                    new_groups.append(Group(lvls_inds=merge_lvls, particle=self._particle))
+                    new_groups.append(
+                        Group(lvls_inds=merge_lvls, particle=self._particle)
+                    )
                 else:
                     new_groups.append(group_i)
 
@@ -217,7 +227,7 @@ class ClusteringStep:
         # return ClusteringStep(particle=self.particle, first=False, groups=new_groups, seed_p_mj=new_p_mj)
 
     def emc(self):
-        """ Expectation Maximisation clustering """
+        """Expectation Maximisation clustering"""
 
         p_mj = self._ahc_p_mj.copy()
         prev_p_mj = p_mj.copy()
@@ -229,8 +239,7 @@ class ClusteringStep:
         i = 0
         diff_p_mj = 1
         p_hat_g = None
-        while diff_p_mj > 1E-5 and i < 50:
-
+        while diff_p_mj > 1e-5 and i < 50:
             i += 1
             if not self._particle.use_roi_for_grouping:
                 cap_t = self._particle.dwell_time
@@ -246,15 +255,25 @@ class ClusteringStep:
             denom = np.zeros(shape=(self._num_levels,))
 
             for m, group in enumerate(self._ahc_groups):
-
-                t_hat[m] = np.sum([p_mj[m, j] * l.dwell_time_s for j, l in enumerate(levels)])
-                n_hat[m] = np.sum([p_mj[m, j] * l.num_photons for j, l in enumerate(levels)])
+                t_hat[m] = np.sum(
+                    [p_mj[m, j] * l.dwell_time_s for j, l in enumerate(levels)]
+                )
+                n_hat[m] = np.sum(
+                    [p_mj[m, j] * l.num_photons for j, l in enumerate(levels)]
+                )
                 p_hat[m] = t_hat[m] / cap_t
-                i_hat[m] = np.sum([p_mj[m, j] * l.num_photons / t_hat[m] for j, l in enumerate(levels)])
+                i_hat[m] = np.sum(
+                    [
+                        p_mj[m, j] * l.num_photons / t_hat[m]
+                        for j, l in enumerate(levels)
+                    ]
+                )
 
                 denom_sum = 0
                 for j, l in enumerate(levels):
-                    p_hat_g[m, j] = p_hat[m] * poisson.pmf(l.num_photons, i_hat[m] * l.dwell_time_s)
+                    p_hat_g[m, j] = p_hat[m] * poisson.pmf(
+                        l.num_photons, i_hat[m] * l.dwell_time_s
+                    )
 
             for j in range(self._num_levels):
                 denom[j] = np.sum(p_hat_g[:, j])
@@ -278,7 +297,9 @@ class ClusteringStep:
         log_l = 0
         for m in range(self._num_prev_groups - 1):
             for j in range(self._num_levels):
-                if p_hat_g[m, j] > 1E-200 and eff_p_mj[m, j] != 0:  # Close to smallest value that doesn't result in -inf
+                if (
+                    p_hat_g[m, j] > 1e-200 and eff_p_mj[m, j] != 0
+                ):  # Close to smallest value that doesn't result in -inf
                     log_l += eff_p_mj[m, j] * np.log(p_hat_g[m, j])
         self._em_log_l = log_l
 
@@ -293,7 +314,7 @@ class ClusteringStep:
         if self.num_groups == 1:
             self.last = True
 
-        level_group_ind = [None]*self._num_levels
+        level_group_ind = [None] * self._num_levels
         for group_num, group in enumerate(self.groups):
             for level in group.lvls_inds:
                 level_group_ind[level] = group_num
@@ -303,7 +324,11 @@ class ClusteringStep:
         num_cp = self._particle.cpts.num_cpts
         num_g = self.num_groups
 
-        self.bic = 2 * self._em_log_l - (2 * num_g - 1) * np.log(num_cp) - num_cp * np.log(self._particle.num_photons)
+        self.bic = (
+            2 * self._em_log_l
+            - (2 * num_g - 1) * np.log(num_cp)
+            - num_cp * np.log(self._particle.num_photons)
+        )
 
     def group_2_levels(self):
         if not self._particle.use_roi_for_grouping:
@@ -314,10 +339,18 @@ class ClusteringStep:
         group_levels = []
         busy_joining = False
         start_ind = None
-        is_global = hasattr(self._particle, 'is_global') and self._particle.is_global
+        is_global = hasattr(self._particle, "is_global") and self._particle.is_global
+        prev_particle_dataset_ind = -1
+        global_part_levels = set()
+        start_time_ns = None
+        prev_start_time = 0
         for i, part_level in enumerate(part_levels):
+            if is_global:
+                global_part_levels.add(part_level)
             if not busy_joining:
                 start_ind = part_level.level_inds[0] if not is_global else None
+                if is_global:
+                    start_time_ns = prev_start_time
             if i == len(part_levels) - 1:
                 busy_joining = False
             else:
@@ -328,19 +361,37 @@ class ClusteringStep:
             if not busy_joining:
                 if not is_global:
                     end_ind = part_level.level_inds[1]
-                    group_levels.append(Level(particle=self._particle,
-                                              level_inds=(start_ind, end_ind),
-                                              int_p_s=self.group_ints[self.level_group_ind[i]],
-                                              group_ind=self.level_group_ind[i]))
+                    group_levels.append(
+                        Level(
+                            particle=self._particle,
+                            level_inds=(start_ind, end_ind),
+                            int_p_s=self.group_ints[self.level_group_ind[i]],
+                            group_ind=self.level_group_ind[i],
+                        )
+                    )
                 else:
-                    start_time_offset_ns = 0 if len(group_levels) == 0 else group_levels[-1].times_ns[1]
                     group_ind = self.level_group_ind[i]
-                    group_levels.append(GlobalLevel(global_particle=self._particle,
-                                                    particle_levels=[part_level],
-                                                    int_p_s=self.group_ints[group_ind],
-                                                    start_time_offset_ns=start_time_offset_ns,
-                                                    dwell_time_ns=self.groups[group_ind].dwell_time_s*1E9,
-                                                    num_photons=self.groups[group_ind].num_photons))
+                    parent_particle_dataset_ind = part_level.parent_particle_dataset_ind
+                    if parent_particle_dataset_ind != prev_particle_dataset_ind:
+                        start_time_offset_ns = (
+                            0
+                            if len(group_levels) == 0
+                            else group_levels[-1].times_ns[1]
+                        )
+                        prev_particle_dataset_ind = parent_particle_dataset_ind
+                    group_levels.append(
+                        GlobalLevel(
+                            global_particle=self._particle,
+                            parent_particle_dataset_ind=parent_particle_dataset_ind,
+                            particle_levels=list(global_part_levels),
+                            int_p_s=self.group_ints[group_ind],
+                            group_ind=self.level_group_ind[i],
+                            start_time_offset_ns=start_time_offset_ns,
+                            dwell_time_ns=self.groups[group_ind].dwell_time_s * 1e9,
+                            num_photons=self.groups[group_ind].num_photons,
+                        )
+                    )
+                    global_part_levels = set()
 
         self.group_levels = group_levels
 
@@ -415,26 +466,26 @@ class AHCA:
         if self.has_groups:
             backup = dict()
             self.has_groups = False
-            backup['best_step_ind'] = self.best_step_ind
+            backup["best_step_ind"] = self.best_step_ind
             self.best_step_ind = None
-            backup['bics'] = self.bics
+            backup["bics"] = self.bics
             self.bics = None
-            backup['num_steps'] = self.num_steps
+            backup["num_steps"] = self.num_steps
             self.num_steps = None
-            backup['selected_step'] = self.selected_step_ind
+            backup["selected_step"] = self.selected_step_ind
             self.selected_step_ind = None
-            backup['steps'] = self.steps
+            backup["steps"] = self.steps
             self.steps = None
 
             self.backup = backup
 
     def restore_and_delete_backup(self) -> None:
         if self.backup is not None:
-            self.best_step_ind = self.backup['best_step_ind']
-            self.bics = self.backup['bics']
-            self.num_steps = self.backup['num_steps']
-            self.selected_step_ind = self.backup['selected_step']
-            self.steps = self.backup['steps']
+            self.best_step_ind = self.backup["best_step_ind"]
+            self.bics = self.backup["bics"]
+            self.num_steps = self.backup["num_steps"]
+            self.selected_step_ind = self.backup["selected_step"]
+            self.steps = self.backup["steps"]
 
             self.has_groups = True
             self.backup = None
@@ -452,7 +503,6 @@ class AHCA:
             if self.has_groups:
                 self.clear_and_backup_results()
             if self._particle.has_levels:
-
                 steps = []
                 if self._particle.num_levels == 1:
                     self.steps = [ClusteringStep(self._particle, single_level=True)]
@@ -470,7 +520,10 @@ class AHCA:
                         current_num_groups = self._particle.num_levels_roi
                     if feedback_queue is not None:
                         feedback_queue.put(
-                            ProcessProgressTask(task_cmd=ProcessProgressCmd.Start, args=(current_num_groups,))
+                            ProcessProgressTask(
+                                task_cmd=ProcessProgressCmd.Start,
+                                args=(current_num_groups,),
+                            )
                         )
                     inital_num_groups = current_num_groups
                     while current_num_groups != 1:
@@ -488,12 +541,14 @@ class AHCA:
                                 feedback_queue.put(
                                     ProcessProgressTask(
                                         task_cmd=ProcessProgressCmd.SetValue,
-                                        args=(inital_num_groups - current_num_groups,)
+                                        args=(inital_num_groups - current_num_groups,),
                                     )
                                 )
 
                     if feedback_queue is not None:
-                        feedback_queue.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.Complete))
+                        feedback_queue.put(
+                            ProcessProgressTask(task_cmd=ProcessProgressCmd.Complete)
+                        )
                     self.steps = steps
                     self.num_steps = len(steps)
                     self.bics = [step.bic for step in steps]
@@ -515,52 +570,65 @@ class AHCA:
     def set_selected_step(self, step_ind: int):
         assert 0 <= step_ind < self.num_steps, "AHCA: Provided step index out of range."
         self.selected_step_ind = step_ind
-        if not all([lvl.histogram is not None for lvl in self.steps[step_ind].group_levels]):
+        if not all(
+            [lvl.histogram is not None for lvl in self.steps[step_ind].group_levels]
+        ):
             if not self.selected_step.groups_have_hists:
                 self._particle.makelevelhists(force_group_levels=True)
-        if not all([group.histogram is not None for group in self.steps[step_ind].groups]):
+        if not all(
+            [group.histogram is not None for group in self.steps[step_ind].groups]
+        ):
             self._particle.makegrouphists()
-
 
     def reset_selected_step(self):
         self.selected_step_ind = self.best_step_ind
 
 
 class GlobalLevel:
-
-    def __init__(self,
-                 global_particle: GlobalParticle,
-                 particle_levels: List[Union[Level, GlobalLevel]],
-                 int_p_s: float,
-                 start_time_offset_ns: int,
-                 dwell_time_ns: float,
-                 num_photons: int,
-                 ):
-
+    def __init__(
+        self,
+        global_particle: GlobalParticle,
+        parent_particle_dataset_ind: int,
+        particle_levels: List[Union[Level, GlobalLevel]],
+        int_p_s: float,
+        group_ind: int,
+        start_time_offset_ns: int,
+        dwell_time_ns: float,
+        num_photons: int,
+    ):
         self.is_global_level = True
 
         self.particle = global_particle
+        self.parent_particle_dataset_ind = parent_particle_dataset_ind
         # self.particle_levels = particle_levels
 
         self.start_time_offset_ns = start_time_offset_ns
-        self.times_ns = (particle_levels[0].times_ns[0] + start_time_offset_ns,
-                         particle_levels[-1].times_ns[1] + start_time_offset_ns)
+        self.times_ns = (
+            particle_levels[0].times_ns[0],
+            particle_levels[-1].times_ns[1],
+        )
         self.int_p_s = int_p_s
+        self.group_ind = group_ind
         self.dwell_time_ns = dwell_time_ns
         self.num_photons = num_photons
         microtimes_particle_inds_pairs = tuple()
         for level in particle_levels:
             if type(particle_levels) is Level:
-                microtimes_particle_inds_pairs = (level._particle.dataset_ind, particle_levels.level_inds)
+                microtimes_particle_inds_pairs = (
+                    level._particle.dataset_ind,
+                    particle_levels.level_inds,
+                )
             elif type(particle_levels) is GlobalLevel:
-                microtimes_particle_inds_pairs.extend(level.microtimes_particle_inds_pairs)
+                microtimes_particle_inds_pairs.extend(
+                    level.microtimes_particle_inds_pairs
+                )
         self.microtimes_particle_inds_pairs = microtimes_particle_inds_pairs
         # self.microtimes = particle_levels.microtimes
         # self.histogram = particle_levels.histogram
 
     @property
     def times_s(self):
-        return self.times_ns[0]/1E9, self.times_ns[1]/1E9
+        return self.times_ns[0] / 1e9, self.times_ns[1] / 1e9
 
     @property
     def dwell_time_s(self):
@@ -568,4 +636,3 @@ class GlobalLevel:
             return self.dwell_time_ns / 1e9
         else:
             return None
-
