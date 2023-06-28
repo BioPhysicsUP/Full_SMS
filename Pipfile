@@ -17,6 +17,7 @@ pyqt5-stubs = "*"
 pyqt5 = "*"
 statsmodels = "*"
 pyqtgraph = "*"
+termcolor = "*"
 
 [dev-packages]
 black = {extras = ["d"], version = "*"}
