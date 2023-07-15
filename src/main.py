@@ -49,10 +49,10 @@ from tree_model import DatasetTreeNode, DatasetTreeModel
 # import save_analysis
 from settings_dialog import SettingsDialog, Settings
 
-try:
-    import pkg_resources.py2_warn
-except ImportError:
-    pass
+# try:
+#     import pkg_resources.py2_warn
+# except ImportError:
+#     pass
 
 import smsh5
 from generate_sums import CPSums
@@ -71,7 +71,7 @@ SMS_VERSION = "0.4.1"
 
 sys.setrecursionlimit(1000 * 10)
 
-main_window_file = fm.path(name="mainwindow.ui", file_type=fm.Type.UI)
+main_window_file = fm.path(name="main_window.ui", file_type=fm.Type.UI)
 UI_Main_Window, _ = uic.loadUiType(main_window_file)
 
 logger = setup_logger(__name__, is_main=True)
@@ -83,20 +83,18 @@ class MainWindow(QMainWindow, UI_Main_Window):
     Class for Full SMS application that returns QMainWindow object.
 
     This class uses a *.ui converted to a *.py script to generate g Be
-    sure to run convert_py after having made changes to mainwindow.
+    sure to run convert_py after having made changes to main_window.
     """
 
     def __init__(self):
         """Initialise MainWindow object.
 
-        Creates and populates QMainWindow object as described by mainwindow.py
+        Creates and populates QMainWindow object as described by main_window.py
         as well as creates MplWidget
         """
 
         self.threadpool = QThreadPool()
-        logger.info(
-            f"Multi-threading with maximum {self.threadpool.maxThreadCount()} threads"
-        )
+        logger.info(f"Multi-threading with maximum {self.threadpool.maxThreadCount()} threads")
         self.active_threads = []
 
         self.confidence_index = {0: 99, 1: 95, 2: 90, 3: 69}
@@ -169,31 +167,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
         self.actionRange_Selection.triggered.connect(self.range_selection)
         self.actionSettings.triggered.connect(self.act_open_settings_dialog)
-        self.actionFiltering_Normalization.triggered.connect(
-            self.act_filtering_and_normalization_dialog
-        )
-        self.actionDetect_Remove_Bursts_Current.triggered.connect(
-            self.act_detect_remove_bursts_current
-        )
-        self.actionDetect_Remove_Bursts_Selected.triggered.connect(
-            self.act_detect_remove_bursts_selected
-        )
-        self.actionDetect_Remove_Bursts_All.triggered.connect(
-            self.act_detect_remove_bursts_all
-        )
-        self.actionRemove_Bursts_Current.triggered.connect(
-            self.act_remove_bursts_current
-        )
-        self.actionRemove_Bursts_Selected.triggered.connect(
-            self.act_remove_bursts_selected
-        )
+        self.actionFiltering_Normalization.triggered.connect(self.act_filtering_and_normalization_dialog)
+        self.actionDetect_Remove_Bursts_Current.triggered.connect(self.act_detect_remove_bursts_current)
+        self.actionDetect_Remove_Bursts_Selected.triggered.connect(self.act_detect_remove_bursts_selected)
+        self.actionDetect_Remove_Bursts_All.triggered.connect(self.act_detect_remove_bursts_all)
+        self.actionRemove_Bursts_Current.triggered.connect(self.act_remove_bursts_current)
+        self.actionRemove_Bursts_Selected.triggered.connect(self.act_remove_bursts_selected)
         self.actionRemove_Bursts_All.triggered.connect(self.act_remove_bursts_all)
-        self.actionRestore_Bursts_Current.triggered.connect(
-            self.act_restore_bursts_current
-        )
-        self.actionRestore_Bursts_Selected.triggered.connect(
-            self.act_restore_bursts_selected
-        )
+        self.actionRestore_Bursts_Current.triggered.connect(self.act_restore_bursts_current)
+        self.actionRestore_Bursts_Selected.triggered.connect(self.act_restore_bursts_selected)
         self.actionRestore_Bursts_All.triggered.connect(self.act_restore_bursts_all)
 
         self.chbGroup_Use_ROI.stateChanged.connect(self.gui_group_use_roi)
@@ -206,12 +188,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.chbEx_DF_Levels.stateChanged.connect(self.set_export_options)
         self.chbEx_DF_Grouped_Levels.stateChanged.connect(self.set_export_options)
         self.btnSelectAllExport.clicked.connect(self.select_all_export_options)
-        self.btnSelectAllExport_Plots.clicked.connect(
-            self.select_all_plots_export_options
-        )
-        self.btnSelectAllExport_DataFrames.clicked.connect(
-            self.select_all_dataframes_export_options
-        )
+        self.btnSelectAllExport_Plots.clicked.connect(self.select_all_plots_export_options)
+        self.btnSelectAllExport_DataFrames.clicked.connect(self.select_all_dataframes_export_options)
 
         self.lblGrouping_ROI.setVisible(False)
 
@@ -221,9 +199,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.treemodel = DatasetTreeModel()
         self.treeViewParticles.setModel(self.treemodel)
         # Connect the tree selection to data display
-        self.treeViewParticles.selectionModel().currentChanged.connect(
-            self.display_data
-        )
+        self.treeViewParticles.selectionModel().currentChanged.connect(self.display_data)
         self.treeViewParticles.clicked.connect(self.tree_view_clicked)
         # self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
         self._root_was_checked = False
@@ -294,9 +270,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         should_calc = False
         sums_path = fm.path(name="all_sums.pickle", file_type=fm.Type.Data)
         if (not os.path.exists(sums_path)) and (not os.path.isfile(sums_path)):
-            self.status_message(
-                "Calculating change point sums, this may take several minutes."
-            )
+            self.status_message("Calculating change point sums, this may take several minutes.")
             should_calc = True
 
         return should_calc
@@ -365,41 +339,30 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """Allows the user to point to a h5 file and then starts a thread that reads and loads the file."""
 
         logger.info("Performing Open H5 Action")
-        last_opened_file = fm.path(
-            name="last_opened.txt", file_type=fm.Type.ResourcesRoot
-        )
+        last_opened_file = fm.path(name="last_opened.txt", file_type=fm.Type.ResourcesRoot)
+        last_opened_path = ""
         if os.path.exists(last_opened_file) and os.path.isfile(last_opened_file):
             with open(last_opened_file, "r") as file:
                 last_opened_path = file.read()
             if not os.path.isdir(last_opened_path):
                 last_opened_path = ""
-        file_path = QFileDialog.getOpenFileName(
-            self, "Open HDF5 file", last_opened_path, "HDF5 files (*.h5)"
-        )
+        file_path = QFileDialog.getOpenFileName(self, "Open HDF5 file", last_opened_path, "HDF5 files (*.h5)")
         did_open = False
         loading_analysis = False
-        if os.path.exists(file_path[0][:-2] + "smsa") and os.path.isfile(
-            file_path[0][:-2] + "smsa"
-        ):
+        if os.path.exists(file_path[0][:-2] + "smsa") and os.path.isfile(file_path[0][:-2] + "smsa"):
             msg_box = QMessageBox(parent=self)
             msg_box.setWindowTitle("Load analysis?")
             msg_box.setText("Analysis file found. Would you like to load it?")
             msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             msg_box.exec()
             if msg_box.result() == QMessageBox.Yes:
-                load_analysis_worker = LoadAnalysisWorker(
-                    main_window=self, file_path=file_path[0][:-2] + "smsa"
-                )
+                load_analysis_worker = LoadAnalysisWorker(main_window=self, file_path=file_path[0][:-2] + "smsa")
                 load_analysis_worker.signals.status_message.connect(self.status_message)
                 load_analysis_worker.signals.start_progress.connect(self.start_progress)
                 load_analysis_worker.signals.end_progress.connect(self.end_progress)
                 load_analysis_worker.signals.error.connect(self.error_handler)
-                load_analysis_worker.signals.openfile_finished.connect(
-                    self.open_file_thread_complete
-                )
-                load_analysis_worker.signals.save_file_version_outdated.connect(
-                    self.open_save_file_version_outdated
-                )
+                load_analysis_worker.signals.openfile_finished.connect(self.open_file_thread_complete)
+                load_analysis_worker.signals.save_file_version_outdated.connect(self.open_save_file_version_outdated)
                 load_analysis_worker.signals.show_residual_widget.connect(
                     self.lifetime_controller.show_residuals_widget
                 )
@@ -413,9 +376,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             # logger.info("About to connect signals")
             of_process_thread.worker_signals.add_datasetindex.connect(self.add_dataset)
             of_process_thread.worker_signals.add_particlenode.connect(self.add_node)
-            of_process_thread.worker_signals.add_all_particlenodes.connect(
-                self.add_all_nodes
-            )
+            of_process_thread.worker_signals.add_all_particlenodes.connect(self.add_all_nodes)
             of_process_thread.worker_signals.bin_size.connect(self.set_bin_size)
             of_process_thread.worker_signals.data_loaded.connect(self.set_data_loaded)
             of_process_thread.signals.status_update.connect(self.status_message)
@@ -428,9 +389,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             of_process_thread.signals.finished.connect(self.open_file_thread_complete)
 
             # logger.info("About to create OpenFile object")
-            of_obj = OpenFile(
-                file_path=file_path
-            )  # , progress_tracker=of_progress_tracker)
+            of_obj = OpenFile(file_path=file_path)  # , progress_tracker=of_progress_tracker)
             of_process_thread.add_tasks_from_methods(of_obj, "open_h5")
             # logger.info("About to start Process Thread")
             self.threadpool.start(of_process_thread)
@@ -491,9 +450,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def act_save_analysis(self):
         if self.current_dataset is not None:
-            save_analysis_worker = SaveAnalysisWorker(
-                main_window=self, dataset=self.current_dataset
-            )
+            save_analysis_worker = SaveAnalysisWorker(main_window=self, dataset=self.current_dataset)
             save_analysis_worker.signals.status_message.connect(self.status_message)
             save_analysis_worker.signals.start_progress.connect(self.start_progress)
             save_analysis_worker.signals.end_progress.connect(self.end_progress)
@@ -542,9 +499,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.current_dataset = dataset_node.dataobj
 
     def add_node(self, particle_node, num):
-        index = self.treemodel.addChild(
-            particle_node, self.dataset_index
-        )  # , progress_sig)
+        index = self.treemodel.addChild(particle_node, self.dataset_index)  # , progress_sig)
         if num == 0:
             self.treeViewParticles.expand(self.dataset_index)
             self.treeViewParticles.setCurrentIndex(index)
@@ -556,9 +511,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def add_all_nodes(self, all_nodes):
         for node, num in all_nodes:
             if num == -1:
-                assert (
-                    type(node.dataobj) is smsh5.H5dataset
-                ), "First node must be for H5Dataset"
+                assert type(node.dataobj) is smsh5.H5dataset, "First node must be for H5Dataset"
                 self.add_dataset(node)
                 self.treeViewParticles.expand(self.dataset_index)
             # index = self.treemodel.addChild(node, self.datasetindex)  # , progress_sig)
@@ -662,9 +615,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def card_selected(self) -> None:
         self.display_data(combocard=True)
 
-    def display_data(
-        self, current=None, prev=None, combocard=False, is_global_group=False
-    ) -> None:
+    def display_data(self, current=None, prev=None, combocard=False, is_global_group=False) -> None:
         """Displays the intensity trace and the histogram of the current particle.
 
             Directly called by the tree signal currentChanged, thus the two arguments.
@@ -688,21 +639,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if hasattr(self, "current_particle"):
                 self.current_particle = self.treemodel.get_particle(current)
             # self.current_level = None  # Reset current level when particle changes.
-        if (
-            hasattr(self, "current_particle")
-            and type(self.current_particle) is smsh5.Particle
-        ):
+        if hasattr(self, "current_particle") and type(self.current_particle) is smsh5.Particle:
             # Select primary or secondary particle based on selected tcspc card
-            if (
-                self.comboSelectCard.currentIndex() == 1
-                and self.current_particle.sec_part is not None
-            ):
+            if self.comboSelectCard.currentIndex() == 1 and self.current_particle.sec_part is not None:
                 assert not self.current_particle.is_secondary_part
                 self.current_particle = self.current_particle.sec_part
-            elif (
-                self.comboSelectCard.currentIndex() == 0
-                and self.current_particle.is_secondary_part
-            ):
+            elif self.comboSelectCard.currentIndex() == 0 and self.current_particle.is_secondary_part:
                 self.current_particle = self.current_particle.prim_part
 
             cur_tab_name = self.tabWidget.currentWidget().objectName()
@@ -748,27 +690,18 @@ class MainWindow(QMainWindow, UI_Main_Window):
                     self.lifetime_controller.update_results()
                     self.lifetime_controller.update_apply_roi_button_colors()
 
-                if (
-                    self.current_particle.has_groups
-                    or self.current_particle.has_global_grouping
-                    or is_global_group
-                ):
+                if self.current_particle.has_groups or self.current_particle.has_global_grouping or is_global_group:
                     # if not is_global_group:
                     self.intensity_controller.plot_group_bounds()
                     if cur_tab_name == "tabGrouping":
-                        self.grouping_controller.plot_group_bic(
-                            is_global_group=is_global_group
-                        )
+                        self.grouping_controller.plot_group_bic(is_global_group=is_global_group)
                 else:
                     self.grouping_controller.clear_bic()
 
             elif cur_tab_name == "tabSpectra" and self.current_particle.has_spectra:
                 self.spectra_controller.plot_spectra()
 
-            elif (
-                cur_tab_name == "tabRaster_Scan"
-                and self.current_particle.has_raster_scan
-            ):
+            elif cur_tab_name == "tabRaster_Scan" and self.current_particle.has_raster_scan:
                 self.raster_scan_controller.plot_raster_scan()
 
             elif cur_tab_name == "tabAntibunching":
@@ -826,9 +759,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """
 
         if max_num:
-            assert (
-                type(max_num) is int
-            ), "MainWindow:\tThe type of the 'max_num' parameter is not int."
+            assert type(max_num) is int, "MainWindow:\tThe type of the 'max_num' parameter is not int."
             self.progress.setMaximum(max_num)
             # print(max_num)
         self.progress.setValue(0)
@@ -851,9 +782,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             The number of iterations or steps that the complete process is made up of.
         """
 
-        assert (
-            type(progress_value) is int
-        ), "MainWindow:\tThe type of the 'max_num' parameter is not int."
+        assert type(progress_value) is int, "MainWindow:\tThe type of the 'max_num' parameter is not int."
         self.progress.setValue(progress_value)
 
         self.progress.repaint()
@@ -924,9 +853,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         msg_box.setStandardButtons(QMessageBox.Ok)
         msg_box.exec()
 
-    def open_file_thread_complete(
-        self, thread: ProcessThread = None, irf=False
-    ) -> None:
+    def open_file_thread_complete(self, thread: ProcessThread = None, irf=False) -> None:
         """Is called as soon as all of the threads have finished."""
 
         if self.data_loaded and not irf:
@@ -934,9 +861,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.treeViewParticles.expandAll()
             self.treeViewParticles.setCurrentIndex(self.part_index[0])
             self.current_particle = self.tree2particle(0)
-            any_spectra = any(
-                [part.has_spectra for part in self.current_dataset.particles]
-            )
+            any_spectra = any([part.has_spectra for part in self.current_dataset.particles])
             if any_spectra:
                 self.current_dataset.has_spectra = True
 
@@ -967,9 +892,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                             False,
                         )
                         if ok:
-                            index = list(self.confidence_index.values()).index(
-                                int(float(item) * 100)
-                            )
+                            index = list(self.confidence_index.values()).index(int(float(item) * 100))
                     if index is not None:
                         self.cmbConfIndex.setCurrentIndex(index)
                     self.intensity_controller.start_resolve_thread("all")
@@ -1008,9 +931,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         #     particles = [self.current_particle]
 
         all_have_levels = all([p.has_levels for p in particles])
-        all_have_any_groups = all(
-            [p.has_groups or p.has_global_grouping for p in particles]
-        )
+        all_have_any_groups = all([p.has_groups or p.has_global_grouping for p in particles])
         all_have_individual_groups = all([p.has_groups for p in particles])
         all_have_global_groups = all([p.has_global_grouping for p in particles])
         all_have_lifetimes = all([p.has_fit_a_lifetime for p in particles])
@@ -1095,9 +1016,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.rdbAnd_Residuals.setChecked(self.rdbAnd_Residuals.isEnabled())
         self.chbEx_Plot_Spectra.setChecked(self.chbEx_Plot_Spectra.isEnabled())
         self.chbEx_Raster_Scan_2D.setChecked(self.chbEx_Raster_Scan_2D.isEnabled())
-        self.chbEx_Plot_Raster_Scans.setChecked(
-            self.chbEx_Plot_Raster_Scans.isEnabled()
-        )
+        self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
 
         # Not sure if there is only duplication of below
         # self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
@@ -1109,15 +1028,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.chbEx_DF_Traces.setChecked(self.chbEx_DF_Traces.isEnabled())
         self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
-        self.chbEx_DF_Levels_Lifetimes.setChecked(
-            self.chbEx_DF_Levels_Lifetimes.isEnabled()
-        )
-        self.chbEx_DF_Grouped_Levels.setChecked(
-            self.chbEx_DF_Grouped_Levels.isEnabled()
-        )
-        self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
-            self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled()
-        )
+        self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
+        self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
+        self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
         self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
 
     def select_all_plots_export_options(self):
@@ -1131,22 +1044,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.rdbWith_Fit.setChecked(self.rdbWith_Fit.isEnabled())
         self.rdbAnd_Residuals.setChecked(self.rdbAnd_Residuals.isEnabled())
         self.chbEx_Plot_Spectra.setChecked(self.chbEx_Plot_Spectra.isEnabled())
-        self.chbEx_Plot_Raster_Scans.setChecked(
-            self.chbEx_Plot_Raster_Scans.isEnabled()
-        )
+        self.chbEx_Plot_Raster_Scans.setChecked(self.chbEx_Plot_Raster_Scans.isEnabled())
 
     def select_all_dataframes_export_options(self):
         self.chbEx_DF_Traces.setChecked(self.chbEx_DF_Traces.isEnabled())
         self.chbEx_DF_Levels.setChecked(self.chbEx_DF_Levels.isEnabled())
-        self.chbEx_DF_Levels_Lifetimes.setChecked(
-            self.chbEx_DF_Levels_Lifetimes.isEnabled()
-        )
-        self.chbEx_DF_Grouped_Levels.setChecked(
-            self.chbEx_DF_Grouped_Levels.isEnabled()
-        )
-        self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(
-            self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled()
-        )
+        self.chbEx_DF_Levels_Lifetimes.setChecked(self.chbEx_DF_Levels_Lifetimes.isEnabled())
+        self.chbEx_DF_Grouped_Levels.setChecked(self.chbEx_DF_Grouped_Levels.isEnabled())
+        self.chbEx_DF_Grouped_Levels_Lifetimes.setChecked(self.chbEx_DF_Grouped_Levels_Lifetimes.isEnabled())
         self.chbEx_DF_Grouping_Info.setChecked(self.chbEx_DF_Grouping_Info.isEnabled())
 
     @pyqtSlot(Exception)
@@ -1287,9 +1192,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def gui_export(self, mode: str = None):
         self.lock = Lock()
         f_dir = QFileDialog.getExistingDirectory(self)
-        export_worker = ExportWorker(
-            mainwindow=self, mode=mode, lock=self.lock, f_dir=f_dir
-        )
+        export_worker = ExportWorker(mainwindow=self, mode=mode, lock=self.lock, f_dir=f_dir)
         sigs = export_worker.signals
         sigs.start_progress.connect(self.start_progress)
         sigs.progress.connect(self.update_progress)
@@ -1301,30 +1204,18 @@ class MainWindow(QMainWindow, UI_Main_Window):
         sigs.plot_trace_export_lock.connect(self.intensity_controller.plot_trace)
         sigs.plot_levels_lock.connect(self.intensity_controller.plot_levels)
         sigs.plot_levels_export_lock.connect(self.intensity_controller.plot_levels)
-        sigs.plot_group_bounds_export_lock.connect(
-            self.intensity_controller.plot_group_bounds
-        )
-        sigs.plot_grouping_bic_export_lock.connect(
-            self.grouping_controller.plot_group_bic
-        )
+        sigs.plot_group_bounds_export_lock.connect(self.intensity_controller.plot_group_bounds)
+        sigs.plot_grouping_bic_export_lock.connect(self.grouping_controller.plot_group_bic)
         sigs.plot_decay_lock.connect(self.lifetime_controller.plot_decay)
         sigs.plot_decay_export_lock.connect(self.lifetime_controller.plot_decay)
         sigs.plot_convd_lock.connect(self.lifetime_controller.plot_convd)
         sigs.plot_convd_export_lock.connect(self.lifetime_controller.plot_convd)
-        sigs.plot_decay_convd_export_lock.connect(
-            self.lifetime_controller.plot_decay_and_convd
-        )
-        sigs.plot_decay_convd_residuals_export_lock.connect(
-            self.lifetime_controller.plot_decay_convd_and_hist
-        )
-        sigs.show_residual_widget_lock.connect(
-            self.lifetime_controller.show_residuals_widget
-        )
+        sigs.plot_decay_convd_export_lock.connect(self.lifetime_controller.plot_decay_and_convd)
+        sigs.plot_decay_convd_residuals_export_lock.connect(self.lifetime_controller.plot_decay_convd_and_hist)
+        sigs.show_residual_widget_lock.connect(self.lifetime_controller.show_residuals_widget)
         sigs.plot_residuals_export_lock.connect(self.lifetime_controller.plot_residuals)
         sigs.plot_spectra_export_lock.connect(self.spectra_controller.plot_spectra)
-        sigs.plot_raster_scan_export_lock.connect(
-            self.raster_scan_controller.plot_raster_scan
-        )
+        sigs.plot_raster_scan_export_lock.connect(self.raster_scan_controller.plot_raster_scan)
         sigs.plot_corr_lock.connect(self.antibunch_controller.plot_corr)
         sigs.plot_corr_export_lock.connect(self.antibunch_controller.plot_corr)
 
@@ -1337,9 +1228,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def range_selection(self):
         range_selection_dialog = RangeSelectionDialog(main_window=self)
         if range_selection_dialog.exec_():
-            selection_indexes = range_selection_dialog.get_selection(
-                max_range=len(self.part_nodes)
-            )
+            selection_indexes = range_selection_dialog.get_selection(max_range=len(self.part_nodes))
             mode_only, mode_add, mode_remove, _ = range_selection_dialog.get_mode()
             if max(selection_indexes) > len(self.part_nodes):
                 msg = QMessageBox(self)
@@ -1415,27 +1304,20 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         # Grouping
         if self.current_dataset is not None:
-            has_levels = any(
-                [particle.has_levels for particle in self.current_dataset.particles]
-            )
+            has_levels = any([particle.has_levels for particle in self.current_dataset.particles])
             self.tabGrouping.setEnabled(has_levels)
             self.btnGroupCurrent.setEnabled(has_levels)
             self.btnGroupSelected.setEnabled(has_levels)
             self.btnGroupAll.setEnabled(has_levels)
             self.btnGroupGlobal.setEnabled(has_levels)
             if has_levels:
-                has_groups = any(
-                    [particle.has_groups for particle in self.current_dataset.particles]
-                )
+                has_groups = any([particle.has_groups for particle in self.current_dataset.particles])
                 self.btnApplyGroupsCurrent.setEnabled(has_groups)
                 self.btnApplyGroupsSelected.setEnabled(has_groups)
                 self.btnApplyGroupsAll.setEnabled(has_groups)
 
                 has_global_grouping = any(
-                    [
-                        particle.has_global_grouping
-                        for particle in self.current_dataset.particles
-                    ]
+                    [particle.has_global_grouping for particle in self.current_dataset.particles]
                 )
                 self.chbInt_Show_Global_Groups.setEnabled(has_global_grouping)
 
@@ -1488,9 +1370,12 @@ def main():
     logger.info("App excuted")
 
 
+import faulthandler
+
 if __name__ == "__main__":
     # Create version file for distribution. Or use the command bellow:
     # create-version-file version.yml --outfile versionfile.txt --version SMS_VERSION
+    faulthandler.enable()
     if "--dev" in sys.argv:
         try:
             # noinspection PyUnresolvedReferences

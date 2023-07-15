@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Union, List, Tuple, Any
 
 import numpy as np
 import pandas as pd
+import pyqtgraph.graphicsItems.PlotCurveItem
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import QObject, Qt
@@ -21,16 +22,17 @@ import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from pyqtgraph.exporters import ImageExporter
 
-import smsh5
+import grouping
 from threads import ProcessThread, ProcessTaskResult
 from dataclasses import dataclass
 
 from my_logger import setup_logger
 from smsh5 import Particle, ParticleAllHists, RasterScan, GlobalParticle
+from grouping import GlobalLevel
+from change_point import Level
 from tcspcfit import FittingParameters, FittingDialog
 from quick_roi_dialog import QuickROIDialog
 from thread_tasks import OpenFile
-from grouping import GlobalLevel
 
 if TYPE_CHECKING:
     from main import MainWindow
@@ -136,12 +138,8 @@ class IntController(QObject):
         self.show_exp_trace = self.main_window.chbInt_Exp_Trace.isChecked()
 
         self.int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
-        self.groups_int_plot.vb.scene().sigMouseClicked.connect(
-            self.any_int_plot_double_click
-        )
-        self.lifetime_plot.vb.scene().sigMouseClicked.connect(
-            self.any_int_plot_double_click
-        )
+        self.groups_int_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
+        self.lifetime_plot.vb.scene().sigMouseClicked.connect(self.any_int_plot_double_click)
 
         self.temp_fig = None
         self.temp_ax = None
@@ -172,9 +170,7 @@ class IntController(QObject):
         hover_brush.setStyle(Qt.SolidPattern)
         hover_brush.setColor(hover_brush_color)
 
-        self.int_ROI = pg.LinearRegionItem(
-            brush=brush, hoverBrush=hover_brush, pen=pen, hoverPen=hover_pen
-        )
+        self.int_ROI = pg.LinearRegionItem(brush=brush, hoverBrush=hover_brush, pen=pen, hoverPen=hover_pen)
         self.int_ROI.sigRegionChangeFinished.connect(self.roi_region_changed)
 
         # Setup axes and limits
@@ -189,19 +185,11 @@ class IntController(QObject):
         self.main_window.btnResolveAll.clicked.connect(self.gui_resolve_all)
         self.main_window.chbInt_Show_ROI.stateChanged.connect(self.roi_chb_changed)
         self.main_window.chbInt_Show_Hist.stateChanged.connect(self.hist_chb_changed)
-        self.main_window.chbInt_Show_Level_Info.stateChanged.connect(
-            self.level_info_chb_changed
-        )
-        self.main_window.chbInt_Show_Groups.stateChanged.connect(
-            self.gui_chb_show_groups
-        )
-        self.main_window.chbInt_Show_Global_Groups.stateChanged.connect(
-            self.gui_chb_show_global_groups
-        )
+        self.main_window.chbInt_Show_Level_Info.stateChanged.connect(self.level_info_chb_changed)
+        self.main_window.chbInt_Show_Groups.stateChanged.connect(self.gui_chb_show_groups)
+        self.main_window.chbInt_Show_Global_Groups.stateChanged.connect(self.gui_chb_show_global_groups)
         self.main_window.btnQuickROI.clicked.connect(self.gui_quick_roi)
-        self.main_window.chbInt_Exp_Trace.stateChanged.connect(
-            self.exp_trace_chb_changed
-        )
+        self.main_window.chbInt_Exp_Trace.stateChanged.connect(self.exp_trace_chb_changed)
         self.main_window.chbSecondCard.stateChanged.connect(self.plot_all)
 
     def setup_plot(
@@ -285,24 +273,18 @@ class IntController(QObject):
             if cur_part is not None and cur_tab_name == "tabIntensity":
                 new_region = self.int_ROI.getRegion()
                 old_region = cur_part.roi_region[0:2]
-                significant_start_change = (
-                    np.abs(new_region[0] - old_region[0]) > SIG_ROI_CHANGE_THRESHOLD
-                )
-                significant_end_change = (
-                    np.abs(new_region[1] - old_region[1]) > SIG_ROI_CHANGE_THRESHOLD
-                )
+                significant_start_change = np.abs(new_region[0] - old_region[0]) > SIG_ROI_CHANGE_THRESHOLD
+                significant_end_change = np.abs(new_region[1] - old_region[1]) > SIG_ROI_CHANGE_THRESHOLD
                 if significant_start_change or significant_end_change:
                     cur_part.roi_region = self.int_ROI.getRegion()
-                    self.main_window.lifetime_controller.test_need_roi_apply(
-                        particle=cur_part, update_buttons=False
-                    )
-                    if cur_part.level_selected is not None:
+                    self.main_window.lifetime_controller.test_need_roi_apply(particle=cur_part, update_buttons=False)
+                    if cur_part.level_or_group_selected is not None:
                         if (
                             cur_part.first_level_ind_in_roi
-                            < cur_part.level_selected
+                            < cur_part.level_or_group_selected
                             > cur_part.last_level_ind_in_roi
                         ):
-                            cur_part.level_selected = None
+                            cur_part.level_or_group_selected = None
                 self.plot_all()
                 # self.plot_hist()
                 if self.main_window.chbInt_Show_Level_Info.isChecked():
@@ -313,9 +295,7 @@ class IntController(QObject):
 
         if self.show_int_hist:
             if self.show_level_info:
-                self.hide_show_chb(
-                    chb_obj=self.main_window.chbInt_Show_Level_Info, show=False
-                )
+                self.hide_show_chb(chb_obj=self.main_window.chbInt_Show_Level_Info, show=False)
                 self.show_level_info = False
             self.int_hist_container.show()
             self.int_hist_line.show()
@@ -329,9 +309,7 @@ class IntController(QObject):
 
         if self.show_level_info:
             if self.show_int_hist:
-                self.hide_show_chb(
-                    chb_obj=self.main_window.chbInt_Show_Hist, show=False
-                )
+                self.hide_show_chb(chb_obj=self.main_window.chbInt_Show_Hist, show=False)
                 self.show_int_hist = False
             self.int_level_info_container.show()
             self.int_level_line.show()
@@ -480,10 +458,7 @@ class IntController(QObject):
         mw = self.main_window
         plot_2_trace = False
         if mw.current_particle.sec_part is not None:
-            if (
-                mw.current_particle.sec_part.tcspc_card != "None"
-                and mw.chbSecondCard.isChecked()
-            ):
+            if mw.current_particle.sec_part.tcspc_card != "None" and mw.chbSecondCard.isChecked():
                 plot_2_trace = True
 
         if type(export_path) is bool:
@@ -558,14 +533,8 @@ class IntController(QObject):
 
                         new_region = self.int_ROI.getRegion()
                         old_region = particle.roi_region[0:2]
-                        significant_start_change = (
-                            np.abs(new_region[0] - old_region[0])
-                            > SIG_ROI_CHANGE_THRESHOLD
-                        )
-                        significant_end_change = (
-                            np.abs(new_region[1] - old_region[1])
-                            > SIG_ROI_CHANGE_THRESHOLD
-                        )
+                        significant_start_change = np.abs(new_region[0] - old_region[0]) > SIG_ROI_CHANGE_THRESHOLD
+                        significant_end_change = np.abs(new_region[1] - old_region[1]) > SIG_ROI_CHANGE_THRESHOLD
                         if significant_start_change or significant_end_change:
                             self.int_ROI.setRegion(particle.roi_region)
                         plot_item.addItem(self.int_ROI)
@@ -580,20 +549,14 @@ class IntController(QObject):
                 else:
                     if self.temp_fig is None:
                         self.temp_fig = plt.figure()
-                        self.temp_fig.set_size_inches(
-                            EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT
-                        )
+                        self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, EXPORT_MPL_HEIGHT)
                     else:
                         self.temp_fig.clf()
-                    gs = self.temp_fig.add_gridspec(
-                        nrows=1, ncols=5, wspace=0, left=0.07, right=0.98
-                    )
+                    gs = self.temp_fig.add_gridspec(nrows=1, ncols=5, wspace=0, left=0.07, right=0.98)
                     int_ax = self.temp_fig.add_subplot(gs[0, :-1])
                     hist_ax = self.temp_fig.add_subplot(gs[0, -1])
                     self.temp_ax = {"int_ax": int_ax, "hist_ax": hist_ax}
-                    hist_ax.tick_params(
-                        direction="in", labelleft=False, labelbottom=False
-                    )
+                    hist_ax.tick_params(direction="in", labelleft=False, labelbottom=False)
                     hist_ax.spines["top"].set_visible(False)
                     hist_ax.spines["right"].set_visible(False)
                     int_ax.plot(times, trace)
@@ -630,19 +593,11 @@ class IntController(QObject):
         if not particle.has_levels:
             return
         try:
-            is_tab_intensity = (
-                self.main_window.tabWidget.currentWidget().objectName()
-                == "tabIntensity"
-            )
-            should_use_global = (
-                self.main_window.chbInt_Show_Global_Groups.isChecked()
-                and is_tab_intensity
-            )
+            is_tab_intensity = self.main_window.tabWidget.currentWidget().objectName() == "tabIntensity"
+            should_use_global = self.main_window.chbInt_Show_Global_Groups.isChecked() and is_tab_intensity
             do_use_global = particle.has_global_grouping and should_use_global
             use_roi = self.main_window.chbInt_Show_ROI.isChecked()
-            level_ints, times = particle.levels2data(
-                use_roi=use_roi, use_global_groups=do_use_global
-            )
+            level_ints, times = particle.levels2data(use_roi=use_roi, use_global_groups=do_use_global)
             level_ints = level_ints * self.get_bin() / 1e3
         except AttributeError:
             logger.error("No levels!")
@@ -683,19 +638,20 @@ class IntController(QObject):
                 for_levels=True,
             )
 
-        if not for_export and (
-            cur_tab_name == "tabLifetime" or cur_tab_name == "tabIntensity"
-        ):
-            current_level = particle.level_selected
-            if current_level is not None:
-                if current_level <= particle.num_levels - 1:
-                    current_ints, current_times = particle.current2data(current_level)
+        if not for_export and (cur_tab_name == "tabLifetime" or cur_tab_name == "tabIntensity"):
+            selected = particle.level_or_group_selected
+            is_level = type(selected) is Level or type(selected) is GlobalLevel
+            current_level = selected if is_level else None
+            current_group = selected if not is_level else None
+            if selected is not None:
+                if is_level:
+                    current_int = current_level.int_p_s
+                    current_times = current_level.times_s
                 else:
-                    current_group = current_level - particle.num_levels
-                    current_ints, current_times = particle.current_group2data(
-                        current_group
-                    )
-                current_ints = current_ints * self.get_bin() / 1e3
+                    current_int = current_group.int_p_s
+                    current_times = times[0], times[-1]
+                current_int = current_int * self.get_bin() / 1e3
+                current_ints = [current_int] * 2
 
                 if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
                     level_plot_pen = QPen()
@@ -703,9 +659,7 @@ class IntController(QObject):
                     level_plot_pen.setJoinStyle(Qt.RoundJoin)
                     level_plot_pen.setColor(QColor("red"))
                     level_plot_pen.setWidthF(3)
-                    plot_item.plot(
-                        x=current_times, y=current_ints, pen=level_plot_pen, symbol=None
-                    )
+                    plot_item.plot(x=current_times, y=current_ints, pen=level_plot_pen, symbol=None)
                 else:
                     logger.info("Infinity in level")
         if lock:
@@ -729,9 +683,7 @@ class IntController(QObject):
             if self.main_window.chbInt_Show_ROI.isChecked():
                 roi_start = particle.roi_region[0]
                 roi_end = particle.roi_region[1]
-                time_ind_start = np.argmax(
-                    roi_start < particle.binnedtrace.inttimes / 1e3
-                )
+                time_ind_start = np.argmax(roi_start < particle.binnedtrace.inttimes / 1e3)
                 end_test = roi_end <= particle.binnedtrace.inttimes / 1e3
                 if any(end_test):
                     time_ind_end = np.argmax(end_test)
@@ -760,9 +712,7 @@ class IntController(QObject):
                 plot_item.clear()
 
                 bin_edges = np.histogram_bin_edges(np.negative(int_data), bins=100)
-                freq, hist_bins = np.histogram(
-                    np.negative(int_data), bins=bin_edges, density=True
-                )
+                freq, hist_bins = np.histogram(np.negative(int_data), bins=bin_edges, density=True)
                 freq /= np.max(freq)
                 int_hist = pg.PlotCurveItem(
                     x=hist_bins,
@@ -833,9 +783,7 @@ class IntController(QObject):
                 elif for_groups and particle.has_groups:
                     group_ints = np.array(particle.groups_ints)
                     group_ints *= particle.bin_size / 1000
-                    group_dwell_times = [
-                        group.dwell_time_s for group in particle.groups
-                    ]
+                    group_dwell_times = [group.dwell_time_s for group in particle.groups]
                     hist_ax = self.temp_ax["hist_ax"]
                     hist_ax.hist(
                         group_ints,
@@ -860,13 +808,9 @@ class IntController(QObject):
             if not (for_levels or for_groups):
                 full_path = os.path.join(export_path, particle.name + " trace.png")
             elif for_levels:
-                full_path = os.path.join(
-                    export_path, particle.name + " trace (levels).png"
-                )
+                full_path = os.path.join(export_path, particle.name + " trace (levels).png")
             else:
-                full_path = os.path.join(
-                    export_path, particle.name + " trace (levels and groups).png"
-                )
+                full_path = os.path.join(export_path, particle.name + " trace (levels and groups).png")
             hist_ax.legend(prop={"size": 6}, frameon=False)
             self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
             sleep(1)
@@ -878,7 +822,7 @@ class IntController(QObject):
         cur_tab_name = self.main_window.tabWidget.currentWidget().objectName()
         if cur_tab_name == "tabIntensity" and self.show_level_info:
             info = ""
-            if particle.level_selected is None:
+            if particle.level_or_group_selected is None:
                 info = info + "Whole Trace"
                 info = info + f"\n{'*' * len(info)}"
                 info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time: .3g}"
@@ -892,10 +836,7 @@ class IntController(QObject):
 
                 if self.main_window.chbInt_Show_ROI.isChecked:
                     info += f"\n\nWhole Trace (ROI)\n{'*' * len('Whole Trace (ROI)')}"
-                    info = (
-                        info
-                        + f"\nTotal Dwell Time (s) = {particle.dwell_time_roi: .3g}"
-                    )
+                    info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time_roi: .3g}"
                     info = info + f"\n# of Photons = {particle.num_photons_roi}"
                     if particle.has_levels:
                         info = info + f"\n# of Levels = {particle.num_levels_roi}"
@@ -904,23 +845,30 @@ class IntController(QObject):
                     if particle.has_levels:
                         info = info + f"\nHas Photon Bursts = {particle.has_burst}"
             elif particle.has_levels:
-                is_group_level = False
-                if particle.level_selected <= particle.num_levels - 1:
-                    level = particle.levels[particle.level_selected]
-                    info = info + f"Level {particle.level_selected + 1}"
+                selected = particle.level_or_group_selected
+                is_level = type(selected) is Level or type(selected) is GlobalLevel
+                current_level = selected if is_level else None
+                current_group = selected if not is_level else None
+                if is_level:
+                    all_levels = particle.levels if type(current_level) is Level else particle.group_levels
+                    level_ind = np.argmax([current_level is level for level in all_levels])
+                    info = info + f"Level {level_ind + 1}"
                 else:
-                    level = particle.groups[
-                        particle.level_selected - particle.num_levels
-                    ]
-                    is_group_level = True
-                    info = (
-                        info
-                        + f"Group {particle.level_selected - particle.num_levels + 1}"
-                    )
+                    current_level = current_group
+                    is_global = False
+                    if current_group in particle.groups:
+                        group_ind = np.argmax([current_group is group for group in particle.groups])
+                    elif current_group in particle.global_particle.groups:
+                        group_ind = np.argmax([current_group is group for group in particle.global_particle.groups])
+                        is_global = True
+                    else:
+                        raise AttributeError("Group not found in list of known groups?")
+                    group_header = f"Global Group {group_ind + 1}" if is_global else f"Group {group_ind + 1}"
+                    info = info + group_header
                 info = info + f"\n{'*' * len(info)}"
-                info = info + f"\nIntensity (counts/s) = {level.int_p_s: .3g}"
-                info = info + f"\nDwell Time (s) = {level.dwell_time_s: .3g}"
-                info = info + f"\n# of Photons = {level.num_photons}"
+                info = info + f"\nIntensity (counts/s) = {current_level.int_p_s: .3g}"
+                info = info + f"\nDwell Time (s) = {current_level.dwell_time_s: .3g}"
+                info = info + f"\n# of Photons = {current_level.num_photons}"
             self.level_info_text.setText(info)
 
     def plot_group_bounds(
@@ -941,23 +889,12 @@ class IntController(QObject):
 
         if particle is None:
             particle = self.main_window.current_particle
-            grouping_mode_tab_name = (
-                self.main_window.tabGroupingMode.currentWidget().objectName()
-            )
-            is_global_fitting_ui = (
-                cur_tab_name == "tabGrouping" and grouping_mode_tab_name == "tabGlobal"
-            )
-            should_use_global = (
-                self.main_window.chbInt_Show_Global_Groups.isChecked()
-                or is_global_fitting_ui
-            )
+            grouping_mode_tab_name = self.main_window.tabGroupingMode.currentWidget().objectName()
+            is_global_fitting_ui = cur_tab_name == "tabGrouping" and grouping_mode_tab_name == "tabGlobal"
+            should_use_global = self.main_window.chbInt_Show_Global_Groups.isChecked() or is_global_fitting_ui
             if particle.has_global_grouping and should_use_global:
                 particle = self.main_window.current_dataset.global_particle
-        if (
-            cur_tab_name == "tabIntensity"
-            or cur_tab_name == "tabGrouping"
-            or cur_tab_name == "tabLifetime"
-        ):
+        if cur_tab_name == "tabIntensity" or cur_tab_name == "tabGrouping" or cur_tab_name == "tabLifetime":
             if (
                 not particle.has_groups
                 or particle.ahca.best_step.single_level
@@ -976,14 +913,10 @@ class IntController(QObject):
             except AttributeError:
                 logger.error("No groups!")
                 return
-
+            int_plot = None
             if cur_tab_name == "tabIntensity":
                 mw = self.main_window
-                if (
-                    mw.chbInt_Show_Groups.isChecked()
-                    or mw.chbInt_Show_Global_Groups.isChecked()
-                    or for_export
-                ):
+                if mw.chbInt_Show_Groups.isChecked() or mw.chbInt_Show_Global_Groups.isChecked() or for_export:
                     int_plot = self.int_plot
                 else:
                     return
@@ -1013,9 +946,7 @@ class IntController(QObject):
                         )
                     else:
                         ymin, ymax = bound
-                        int_ax.axhspan(
-                            ymin=ymin, ymax=ymax, color="k", alpha=0.15, linestyle=""
-                        )
+                        int_ax.axhspan(ymin=ymin, ymax=ymax, color="k", alpha=0.15, linestyle="")
 
             if not for_export:
                 line_pen = QPen()
@@ -1037,12 +968,8 @@ class IntController(QObject):
             if for_export and export_path is not None:
                 if not (os.path.exists(export_path) and os.path.isdir(export_path)):
                     raise AssertionError("Provided path not valid")
-                full_path = os.path.join(
-                    export_path, particle.name + " trace (levels and groups).png"
-                )
-                self.temp_fig.suptitle(
-                    f"{particle.name} Intensity Trace with Levels and Groups"
-                )
+                full_path = os.path.join(export_path, particle.name + " trace (levels and groups).png")
+                self.temp_fig.suptitle(f"{particle.name} Intensity Trace with Levels and Groups")
                 self.plot_hist(
                     particle=particle,
                     for_export=for_export,
@@ -1060,9 +987,7 @@ class IntController(QObject):
         self.plot_hist()
         self.plot_group_bounds()
 
-    def start_resolve_thread(
-        self, mode: str = "current", thread_finished=None, end_time_s=None
-    ) -> None:
+    def start_resolve_thread(self, mode: str = "current", thread_finished=None, end_time_s=None) -> None:
         """
         Creates a worker to resolve levels.
 
@@ -1105,9 +1030,7 @@ class IntController(QObject):
 
         all_sums = self.main_window.current_dataset.all_sums
         r_process_thread = ProcessThread()
-        r_process_thread.add_tasks_from_methods(
-            objects=cpt_objs, method_name="run_cpa", args=(all_sums, conf, True)
-        )
+        r_process_thread.add_tasks_from_methods(objects=cpt_objs, method_name="run_cpa", args=(all_sums, conf, True))
 
         r_process_thread.signals.start_progress.connect(mw.start_progress)
         r_process_thread.signals.status_update.connect(mw.status_message)
@@ -1123,9 +1046,7 @@ class IntController(QObject):
         mw.threadpool.start(r_process_thread)
         mw.active_threads.append(r_process_thread)
 
-    def gather_replace_results(
-        self, results: Union[List[ProcessTaskResult], ProcessTaskResult]
-    ):
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
         particles = self.main_window.current_dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
@@ -1165,10 +1086,7 @@ class IntController(QObject):
                 # raise RuntimeError
 
         self.main_window.current_dataset.has_levels = True
-        if (
-            self.main_window.treeViewParticles.currentIndex().data(Qt.UserRole)
-            is not None
-        ):
+        if self.main_window.treeViewParticles.currentIndex().data(Qt.UserRole) is not None:
             self.main_window.display_data()
         self.main_window.remove_bursts(mode=self.resolve_mode)
         # self.mainwindow.chbEx_Levels.setEnabled(True)
@@ -1238,52 +1156,61 @@ class IntController(QObject):
             cp = self.main_window.current_particle
             if cp.has_levels:
                 use_groups = False
+                use_global_groups = False
+                select_groups = self.main_window.chbInt_Select_Groups.isChecked()
                 if event.currentItem is self.int_plot.vb:
                     use_groups = self.main_window.chbInt_Show_Groups.isChecked()
+                    use_global_groups = self.main_window.chbInt_Show_Global_Groups.isChecked()
                 elif event.currentItem is self.groups_int_plot.vb:
                     use_groups = True
+                    use_global_groups = self.main_window.chbInt_Show_Global_Groups.isChecked()
                 elif event.currentItem is self.lifetime_plot.vb:
                     use_groups = self.main_window.chbLifetime_Show_Groups.isChecked()
+                    use_global_groups = self.main_window.chbInt_Show_Global_Groups.isChecked()
 
-                if cp.has_groups and use_groups:
-                    clicked_int = event.currentItem.mapSceneToView(event.scenePos()).y()
-                    clicked_int = clicked_int * (
-                        1000 / self.main_window.spbBinSize.value()
-                    )
-                    clicked_group = None
-                    group_bounds = cp.groups_bounds
-                    group_bounds.reverse()
-                    for i, (group_low, group_high) in enumerate(group_bounds):
-                        if group_low <= clicked_int <= group_high:
-                            clicked_group = i
-                            break
-                    if clicked_group is not None:
-                        cp.level_selected = clicked_group + cp.num_levels
-                        self.main_window.display_data()
+                if (
+                    type(event.currentItem) is pyqtgraph.graphicsItems.PlotCurveItem.PlotCurveItem
+                    or type(event.currentItem) is pyqtgraph.LinearRegionItem
+                ):
+                    clicked_mapped_pos = event.currentItem.getViewBox().mapSceneToView(event.scenePos())
+                elif type(event.currentItem) is pyqtgraph.ViewBox:
+                    clicked_mapped_pos = event.currentItem.mapSceneToView(event.scenePos())
                 else:
                     try:
-                        clicked_time = event.currentItem.mapSceneToView(
-                            event.scenePos()
-                        ).x()
-                    except AttributeError as err:
-                        if (
-                            err.args[0]
-                            == "'AxisItem' object has no attribute 'mapSceneToView'"
-                        ):
-                            cp.level_selected = None
-                        else:
-                            logger.error(err)
-                            raise err
-                    else:
-                        level_times = [lvl.times_s for lvl in cp.levels]
-                        clicked_level = None
-                        for i, (start, end) in enumerate(level_times):
-                            if start <= clicked_time <= end:
-                                clicked_level = i
-                                break
-                        if clicked_level is not None:
-                            cp.level_selected = clicked_level
-                    finally:
+                        clicked_mapped_pos = event.currentItem.getViewBox().mapSceneToView(event.scenePos())
+                    except AttributeError:
+                        cp.level_or_group_selected = None
+                        self.main_window.display_data()
+                        return
+
+                if select_groups and (
+                    (use_groups and cp.has_groups) or (use_global_groups and cp.global_particle.has_groups)
+                ):
+                    clicked_int = clicked_mapped_pos.y()
+                    clicked_int = clicked_int * (1000 / self.main_window.spbBinSize.value())
+                    clicked_group = None
+                    groups = cp.groups if use_groups else cp.global_particle.groups
+                    # groups = groups[::-1]
+                    group_bounds = cp.groups_bounds if use_groups else cp.global_particle.groups_bounds
+                    group_bounds = group_bounds[::-1]
+                    for group, (group_low, group_high) in zip(groups, group_bounds):
+                        if group_low <= clicked_int <= group_high:
+                            clicked_group = group
+                            break
+                    if clicked_group is not None:
+                        cp.level_or_group_selected = clicked_group
+                        self.main_window.display_data()
+                else:
+                    clicked_time = clicked_mapped_pos.x()
+                    levels = cp.levels if not use_global_groups else cp.global_group_levels
+                    level_times = [lvl.times_s for lvl in levels]
+                    clicked_level = None
+                    for level, (start, end) in zip(levels, level_times):
+                        if start <= clicked_time <= end:
+                            clicked_level = level
+                            break
+                    if clicked_level is not None:
+                        cp.level_or_group_selected = clicked_level
                         self.main_window.display_data()
 
     def error(self, e):
@@ -1301,9 +1228,7 @@ class LifetimeController(QObject):
         self.setup_widget(self.lifetime_hist_widget)
 
         self.residual_widget = self.main_window.pgLieftime_Residuals_PlotWidget
-        self.residual_plot = (
-            self.main_window.pgLieftime_Residuals_PlotWidget.getPlotItem()
-        )
+        self.residual_plot = self.main_window.pgLieftime_Residuals_PlotWidget.getPlotItem()
         self.setup_widget(self.residual_widget)
         self.residual_widget.hide()
 
@@ -1327,21 +1252,11 @@ class LifetimeController(QObject):
         self.main_window.btnNextLevel.clicked.connect(self.gui_next_lev)
         self.main_window.btnWholeTrace.clicked.connect(self.gui_whole_trace)
         self.main_window.chbLifetime_Show_Groups.stateChanged.connect(self.plot_all)
-        self.main_window.chbShow_Residuals.stateChanged.connect(
-            self.gui_show_hide_residuals
-        )
-        self.main_window.chbLifetime_Use_ROI.stateChanged.connect(
-            self.gui_use_roi_changed
-        )
-        self.main_window.btnLifetime_Apply_ROI.clicked.connect(
-            self.gui_apply_roi_current
-        )
-        self.main_window.btnLifetime_Apply_ROI_Selected.clicked.connect(
-            self.gui_apply_roi_selected
-        )
-        self.main_window.btnLifetime_Apply_ROI_All.clicked.connect(
-            self.gui_apply_roi_all
-        )
+        self.main_window.chbShow_Residuals.stateChanged.connect(self.gui_show_hide_residuals)
+        self.main_window.chbLifetime_Use_ROI.stateChanged.connect(self.gui_use_roi_changed)
+        self.main_window.btnLifetime_Apply_ROI.clicked.connect(self.gui_apply_roi_current)
+        self.main_window.btnLifetime_Apply_ROI_Selected.clicked.connect(self.gui_apply_roi_selected)
+        self.main_window.btnLifetime_Apply_ROI_All.clicked.connect(self.gui_apply_roi_all)
         self.main_window.btnJumpToGroups.clicked.connect(self.gui_jump_to_groups)
         self.main_window.btnLoadIRF.clicked.connect(self.gui_load_irf)
         self.main_window.btnFitParameters.clicked.connect(self.gui_fit_param)
@@ -1381,12 +1296,12 @@ class LifetimeController(QObject):
 
         cp = self.main_window.current_particle
         changed = False
-        if cp.level_selected is not None:
-            if cp.level_selected == 0:
-                cp.level_selected = None
+        if cp.level_or_group_selected is not None:
+            if cp.level_or_group_selected == 0:
+                cp.level_or_group_selected = None
                 changed = True
             else:
-                cp.level_selected -= 1
+                cp.level_or_group_selected -= 1
                 changed = True
 
         if changed:
@@ -1397,15 +1312,15 @@ class LifetimeController(QObject):
 
         cp = self.main_window.current_particle
         changed = False
-        if cp.level_selected is None:
-            cp.level_selected = 0
+        if cp.level_or_group_selected is None:
+            cp.level_or_group_selected = 0
             changed = True
         elif cp.has_groups:
-            if cp.level_selected < cp.num_levels + cp.num_groups - 1:
-                cp.level_selected += 1
+            if cp.level_or_group_selected < cp.num_levels + cp.num_groups - 1:
+                cp.level_or_group_selected += 1
                 changed = True
-        elif cp.level_selected < cp.num_levels - 1:
-            cp.level_selected += 1
+        elif cp.level_or_group_selected < cp.num_levels - 1:
+            cp.level_or_group_selected += 1
             changed = True
 
         if changed:
@@ -1415,13 +1330,13 @@ class LifetimeController(QObject):
         "Unselects selected level and shows whole trace's decay curve"
 
         # self.mainwindow.current_level = None
-        self.main_window.current_particle.level_selected = None
+        self.main_window.current_particle.level_or_group_selected = None
         self.main_window.display_data()
 
     def gui_jump_to_groups(self):
         cp = self.main_window.current_particle
         if cp.has_groups:
-            cp.level_selected = cp.num_levels
+            cp.level_or_group_selected = cp.num_levels
             self.main_window.display_data()
 
     def gui_show_hide_residuals(self):
@@ -1435,18 +1350,14 @@ class LifetimeController(QObject):
     def gui_load_irf(self):
         """Allow the user to load a IRF instead of the IRF that has already been loaded."""
 
-        file_path = QFileDialog.getOpenFileName(
-            self.main_window, "Open HDF5 file", "", "HDF5 files (*.h5)"
-        )
+        file_path = QFileDialog.getOpenFileName(self.main_window, "Open HDF5 file", "", "HDF5 files (*.h5)")
         if file_path != ("", ""):  # fname will equal ('', '') if the user canceled.
             mw = self.main_window
             mw.status_message(message="Opening IRF file...")
             of_process_thread = ProcessThread(num_processes=1)
             of_process_thread.worker_signals.add_datasetindex.connect(mw.add_dataset)
             of_process_thread.worker_signals.add_particlenode.connect(mw.add_node)
-            of_process_thread.worker_signals.add_all_particlenodes.connect(
-                mw.add_all_nodes
-            )
+            of_process_thread.worker_signals.add_all_particlenodes.connect(mw.add_all_nodes)
             of_process_thread.worker_signals.bin_size.connect(mw.set_bin_size)
             of_process_thread.worker_signals.data_loaded.connect(mw.set_data_loaded)
             of_process_thread.worker_signals.add_irf.connect(self.add_irf)
@@ -1488,7 +1399,7 @@ class LifetimeController(QObject):
         """Fits the currently selected level's decay curve using the provided settings."""
 
         cp = self.main_window.current_particle
-        selected_level = cp.level_selected
+        selected_level = cp.level_or_group_selected
         if selected_level is None:
             histogram = cp.histogram
         else:
@@ -1564,9 +1475,7 @@ class LifetimeController(QObject):
             self.update_apply_roi_button_colors()
         self.plot_all()
 
-    def test_need_roi_apply(
-        self, particle: Particle = None, update_buttons: bool = True
-    ):
+    def test_need_roi_apply(self, particle: Particle = None, update_buttons: bool = True):
         if self.all_should_apply is None:
             self.all_should_apply = np.empty(self.main_window.current_dataset.num_parts)
             particle = None
@@ -1577,9 +1486,7 @@ class LifetimeController(QObject):
             particles_to_check = self.main_window.current_dataset.particles
         for part in particles_to_check:
             part_ind = part.dataset_ind
-            region_same = (
-                part.roi_region[0:2] == part._histogram_roi.roi_region_used[0:2]
-            )
+            region_same = part.roi_region[0:2] == part._histogram_roi.roi_region_used[0:2]
             self.all_should_apply[part_ind] = not region_same
 
         if update_buttons:
@@ -1593,34 +1500,18 @@ class LifetimeController(QObject):
         if use_roi_checked and self.all_should_apply is not None:
             if self.all_should_apply[self.main_window.current_particle.dataset_ind]:
                 color_current = "red"
-            if any(
-                self.all_should_apply[
-                    [
-                        part.dataset_ind
-                        for part in self.main_window.get_checked_particles()
-                    ]
-                ]
-            ):
+            if any(self.all_should_apply[[part.dataset_ind for part in self.main_window.get_checked_particles()]]):
                 color_selected = "red"
             if any(self.all_should_apply):
                 color_all = "red"
-        self.main_window.btnLifetime_Apply_ROI.setStyleSheet(
-            f"background-color: {color_current}"
-        )
-        self.main_window.btnLifetime_Apply_ROI_Selected.setStyleSheet(
-            f"background-color: {color_selected}"
-        )
-        self.main_window.btnLifetime_Apply_ROI_All.setStyleSheet(
-            f"background-color: {color_all}"
-        )
+        self.main_window.btnLifetime_Apply_ROI.setStyleSheet(f"background-color: {color_current}")
+        self.main_window.btnLifetime_Apply_ROI_Selected.setStyleSheet(f"background-color: {color_selected}")
+        self.main_window.btnLifetime_Apply_ROI_All.setStyleSheet(f"background-color: {color_all}")
 
     def apply_roi(self, particles: list):
         for part in particles:
             if self.all_should_apply[part.dataset_ind]:
-                if (
-                    self.main_window.chbLifetime_Use_ROI.isChecked()
-                    and not part.use_roi_for_histogram
-                ):
+                if self.main_window.chbLifetime_Use_ROI.isChecked() and not part.use_roi_for_histogram:
                     part.use_roi_for_histogram = True
                 part._histogram_roi.update_roi()
                 self.all_should_apply[part.dataset_ind] = False
@@ -1647,7 +1538,7 @@ class LifetimeController(QObject):
         str_return: bool = False,
     ) -> Union[str, None]:
         if select_ind is None:
-            select_ind = self.main_window.current_particle.level_selected
+            select_ind = self.main_window.current_particle.level_or_group_selected
         elif select_ind <= -1:
             select_ind = None
         if particle is None:
@@ -1700,18 +1591,12 @@ class LifetimeController(QObject):
             info = info + f"\nAmp 3 = {amp[2]:.3g} ± {stds[5]:.1g}"
         info = info + f"\nAverage Tau = {avtau:.3g} ± {avtaustd:.1g} ns"
 
-        info = (
-            info
-            + f"\n\nShift = {histogram.shift: .3g} ± {stds[2 * np.size(tau)]: .1g} ns"
-        )
+        info = info + f"\n\nShift = {histogram.shift: .3g} ± {stds[2 * np.size(tau)]: .1g} ns"
         if not for_export:
             info = info + f"\nDecay BG = {histogram.bg: .3g}"
             info = info + f"\nIRF BG = {histogram.irfbg: .3g}"
         if hasattr(histogram, "fwhm") and histogram.fwhm is not None:
-            info = (
-                info
-                + f"\nSim. IRF FWHM = {histogram.fwhm: .3g} ± {stds[2 * np.size(tau) + 1]: .1g} ns"
-            )
+            info = info + f"\nSim. IRF FWHM = {histogram.fwhm: .3g} ± {stds[2 * np.size(tau) + 1]: .1g} ns"
 
         info = info + f"\nChi-Sq = {histogram.chisq: .3g}"
         if not for_export:
@@ -1859,7 +1744,7 @@ class LifetimeController(QObject):
             lock = export_path
             export_path = None
         if select_ind is None:
-            select_ind = self.main_window.current_particle.level_selected
+            select_ind = self.main_window.current_particle.level_or_group_selected
         elif select_ind <= -1:
             select_ind = None
         # print(currentlevel)
@@ -1948,12 +1833,8 @@ class LifetimeController(QObject):
                 else:
                     self.temp_fig.clf()
                 if self.main_window.rdbAnd_Residuals.isChecked():
-                    self.temp_fig.set_size_inches(
-                        EXPORT_MPL_WIDTH, 1.5 * EXPORT_MPL_HEIGHT
-                    )
-                    gs = self.temp_fig.add_gridspec(
-                        5, 1, hspace=0, left=0.1, right=0.95
-                    )
+                    self.temp_fig.set_size_inches(EXPORT_MPL_WIDTH, 1.5 * EXPORT_MPL_HEIGHT)
+                    gs = self.temp_fig.add_gridspec(5, 1, hspace=0, left=0.1, right=0.95)
                     decay_ax = self.temp_fig.add_subplot(gs[0:-1, 0])
                     decay_ax.tick_params(direction="in", labelbottom=False)
                     residual_ax = self.temp_fig.add_subplot(gs[-1, 0])
@@ -1970,9 +1851,7 @@ class LifetimeController(QObject):
                 decay_ax.semilogy(t, decay)
 
                 min_pos_decay = decay[np.where(decay > 0, decay, np.inf).argmin()]
-                min_pos_decay = max(
-                    [min_pos_decay, 1e-5]
-                )  # Min minimum positive decay set to be 1E-5
+                min_pos_decay = max([min_pos_decay, 1e-5])  # Min minimum positive decay set to be 1E-5
                 max_decay = max(decay)
                 if min_pos_decay >= max(decay):
                     max_decay = min_pos_decay * 2
@@ -2020,7 +1899,7 @@ class LifetimeController(QObject):
             lock = export_path
             export_path = None
         if select_ind is None:
-            select_ind = self.main_window.current_particle.level_selected
+            select_ind = self.main_window.current_particle.level_or_group_selected
         elif select_ind <= -1:
             select_ind = None
         if particle is None:
@@ -2100,9 +1979,7 @@ class LifetimeController(QObject):
                     for_export=True,
                     str_return=True,
                 )
-                decay_ax.text(
-                    0.8, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes
-                )
+                decay_ax.text(0.8, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes)
                 self.temp_fig.suptitle(title_str)
                 if EXPORT_MPL_DPI > 50:
                     export_dpi = 50
@@ -2129,7 +2006,7 @@ class LifetimeController(QObject):
             lock = export_path
             export_path = None
         if select_ind is None:
-            select_ind = self.main_window.current_particle.level_selected
+            select_ind = self.main_window.current_particle.level_or_group_selected
         elif select_ind <= -1:
             select_ind = None
         if particle is None:
@@ -2165,17 +2042,11 @@ class LifetimeController(QObject):
                     self.residual_plot.clear()
                     return
                 self.residual_plot.clear()
-                scat_plot = pg.ScatterPlotItem(
-                    x=t, y=residuals, symbol="o", size=3, pen="#0000CC", brush="#0000CC"
-                )
+                scat_plot = pg.ScatterPlotItem(x=t, y=residuals, symbol="o", size=3, pen="#0000CC", brush="#0000CC")
                 self.residual_plot.addItem(scat_plot)
                 self.residual_plot.getAxis("bottom").setLabel("Decay time", unit)
-                self.residual_plot.getViewBox().setXRange(
-                    min=t[0], max=t[-1], padding=0
-                )
-                self.residual_plot.getViewBox().setYRange(
-                    min=residuals.min(), max=residuals.max(), padding=0
-                )
+                self.residual_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
+                self.residual_plot.getViewBox().setYRange(min=residuals.min(), max=residuals.max(), padding=0)
                 self.residual_plot.getViewBox().setLimits(xMin=t[0], xMax=t[-1])
             else:
                 residual_ax = self.temp_ax["residual_ax"]
@@ -2189,16 +2060,10 @@ class LifetimeController(QObject):
                     title_str = f"{particle.unique_name} Decay Trace, Fit and Residuals"
                 elif group_ind is None:
                     type_str = f" residuals (level {select_ind + 1} with residuals).png"
-                    title_str = (
-                        f"{particle.unique_name},"
-                        f" Level {select_ind + 1} Decay Trace, Fit and Residuals"
-                    )
+                    title_str = f"{particle.unique_name}," f" Level {select_ind + 1} Decay Trace, Fit and Residuals"
                 else:
                     type_str = f" residuals (group {group_ind + 1} with residuals).png"
-                    title_str = (
-                        f"{particle.unique_name}, Group {group_ind + 1}"
-                        f" Decay Trace, Fit and Residuals"
-                    )
+                    title_str = f"{particle.unique_name}, Group {group_ind + 1}" f" Decay Trace, Fit and Residuals"
                 text_select_ind = select_ind
                 if text_select_ind is None:
                     text_select_ind = -1
@@ -2209,9 +2074,7 @@ class LifetimeController(QObject):
                     str_return=True,
                 )
                 decay_ax = self.temp_ax["decay_ax"]
-                decay_ax.text(
-                    0.9, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes
-                )
+                decay_ax.text(0.9, 0.9, text_str, fontsize=6, transform=decay_ax.transAxes)
                 full_path = os.path.join(export_path, particle.unique_name + type_str)
                 self.temp_fig.suptitle(title_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
@@ -2292,9 +2155,7 @@ class LifetimeController(QObject):
         mw.threadpool.start(f_process_thread)
         mw.active_threads.append(f_process_thread)
 
-    def gather_replace_results(
-        self, results: Union[List[ProcessTaskResult], ProcessTaskResult]
-    ):
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
         particles = self.main_window.current_dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
@@ -2304,9 +2165,7 @@ class LifetimeController(QObject):
             for num, result in enumerate(results):
                 any_successful_fit = None
                 result_part_ind = part_uuids.index(result_part_uuids[num])
-                target_particle = self.main_window.current_dataset.particles[
-                    result_part_ind
-                ]
+                target_particle = self.main_window.current_dataset.particles[result_part_ind]
 
                 target_hist = target_particle.histogram
                 target_microtimes = target_hist.microtimes
@@ -2338,9 +2197,7 @@ class LifetimeController(QObject):
                         target_g_lvls_microtimes = np.array([])
                         for lvls_ind in target_group_lvls_inds:
                             m_times = target_particle.cpts.levels[lvls_ind].microtimes
-                            target_g_lvls_microtimes = np.append(
-                                target_g_lvls_microtimes, m_times
-                            )
+                            target_g_lvls_microtimes = np.append(target_g_lvls_microtimes, m_times)
 
                         res_group_hist._particle = target_particle
                         res_group_hist.microtimes = target_g_lvls_microtimes
@@ -2442,12 +2299,8 @@ class GroupingController(QObject):
         self.main_window.btnGroupCurrent.clicked.connect(self.gui_group_current)
         self.main_window.btnGroupSelected.clicked.connect(self.gui_group_selected)
         self.main_window.btnGroupAll.clicked.connect(self.gui_group_all)
-        self.main_window.btnApplyGroupsCurrent.clicked.connect(
-            self.gui_apply_groups_current
-        )
-        self.main_window.btnApplyGroupsSelected.clicked.connect(
-            self.gui_apply_groups_selected
-        )
+        self.main_window.btnApplyGroupsCurrent.clicked.connect(self.gui_apply_groups_current)
+        self.main_window.btnApplyGroupsSelected.clicked.connect(self.gui_apply_groups_selected)
         self.main_window.btnApplyGroupsAll.clicked.connect(self.gui_apply_groups_all)
         self.main_window.btnGroupGlobal.clicked.connect(self.gui_group_global)
 
@@ -2463,7 +2316,7 @@ class GroupingController(QObject):
             new_ind = curr_part.ahca.steps_num_groups.index(point_num_groups)
             curr_part.ahca.set_selected_step(new_ind)
             curr_part.using_group_levels = False
-            curr_part.level_selected = None
+            curr_part.level_or_group_selected = None
             if last_solution:
                 last_solution.setPen(pg.mkPen(width=1, color="k"))
             for p in points:
@@ -2493,10 +2346,7 @@ class GroupingController(QObject):
                 particle = self.main_window.current_dataset.global_particle
             else:
                 particle = self.main_window.current_particle
-                if (
-                    self.main_window.tabGroupingMode.currentWidget().objectName()
-                    == "tabGlobal"
-                ):
+                if self.main_window.tabGroupingMode.currentWidget().objectName() == "tabGlobal":
                     if particle.has_global_grouping:
                         particle = self.main_window.current_dataset.global_particle
                         is_global_group = True
@@ -2590,11 +2440,7 @@ class GroupingController(QObject):
                 norm_points = [
                     [grouping_num_groups[i], bic]
                     for i, bic in enumerate(grouping_bics)
-                    if (
-                        i != best_grouping_ind
-                        or i != grouping_selected_ind
-                        or grouping_num_groups[i] == 1
-                    )
+                    if (i != best_grouping_ind or i != grouping_selected_ind or grouping_num_groups[i] == 1)
                 ]
                 norm_points = np.array(norm_points)
 
@@ -2716,9 +2562,7 @@ class GroupingController(QObject):
 
         self.temp_dir = tempfile.TemporaryDirectory(prefix="Full_SMS_Grouping")
         g_process_thread = ProcessThread(temp_dir=self.temp_dir)
-        g_process_thread.add_tasks_from_methods(
-            objects=grouping_objs, method_name="run_grouping"
-        )
+        g_process_thread.add_tasks_from_methods(objects=grouping_objs, method_name="run_grouping")
 
         g_process_thread.signals.status_update.connect(mw.status_message)
         g_process_thread.signals.start_progress.connect(mw.start_progress)
@@ -2732,9 +2576,7 @@ class GroupingController(QObject):
 
         self.main_window.threadpool.start(g_process_thread)
 
-    def gather_replace_results(
-        self, results: Union[List[ProcessTaskResult], ProcessTaskResult]
-    ):
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
         particles = self.main_window.current_dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
@@ -2744,7 +2586,7 @@ class GroupingController(QObject):
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
                 new_part = self.main_window.current_dataset.particles[result_part_ind]
-                new_part.level_selected = None
+                new_part.level_or_group_selected = None
 
                 result_ahca = None
                 if new_part.has_levels:
@@ -2806,13 +2648,9 @@ class GroupingController(QObject):
     def check_rois_and_set_label(self):
         export_group_roi_label = ""
         label_color = "black"
-        all_has_groups = np.array(
-            [p.has_groups for p in self.main_window.current_dataset.particles]
-        )
+        all_has_groups = np.array([p.has_groups for p in self.main_window.current_dataset.particles])
         if any(all_has_groups):
-            all_grouped_with_roi = np.array(
-                [p.grouped_with_roi for p in self.main_window.current_dataset.particles]
-            )
+            all_grouped_with_roi = np.array([p.grouped_with_roi for p in self.main_window.current_dataset.particles])
             all_grouped_and_with_roi = all_grouped_with_roi[all_has_groups]
             if all(all_grouped_and_with_roi):
                 export_group_roi_label = "All have ROI\n"
@@ -2822,15 +2660,9 @@ class GroupingController(QObject):
 
             checked_particles = self.main_window.get_checked_particles()
             if len(checked_particles) > 0:
-                all_checked_has_groups = np.array(
-                    [p.has_groups for p in checked_particles]
-                )
-                all_checked_grouped_with_roi = np.array(
-                    [p.grouped_with_roi for p in checked_particles]
-                )
-                all_checked_grouped_and_with_roi = all_checked_grouped_with_roi[
-                    all_checked_has_groups
-                ]
+                all_checked_has_groups = np.array([p.has_groups for p in checked_particles])
+                all_checked_grouped_with_roi = np.array([p.grouped_with_roi for p in checked_particles])
+                all_checked_grouped_and_with_roi = all_checked_grouped_with_roi[all_checked_has_groups]
                 if all(all_checked_grouped_and_with_roi):
                     export_group_roi_label += "All selected have ROI\n"
                 elif any(all_checked_grouped_and_with_roi):
@@ -2865,7 +2697,7 @@ class GroupingController(QObject):
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:
             particle.using_group_levels = bool_use
-            particle.level_selected = None
+            particle.level_or_group_selected = None
 
         self.main_window.intensity_controller.plot_all()
 
@@ -2876,9 +2708,7 @@ class GroupingController(QObject):
             particles = self.main_window.current_dataset.particles
 
         use_roi = self.main_window.chbGroup_Use_ROI.isChecked()
-        self.main_window.current_dataset.global_particle = GlobalParticle(
-            particles=particles, use_roi=use_roi
-        )
+        self.main_window.current_dataset.global_particle = GlobalParticle(particles=particles, use_roi=use_roi)
         self.main_window.status_message("Global particle built...")
 
     def global_gather_replace_results(self, result: ProcessTaskResult):
@@ -2935,9 +2765,7 @@ class GroupingController(QObject):
         global_ahca = mw.current_dataset.global_particle.ahca
 
         gg_process_thread = ProcessThread(num_processes=1)
-        gg_process_thread.add_tasks_from_methods(
-            objects=global_ahca, method_name="run_grouping"
-        )
+        gg_process_thread.add_tasks_from_methods(objects=global_ahca, method_name="run_grouping")
 
         gg_process_thread.signals.status_update.connect(mw.status_message)
         gg_process_thread.signals.start_progress.connect(mw.start_progress)
@@ -2954,9 +2782,7 @@ class GroupingController(QObject):
 
     def gui_group_global(self):
         dataset = self.main_window.current_dataset
-        if not (
-            hasattr(dataset, "global_particle") and dataset.global_particle is not None
-        ):
+        if not (hasattr(dataset, "global_particle") and dataset.global_particle is not None):
             self.build_global()
         self.start_global_grouping_thread()
         # self.main_window.status_message("No global particle found.")
@@ -3048,9 +2874,7 @@ class SpectraController(QObject):
             wl = particle.spectra.wavelengths
             y_ticks_wavelength = np.linspace(wl.max(), wl.min(), 15)
             y_ticks_pixel = np.linspace(0, 512, 15)
-            y_ticks = [
-                [(y_ticks_pixel[i], f"{y_ticks_wavelength[i]: .1f}") for i in range(15)]
-            ]
+            y_ticks = [[(y_ticks_pixel[i], f"{y_ticks_wavelength[i]: .1f}") for i in range(15)]]
             self.spectra_image_view.view.getAxis("left").setTicks(y_ticks)
 
             t_series = particle.spectra.series_times
@@ -3060,12 +2884,7 @@ class SpectraController(QObject):
                 if not (mod_selector + i) % mod_selector:
                     x_ticks_t.append(t_series[i])
             x_ticks_value = np.linspace(0, spectra_data.shape[0], len(x_ticks_t))
-            x_ticks = [
-                [
-                    (x_ticks_value[i], f"{x_ticks_t[i]:.1f}")
-                    for i in range(len(x_ticks_t))
-                ]
-            ]
+            x_ticks = [[(x_ticks_value[i], f"{x_ticks_t[i]:.1f}") for i in range(len(x_ticks_t))]]
             self.spectra_image_view.view.getAxis("bottom").setTicks(x_ticks)
         else:
             if self.temp_fig is None:
@@ -3081,9 +2900,7 @@ class SpectraController(QObject):
             spectra_data -= avg_int
             times = particle.spectra.series_times
             wavelengths = np.flip(particle.spectra.wavelengths)
-            c = self.temp_ax.pcolormesh(
-                times, wavelengths, spectra_data, shading="auto", cmap="inferno"
-            )
+            c = self.temp_ax.pcolormesh(times, wavelengths, spectra_data, shading="auto", cmap="inferno")
             c_bar = self.temp_fig.colorbar(c, ax=self.temp_ax)
             c_bar.set_label("Intensity (counts/s)")
             self.temp_ax.set(
@@ -3183,9 +3000,7 @@ class RasterScanController(QObject):
                 self.temp_fig.clear()
                 # self.temp_ax.clear()
             self.temp_fig.set_size_inches(8, 8)
-            gs = self.temp_fig.add_gridspec(
-                1, 1, left=0.1, right=0.97, bottom=0.05, top=0.97
-            )
+            gs = self.temp_fig.add_gridspec(1, 1, left=0.1, right=0.97, bottom=0.05, top=0.97)
             self.temp_ax = self.temp_fig.add_subplot(gs[0, 0])
 
             left = raster_scan.x_start
@@ -3205,9 +3020,7 @@ class RasterScanController(QObject):
                 last_part = raster_scan.particle_indexes[-1] + 1
                 title = f"Raster Scan for Particles {first_part}-{last_part}"
             else:
-                title = (
-                    f"Raster Scan for Particle {raster_scan.particle_indexes[0] + 1}"
-                )
+                title = f"Raster Scan for Particle {raster_scan.particle_indexes[0] + 1}"
             self.temp_ax.set(xlabel="x axis (um)", ylabel="y axis (um)", title=title)
             c_bar = self.temp_fig.colorbar(c, ax=self.temp_ax)
             c_bar.set_label("intensity (counts/s)")
@@ -3297,9 +3110,7 @@ class RasterScanController(QObject):
             # Offset text
             text_coords = (coords[0] - 1, coords[1] + 1)
             if self._text_item is None:
-                self._text_item = self.create_text_item(
-                    text=str(particle.dataset_ind + 1), pos=text_coords
-                )
+                self._text_item = self.create_text_item(text=str(particle.dataset_ind + 1), pos=text_coords)
                 self.raster_scan_image_view.getView().addItem(self._text_item)
             else:
                 self._text_item.setText(text=str(particle.dataset_ind + 1))
@@ -3309,8 +3120,7 @@ class RasterScanController(QObject):
             dataset = self.main_window.current_dataset
             all_text = f"<h3>Raster Scan {raster_scan.h5dataset_index + 1}</h3><p>"
             rs_part_coord = [
-                dataset.particles[part_ind].raster_scan_coordinates
-                for part_ind in raster_scan.particle_indexes
+                dataset.particles[part_ind].raster_scan_coordinates for part_ind in raster_scan.particle_indexes
             ]
             all_text = (
                 all_text + f"<p>Range (um) = {raster_scan.range}<br></br>"
@@ -3323,17 +3133,10 @@ class RasterScanController(QObject):
                 if num != 0:
                     all_text = all_text + "<br></br>"
                 if particle is dataset.particles[part_index]:
-                    all_text = (
-                        all_text + f"<strong>{num + 1}) {particle.name}</strong>: "
-                    )
+                    all_text = all_text + f"<strong>{num + 1}) {particle.name}</strong>: "
                 else:
-                    all_text = (
-                        all_text + f"{num + 1}) {dataset.particles[part_index].name}: "
-                    )
-                all_text = (
-                    all_text + f"x={rs_part_coord[num][0]: .1f}, "
-                    f"y={rs_part_coord[num][1]: .1f}"
-                )
+                    all_text = all_text + f"{num + 1}) {dataset.particles[part_index].name}: "
+                all_text = all_text + f"x={rs_part_coord[num][0]: .1f}, " f"y={rs_part_coord[num][1]: .1f}"
             self.list_text.setText(all_text)
 
         if lock:
@@ -3422,18 +3225,14 @@ class AntibunchingController(QObject):
     def gui_load_irf(self):
         """Allow the user to load a IRF instead of the IRF that has already been loaded."""
 
-        file_path = QFileDialog.getOpenFileName(
-            self.main_window, "Open HDF5 file", "", "HDF5 files (*.h5)"
-        )
+        file_path = QFileDialog.getOpenFileName(self.main_window, "Open HDF5 file", "", "HDF5 files (*.h5)")
         if file_path != ("", ""):  # fname will equal ('', '') if the user canceled.
             mw = self.main_window
             mw.status_message(message="Opening IRF file...")
             of_process_thread = ProcessThread(num_processes=1)
             of_process_thread.worker_signals.add_datasetindex.connect(mw.add_dataset)
             of_process_thread.worker_signals.add_particlenode.connect(mw.add_node)
-            of_process_thread.worker_signals.add_all_particlenodes.connect(
-                mw.add_all_nodes
-            )
+            of_process_thread.worker_signals.add_all_particlenodes.connect(mw.add_all_nodes)
             of_process_thread.worker_signals.bin_size.connect(mw.set_bin_size)
             of_process_thread.worker_signals.data_loaded.connect(mw.set_data_loaded)
             of_process_thread.worker_signals.add_irf.connect(self.add_irf)
@@ -3613,9 +3412,7 @@ class AntibunchingController(QObject):
         mw.threadpool.start(c_process_thread)
         mw.active_threads.append(c_process_thread)
 
-    def gather_replace_results(
-        self, results: Union[List[ProcessTaskResult], ProcessTaskResult]
-    ):
+    def gather_replace_results(self, results: Union[List[ProcessTaskResult], ProcessTaskResult]):
         particles = self.main_window.current_dataset.particles
         part_uuids = [part.uuid for part in particles]
         if type(results) is not list:
@@ -3704,28 +3501,16 @@ class FilteringController(QObject):
         for option, check_box_and_value_object in self.option_linker.items():
             check_box, value_object = check_box_and_value_object
             if value_object is not None:
-                check_box.stateChanged.connect(
-                    (lambda opt: lambda: self.filter_option_changed(option=opt))(option)
-                )
+                check_box.stateChanged.connect((lambda opt: lambda: self.filter_option_changed(option=opt))(option))
 
         mw.btnFiltPhotonNumberDistribution.clicked.connect(
             lambda: self.plot_features(feature_x=PlotFeature.PhotonNumber)
         )
-        mw.btnFiltIntensityDistribution.clicked.connect(
-            lambda: self.plot_features(feature_x=PlotFeature.Intensity)
-        )
-        mw.btnFiltLifetimeDistribution.clicked.connect(
-            lambda: self.plot_features(feature_x=PlotFeature.Lifetime)
-        )
-        mw.btnFiltDWDistribution.clicked.connect(
-            lambda: self.plot_features(feature_x=PlotFeature.DW)
-        )
-        mw.btnFiltChiSquaredDistribution.clicked.connect(
-            lambda: self.plot_features(feature_x=PlotFeature.ChiSquared)
-        )
-        mw.btnFiltIRFShiftDistribution.clicked.connect(
-            lambda: self.plot_features(feature_x=PlotFeature.IRFShift)
-        )
+        mw.btnFiltIntensityDistribution.clicked.connect(lambda: self.plot_features(feature_x=PlotFeature.Intensity))
+        mw.btnFiltLifetimeDistribution.clicked.connect(lambda: self.plot_features(feature_x=PlotFeature.Lifetime))
+        mw.btnFiltDWDistribution.clicked.connect(lambda: self.plot_features(feature_x=PlotFeature.DW))
+        mw.btnFiltChiSquaredDistribution.clicked.connect(lambda: self.plot_features(feature_x=PlotFeature.ChiSquared))
+        mw.btnFiltIRFShiftDistribution.clicked.connect(lambda: self.plot_features(feature_x=PlotFeature.IRFShift))
 
         filter_nums = [
             mw.spnFiltMinPhotons,
@@ -3740,12 +3525,8 @@ class FilteringController(QObject):
         ]
 
         for num_control in filter_nums:
-            num_control.valueChanged.connect(
-                lambda: self.plot_features(use_current_plot=True)
-            )
-        mw.cmbFiltDWTest.currentTextChanged.connect(
-            lambda: self.plot_features(use_current_plot=True)
-        )
+            num_control.valueChanged.connect(lambda: self.plot_features(use_current_plot=True))
+        mw.cmbFiltDWTest.currentTextChanged.connect(lambda: self.plot_features(use_current_plot=True))
 
         self.current_plot_type = (
             None,
@@ -3761,36 +3542,20 @@ class FilteringController(QObject):
 
         self.setup_plot(*self.current_plot_type, clear_plot=False, is_first_setup=True)
 
-        mw.cmbFiltFeatureX.currentTextChanged.connect(
-            lambda: self.two_features_changed(x_changed=True)
-        )
-        mw.cmbFiltFeatureY.currentTextChanged.connect(
-            lambda: self.two_features_changed(x_changed=False)
-        )
+        mw.cmbFiltFeatureX.currentTextChanged.connect(lambda: self.two_features_changed(x_changed=True))
+        mw.cmbFiltFeatureY.currentTextChanged.connect(lambda: self.two_features_changed(x_changed=False))
         mw.tlbFiltSwitchFeatures.clicked.connect(lambda: self.switch_two_features())
-        mw.btnFiltPlotTwoFeatures.clicked.connect(
-            lambda: self.plot_features(use_selected_two_features=True)
-        )
+        mw.btnFiltPlotTwoFeatures.clicked.connect(lambda: self.plot_features(use_selected_two_features=True))
         mw.btnFiltFit.clicked.connect(self.fit_intensity_lifetime)
 
         mw.chbFiltAutoNumBins.stateChanged.connect(self.auto_num_bins_changed)
-        mw.spnFiltNumBins.valueChanged.connect(
-            lambda: self.plot_features(use_current_plot=True)
-        )
+        mw.spnFiltNumBins.valueChanged.connect(lambda: self.plot_features(use_current_plot=True))
 
-        mw.cmbFiltParticlesToUse.currentTextChanged.connect(
-            lambda: self.plot_features(use_current_plot=True)
-        )
-        mw.cmbFiltUseResolvedOrGrouped.currentTextChanged.connect(
-            lambda: self.plot_features(use_current_plot=True)
-        )
-        mw.chbFiltUseROI.stateChanged.connect(
-            lambda: self.plot_features(use_current_plot=True)
-        )
+        mw.cmbFiltParticlesToUse.currentTextChanged.connect(lambda: self.plot_features(use_current_plot=True))
+        mw.cmbFiltUseResolvedOrGrouped.currentTextChanged.connect(lambda: self.plot_features(use_current_plot=True))
+        mw.chbFiltUseROI.stateChanged.connect(lambda: self.plot_features(use_current_plot=True))
 
-        mw.chbFiltApplyAllFilters.stateChanged.connect(
-            lambda: self.plot_features(use_current_plot=True)
-        )
+        mw.chbFiltApplyAllFilters.stateChanged.connect(lambda: self.plot_features(use_current_plot=True))
 
         mw.btnFiltApplyFilters.clicked.connect(self.apply_filters)
         mw.btnFiltApplyNormalization.clicked.connect(self.apply_normalization)
@@ -3812,9 +3577,7 @@ class FilteringController(QObject):
             brush=QColor("lightGray"),
         )
 
-        self.two_feature_item = pg.ScatterPlotItem(
-            x=[0], y=[0], pen=self.plot_pen, size=3
-        )
+        self.two_feature_item = pg.ScatterPlotItem(x=[0], y=[0], pen=self.plot_pen, size=3)
 
         self.plot_fit_pen = QPen()
         self.plot_fit_pen.setCosmetic(True)
@@ -3874,9 +3637,7 @@ class FilteringController(QObject):
         self.plot_features(*self.current_plot_type)
 
     def auto_num_bins_changed(self):
-        self.main_window.spnFiltNumBins.setEnabled(
-            not self.main_window.chbFiltAutoNumBins.isChecked()
-        )
+        self.main_window.spnFiltNumBins.setEnabled(not self.main_window.chbFiltAutoNumBins.isChecked())
         self.plot_features(*self.current_plot_type)
 
     def get_two_features(self) -> tuple:
@@ -3915,33 +3676,15 @@ class FilteringController(QObject):
             particles = self.current_particles
             if data_points_to_use == "Grouped":
                 if not self.main_window.chbFiltUseROI.isChecked():
-                    levels = [
-                        particle.group_levels
-                        for particle in particles
-                        if particle.has_groups
-                    ]
+                    levels = [particle.group_levels for particle in particles if particle.has_groups]
                 else:
-                    levels = [
-                        particle.group_levels_roi
-                        for particle in particles
-                        if particle.has_groups
-                    ]
+                    levels = [particle.group_levels_roi for particle in particles if particle.has_groups]
             else:
                 if not self.main_window.chbFiltUseROI.isChecked():
-                    levels = [
-                        particle.cpts.levels
-                        for particle in particles
-                        if particle.has_levels
-                    ]
+                    levels = [particle.cpts.levels for particle in particles if particle.has_levels]
                 else:
-                    levels = [
-                        particle.levels_roi_force
-                        for particle in particles
-                        if particle.has_levels
-                    ]
-            self.levels_to_use = (
-                list(np.concatenate(levels)) if len(levels) > 0 else list()
-            )
+                    levels = [particle.levels_roi_force for particle in particles if particle.has_levels]
+            self.levels_to_use = list(np.concatenate(levels)) if len(levels) > 0 else list()
             self.current_data_points_to_use = data_points_to_use
 
     def get_data(self) -> tuple:
@@ -3962,16 +3705,8 @@ class FilteringController(QObject):
         self.set_levels_to_use()
         if x_changed is None:
             raise ValueError("No argument provided.")
-        feature_changed_cmb = (
-            self.main_window.cmbFiltFeatureX
-            if x_changed
-            else self.main_window.cmbFiltFeatureY
-        )
-        other_feature_cmb = (
-            self.main_window.cmbFiltFeatureY
-            if x_changed
-            else self.main_window.cmbFiltFeatureX
-        )
+        feature_changed_cmb = self.main_window.cmbFiltFeatureX if x_changed else self.main_window.cmbFiltFeatureY
+        other_feature_cmb = self.main_window.cmbFiltFeatureY if x_changed else self.main_window.cmbFiltFeatureX
 
         feature_changed_cmb.blockSignals(True)
         other_feature_cmb.blockSignals(True)
@@ -3980,9 +3715,7 @@ class FilteringController(QObject):
         feature_selected = new_other_features.pop(feature_changed_cmb.currentText())
 
         new_changed_features = PlotFeature.get_dict()
-        other_selected_feature = new_changed_features.pop(
-            other_feature_cmb.currentText()
-        )
+        other_selected_feature = new_changed_features.pop(other_feature_cmb.currentText())
 
         feature_changed_cmb.clear()
         feature_changed_cmb.addItems(new_changed_features.keys())
@@ -3996,9 +3729,7 @@ class FilteringController(QObject):
         other_feature_cmb.blockSignals(False)
 
         current_feature_x, current_feature_y = self.current_plot_type
-        if (
-            current_feature_x is not None and current_feature_y is not None
-        ):  # True if current is two feature plot
+        if current_feature_x is not None and current_feature_y is not None:  # True if current is two feature plot
             self.plot_features(use_current_plot=True)
 
     def switch_two_features(self):
@@ -4045,23 +3776,15 @@ class FilteringController(QObject):
 
         if not use_current_plot or use_selected_two_features:
             if use_selected_two_features:
-                if not use_current_plot and (
-                    feature_x is not None or feature_y is not None
-                ):
-                    raise ValueError(
-                        "Use selected two features excludes provided features"
-                    )
+                if not use_current_plot and (feature_x is not None or feature_y is not None):
+                    raise ValueError("Use selected two features excludes provided features")
                 else:
                     feature_x = self.main_window.cmbFiltFeatureX.currentText()
                     feature_y = self.main_window.cmbFiltFeatureY.currentText()
             else:
                 if feature_x is None and feature_y is not None:
-                    raise ValueError(
-                        "Can not provide only a plot feature for the Y-Axis"
-                    )
-                elif (
-                    feature_x is not None or feature_y is not None
-                ) and feature_x == feature_y:
+                    raise ValueError("Can not provide only a plot feature for the Y-Axis")
+                elif (feature_x is not None or feature_y is not None) and feature_x == feature_y:
                     raise ValueError("Can not provide the same feature for x and y")
                 if feature_x is None and feature_y is None:
                     logger.warning("No feature(s) provided and no options selected")
@@ -4074,9 +3797,7 @@ class FilteringController(QObject):
             self.set_levels_to_use()
 
             is_distribution = True if feature_y is None else False
-            plot_item = (
-                self.distribution_item if is_distribution else self.two_feature_item
-            )
+            plot_item = self.distribution_item if is_distribution else self.two_feature_item
             could_have_fit_and_shouldnt = self.has_fit
             if could_have_fit_and_shouldnt:
                 could_have_fit_and_shouldnt &= (feature_x, feature_y) != (
@@ -4108,10 +3829,7 @@ class FilteringController(QObject):
                 [not np.isnan(value) and value >= min_value for value in feature_data],
             )
             feature_data = np.array(
-                [
-                    value if passed_filter else np.NaN
-                    for value, passed_filter in zip(feature_data, are_used_flags)
-                ]
+                [value if passed_filter else np.NaN for value, passed_filter in zip(feature_data, are_used_flags)]
             )
         if test_max:
             are_used_flags = np.logical_and(
@@ -4119,10 +3837,7 @@ class FilteringController(QObject):
                 [not np.isnan(value) and value <= max_value for value in feature_data],
             )
             feature_data = np.array(
-                [
-                    value if passed_filter else np.NaN
-                    for value, passed_filter in zip(feature_data, are_used_flags)
-                ]
+                [value if passed_filter else np.NaN for value, passed_filter in zip(feature_data, are_used_flags)]
             )
         if test_min or test_max:
             num_datapoints_filtered = np.sum(~np.isnan(feature_data))
@@ -4143,10 +3858,7 @@ class FilteringController(QObject):
         if feature == PlotFeature.PhotonNumber:
             are_used_flags = [level.num_photons is not None for level in levels]
             feature_data = np.array(
-                [
-                    level.num_photons if is_used else np.NaN
-                    for level, is_used in zip(levels, are_used_flags)
-                ]
+                [level.num_photons if is_used else np.NaN for level, is_used in zip(levels, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             (
@@ -4165,10 +3877,7 @@ class FilteringController(QObject):
         elif feature == PlotFeature.Intensity:
             are_used_flags = [level.int_p_s is not None for level in levels]
             feature_data = np.array(
-                [
-                    level.int_p_s if is_used else np.NaN
-                    for level, is_used in zip(levels, are_used_flags)
-                ]
+                [level.int_p_s if is_used else np.NaN for level, is_used in zip(levels, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             (
@@ -4187,19 +3896,12 @@ class FilteringController(QObject):
             is_intensity_or_histogram = "level"
 
         elif feature == PlotFeature.Lifetime:
-            are_used_flags = [
-                histogram.fitted and histogram.avtau is not None
-                for histogram in histograms
-            ]
+            are_used_flags = [histogram.fitted and histogram.avtau is not None for histogram in histograms]
             feature_data = [
-                histogram.avtau if is_used else np.NaN
-                for histogram, is_used in zip(histograms, are_used_flags)
+                histogram.avtau if is_used else np.NaN for histogram, is_used in zip(histograms, are_used_flags)
             ]
             feature_data = np.array(
-                [
-                    value[0] if type(value) is list and len(value) == 1 else value
-                    for value in feature_data
-                ]
+                [value[0] if type(value) is list and len(value) == 1 else value for value in feature_data]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             (
@@ -4218,15 +3920,9 @@ class FilteringController(QObject):
             is_intensity_or_histogram = "histogram"
 
         elif feature == PlotFeature.DW:
-            are_used_flags = [
-                histogram.fitted and histogram.dw is not None
-                for histogram in histograms
-            ]
+            are_used_flags = [histogram.fitted and histogram.dw is not None for histogram in histograms]
             feature_data = np.array(
-                [
-                    histogram.dw if is_used else np.NaN
-                    for histogram, is_used in zip(histograms, are_used_flags)
-                ]
+                [histogram.dw if is_used else np.NaN for histogram, is_used in zip(histograms, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             if self.main_window.chbFiltUseDW.isChecked():
@@ -4243,30 +3939,20 @@ class FilteringController(QObject):
                 are_used_flags = np.logical_and(
                     are_used_flags,
                     [
-                        not np.isnan(value)
-                        and histogram.dw >= histogram.dw_bound[dw_ind]
+                        not np.isnan(value) and histogram.dw >= histogram.dw_bound[dw_ind]
                         for value, histogram in zip(feature_data, histograms)
                     ],
                 )
                 feature_data = np.array(
-                    [
-                        value if is_used else np.NaN
-                        for (value, is_used) in zip(feature_data, are_used_flags)
-                    ]
+                    [value if is_used else np.NaN for (value, is_used) in zip(feature_data, are_used_flags)]
                 )
                 num_datapoints_filtered = np.sum(~np.isnan(feature_data))
             is_intensity_or_histogram = "histogram"
 
         elif feature == PlotFeature.IRFShift:
-            are_used_flags = [
-                histogram.fitted and histogram.shift is not None
-                for histogram in histograms
-            ]
+            are_used_flags = [histogram.fitted and histogram.shift is not None for histogram in histograms]
             feature_data = np.array(
-                [
-                    histogram.shift if is_used else np.NaN
-                    for histogram, is_used in zip(histograms, are_used_flags)
-                ]
+                [histogram.shift if is_used else np.NaN for histogram, is_used in zip(histograms, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             (
@@ -4285,15 +3971,9 @@ class FilteringController(QObject):
             is_intensity_or_histogram = "histogram"
 
         elif feature == PlotFeature.ChiSquared:
-            are_used_flags = [
-                histogram.fitted and histogram.chisq is not None
-                for histogram in histograms
-            ]
+            are_used_flags = [histogram.fitted and histogram.chisq is not None for histogram in histograms]
             feature_data = np.array(
-                [
-                    histogram.chisq if is_used else np.NaN
-                    for histogram, is_used in zip(histograms, are_used_flags)
-                ]
+                [histogram.chisq if is_used else np.NaN for histogram, is_used in zip(histograms, are_used_flags)]
             )
             num_datapoints = np.sum(~np.isnan(feature_data))
             (
@@ -4396,9 +4076,7 @@ class FilteringController(QObject):
                 num_bins = self.main_window.spnFiltNumBins.value()
                 bin_edges = np.histogram_bin_edges(feature_data, num_bins)
 
-            bin_edges, hist_data = np.histogram(
-                feature_data, bins=bin_edges, density=False
-            )
+            bin_edges, hist_data = np.histogram(feature_data, bins=bin_edges, density=False)
 
             if is_auto_num_bins:
                 self.main_window.spnFiltNumBins.blockSignals(True)
@@ -4421,12 +4099,8 @@ class FilteringController(QObject):
 
         self.set_limits(feature_x=feature_x, feature_y=feature_y)
 
-        featured_x_data, num_data_x, num_data_x_filt, _, _ = self.get_feature_data(
-            feature=feature_x
-        )
-        featured_y_data, num_data_y, num_data_y_filt, _, _ = self.get_feature_data(
-            feature=feature_y
-        )
+        featured_x_data, num_data_x, num_data_x_filt, _, _ = self.get_feature_data(feature=feature_x)
+        featured_y_data, num_data_y, num_data_y_filt, _, _ = self.get_feature_data(feature=feature_y)
 
         not_nan_values = (~np.isnan(featured_x_data)) & (~np.isnan(featured_y_data))
         did_all_filter = False
@@ -4445,9 +4119,7 @@ class FilteringController(QObject):
             num_datapoints_text = f"# Datapoints: {num_data}"
         else:
             num_data_filtered = np.sum(not_nan_values)
-            num_datapoints_text = (
-                f"# Datapoints: {num_data_filtered} ({num_data} unfiltered)"
-            )
+            num_datapoints_text = f"# Datapoints: {num_data_filtered} ({num_data} unfiltered)"
         self.main_window.lblFiltNumDatapoints.setText(num_datapoints_text)
 
         if (feature_x, feature_y) == (
@@ -4460,9 +4132,7 @@ class FilteringController(QObject):
     def prepare_plot_for_int_lifetime_fit(self):
         feature_x, feature_y = self.current_plot_type
         if (feature_x, feature_y) != (PlotFeature.Intensity, PlotFeature.Lifetime):
-            self.plot_features(
-                feature_x=PlotFeature.Intensity, feature_y=PlotFeature.Lifetime
-            )
+            self.plot_features(feature_x=PlotFeature.Intensity, feature_y=PlotFeature.Lifetime)
             feature_x, feature_y = (PlotFeature.Intensity, PlotFeature.Lifetime)
             self.main_window.cmbFiltFeatureX.blockSignals(True)
             self.main_window.cmbFiltFeatureY.blockSignals(True)
@@ -4511,9 +4181,7 @@ class FilteringController(QObject):
             self.plot.addItem(self.int_lifetime_fit_item)
 
         fit_result_text = f"Fit: tau = ({slope:.3e} +- {slope_err:.1e})*int"
-        fit_result_text += (
-            f" + ({intercept:.3e} +- {intercept_err:.1e})" if has_intercept else ""
-        )
+        fit_result_text += f" + ({intercept:.3e} +- {intercept_err:.1e})" if has_intercept else ""
         fit_result_text += f"  with R^2 = {rsquared:.3f}"
         self.main_window.lblFiltResults.setText(fit_result_text)
 

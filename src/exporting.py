@@ -136,9 +136,7 @@ def export_data(
                 ex_plot_with_fit = True
             else:
                 ex_plot_and_residuals = True
-        ex_plot_lifetimes_only_groups = (
-            mainwindow.chbEx_Plot_Lifetimes_Only_Groups.isChecked()
-        )
+        ex_plot_lifetimes_only_groups = mainwindow.chbEx_Plot_Lifetimes_Only_Groups.isChecked()
     ex_spectra_2d = mainwindow.chbEx_Spectra_2D.isChecked()
     ex_plot_spectra = mainwindow.chbEx_Plot_Spectra.isChecked()
     ex_raster_scan_2d = mainwindow.chbEx_Raster_Scan_2D.isChecked()
@@ -149,9 +147,7 @@ def export_data(
     ex_df_levels = mainwindow.chbEx_DF_Levels.isChecked()
     ex_df_levels_lifetimes = mainwindow.chbEx_DF_Levels_Lifetimes.isChecked()
     ex_df_grouped_levels = mainwindow.chbEx_DF_Grouped_Levels.isChecked()
-    ex_df_grouped_levels_lifetimes = (
-        mainwindow.chbEx_DF_Grouped_Levels_Lifetimes.isChecked()
-    )
+    ex_df_grouped_levels_lifetimes = mainwindow.chbEx_DF_Grouped_Levels_Lifetimes.isChecked()
     ex_df_grouping_info = mainwindow.chbEx_DF_Grouping_Info.isChecked()
 
     ex_df_format = mainwindow.cmbEx_DataFrame_Format.currentIndex()
@@ -245,9 +241,7 @@ def export_data(
                     while lock.locked():
                         sleep(0.1)
                 else:
-                    mainwindow.intensity_controller.plot_trace(
-                        particle=p, for_export=True, export_path=f_dir
-                    )
+                    mainwindow.intensity_controller.plot_trace(particle=p, for_export=True, export_path=f_dir)
 
             if ex_levels:
                 if p.has_levels:
@@ -255,9 +249,7 @@ def export_data(
                     ints, times = p.levels2data(use_grouped=False, use_roi=False)
                     export_level_plot(ints, lvl_tr_path, open_file, times)
                     if use_roi:
-                        lvl_tr_path = os.path.join(
-                            f_dir, pname + " levels-plot (ROI).csv"
-                        )
+                        lvl_tr_path = os.path.join(f_dir, pname + " levels-plot (ROI).csv")
                         ints, times = p.levels2data(use_grouped=False, use_roi=use_roi)
                         export_level_plot(ints, lvl_tr_path, open_file, times)
 
@@ -280,18 +272,12 @@ def export_data(
                         while lock.locked():
                             sleep(0.1)
                     else:
-                        mainwindow.intensity_controller.plot_trace(
-                            particle=p, for_export=True
-                        )
-                        mainwindow.intensity_controller.plot_levels(
-                            particle=p, for_export=True, export_path=f_dir
-                        )
+                        mainwindow.intensity_controller.plot_trace(particle=p, for_export=True)
+                        mainwindow.intensity_controller.plot_levels(particle=p, for_export=True, export_path=f_dir)
 
             if ex_grouped_levels:
                 if p.has_groups:
-                    grp_lvl_tr_path = os.path.join(
-                        f_dir, pname + " levels-grouped-plot"
-                    )
+                    grp_lvl_tr_path = os.path.join(f_dir, pname + " levels-grouped-plot")
                     if not p.grouped_with_roi:
                         grp_lvl_tr_path += ".csv"
                     else:
@@ -340,9 +326,7 @@ def export_data(
 
             if ex_global_grouped_levels:
                 if p.has_global_grouping:
-                    grp_lvl_path = os.path.join(
-                        f_dir, pname + " levels-global-grouped.csv"
-                    )
+                    grp_lvl_path = os.path.join(f_dir, pname + " levels-global-grouped.csv")
                     rows = list()
                     rows.append(
                         [
@@ -387,12 +371,8 @@ def export_data(
                         while lock.locked():
                             sleep(0.1)
                     else:
-                        mainwindow.intensity_controller.plot_trace(
-                            particle=p, for_export=True
-                        )
-                        mainwindow.intensity_controller.plot_levels(
-                            particle=p, for_export=True
-                        )
+                        mainwindow.intensity_controller.plot_trace(particle=p, for_export=True)
+                        mainwindow.intensity_controller.plot_levels(particle=p, for_export=True)
                         mainwindow.intensity_controller.plot_group_bounds(
                             particle=p, for_export=True, export_path=f_dir
                         )
@@ -437,26 +417,20 @@ def export_data(
 
             if ex_grouping_results:
                 if p.has_groups:
-                    grouping_results_path = os.path.join(
-                        f_dir, pname + " grouping-results"
-                    )
+                    grouping_results_path = os.path.join(f_dir, pname + " grouping-results")
                     if not p.grouped_with_roi:
                         grouping_results_path += ".csv"
                     else:
                         grouping_results_path += " (ROI).csv"
                     with open_file(grouping_results_path) as f:
                         f.write(f"# of Steps:,{p.ahca.num_steps}\n")
-                        f.write(
-                            f"Step with highest BIC value:,{p.ahca.best_step.bic}\n"
-                        )
+                        f.write(f"Step with highest BIC value:,{p.ahca.best_step.bic}\n")
                         f.write(f"Step selected:,{p.ahca.selected_step_ind}\n\n")
 
                         rows = list()
                         rows.append(["Step #", "# of Groups", "BIC value"])
                         for num, step in enumerate(p.ahca.steps):
-                            rows.append(
-                                [str(num + 1), str(step.num_groups), str(step.bic)]
-                            )
+                            rows.append([str(num + 1), str(step.num_groups), str(step.bic)])
 
                         writer = csv.writer(f, dialect=csv.excel)
                         writer.writerows(rows)
@@ -468,9 +442,7 @@ def export_data(
                     while lock.locked():
                         sleep(0.1)
                 else:
-                    mainwindow.grouping_controller.plot_group_bic(
-                        particle=p, for_export=True, export_path=f_dir
-                    )
+                    mainwindow.grouping_controller.plot_group_bic(particle=p, for_export=True, export_path=f_dir)
 
             if ex_lifetime:
                 all_fitted_lvls = [lvl.histogram.fitted for lvl in p.cpts.levels]
@@ -490,9 +462,7 @@ def export_data(
                 if use_roi:
                     all_fitted_lvls_roi = [lvl.histogram.fitted for lvl in p.levels_roi]
                     if p.has_levels and any(all_fitted_lvls_roi):
-                        lvl_path = os.path.join(
-                            f_dir, pname + " levels-lifetimes (ROI).csv"
-                        )
+                        lvl_path = os.path.join(f_dir, pname + " levels-lifetimes (ROI).csv")
                         export_lifetimes(lvl_path, p.levels_roi, open_file, levels=True)
 
             if ex_hist:
@@ -518,25 +488,15 @@ def export_data(
                     roi_start_ind = p.first_level_ind_in_roi
                     roi_end_ind = p.last_level_ind_in_roi
                     for i, l in enumerate(p.cpts.levels):
-                        roi_tag = (
-                            " (ROI)"
-                            if use_roi and roi_start_ind <= i <= roi_end_ind
-                            else ""
-                        )
-                        hist_path = os.path.join(
-                            dir_path, "level " + str(i + 1) + roi_tag + " hist.csv"
-                        )
+                        roi_tag = " (ROI)" if use_roi and roi_start_ind <= i <= roi_end_ind else ""
+                        hist_path = os.path.join(dir_path, "level " + str(i + 1) + roi_tag + " hist.csv")
                         export_hist(open_file, l, hist_path, level=True)
 
                     if p.has_groups:
                         roi_start_ind = p.first_group_level_ind_in_roi
                         roi_end_ind = p.last_group_level_ind_in_roi
                         for i, g in enumerate(p.group_levels):
-                            roi_tag = (
-                                " (ROI)"
-                                if use_roi and roi_start_ind <= i <= roi_end_ind
-                                else ""
-                            )
+                            roi_tag = " (ROI)" if use_roi and roi_start_ind <= i <= roi_end_ind else ""
                             hist_path = os.path.join(
                                 dir_path,
                                 "group level " + str(i + 1) + roi_tag + " hist.csv",
@@ -544,9 +504,7 @@ def export_data(
                             export_hist(open_file, g, hist_path, level=True)
 
                         for i, g in enumerate(p.groups):
-                            hist_path = os.path.join(
-                                dir_path, "group " + str(i + 1) + " hist.csv"
-                            )
+                            hist_path = os.path.join(dir_path, "group " + str(i + 1) + " hist.csv")
                             export_hist(open_file, g, hist_path, level=True)
 
             # TODO: Fix problems
@@ -573,9 +531,7 @@ def export_data(
                     if not ex_plot_lifetimes_only_groups:
                         for i, lvl in enumerate(p.cpts.levels):
                             if signals:
-                                signals.plot_decay_export_lock.emit(
-                                    i, p, False, True, dir_path, True
-                                )
+                                signals.plot_decay_export_lock.emit(i, p, False, True, dir_path, True)
                                 lock.acquire()
                                 while lock.locked():
                                     sleep(0.1)
@@ -590,9 +546,7 @@ def export_data(
                         for i in range(p.num_groups):
                             i_g = i + p.num_levels
                             if signals:
-                                signals.plot_decay_export_lock.emit(
-                                    i_g, p, False, True, dir_path, True
-                                )
+                                signals.plot_decay_export_lock.emit(i_g, p, False, True, dir_path, True)
                                 lock.acquire()
                                 while lock.locked():
                                     sleep(0.1)
@@ -615,9 +569,7 @@ def export_data(
                     while lock.locked():
                         sleep(0.1)
                 else:
-                    mainwindow.lifetime_controller.plot_decay(
-                        select_ind=-1, particle=p, for_export=True
-                    )
+                    mainwindow.lifetime_controller.plot_decay(select_ind=-1, particle=p, for_export=True)
                     mainwindow.lifetime_controller.plot_convd(
                         select_ind=-1, particle=p, for_export=True, export_path=f_dir
                     )
@@ -638,9 +590,7 @@ def export_data(
                     while lock.locked():
                         sleep(0.1)
                 else:
-                    mainwindow.lifetime_controller.plot_decay(
-                        select_ind=-1, particle=p, for_export=True
-                    )
+                    mainwindow.lifetime_controller.plot_decay(select_ind=-1, particle=p, for_export=True)
                     mainwindow.lifetime_controller.plot_convd(
                         select_ind=-1, particle=p, for_export=True, export_path=f_dir
                     )
@@ -679,9 +629,7 @@ def export_data(
                     while lock.locked():
                         sleep(0.1)
                 else:
-                    mainwindow.spectra_controller.plot_spectra(
-                        particle=p, for_export=True, export_path=f_dir
-                    )
+                    mainwindow.spectra_controller.plot_spectra(particle=p, for_export=True, export_path=f_dir)
             if ex_plot_corr_hists:
                 if signals:
                     signals.plot_corr_export_lock.emit(p, True, f_dir, True)
@@ -689,9 +637,7 @@ def export_data(
                     while lock.locked():
                         sleep(0.1)
                 else:
-                    mainwindow.antibunch_controller.plot_corr(
-                        particle=p, for_export=True, export_path=f_dir
-                    )
+                    mainwindow.antibunch_controller.plot_corr(particle=p, for_export=True, export_path=f_dir)
 
             logger.info("Exporting Finished")
             if signals:
@@ -712,13 +658,9 @@ def export_data(
             rs_part_ind = raster_scan.particle_indexes[0]
             p = dataset.particles[rs_part_ind]
             if ex_raster_scan_2d:
-                raster_scan_2d_path = os.path.join(
-                    f_dir, f"Raster Scan {raster_scan.dataset_index + 1} data.csv"
-                )
+                raster_scan_2d_path = os.path.join(f_dir, f"Raster Scan {raster_scan.dataset_index + 1} data.csv")
                 top_row = [np.NaN, *raster_scan.x_axis_pos]
-                y_and_data = np.column_stack(
-                    (raster_scan.y_axis_pos, raster_scan.dataset[:])
-                )
+                y_and_data = np.column_stack((raster_scan.y_axis_pos, raster_scan.dataset[:]))
                 x_y_data = np.insert(y_and_data, 0, top_row, axis=0)
                 with open_file(raster_scan_2d_path) as f:
                     f.write("Rows = X-Axis (um)")
@@ -730,9 +672,7 @@ def export_data(
             if ex_plot_raster_scans:
                 if signals:
                     # with lock:
-                    signals.plot_raster_scan_export_lock.emit(
-                        p, raster_scan, True, f_dir, True
-                    )
+                    signals.plot_raster_scan_export_lock.emit(p, raster_scan, True, f_dir, True)
                     lock.acquire()
                     while lock.locked():
                         sleep(0.1)
@@ -832,9 +772,7 @@ def export_data(
                         *get_level_data(
                             l,
                             p.dwell_time,
-                            incl_lifetimes=all(
-                                [ex_df_levels_lifetimes, p.has_fit_a_lifetime]
-                            ),
+                            incl_lifetimes=all([ex_df_levels_lifetimes, p.has_fit_a_lifetime]),
                             max_numexp=max_numexp,
                         ),
                         level_in_roi,
@@ -845,9 +783,7 @@ def export_data(
                 roi_first_group_level_ind = p.first_group_level_ind_in_roi
                 roi_last_group_level_ind = p.last_group_level_ind_in_roi
                 for g_l_num, g_l in enumerate(p.group_levels):
-                    group_level_in_roi = (
-                        roi_first_group_level_ind <= g_l_num <= roi_last_group_level_ind
-                    )
+                    group_level_in_roi = roi_first_group_level_ind <= g_l_num <= roi_last_group_level_ind
                     row = [
                         pname,
                         not p.is_secondary_part,
@@ -857,9 +793,7 @@ def export_data(
                         *get_level_data(
                             g_l,
                             p.dwell_time,
-                            incl_lifetimes=all(
-                                [ex_df_grouped_levels_lifetimes, p.has_fit_a_lifetime]
-                            ),
+                            incl_lifetimes=all([ex_df_grouped_levels_lifetimes, p.has_fit_a_lifetime]),
                             max_numexp=max_numexp,
                         ),
                         group_level_in_roi,
@@ -902,9 +836,7 @@ def export_data(
                 signals.progress.emit()
 
         if ex_df_grouped_levels:
-            df_grouped_levels = pd.DataFrame(
-                data=data_grouped_levels, columns=grouped_levels_cols
-            )
+            df_grouped_levels = pd.DataFrame(data=data_grouped_levels, columns=grouped_levels_cols)
             df_grouped_levels["particle"] = df_grouped_levels.particle.astype("string")
             # grouped_levels_df_path = os.path.join(f_dir, 'grouped_levels.df')
             # feather.write_feather(df=df_grouped_levels, dest=grouped_levels_df_path)
@@ -918,9 +850,7 @@ def export_data(
                 signals.progress.emit()
 
         if ex_df_grouping_info:
-            df_grouping_info = pd.DataFrame(
-                data=data_grouping_info, columns=grouping_info_cols
-            )
+            df_grouping_info = pd.DataFrame(data=data_grouping_info, columns=grouping_info_cols)
             # grouping_info_df_path = os.path.join(f_dir, 'grouping_info.df')
             # feather.write_feather(df=df_grouping_info, dest=grouping_info_df_path)
             write_dataframe_to_file(
@@ -937,9 +867,7 @@ def export_data(
         signals.status_message.emit("Done")
 
 
-def write_hists(
-    ex_plot_lifetimes_only_groups, f_dir, lock, p, signals, residuals=False
-):
+def write_hists(ex_plot_lifetimes_only_groups, f_dir, lock, p, signals, residuals=False):
     pname = p.unique_name
     dir_path = os.path.join(f_dir, pname + " hists")
     try:
@@ -1116,9 +1044,7 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
         else:
             histogram = p._histogram
         if histogram.fitted:
-            if (
-                histogram.tau is None or histogram.amp is None
-            ):  # Problem with fitting the level
+            if histogram.tau is None or histogram.amp is None:  # Problem with fitting the level
                 tauexp = ["0" for i in range(histogram.numexp)]
                 ampexp = ["0" for i in range(histogram.numexp)]
                 other_exp = ["0", "0", "0", "0"]
@@ -1133,9 +1059,7 @@ def export_lifetimes(lifetime_path, particles, open_file, roi=False, levels=Fals
                     tauexp = [str(tau) for tau in histogram.tau]
                     taustdexp = [str(std) for std in histogram.stds[:numexp]]
                     ampexp = [str(amp) for amp in histogram.amp]
-                    ampstdexp = [
-                        str(std) for std in histogram.stds[numexp : 2 * numexp]
-                    ]
+                    ampstdexp = [str(std) for std in histogram.stds[numexp : 2 * numexp]]
                 if hasattr(histogram, "fwhm") and histogram.fwhm is not None:
                     sim_irf_fwhm = str(histogram.fwhm)
                     sim_irf_fwhm_std = str(histogram.stds[2 * numexp + 1])
@@ -1180,9 +1104,7 @@ def export_corr(open_file, tr_path, p):
         writer.writerows(rows)
 
 
-def write_dataframe_to_file(
-    dataframe: pd.DataFrame, path: str, filename: str, file_type: dict
-):
+def write_dataframe_to_file(dataframe: pd.DataFrame, path: str, filename: str, file_type: dict):
     # DATAFRAME_FORMATS = {'Parquet (*.parquet)': 0,
     #                      'Feather (*.ftr)': 1,
     #                      'Feather (*.df)': 2,

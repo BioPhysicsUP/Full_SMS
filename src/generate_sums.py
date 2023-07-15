@@ -99,9 +99,7 @@ class CPSums:
             if os.path.exists(all_sums_path) and os.path.isfile(all_sums_path):
                 with open(all_sums_path, "rb") as all_sums_file:
                     all_sums: dict = pickle.load(all_sums_file)
-                if ("version" not in all_sums.keys()) or all_sums[
-                    "version"
-                ] != self._version:
+                if ("version" not in all_sums.keys()) or all_sums["version"] != self._version:
                     self._calc_and_store()
                 else:
                     self._sums_u_k = all_sums["sums_u_k"]
@@ -122,26 +120,14 @@ class CPSums:
 
         if self.prog_fb:
             self.prog_fb.set_status(status="Calculating sums...")
-            progress = ProcessProgress(
-                prog_fb=self.prog_fb, num_iterations=self.n_max - self.n_min
-            )
+            progress = ProcessProgress(prog_fb=self.prog_fb, num_iterations=self.n_max - self.n_min)
         for n in range(self.n_min + 1, self.n_max + 1):
-            self._sums_sig_e[n - self.n_min - 1] = (np.pi**2) / 6 - sum(
-                1 / j**2 for j in range(1, (n - 1) + 1)
-            )
+            self._sums_sig_e[n - self.n_min - 1] = (np.pi**2) / 6 - sum(1 / j**2 for j in range(1, (n - 1) + 1))
             for k in range(1, n):
-                self._sums_u_k[k - 1, n - self.n_min - 1] = -sum(
-                    1 / j for j in range(k, (n - 1) + 1)
-                )
-                self._sums_u_n_k[k - 1, n - self.n_min - 1] = -sum(
-                    1 / j for j in range(n - k, (n - 1) + 1)
-                )
-                self._sums_v2_k[k - 1, n - self.n_min - 1] = sum(
-                    1 / j**2 for j in range(k, (n - 1) + 1)
-                )
-                self._sums_v2_n_k[k - 1, n - self.n_min - 1] = sum(
-                    1 / j**2 for j in range(n - k, (n - 1) + 1)
-                )
+                self._sums_u_k[k - 1, n - self.n_min - 1] = -sum(1 / j for j in range(k, (n - 1) + 1))
+                self._sums_u_n_k[k - 1, n - self.n_min - 1] = -sum(1 / j for j in range(n - k, (n - 1) + 1))
+                self._sums_v2_k[k - 1, n - self.n_min - 1] = sum(1 / j**2 for j in range(k, (n - 1) + 1))
+                self._sums_v2_n_k[k - 1, n - self.n_min - 1] = sum(1 / j**2 for j in range(n - k, (n - 1) + 1))
             if self.prog_fb:
                 progress.iterate()
 

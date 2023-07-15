@@ -185,9 +185,7 @@ class ClusteringStep:
             return int_bounds
 
     def ahc(self):
-        merge = np.full(
-            shape=(self._num_prev_groups, self._num_prev_groups), fill_value=-np.inf
-        )
+        merge = np.full(shape=(self._num_prev_groups, self._num_prev_groups), fill_value=-np.inf)
         for j, group_j in enumerate(self._seed_groups):  # Row
             for m, group_m in enumerate(self._seed_groups):  # Column
                 if j < m:
@@ -213,9 +211,7 @@ class ClusteringStep:
                     merge_lvls = group_i.lvls_inds.copy()
                     merge_lvls.extend(self._seed_groups[max_m].lvls_inds.copy())
                     merge_lvls.sort()
-                    new_groups.append(
-                        Group(lvls_inds=merge_lvls, particle=self._particle)
-                    )
+                    new_groups.append(Group(lvls_inds=merge_lvls, particle=self._particle))
                 else:
                     new_groups.append(group_i)
 
@@ -255,25 +251,14 @@ class ClusteringStep:
             denom = np.zeros(shape=(self._num_levels,))
 
             for m, group in enumerate(self._ahc_groups):
-                t_hat[m] = np.sum(
-                    [p_mj[m, j] * l.dwell_time_s for j, l in enumerate(levels)]
-                )
-                n_hat[m] = np.sum(
-                    [p_mj[m, j] * l.num_photons for j, l in enumerate(levels)]
-                )
+                t_hat[m] = np.sum([p_mj[m, j] * l.dwell_time_s for j, l in enumerate(levels)])
+                n_hat[m] = np.sum([p_mj[m, j] * l.num_photons for j, l in enumerate(levels)])
                 p_hat[m] = t_hat[m] / cap_t
-                i_hat[m] = np.sum(
-                    [
-                        p_mj[m, j] * l.num_photons / t_hat[m]
-                        for j, l in enumerate(levels)
-                    ]
-                )
+                i_hat[m] = np.sum([p_mj[m, j] * l.num_photons / t_hat[m] for j, l in enumerate(levels)])
 
                 denom_sum = 0
                 for j, l in enumerate(levels):
-                    p_hat_g[m, j] = p_hat[m] * poisson.pmf(
-                        l.num_photons, i_hat[m] * l.dwell_time_s
-                    )
+                    p_hat_g[m, j] = p_hat[m] * poisson.pmf(l.num_photons, i_hat[m] * l.dwell_time_s)
 
             for j in range(self._num_levels):
                 denom[j] = np.sum(p_hat_g[:, j])
@@ -324,11 +309,7 @@ class ClusteringStep:
         num_cp = self._particle.cpts.num_cpts
         num_g = self.num_groups
 
-        self.bic = (
-            2 * self._em_log_l
-            - (2 * num_g - 1) * np.log(num_cp)
-            - num_cp * np.log(self._particle.num_photons)
-        )
+        self.bic = 2 * self._em_log_l - (2 * num_g - 1) * np.log(num_cp) - num_cp * np.log(self._particle.num_photons)
 
     def group_2_levels(self):
         if not self._particle.use_roi_for_grouping:
@@ -373,11 +354,7 @@ class ClusteringStep:
                     group_ind = self.level_group_ind[i]
                     parent_particle_dataset_ind = part_level.parent_particle_dataset_ind
                     if parent_particle_dataset_ind != prev_particle_dataset_ind:
-                        start_time_offset_ns = (
-                            0
-                            if len(group_levels) == 0
-                            else group_levels[-1].times_ns[1]
-                        )
+                        start_time_offset_ns = 0 if len(group_levels) == 0 else group_levels[-1].times_ns[1]
                         prev_particle_dataset_ind = parent_particle_dataset_ind
                     group_levels.append(
                         GlobalLevel(
@@ -546,9 +523,7 @@ class AHCA:
                                 )
 
                     if feedback_queue is not None:
-                        feedback_queue.put(
-                            ProcessProgressTask(task_cmd=ProcessProgressCmd.Complete)
-                        )
+                        feedback_queue.put(ProcessProgressTask(task_cmd=ProcessProgressCmd.Complete))
                     self.steps = steps
                     self.num_steps = len(steps)
                     self.bics = [step.bic for step in steps]
@@ -570,14 +545,10 @@ class AHCA:
     def set_selected_step(self, step_ind: int):
         assert 0 <= step_ind < self.num_steps, "AHCA: Provided step index out of range."
         self.selected_step_ind = step_ind
-        if not all(
-            [lvl.histogram is not None for lvl in self.steps[step_ind].group_levels]
-        ):
+        if not all([lvl.histogram is not None for lvl in self.steps[step_ind].group_levels]):
             if not self.selected_step.groups_have_hists:
                 self._particle.makelevelhists(force_group_levels=True)
-        if not all(
-            [group.histogram is not None for group in self.steps[step_ind].groups]
-        ):
+        if not all([group.histogram is not None for group in self.steps[step_ind].groups]):
             self._particle.makegrouphists()
 
     def reset_selected_step(self):
@@ -619,9 +590,7 @@ class GlobalLevel:
                     particle_levels.level_inds,
                 )
             elif type(particle_levels) is GlobalLevel:
-                microtimes_particle_inds_pairs.extend(
-                    level.microtimes_particle_inds_pairs
-                )
+                microtimes_particle_inds_pairs.extend(level.microtimes_particle_inds_pairs)
         self.microtimes_particle_inds_pairs = microtimes_particle_inds_pairs
         # self.microtimes = particle_levels.microtimes
         # self.histogram = particle_levels.histogram

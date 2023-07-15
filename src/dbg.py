@@ -119,9 +119,7 @@ class MemSize(float):
         return super().__str__() + " " + self.size_type_2_str(self.size_type)
 
 
-def get_size(
-    test_obj: object, size_type: Union[str, MemSizeType] = MemSizeType.megabyte
-):
+def get_size(test_obj: object, size_type: Union[str, MemSizeType] = MemSizeType.megabyte):
     if has_asizeof:
         size_byte = asizeof.asizeof(test_obj)
 
@@ -129,11 +127,7 @@ def get_size(
         if size_type != "MB" and size_type != MemSizeType.megabyte:
             if size_type == "B" or size_type == MemSizeType.byte:
                 conv_factor = 1
-            elif (
-                size_type == "kB"
-                or size_type == "KB"
-                or size_type == MemSizeType.kilobyte
-            ):
+            elif size_type == "kB" or size_type == "KB" or size_type == MemSizeType.kilobyte:
                 conv_factor = 1e-3
             elif size_type == "GB" or size_type == MemSizeType.gigabyte:
                 conv_factor = 1e-9
@@ -186,9 +180,7 @@ def explore_sizes(
         if not key.startswith("__") and not callable(obj):
             already_explored = False
             size = get_size(test_obj=obj, size_type=size_type)
-            if min_size_mb is None or (
-                min_size_mb is not None and size.in_mb() >= min_size_mb
-            ):
+            if min_size_mb is None or (min_size_mb is not None and size.in_mb() >= min_size_mb):
                 already_explored = id(obj) in __objs_tested
                 if already_explored and only_show_new:
                     pass
@@ -196,20 +188,13 @@ def explore_sizes(
                     if obj is None or type(obj) is bool:
                         already_explored_text = ""
                     else:
-                        already_explored_text = (
-                            " (already explored)" if already_explored else ""
-                        )
-                    print(
-                        f"{level_prepend}|-- {key} ({type(obj)}) -> {size}{already_explored_text}"
-                    )
+                        already_explored_text = " (already explored)" if already_explored else ""
+                    print(f"{level_prepend}|-- {key} ({type(obj)}) -> {size}{already_explored_text}")
             __objs_tested.append(id(obj))
             if already_explored:
                 continue
             elif type(obj) in [list, tuple] and len(obj) > 0:
-                if (
-                    not type(obj[0]) in EXCLUSION_TYPES
-                    and not type(obj[0]).__module__ in EXCLUSION_MODULES
-                ):
+                if not type(obj[0]) in EXCLUSION_TYPES and not type(obj[0]).__module__ in EXCLUSION_MODULES:
                     print(f"{level_prepend}| [0]")
                     max_level_reached, new_objs_tested = explore_sizes(
                         test_obj=obj[0],
@@ -229,10 +214,7 @@ def explore_sizes(
                             return True, __objs_tested
                         else:
                             continue
-            elif (
-                not type(obj) in EXCLUSION_TYPES
-                and not type(obj).__module__ in EXCLUSION_MODULES
-            ):
+            elif not type(obj) in EXCLUSION_TYPES and not type(obj).__module__ in EXCLUSION_MODULES:
                 max_level_reached, new_objs_tested = explore_sizes(
                     test_obj=obj,
                     size_type=size_type,
@@ -260,9 +242,7 @@ def explore_sizes(
 # task.obj._cpa.levels[0]._particle.dataset.particles[0]._histogram._particle.cpts._cpa.levels[0]._particle.dataset.particles[0].levels_roi[0]._microtimes._particle
 
 
-def print_size(
-    test_obj: object, size_type: Union[str, MemSizeType] = MemSizeType.megabyte
-):
+def print_size(test_obj: object, size_type: Union[str, MemSizeType] = MemSizeType.megabyte):
     size = get_size(test_obj=test_obj, size_type=size_type)
     print(size)
 
@@ -295,11 +275,7 @@ def prepare_text(debug_print, debug_from=None):
         if RUNTIME_CONSOLE:
             prepared_text = f"[DEBUG]\t\t{debug_print}"
         else:
-            prepared_text = (
-                termcolor("[DEBUG]\t\t", "blue")
-                + termcolor(debug_from + ":\t", "green")
-                + debug_print
-            )
+            prepared_text = termcolor("[DEBUG]\t\t", "blue") + termcolor(debug_from + ":\t", "green") + debug_print
     return prepared_text
 
 
