@@ -10,6 +10,8 @@ as well as change-point code.
 
 :doc:`installation`
 
+tcspcfit
+
 Indices and tables
 ==================
 
