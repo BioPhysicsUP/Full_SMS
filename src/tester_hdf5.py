@@ -1,4 +1,4 @@
-from src.tcspcfit import *
+from tcspcfit import *
 import h5py
 
 # rc('text', usetex=True)

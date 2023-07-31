@@ -6,11 +6,13 @@ This is the documentation for the eventual complete SMS data analysis software.
 Currently we have code to fit a multi-exponential decay to TCSPC data. This will eventually be extended to include a GUI
 as well as change-point code.
 
-:doc:`userguide`
+.. toctree::
+    :maxdepth: 1
 
-:doc:`installation`
+    usage/userguide
+    usage/installation
+    modules
 
-tcspcfit
 
 Indices and tables
 ==================
