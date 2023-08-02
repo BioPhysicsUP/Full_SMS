@@ -82,7 +82,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
     """
     Class for Full SMS application that returns QMainWindow object.
 
-    This class uses a *.ui converted to a *.py script to generate g Be
+    This class uses a \*.ui converted to a \*.py script to generate g Be
     sure to run convert_py after having made changes to mainwindow.
     """
 

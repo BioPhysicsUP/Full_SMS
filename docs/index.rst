@@ -11,7 +11,6 @@ as well as change-point code.
 
     usage/userguide
     usage/installation
-    modules
 
 
 Indices and tables
