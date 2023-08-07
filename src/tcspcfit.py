@@ -173,16 +173,15 @@ class FluoFit:
         Background value for decay. Will be estimated if not given.
     irfbg : float
         Background value for IRF. Will be estimated if not given.
-    startpoint : int
-        Start of fitting range - will default to channel of decay max or
-        IRF max, whichever is least.
-    endpoint : int
-        End of fitting range - will default to the channel of the
-        fluorescence decay that is either around 10 times higher than the
-        background level or equivalent to 0.1% of the counts in the peak
-        channel, whichever is greater.
+    boundaries : list
+        Start and end of fitting range as well as options for automatic
+        determination of the parameters as used by `calculate_boundaries`.
     ploton : bool
-        Whether to automatically plot the irf_data
+        Whether to automatically plot the irf_data.
+    fwhm : float = None
+        Full-width at half maximum of simulated irf. IRF is not simulated if fwhm is None.
+    numexp : int, optional
+        Number of exponential components in fit.
     """
     def __init__(
         self,
@@ -289,15 +288,15 @@ class FluoFit:
         Arguments
         ---------
         measured : ndarray
-            The measured decay data
+            The measured decay data.
         boundaries : list
-                [startpoint, endpoint, autostart, autoend]
+                [startpoint, endpoint, autostart, autoend].
         bg : float
-            Calculated decay background
+            Calculated decay background.
         settings : settings_dialog.Settings() object
-            Contains config settings
+            Contains config settings.
         channel_width : float
-            Duration of a single channel
+            Duration of a single channel.
         """
         if boundaries is None:
             boundaries = [None, None, "Manual", False]
@@ -795,7 +794,15 @@ class FluoFit:
 
 
 class OneExp(FluoFit):
-    """Single exponential fit. Takes exact same arguments as `FluoFit`."""
+    """Single exponential fit.
+
+    Takes exact same arguments as `FluoFit` with the addition of addopt.
+
+    Parameters
+    ----------
+    addopt : Dict = None
+        Additional options for `curve_fit`.
+    """
 
     def __init__(
         self,
@@ -885,7 +892,15 @@ class OneExp(FluoFit):
 
 
 class TwoExp(FluoFit):
-    """Double exponential fit. Takes exact same arguments as `FluoFit`."""
+    """Double exponential fit.
+
+    Takes exact same arguments as `FluoFit` with the addition of addopt.
+
+    Parameters
+    ----------
+    addopt : Dict = None
+        Additional options for `curve_fit`.
+    """
 
     def __init__(
         self,
@@ -977,7 +992,15 @@ class TwoExp(FluoFit):
 
 
 class ThreeExp(FluoFit):
-    """Triple exponential fit. Takes exact same arguments as `FluoFit`."""
+    """Triple exponential fit.
+
+    Takes exact same arguments as `FluoFit` with the addition of addopt.
+
+    Parameters
+    ----------
+    addopt : Dict = None
+        Additional options for `curve_fit`.
+    """
 
     def __init__(
         self,

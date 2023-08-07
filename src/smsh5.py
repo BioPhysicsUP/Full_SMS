@@ -1,8 +1,8 @@
-"""Module for handling SMS data from HDF5 files
+"""Module for handling SMS data from HDF5 files.
 
-Bertus van Heerden and Joshua Botha
-University of Pretoria
-2018
+Bertus van Heerden and Joshua Botha,
+University of Pretoria,
+2018,
 """
 from __future__ import annotations
 
@@ -16,9 +16,7 @@ from typing import List, Union, TYPE_CHECKING, Tuple
 from uuid import uuid1
 
 import h5pickle
-import h5py
 import numpy as np
-from pyqtgraph import ScatterPlotItem, SpotItem
 
 import dbg
 import tcspcfit
@@ -39,6 +37,17 @@ logger = setup_logger(__name__)
 
 
 class H5dataset:
+    """Represents an entire HDF5 dataset
+
+    Parameters
+    ----------
+    filename : str
+        HDF5 file path
+    sig_fb : PassSigFeedback, optional
+        feedback queue for signals
+    prog_fb : ProcessProgFeedback, optional
+        feedback queue for updating progress bar
+    """
     def __init__(
         self,
         filename,
@@ -124,12 +133,14 @@ class H5dataset:
 
     @property
     def file(self):
+        """HDF5 file."""
         if self._file is not None and self._file.__bool__() is True:
             return self._file
         else:
             raise Warning("File not set")
 
     def unload_file(self, should_close: bool = True, should_delete: bool = True):
+        """Remove file reference and close and/or delete the file."""
         if should_close:
             if self._file is not None and self._file.__bool__() is True:
                 self._file.close()
@@ -138,6 +149,7 @@ class H5dataset:
         self._file = None
 
     def load_file(self, new_file: h5pickle.File):
+        """Load pickled HDF file."""
         if type(new_file) is h5pickle.File and new_file.__bool__() is True:
             self._file = new_file
             self.name = new_file.filename
@@ -149,6 +161,25 @@ class H5dataset:
                 logger.error("Provided H5 file invalid.")
 
     def get_all_raster_scans(self, particle_names: List[str]) -> list:
+        """Get all the raster scans from the file and handle appropriately.
+
+        Each raster scan has one or more particles associated with it. In the HDF5
+        file, this is manifested as having the same raster scan duplicated across
+        particle objects. This function reads out all unique raster scans and assigns
+        them each their particles. The return value is a map from particle numbers to
+        'raster scan numbers - if there's a raster scan for particles 1 and 2
+        and another one for particles 3-5, the map would be: [1, 1, 2, 2, 2]
+
+        Arguments
+        ---------
+        particle_names : list[str]
+            list of particle names to read raster scan data from
+
+        Returns
+        -------
+        map_particle_index : list or None
+            maps particle numbers to raster scan numbers.
+        """
         raster_scans = list()
         file_keys = self.file.keys()
         for num, particle_name in enumerate(particle_names):
@@ -230,7 +261,7 @@ class H5dataset:
             return None
 
     def makehistograms(self, remove_zeros=True, startpoint=None, channel=True):
-        """Put the arrival times into histograms"""
+        """Put the (micro) arrival times into histograms."""
 
         for particle in self.particles:
             particle.makehistograms(remove_zeros, startpoint, channel)
@@ -241,8 +272,16 @@ class H5dataset:
         sig_fb: PassSigFeedback = None,
         prog_fb: ProcessProgFeedback = None,
     ):
-        """Bin the absolute times into traces using binsize
-        binsize is in ms
+        """Bin the absolute times into intensity traces.
+
+        Arguments
+        ---------
+        binsize : float
+            Time bin size in ms
+        sig_fb : PassSigFeedback, optional
+            feedback queue for signals
+        prog_fb : ProcessProgFeedback, optional
+            feedback queue for updating progress bar
         """
         if prog_fb:
             proc_tracker = ProcessProgress(
@@ -263,8 +302,8 @@ class H5dataset:
     def save_particles(self, file_path, selected_nums: List[int]):
         """Save selected particle to a new or existing HDF5 file.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         file_path : str
             Path to existing file, or to file that will be created.
         selected_nums : List[int]
@@ -294,8 +333,34 @@ class H5dataset:
 
 
 class Particle:
-    """
-    Class for particle in H5dataset.
+    """Represents a particle in an `H5dataset`.
+
+    Parameters
+    ----------
+    name : str
+        The name of the particle
+    dataset_ind : H5dataset
+        The index of the particle in the dataset
+    dataset : H5dataset
+        The instance of the dataset to which this particle belongs
+    raster_scan_dataset_index : int
+        The index of the raster scan connected to the particle
+    raster_scan : RasterScan
+        The raster scan object this particle is connected to
+    is_secondary_part : bool
+        Whether this is a "secondary particle" that contains the data from a second TCSCPC card
+    prim_part : Particle
+        If this particle is a secondary particle, the corresponding primary particle
+    sec_part : Particle
+        If this particle is a primary particle, the corresponding secondary particle
+    tmin : int, optional
+        Minimum photon micro time in ns
+    tmax : int, optional
+        Maximum photon micro time in ns
+    channelwidth : float, optional
+        TCSPC histogram channelwidth in ns. Normally automatically determined.
+    is_global : bool = False
+        TODO: What is this?
     """
 
     def __init__(
@@ -313,34 +378,6 @@ class Particle:
         channelwidth=None,
         is_global: bool = False,
     ):
-        """
-        Creates an instance of Particle
-
-        Parameters
-        ----------
-        name: str
-            The name of the particle
-        dataset_ind: H5dataset
-            The index of the particle in the dataset
-        dataset: H5dataset
-            The instance of the dataset to which this particle belongs
-        raster_scan_dataset_index: int
-            The index of the raster scan connected to the particle
-        raster_scan: RasterScan
-            The raster scan object this particle is connected to
-        is_secondary_part: bool
-            Whether this is a "secondary particle" that contains the data from a second TCSCPC card
-        prim_part: Particle:
-            If this particle is a secondary particle, the corresponding primary particle
-        sec_part: Particle:
-            If this particle is a primary particle, the corresponding secondary particle
-        tmin: int, Optional
-            Minimum photon micro time
-        tmax: int, Optional
-            Maximum photon micro time
-        channelwidth: float, Optional
-            TCSPC histogram channelwidth. Normally automatically determined.
-        """
         self.uuid = uuid1()
         self.name = name
         self.dataset = dataset
@@ -438,15 +475,18 @@ class Particle:
 
     @property
     def file(self):
+        """HDF5 file."""
         return self.dataset.file
 
     @property
     def file_group(self):
+        """The particle's group in the HDF5 file."""
         if self.file is not None:
             return self.file[self.name]
 
     @property
     def microtimes(self) -> h5pickle.Dataset:
+        """The particle's microtimes."""
         if self.file is not None and self.file.__bool__() is True:
             if not self.is_secondary_part:
                 return h5_fr.microtimes(particle=self)
@@ -455,6 +495,7 @@ class Particle:
 
     @property
     def abstimes(self) -> h5pickle.Dataset:
+        """The particle's absolute times."""
         if self.file is not None and self.file.__bool__() is True:
             if not self.is_secondary_part:
                 return h5_fr.abstimes(particle=self)
@@ -463,12 +504,14 @@ class Particle:
 
     @property
     def histogram(self) -> Histogram:
+        """The particle's `Histogram`."""
         if not self.use_roi_for_histogram:
             hist = self._histogram
         else:
             hist = self._histogram_roi
         return hist
 
+    #  TODO: These 2 functions have no usages
     def set_histgram(self, histogram: Histogram) -> None:
         self._histogram = histogram
 
@@ -477,14 +520,17 @@ class Particle:
 
     @property
     def use_roi_for_grouping(self) -> bool:
+        """Whether to use the particle's ROI for grouping."""
         return self.ahca.use_roi_for_grouping
 
     @property
     def grouped_with_roi(self) -> bool:
+        """Whether the particle's `ahca` used ROI."""
         return self.ahca.grouped_with_roi
 
     @property
     def roi_region_photon_inds(self) -> Tuple[int, int]:
+        """Indices of photons at ROI boundaries."""
         first_photon = 0
         last_photon = self.num_photons - 1
         roi_start = self.roi_region[0]
@@ -502,20 +548,18 @@ class Particle:
 
     @property
     def num_photons_roi(self) -> int:
+        """Number of photons in the particle ROI."""
         first_photon, last_photon = self.roi_region_photon_inds
         return last_photon - first_photon
 
     @property
     def has_spectra(self) -> bool:
+        """Whether the particle has spectra."""
         return self.spectra._has_spectra
-
-    # @property
-    # def raster_scan(self) -> RasterScan:
-    #     if self.has_raster_scan and self.dataset is not None:
-    #         return self.dataset.all_raster_scans[self._raster_scan_dataset_index]
 
     @property
     def microtimes_roi(self) -> np.ndarray:
+        """Microtimes from the particle ROI."""
         times = np.array(self.abstimes) / 1e9
         if self.roi_region[0] == 0:
             first_ind = 0
@@ -534,6 +578,7 @@ class Particle:
 
     @property
     def first_level_ind_in_roi(self):
+        """Index of the first level in the particle's ROI."""
         if self.has_levels:
             end_times = np.array([level.times_s[1] for level in self.cpts.levels])
             first_roi_ind = np.argmax(end_times > self.roi_region[0])
@@ -541,6 +586,7 @@ class Particle:
 
     @property
     def last_level_ind_in_roi(self):
+        """Index of the last level in the particle's ROI."""
         if len(self.roi_region) == 3:
             last_roi_ind = self.roi_region[2]
         else:
@@ -552,6 +598,7 @@ class Particle:
 
     @property
     def first_group_level_ind_in_roi(self):
+        """Index of the first grouped level in the particle's ROI."""
         if self.has_groups and self.group_levels is not None:
             end_times = np.array([level.times_s[1] for level in self.group_levels])
             first_group_roi_ind = np.argmax(end_times > self.roi_region[0])
@@ -559,6 +606,7 @@ class Particle:
 
     @property
     def last_group_level_ind_in_roi(self):
+        """Index of the last grouped level in the particle's ROI."""
         # if self.has_groups and self.group_levels is not None:
         if self.group_levels is not None:
             # if len(self.roi_region) == 3:
@@ -572,7 +620,7 @@ class Particle:
 
     @property
     def raster_scan_coordinates(self) -> tuple:
-        particle_attr_keys = self.file_group.attrs.keys()
+        """The particle's RS coordinates."""
         if self.has_raster_scan:
             coords = h5_fr.raster_scan_coord(particle=self)
             return coords[1], coords[0]
@@ -581,66 +629,82 @@ class Particle:
 
     @property
     def has_levels(self):
+        """Whether the particle has levels."""
         return self.cpts.has_levels
 
     @property
     def has_groups(self):
+        """Whether the particle has groups."""
         return self.ahca.has_groups
 
     @property
     def has_corr(self):
+        """Whether the particle has a second-order correlation."""
         return self.ab_analysis.has_corr
 
     @property
     def groups(self):
+        """The particle's grouped levels."""
         if self.has_groups:
             return self.ahca.selected_step.groups
 
     @property
     def num_groups(self):
+        """The number of level groups."""
         if self.has_groups:
             return self.ahca.selected_step.num_groups
 
     @property
     def groups_bounds(self):
+        """The particle's groups' bounds."""
         return self.ahca.selected_step.calc_int_bounds()
 
     @property
     def groups_ints(self):
+        """The particle's group intensities."""
         return self.ahca.selected_step.group_ints
 
     @property
     def grouping_bics(self):
+        """The particle's group BIC's."""
         return self.ahca.bics
 
     @property
     def grouping_selected_ind(self):
+        """The currently selected group index."""
         return self.ahca.selected_step_ind
 
     @property
     def best_grouping_ind(self):
+        """The index of the grouping step with max BIC."""
         return self.ahca.best_step_ind
 
     @grouping_selected_ind.setter
     def grouping_selected_ind(self, ind: int):
+        """The index of the selected grouping step."""
         self.ahca.selected_step_ind = ind
 
     @property
     def grouping_num_groups(self):
+        """The number of groups in each AHCA step"""
         return self.ahca.steps_num_groups
 
     def reset_grouping_ind(self):
+        """Reset the grouping step selection."""
         self.ahca.reset_selected_step()
 
     @property
     def levels(self):
+        """The particle's raw or grouped levels."""
         if self.has_groups and self.using_group_levels:
             return self.group_levels
         else:
             return self.cpts.levels
 
+#  TODO: The following 4 functions don't seem to be entirely sensible
     @property
     def levels_roi(self):
+        """The particle's raw or grouped levels, from ROI."""
         if self.has_groups and self.using_group_levels:
             return self.group_levels
         else:
@@ -650,17 +714,20 @@ class Particle:
 
     @property
     def levels_roi_force(self):
+        """The particle's raw levels, from ROI."""
         return self.cpts.levels[
             self.first_level_ind_in_roi : self.last_level_ind_in_roi + 1
         ]
 
     @property
     def group_levels(self) -> List[Level]:
+        """The particle's grouped levels."""
         if self.has_groups:
             return self.ahca.selected_step.group_levels
 
     @property
     def group_levels_roi(self) -> List[Level]:
+        """The particle's grouped levels, from ROI."""
         if self.has_groups:
             group_levels = self.group_levels
             return group_levels[
@@ -669,6 +736,7 @@ class Particle:
 
     @property
     def num_levels(self):
+        """Number of raw or grouped particle levels."""
         if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_num_levels
         else:
@@ -676,14 +744,17 @@ class Particle:
 
     @property
     def num_levels_roi(self):
+        """Number of raw particle levels in ROI."""
         return (self.last_level_ind_in_roi - self.first_level_ind_in_roi) + 1
 
     @property
     def dwell_time(self):
+        """The particle's total measurement time."""
         return (self.abstimes[-1] - self.abstimes[0]) / 1e9
 
     @property
     def dwell_time_roi(self):
+        """The particle's ROI measurement time."""
         if self.has_levels:
             return self.levels_roi[-1].times_s[1] - self.levels_roi[0].times_s[0]
         else:
@@ -694,6 +765,7 @@ class Particle:
 
     @property
     def level_ints(self):
+        """The particle's raw or grouped level intensities."""
         if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_ints
         else:
@@ -701,6 +773,8 @@ class Particle:
 
     @property
     def level_ints_roi(self):
+        """The particle's ROI raw or grouped level intensities."""
+        #  TODO: shouldn't grouped levels also use ROI?
         if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_ints
         else:
@@ -710,6 +784,7 @@ class Particle:
 
     @property
     def level_dwelltimes(self):
+        """The particle's raw or grouped level dwelltimes."""
         if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_dwelltimes
         else:
@@ -717,6 +792,7 @@ class Particle:
 
     @property
     def level_dwelltimes_roi(self):
+        """The particle's ROI raw or grouped level dwelltimes."""
         if self.has_groups and self.using_group_levels:
             return self.ahca.selected_step.group_level_dwelltimes
         else:
@@ -726,10 +802,12 @@ class Particle:
 
     @property
     def has_burst(self) -> bool:
+        """Whether the particle has a 'photon burst'."""
         return self.cpts.has_burst
 
     @property
     def burst_levels(self) -> np.ndarray:
+        """Levels containing a 'photon burst'."""
         return self.cpts.burst_levels
 
     @has_burst.setter
@@ -742,10 +820,12 @@ class Particle:
 
     @property
     def numexp(self):
+        """Number of exponents in fitted decay model."""
         return self.histogram.numexp
 
     @property
     def unique_name(self):
+        """Unique particle name in the case of dual-channel measurement."""
         if self.is_secondary_part:
             return self.name + "_2"
         else:
@@ -753,6 +833,7 @@ class Particle:
 
     @property
     def has_global_grouping(self) -> bool:
+        """Whether the H5dataset has global groups."""
         if hasattr(self, "dataset") and hasattr(self.dataset, "global_particle"):
             gp = self.dataset.global_particle
             return (
@@ -764,11 +845,13 @@ class Particle:
 
     @property
     def global_particle(self) -> GlobalParticle:
+        """The H5dataset's global particle."""
         if self.has_global_grouping:
             return self.dataset.global_particle
 
     @property
     def global_group_levels(self):
+        """The H5dataset's globally grouped levels."""
         if self.has_global_grouping:
             gp = self.global_particle
             return list(
@@ -778,11 +861,8 @@ class Particle:
                 )
             )
 
-    # @property
-    # def icon(self):
-    #     return ParticleIcons.test_icon
-
     def remove_and_reset_grouping(self):
+        """Re-initialize grouping and remove current data."""
         self.ahca = AHCA(particle=self)
         self.using_group_levels = False
 
@@ -792,19 +872,25 @@ class Particle:
         use_roi: bool = False,
         use_global_groups: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
+        """Level plotting data.
+
         Uses the Particle objects' levels to generate two arrays for
         plotting the levels.
 
-        Parameters
-        ----------
-        use_global_groups
-        use_grouped
-        use_roi
+        Arguments
+        ---------
+        use_grouped : bool, optional
+            Whether to use grouped levels - if not provided, defaults to
+            True if groups exist and false if they don't.
+        use_global_groups : bool = False
+            whether to use globally grouped levels
+        use_roi : bool = False
+            whether to use ROI
 
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray]
+        ints, times : Tuple[np.ndarray, np.ndarray]
+            Intensities as a function of time for plotting.
         """
         assert self.has_levels, "ChangePointAnalysis:\tNo levels to convert to data."
         if use_grouped is None:
@@ -847,17 +933,23 @@ class Particle:
     def lifetimes2data(
         self, use_grouped: bool = None, use_roi: bool = False
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Uses the Particle objects' levels to generate two arrays for
-        plotting the levels.
-        Parameters
-        ----------
-        use_grouped
-        use_roi
+        """Level lifetime plotting data.
+
+        Uses the Particle object's levels to generate two arrays for
+        plotting the level lifetimes.
+
+        Arguments
+        ---------
+        use_grouped : bool, optional
+            Whether to use grouped levels - if not provided, defaults to
+            True if groups exist and false if they don't.
+        use_roi : bool = False
+            Whether to use ROI.
 
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray]
+        lifetimes, times : Tuple[np.ndarray, np.ndarray]
+            Lifetime as a function of time for plotting.
         """
         assert (
             self.has_fit_a_lifetime
@@ -898,16 +990,23 @@ class Particle:
 
     def current2data(
         self, level_ind: int, use_roi: bool = False
-    ) -> [np.ndarray, np.ndarray]:
-        """
-        Uses the Particle objects' levels to generate two arrays for plotting level num.
-        Parameters
-        ----------
-        plot_type: str, {'line', 'step'}
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Current level plotting data.
+
+        Uses the Particle object's selected level to generate
+        two arrays for plotting level.
+
+        Arguments
+        ---------
+        level_ind : int
+            Index of the level to be plotted.
+        use_roi : bool = False
+            Whether to use the ROI.
 
         Returns
         -------
-        [np.ndarray, np.ndarray]
+        levels_data, times : Tuple[np.ndarray, np.ndarray]
+            Intensity as a function of time for plotting.
         """
         # TODO: Cleanup this function anc the one above it
         assert self.has_levels, "ChangePointAnalysis:\tNo levels to convert to data."
@@ -922,6 +1021,21 @@ class Particle:
         return levels_data, times
 
     def current_group2data(self, group_ind: int) -> [np.ndarray, np.ndarray]:
+        """Current group plotting data.
+
+        Uses the Particle object's selected group to generate
+        two arrays for plotting the group.
+
+        Arguments
+        ---------
+        group_ind : int
+            Index of the level to be plotted.
+
+        Returns
+        -------
+        group_int, times : Tuple[np.ndarray, np.ndarray]
+            Intensity as a function of time for plotting.
+        """
         assert self.has_groups, "ChangePointAnalysis:\tNo groups to convert to data."
 
         group = self.groups[group_ind]
@@ -930,7 +1044,18 @@ class Particle:
         return group_int, times
 
     def makehistograms(self, remove_zeros, startpoint, channel):
-        """Make all histograms - whole trace and levels"""
+        """Make all histograms - whole trace and levels.
+
+        Arguments
+        ---------
+        remove_zeros : bool
+            Whether to remove zeros at the start of the decay.
+        startpoint : int
+            Startpoint of the decay in number of time steps.
+        channel : bool
+            Whether to use the hardware channelwidth
+            TODO: remove this parameter including downstream as it is never used
+        """
         self.startpoint = startpoint
         self.makehistogram(channel=channel, add_roi=True)
         self.makelevelhists(channel=channel)
@@ -944,14 +1069,21 @@ class Particle:
             self.histogram.t = self.histogram.t[maxim:]
 
     def makehistogram(self, channel=True, add_roi: bool = False):
-        """Put the arrival times into a histogram"""
+        """Put the arrival times into a histogram.
+
+        Arguments
+        ---------
+        channel : bool = True
+            Whether to use the hardware channelwidth.
+        add_roi : bool = True
+            Whether to create the ROI Histogram as well.
+        """
 
         self._histogram = Histogram(self, start_point=self.startpoint, channel=channel)
         if add_roi:
             self._histogram_roi = Histogram(
                 self, start_point=self.startpoint, channel=channel, is_for_roi=True
             )
-        # print(np.max(self.histogram.decay))
 
     def makelevelhists(
         self,
@@ -959,7 +1091,17 @@ class Particle:
         force_cpts_levels: bool = False,
         force_group_levels: bool = False,
     ):
-        """Make level histograms"""
+        """Make level histograms.
+
+        Arguments
+        ---------
+        channel : bool = True
+            Whether to use the hardware channelwidth.
+        force_cpts_levels : bool = False
+            Use self.cpts.levels instead of self.levels.
+        force_group_levels : bool = False
+            Use self.group_levels instead of self.levels.
+        """
 
         if self.has_levels:
             if force_cpts_levels or force_group_levels:
@@ -977,6 +1119,7 @@ class Particle:
                 )
 
     def makegrouplevelhists(self):
+        """Make grouped level histograms."""
         if self.has_groups and self.ahca.selected_step.groups_have_hists:
             if self.ahca.num_steps == 1:
                 self.groups[0].histogram = self.ahca.steps[0].groups[0].histogram
@@ -987,6 +1130,7 @@ class Particle:
                     group_level.histogram = groups[g_ind].histogram
 
     def makegrouphists(self, channel=True):
+        """Make group histograms."""
         if self.has_groups:
             for group in self.groups:
                 group.histogram = Histogram(
@@ -994,8 +1138,14 @@ class Particle:
                 )
             self.ahca.selected_step.groups_have_hists = True
 
-    def binints(self, binsize):
-        """Bin the absolute times into a trace using binsize"""
+    def binints(self, binsize: int):
+        """Bin the absolute times into intensity trace.
+
+        Arguments
+        ---------
+        binsize : int
+            Size of intensity trace time bins.
+        """
 
         self.bin_size = binsize
         self.binnedtrace = Trace(self, self.bin_size)
@@ -1003,6 +1153,20 @@ class Particle:
     def trim_trace(
         self, min_level_dwell_time: float, min_level_int: int, reset_roi: bool = True
     ):
+        """Trim the intensity trace.
+
+        This function trims the intensity trace to remove the photobleached end.
+
+        Arguments
+        ---------
+        min_level_dwell_time : float
+            Minimum dwell time of bleached level for trimming.
+        min_level_int : int
+            Minimum intensity to classify level as not bleached.
+        reset_roi : bool = True
+            Whether to update the ROI to the trimmed area.
+
+        """
         trimmed = None
         if self.has_levels and self.level_ints[-1] < min_level_int:
             trimmed = False
@@ -1039,6 +1203,15 @@ class Particle:
 
 
 class FakeCpts:
+    """Fake ChangePoints object for GlobalParticle.
+
+    Parameters
+    ----------
+    num_levels : int
+        number of intensity levels
+    levels : List[GlobalLevel]
+        list of global levels
+    """
     def __init__(self, num_levels: int, levels: list):
         self.num_levels = num_levels
         self.levels = levels
@@ -1047,6 +1220,15 @@ class FakeCpts:
 
 
 class GlobalParticle:
+    """Particle-like object containing levels from all particles.
+
+    Parameters
+    ----------
+    particles : List[Particle]
+        Particles to include in global particle.
+    use_roi : bool = False
+        Whether to use ROI's.
+    """
     def __init__(self, particles: List[Particle], use_roi: bool = False):
         self.is_global = True
         self.name = "Global Particle"
@@ -1159,18 +1341,17 @@ class GlobalParticle:
 
 
 class Trace:
-    """Binned intensity trace
+    """Binned intensity trace.
 
     Parameters
     ----------
-    particle: Particle
+    particle : Particle
         The Particle which creates the Trace.
-
-    binsize: float
+    binsize : int
         Size of time bin in ms.
     """
 
-    def __init__(self, particle, binsize: int):
+    def __init__(self, particle: Particle, binsize: int):
         self.binsize = binsize
         data = particle.abstimes[:]
 
@@ -1194,6 +1375,26 @@ class Trace:
 
 
 class Histogram:
+    """TCSPC histogram.
+
+    This class represents histogrammed TCSPC arrival times (micro times)
+    as well as multi-exponential fits thereof.
+
+    Parameters
+    ----------
+    particle : Particle
+        The parent Particle of this object.
+    level : Level or List = None
+        The possible parent level of this object.
+    start_point : float = None
+        Start point for lifetime fit.
+    channel : bool = True
+        Whether to use hardware channel width.
+    trim_start : bool = False
+        Whether to trim zeros at the start of the histogram.
+    is_for_roi : bool = False
+        Whether this histogram is from a trace ROI.
+    """
     def __init__(
         self,
         particle: Particle,
@@ -1251,6 +1452,23 @@ class Histogram:
         trim_start: bool = False,
         use_roi: bool = False,
     ):
+        """Set up the object.
+
+        This method can be called to re-do setup steps without reinitializing.
+
+        Arguments
+        ---------
+        level : Level or List = None
+            The possible parent level of this object.
+        start_point : float = None
+            Start point for lifetime fit.
+        channel : bool = True
+            Whether to use hardware channel width.
+        trim_start : bool = False
+            Whether to trim zeros at the start of the histogram.
+        use_roi : bool = False
+            Whether this histogram is from a trace ROI.
+        """
         no_sort = False
         if level is None:
             if not use_roi:
@@ -1334,6 +1552,7 @@ class Histogram:
                 )
 
     def update_roi(self):
+        """Rerun setup to update ROI."""
         self.setup(level=self.level, use_roi=True, **self.original_kwargs)
 
     @property
@@ -1357,6 +1576,37 @@ class Histogram:
         irf,
         fwhm=None,
     ):
+        """Fit a multiexponential decay to the histogram.
+
+        This function mainly calls the relevant code from `tcspcfit`.
+
+        Arguments
+        ---------
+        numexp : int
+            Number of exponentials in fit function (1-3).
+        tauparam : array_like
+            Initial guess times (in ns). This is either in the format
+            [tau1, tau2, ...] or [[tau1, min1, max1, fix1], [tau2, ...], ...].
+            When the "fix" value is False, the min and max values are ignored.
+        ampparam : array_like
+            Initial guess amplitude. Format [amp1, amp2, ...] or [[amp1, fix1],
+            [amp2, fix2], ...]
+        shift : array_like
+            Initial guess IRF shift. Either a float, or [shift, min, max, fix].
+        decaybg : float
+            Background value for decay. Will be estimated if not given.
+        irfbg : float
+            Background value for IRF. Will be estimated if not given.
+        boundaries : list
+            Start and end of fitting range as well as options for automatic
+            determination of the parameters as used by `FluoFit.calculate_boundaries`.
+        irf : ndarray
+            Instrumental Response Function
+        fwhm : float = None
+            Full-width at half maximum of simulated irf. IRF is not simulated if fwhm is None.
+        addopt : Dict = None
+            Additional options for `scipy.optimize.curve_fit` (such as optimization parameters).
+        """
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
@@ -1445,6 +1695,7 @@ class Histogram:
         return True
 
     def levelhist(self, level):
+        #  TODO: Remove this function as it is never used
         levelobj = self._particle.levels[level]
         tmin = levelobj.microtimes[:].min()
         tmax = levelobj.microtimes[:].max()
@@ -1456,8 +1707,26 @@ class Histogram:
         t = t[:-1]  # Remove last value so the arrays are the same size
         return decay, t
 
+    @staticmethod
+    def start_at_value(decay, t, neg_t=True, decaystart=None):
+        """Helper method for setting decay startpoint."""
+        if decaystart is None:
+            decaystart = np.nonzero(decay)[0][0]
+        if neg_t:
+            t -= t[decaystart]
+        t = t[decaystart:]
+        decay = decay[decaystart:]
+        return decay, t
+
 
 class ParticleAllHists:
+    """Class containing all Histograms from Particle.
+
+    Parameters
+    ----------
+    particle : Particle
+        The parent particle of this object.
+    """
     def __init__(self, particle: Particle):
         self.part_uuid = particle.uuid
         self.numexp = None
@@ -1485,6 +1754,19 @@ class ParticleAllHists:
     def fit_part_and_levels(
         self, channelwidth, start, end, fit_param: FittingParameters
     ):
+        """Fit all Histograms in this object.
+
+        Arguments
+        ---------
+        channelwidth : float
+            TCSPC channelwidth (time step size) in ns.
+        start : int
+            Fitting startpoint in number of time steps.
+        end : int
+            Fitting endpoint in number of time steps.
+        fit_param : FittingParameters
+            Object containing fit parameters.
+        """
         self.numexp = fit_param.numexp
         all_hists = [self.part_hist]
         all_hists.extend(self.level_hists)
@@ -1515,6 +1797,22 @@ class ParticleAllHists:
 
 
 class RasterScan:
+    """Class containing raster scan data.
+
+    A raster scan is a 2D intensity scan used to visualize particles
+    before measurement.
+
+    Parameters
+    ----------
+    h5dataset : H5dataset
+        The parent HDF5 dataset object.
+    particle_num : int
+        Number of particles connected to this raster scan.
+    h5dataset_index : int
+        Index of this raster scan in the dataset.
+    particle_indexes : List[int]
+        Dataset indices of the particles in this raster scan.
+    """
     def __init__(
         self,
         h5dataset: H5dataset,
@@ -1546,6 +1844,16 @@ class RasterScan:
 
 
 class Spectra:
+    """Class containing spectral data.
+
+    Spectra are recorded as a time scan, with a certain integration time
+    over which a single spectrum is recorded using a grating and CCD.
+
+    Parameters
+    ----------
+    particle : Particle
+        The parent particle object.
+    """
     def __init__(self, particle: Particle):
         self._particle = particle
 
@@ -1578,11 +1886,3 @@ class Spectra:
             )
 
 
-def start_at_value(decay, t, neg_t=True, decaystart=None):
-    if decaystart is None:
-        decaystart = np.nonzero(decay)[0][0]
-    if neg_t:
-        t -= t[decaystart]
-    t = t[decaystart:]
-    decay = decay[decaystart:]
-    return decay, t
