@@ -1,1 +1,1 @@
-sphinx-autoapi>2.1.1
+sphinx-autoapi>=2.1.1
