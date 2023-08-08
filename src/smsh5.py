@@ -1357,11 +1357,11 @@ class Trace:
 
         binsize_ns = binsize * 1e6  # Convert ms to ns
         try:
-            endbin = np.int(np.max(data) / binsize_ns)
+            endbin = int(np.max(data) / binsize_ns)
         except ValueError:
             endbin = 0
 
-        binned = np.zeros(endbin + 1, dtype=np.int)
+        binned = np.zeros(endbin + 1, dtype=int)
         for step in range(endbin):
             binned[step + 1] = np.size(
                 data[((step + 1) * binsize_ns > data) * (data > step * binsize_ns)]
@@ -1840,7 +1840,7 @@ class RasterScan:
     @property
     def dataset(self) -> h5pickle.Dataset:
         if self.h5dataset.file is not None and self.h5dataset.file.__bool__() is True:
-            return h5_fr.raster_scan(h5_fr.particle(self.particle_num, self.h5dataset))
+            return h5_fr.raster_scan(h5_fr.particle(self.particle_num + 1, self.h5dataset))
 
 
 class Spectra:
