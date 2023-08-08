@@ -1,16 +1,17 @@
-
-UP Biophysics SMS Analysis documentation
+Full SMS Documentation
 ========================================
 
-This is the documentation for the eventual complete SMS data analysis software.
-Currently we have code to fit a multi-exponential decay to TCSPC data. This will eventually be extended to include a GUI
-as well as change-point code.
+This is the documentation for the software Full SMS, which is used to view and analyse single-molecule fluorescence
+meausurements. Specifically, time-tagged time-resolved measurements on single particles can be analysed to extract
+intensity levels and to fit fluorescence lifetimes. The software also has functionality to view and export raster
+scan images and spectral time traces and perform second-order cross-correlations.
 
 .. toctree::
     :maxdepth: 1
 
     usage/userguide
     usage/installation
+    usage/contributing
 
 
 Indices and tables
