@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.abspath('../src/'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'UP Biophysics SMS Analysis'
+# project = 'UP Biophysics SMS Analysis'
+project = 'Full SMS'
 copyright = '2019, Bertus van Heerden, Joshua Botha'
 author = 'Bertus van Heerden, Joshua Botha'
 
@@ -51,10 +52,11 @@ extensions = [
 
 # configure (python) source directory for autoapi
 autoapi_dirs = ['../src']
+autoapi_template_dir = '_autoapi_templates'
 autoapi_ignore = ['*/testing/*.py']
 autoapi_keep_files = False
 
-# Add any paths that contain templates here, relative to this directory.
+# Add any paths that contain _autoapi_templates here, relative to this directory.
 templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
@@ -100,11 +102,11 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-# Custom sidebar templates, must be a dictionary that maps document names
+# Custom sidebar _autoapi_templates, must be a dictionary that maps document names
 # to template names.
 #
 # The default sidebars (for documents that don't match any pattern) are
-# defined by theme itself.  Builtin themes are using these templates by
+# defined by theme itself.  Builtin themes are using these _autoapi_templates by
 # default: ``['localtoc.html', 'relations.html', 'sourcelink.html',
 # 'searchbox.html']``.
 #

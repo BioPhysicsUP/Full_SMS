@@ -12,6 +12,7 @@ scan images and spectral time traces and perform second-order cross-correlations
     usage/userguide
     usage/installation
     usage/contributing
+    usage/contact
 
 
 Indices and tables
