@@ -258,6 +258,9 @@ class FluoFit:
             self.measured = measured / self.meas_max  # Normalize measured
             self.bg_n = self.bg / self.meas_max  # Normalized background
             self.meas_std = meas_std / self.meas_max
+        # self.measured = measured
+        # self.bg_n = self.bg
+        # self.meas_std = meas_std
         self.dtau = None
         self.chisq = None
         self.residuals = None
@@ -489,7 +492,7 @@ class FluoFit:
             return bg_est
 
     def setup_params(self, amp, shift, tau, fwhm=None):
-        """Setup fitting parameters
+        """Setup fitting parameters.
 
         This method handles the input of initial parameters for fitting. The
         input system is flexible, allowing optional input of min and max
@@ -683,12 +686,13 @@ class FluoFit:
         if fwhm is None:
             irf = self.irf
         else:  # Simulate gaussian irf with max at max of measured data
-            irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured_unbounded)
+            # irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured_unbounded)
+            irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured)
 
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
         convd = convd[self.startpoint : self.endpoint]
-        convd = convd / convd.sum()
+        # convd = convd / convd.sum()
         return convd
 
     @staticmethod
@@ -950,7 +954,7 @@ class TwoExp(FluoFit):
             paraminit = self.tau + self.amp + [self.shift]
 
         if addopt is None:
-            param, pcov = curve_fit(
+            param, pcov, *extra = curve_fit(
                 self.fitfunc,
                 self.t,
                 self.measured,
@@ -958,7 +962,7 @@ class TwoExp(FluoFit):
                 p0=paraminit,
             )
         else:
-            param, pcov = curve_fit(
+            param, pcov, *extra = curve_fit(
                 self.fitfunc,
                 self.t,
                 self.measured,
@@ -968,7 +972,8 @@ class TwoExp(FluoFit):
             )
 
         tau = param[0:2]
-        amp = np.append(param[2], 1 - param[2])
+        # amp = np.append(param[2], 1 - param[2])
+        amp = param[2:4]
         shift = param[4]
         stds = np.sqrt(np.diag(pcov))
         stds[3] = stds[2]  # second amplitude std is same as that of the first
@@ -987,7 +992,7 @@ class TwoExp(FluoFit):
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Double exponential model function passed to curve_fit, to be fitted to data."""
-        model = a1 * np.exp(-t / tau1) + (1 - a1) * np.exp(-t / tau2)
+        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
         return self.makeconvd(shift, model, fwhm)
 
 
@@ -1021,7 +1026,7 @@ class ThreeExp(FluoFit):
         if tau is None:
             tau = [0.1, 1, 5]
         if amp is None:
-            amp = [1, 1, 1]
+            amp = [0.4, 0.3, 0.3]
 
         FluoFit.__init__(
             self,
@@ -1050,7 +1055,7 @@ class ThreeExp(FluoFit):
             paraminit = self.tau + self.amp + [self.shift]
 
         if addopt is None:
-            param, pcov = curve_fit(
+            param, pcov, *extra = curve_fit(
                 self.fitfunc,
                 self.t,
                 self.measured,
@@ -1058,7 +1063,7 @@ class ThreeExp(FluoFit):
                 p0=paraminit,
             )
         else:
-            param, pcov = curve_fit(
+            param, pcov, *extra = curve_fit(
                 self.fitfunc,
                 self.t,
                 self.measured,
@@ -1068,7 +1073,8 @@ class ThreeExp(FluoFit):
             )
 
         tau = param[0:3]
-        amp = np.append(param[3:5], 1 - param[3] - param[4])
+        # amp = np.append(param[3:5], 1 - param[3] - param[4])
+        amp = param[3:6]
         shift = param[6]
         stds = np.sqrt(np.diag(pcov))
         stds[5] = np.sqrt(
@@ -1095,9 +1101,9 @@ class ThreeExp(FluoFit):
         model = (
             a1 * np.exp(-t / tau1)
             + a2 * np.exp(-t / tau2)
-            + (1 - a1 - a2) * np.exp(-t / tau3)
+            + a3 * np.exp(-t / tau3)
         )
-        return self.makeconvd(shift, model, fwhm)
+        return self.makeconvd(shift, model, fwhm) + (1 - a1 - a2 - a3)
 
 
 class FittingParameters:
@@ -1197,7 +1203,7 @@ class FittingParameters:
                     ]
                 ],
             ]
-            self.amp[1][0] = 1 - self.amp[0][0]
+            # self.amp[1][0] = 1 - self.amp[0][0]
 
         elif self.numexp == 3:
             self.tau = [
@@ -1258,7 +1264,7 @@ class FittingParameters:
                     ]
                 ],
             ]
-            self.amp[2][0] = 1 - self.amp[0][0] - self.amp[1][0]
+            # self.amp[2][0] = 1 - self.amp[0][0] - self.amp[1][0]
 
         self.shift = [
             self.get_from_gui(i)
@@ -1539,6 +1545,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 try:
                     if fp.fwhm is None:
                         irf = fp.irf
+                        irf = irf / max(irf)
                         irft = fp.irft
                     else:
                         irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], decay)
@@ -1551,14 +1558,15 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 shift = shift / channelwidth
                 # irf = tcspcfit.colorshift(irf, shift)
                 irf = colorshift(irf, shift)
+                print(max(irf), max(decay), max(model))
                 convd = scipy.signal.convolve(irf, model)
                 convd = convd[: np.size(irf)]
-                convd = convd / convd.sum()
+                print('max:', max(convd))
+                # convd = convd / convd.sum()
 
                 bg = FluoFit.estimate_bg(decay, settings=self.settings)
                 start = int(start / channelwidth)
                 end = int(end / channelwidth) if end is not None else None
-                print(end)
                 start, end = FluoFit.calculate_boundaries(
                     decay,
                     [start, end, autostart, autoend],
@@ -1566,7 +1574,6 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     self.settings,
                     channelwidth,
                 )
-                print(end)
                 if autostart != "Manual":
                     self.lineStartTime.setText(f"{start * channelwidth:.3g}")
                 if autoend:
@@ -1670,8 +1677,9 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             tau2 = fp.tau[1][0]
             amp1 = fp.amp[0][0]
             amp2 = fp.amp[1][0]
-            # print(amp1, amp2, tau1, tau2)
+            print(amp1, amp2, tau1, tau2)
             model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2)
+            print(max(model))
         elif fp.numexp == 3:
             tau1 = fp.tau[0][0]
             tau2 = fp.tau[1][0]
