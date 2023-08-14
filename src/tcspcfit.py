@@ -25,6 +25,8 @@ import file_manager as fm
 from PyQt5 import uic
 from typing import TYPE_CHECKING, Union
 from settings_dialog import Settings
+from change_point import Level
+from grouping import GlobalLevel, Group
 
 if TYPE_CHECKING:
     from controllers import LifetimeController
@@ -1354,15 +1356,18 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         #  TODO: try should contain as little code as possible
         try:
-            if self.mainwindow.current_particle.level_or_group_selected is None:
+            selected_level_or_group = self.mainwindow.current_particle.level_or_group_selected
+            if selected_level_or_group is None:
                 histogram = self.mainwindow.current_particle.histogram
             else:
-                level = self.mainwindow.current_particle.level_or_group_selected
-                if level <= self.mainwindow.current_particle.num_levels - 1:
-                    histogram = self.mainwindow.current_particle.levels[level].histogram
-                else:
-                    group = level - self.mainwindow.current_particle.num_levels
-                    histogram = self.mainwindow.current_particle.groups[group].histogram
+                selected_level_or_group = self.mainwindow.current_particle.level_or_group_selected
+                histogram = selected_level_or_group.histogram
+                # if type(selected_level_or_group) in [Level, GlobalLevel]:
+                #     histogram = selected_level_or_group.histogram
+                # elif type(selected_level_or_group) is Group:
+                #     histogram = self.mainwindow.current_particle.groups[group].histogram
+                # else:
+                #     raise AttributeError("Provided `selected_level_or_group` not a level or group")
             decay = histogram.decay
             decay = decay / decay.sum()
             t = histogram.t
@@ -1393,7 +1398,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 bg = FluoFit.estimate_bg(decay, settings=self.settings)
                 start = int(start / channelwidth)
                 end = int(end / channelwidth) if end is not None else None
-                print(end)
+                # print(end)
                 start, end = FluoFit.calculate_boundaries(
                     decay,
                     [start, end, autostart, autoend],
@@ -1401,7 +1406,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     self.settings,
                     channelwidth,
                 )
-                print(end)
+                # print(end)
                 if autostart != "Manual":
                     self.lineStartTime.setText(f"{start * channelwidth:.3g}")
                 if autoend:

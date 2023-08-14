@@ -12,7 +12,7 @@ try:
 except ModuleNotFoundError:
     has_asizeof = False
 
-from termcolor import colored as termcolor
+# from termcolor import colored as termcolor
 
 RUNTIME_CONSOLE = True
 EXCLUSION_TYPES = [int, float, bool]

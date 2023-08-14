@@ -185,36 +185,43 @@ class ClusteringStep:
             return int_bounds
 
     def ahc(self):
-        merge = np.full(shape=(self._num_prev_groups, self._num_prev_groups), fill_value=-np.inf)
+        """ Agglomerative Hierarchical Clustering """
+
+        # Calculate merge merit value for each possible merging situation
+        merge_merit = np.full(shape=(self._num_prev_groups, self._num_prev_groups), fill_value=-np.inf)
         for j, group_j in enumerate(self._seed_groups):  # Row
             for m, group_m in enumerate(self._seed_groups):  # Column
                 if j < m:
-                    n_m = group_m.num_photons
-                    n_j = group_j.num_photons
-                    t_m = group_m.dwell_time_s
-                    t_j = group_j.dwell_time_s
+                    n_m = group_m.num_photons  # Number of photons in group m
+                    n_j = group_j.num_photons  # Number of photons in group j
+                    t_m = group_m.dwell_time_s  # Dwell time of group m in seconds
+                    t_j = group_j.dwell_time_s  # Dwell time of group j in seconds
 
-                    merge[j, m] = (
-                        (n_m + n_j) * np.log((n_m + n_j) / (t_m + t_j))
-                        - n_m * np.log(n_m / t_m)
-                        - n_j * np.log(n_j / t_j)
+                    merge_merit[j, m] = (  # Log-Likelihood Merge merit function for joining groups j and m, eq. 11
+                        (n_m + n_j) * np.log((n_m + n_j) / (t_m + t_j))  # (n_m - n_j)\ln[\frac{n_m + n_j}{T_m + T_j}]
+                        - n_m * np.log(n_m / t_m)  # - n_m\ln[\frac{n_m}{T_m}]
+                        - n_j * np.log(n_j / t_j)  # - n_j\ln[\frac{n_j}{T_j}]
                     )
-        max_j, max_m = max_jm(merge)
 
+        max_j, max_m = max_jm(merge_merit)  # Find most probably merge
+
+        # Perform merging of groups max_j and max_m
         new_groups = []
         p_mj = np.zeros(shape=(self._num_prev_groups - 1, self._num_levels))
         group_num = -1
         for i, group_i in enumerate(self._seed_groups):
             if i != max_m:
                 group_num += 1
-                if i == max_j:
-                    merge_lvls = group_i.lvls_inds.copy()
-                    merge_lvls.extend(self._seed_groups[max_m].lvls_inds.copy())
-                    merge_lvls.sort()
-                    new_groups.append(Group(lvls_inds=merge_lvls, particle=self._particle))
+                if i == max_j:  # Then merge
+                    merge_levels = group_i.lvls_inds.copy()
+                    merge_levels.extend(self._seed_groups[max_m].lvls_inds.copy())
+                    merge_levels.sort()
+                    # New group made up of all the levels in groups max_j and max_m
+                    new_groups.append(Group(lvls_inds=merge_levels, particle=self._particle))
                 else:
                     new_groups.append(group_i)
 
+                # Set up new assignment matrix, to be as initial start for EM clustering
                 for ind in new_groups[-1].lvls_inds:
                     p_mj[group_num, ind] = 1
 
@@ -225,13 +232,16 @@ class ClusteringStep:
     def emc(self):
         """Expectation Maximisation clustering"""
 
-        p_mj = self._ahc_p_mj.copy()
+        p_mj = self._ahc_p_mj.copy()  # Initial state, as provided by AHC
+
         prev_p_mj = p_mj.copy()
         if not self._particle.use_roi_for_grouping:
             levels = self._particle.cpts.levels
         else:
             levels = self._particle.levels_roi
 
+        # M-Step
+        ######################################################################
         i = 0
         diff_p_mj = 1
         p_hat_g = None
@@ -250,22 +260,31 @@ class ClusteringStep:
             p_hat_g = np.zeros(shape=(self._num_prev_groups - 1, self._num_levels))
             denom = np.zeros(shape=(self._num_levels,))
 
-            for m, group in enumerate(self._ahc_groups):
+            for m, group in enumerate(self._ahc_groups):  # As in Fig. 9
+                # \hat{T}_m = \sum\limits_{j=1}^{J+1}\bar{p}_{mj}T_j
                 t_hat[m] = np.sum([p_mj[m, j] * l.dwell_time_s for j, l in enumerate(levels)])
+
+                # \hat{n}_m = \sum\limits_{j=1}^{J+1}\bar{p}_{mj}n_j
                 n_hat[m] = np.sum([p_mj[m, j] * l.num_photons for j, l in enumerate(levels)])
+
+                # \hat{p}_m = \frac{\hat{T}_m}{T}
                 p_hat[m] = t_hat[m] / cap_t
+
+                # \hat{I}_m = \sum\limits_{j=1}^{J+1}\frac{\bar{p}_{mj}n_j}{\hat{T}_m}
                 i_hat[m] = np.sum([p_mj[m, j] * l.num_photons / t_hat[m] for j, l in enumerate(levels)])
 
-                denom_sum = 0
+                # Let \bar{p}_{mj} = \frac{\alpha_{mj}}{\sum_{m=1}^G\alpha_{mj}}
+                # where \alpha_{mj} = \hat{p}_mg(n_j;\hat{I}_m,T_j)
                 for j, l in enumerate(levels):
-                    p_hat_g[m, j] = p_hat[m] * poisson.pmf(l.num_photons, i_hat[m] * l.dwell_time_s)
+                    p_hat_g[m, j] = p_hat[m] * poisson.pmf(l.num_photons, i_hat[m] * l.dwell_time_s)  # \alpha_{mj}
 
+            # \sum_{m=1}^G\alpha_{mj} = \sum_{m=1}^G\hat{p}_mg(n_j;\hat{I}_m,T_j)
             for j in range(self._num_levels):
                 denom[j] = np.sum(p_hat_g[:, j])
 
                 for m in range(self._num_prev_groups - 1):
                     try:
-                        p_mj[m, j] = p_hat_g[m, j] / denom[j]
+                        p_mj[m, j] = p_hat_g[m, j] / denom[j]  # \bar{p}_{mj}=\frac{\alpha_{mj}}{\sum_{m=1}^G\alpha_{mj}}
                     except:
                         # print('here')  # TODO: Fix div by zero
                         pass
@@ -279,6 +298,8 @@ class ClusteringStep:
             eff_p_mj[level_p_max[j], j] = 1
         self._em_p_mj = eff_p_mj
 
+        # E-Step
+        ######################################################################
         log_l = 0
         for m in range(self._num_prev_groups - 1):
             for j in range(self._num_levels):
@@ -512,7 +533,7 @@ class AHCA:
                         steps.append(c_step)
                         current_num_groups = c_step.num_groups
                         if current_num_groups != 1:
-                            print(current_num_groups)
+                            # print(current_num_groups)
                             c_step = c_step.setup_next_step()
                             if feedback_queue is not None:
                                 feedback_queue.put(

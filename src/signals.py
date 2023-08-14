@@ -64,7 +64,7 @@ class WorkerSignals(QObject):
     plot_decay = pyqtSignal(int, object, bool, bool)
     plot_decay_lock = pyqtSignal(int, object, bool, bool, bool)
     plot_decay_export = pyqtSignal(int, object, bool, bool, str)
-    plot_decay_export_lock = pyqtSignal(int, object, bool, bool, str, bool)
+    plot_decay_export_lock = pyqtSignal(object, object, bool, bool, str, bool)
     plot_convd = pyqtSignal(int, object, bool)
     plot_convd_lock = pyqtSignal(int, object, bool, bool, bool)
     plot_convd_export_lock = pyqtSignal(int, object, bool, bool, str, bool)
