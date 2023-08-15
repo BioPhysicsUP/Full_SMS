@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 import os
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING, List, Union, Tuple
 from time import sleep
 import re
 
@@ -213,7 +213,7 @@ def export_data(
                 export_lifetimes(f_dir=f_dir, particle_s=p, use_roi=options["use_roi"])
 
             if options["ex_hist"]:
-                export_hists(f_dir=f_dir, particle=p, use_roi=options["use_roi"])
+                export_hists(f_dir=f_dir, particle=p)
 
             # TODO: Fix problems
             # Current problems
@@ -232,89 +232,20 @@ def export_data(
                 )
 
             if options["ex_plot_and_residuals"]:
-                if signals:
-                    signals.plot_decay_lock.emit(-1, p, False, True, True)
-                    lock.acquire()
-                    while lock.locked():
-                        sleep(0.1)
-                    signals.plot_convd_lock.emit(-1, p, False, True, True)
-                    lock.acquire()
-                    while lock.locked():
-                        sleep(0.1)
-                    signals.plot_residuals_export_lock.emit(-1, p, True, f_dir, True)
-                    lock.acquire()
-                    while lock.locked():
-                        sleep(0.1)
-                else:
-                    main_window.lifetime_controller.plot_decay(
-                        selected_level_or_group=-1, particle=p, for_export=True
-                    )
-                    main_window.lifetime_controller.plot_convd(
-                        selected_level_or_group=-1,
-                        particle=p,
-                        for_export=True,
-                        export_path=f_dir,
-                    )
-                write_hists(
-                    options["ex_plot_lifetimes_only_groups"],
-                    f_dir,
-                    lock,
-                    p,
-                    signals,
-                    residuals=True,
-                )
+                plot_lifetime_fit_residuals(f_dir, lock, main_window, p, signals)
 
             if options["ex_spectra_2d"]:
-                spectra_2d_path = os.path.join(f_dir, pname + " spectra-2D.csv")
-                with open_file(spectra_2d_path) as f:
-                    f.write("First row:,Wavelength (nm)\n")
-                    f.write("First column:,Time (s)\n")
-                    f.write("Values:,Intensity (counts/s)\n\n")
-
-                    rows = list()
-                    rows.append([""] + p.spectra.wavelengths.tolist())
-                    for num, spec_row in enumerate(p.spectra.data[:]):
-                        this_row = list()
-                        this_row.append(str(p.spectra.series_times[num]))
-                        for single_val in spec_row:
-                            this_row.append(str(single_val))
-                        rows.append(this_row)
-
-                    writer = csv.writer(f, dialect=csv.excel)
-                    writer.writerows(rows)
+                export_spectra_2d(f_dir, p)
 
             if options["ex_plot_spectra"]:
-                if signals:
-                    signals.plot_spectra_export_lock.emit(p, True, f_dir, True)
-                    lock.acquire()
-                    while lock.locked():
-                        sleep(0.1)
-                else:
-                    main_window.spectra_controller.plot_spectra(
-                        particle=p, for_export=True, export_path=f_dir
-                    )
-            if options["ex_plot_corr_hists"]:
-                if signals:
-                    signals.plot_corr_export_lock.emit(p, True, f_dir, True)
-                    lock.acquire()
-                    while lock.locked():
-                        sleep(0.1)
-                else:
-                    main_window.antibunch_controller.plot_corr(
-                        particle=p, for_export=True, export_path=f_dir
-                    )
+                plot_spectra(f_dir, lock, main_window, p, signals)
 
-            logger.info("Exporting Finished")
+            if options["ex_plot_corr_hists"]:
+                plot_corr_hists(f_dir, lock, main_window, p, signals)
+
             if signals:
                 signals.progress.emit()
             p.has_exported = True
-
-        # if ex_raster_scan_2d:
-        #     dataset = mainwindow.current_dataset
-        #     for raster_scan_index in raster_scans_use:
-        #         raster_scan = dataset.all_raster_scans[raster_scan_index]
-        #         if signals:
-        #             signals.progress.emit()
 
     if options["ex_raster_scan_2d"] or options["ex_plot_raster_scans"]:
         dataset = main_window.current_dataset
@@ -323,38 +254,15 @@ def export_data(
             rs_part_ind = raster_scan.particle_indexes[0]
             p = dataset.particles[rs_part_ind]
             if options["ex_raster_scan_2d"]:
-                raster_scan_2d_path = os.path.join(
-                    f_dir, f"Raster Scan {raster_scan.dataset_index + 1} data.csv"
-                )
-                top_row = [np.NaN, *raster_scan.x_axis_pos]
-                y_and_data = np.column_stack(
-                    (raster_scan.y_axis_pos, raster_scan.dataset[:])
-                )
-                x_y_data = np.insert(y_and_data, 0, top_row, axis=0)
-                with open_file(raster_scan_2d_path) as f:
-                    f.write("Rows = X-Axis (um)")
-                    f.write("Columns = Y-Axis (um)")
-                    f.write("")
-                    writer = csv.writer(f, dialect=csv.excel)
-                    writer.writerows(x_y_data)
+                export_raster_scan_2d(f_dir, raster_scan)
 
             if options["ex_plot_raster_scans"]:
-                if signals:
-                    # with lock:
-                    signals.plot_raster_scan_export_lock.emit(
-                        p, raster_scan, True, f_dir, True
-                    )
-                    lock.acquire()
-                    while lock.locked():
-                        sleep(0.1)
-                main_window.raster_scan_controller.plot_raster_scan(
-                    raster_scan=raster_scan, for_export=True, export_path=f_dir
-                )
+                plot_raster_scan(f_dir, lock, main_window, p, raster_scan, signals)
 
             if signals:
                 signals.progress.emit()
 
-    ## DataFrame compilation and writing
+    # DataFrame compilation and writing
     if any(
         [
             options["ex_df_levels"],
@@ -362,198 +270,7 @@ def export_data(
             options["ex_df_grouping_info"],
         ]
     ):
-        any_has_lifetime = any([p.has_fit_a_lifetime for p in particles])
-        if any_has_lifetime:
-            max_numexp = max([p.numexp for p in particles if p.numexp is not None])
-            tau_cols = [f"tau_{i + 1}" for i in range(max_numexp)]
-            taustd_cols = [f"tau_std_{i + 1}" for i in range(max_numexp)]
-            amp_cols = [f"amp_{i + 1}" for i in range(max_numexp)]
-            ampstd_cols = [f"amp_std_{i + 1}" for i in range(max_numexp)]
-            life_cols_add = [
-                "num_photons_in_lifetime_fit",
-                *tau_cols,
-                *taustd_cols,
-                *amp_cols,
-                *ampstd_cols,
-                "irf_shift",
-                "irf_shift_std",
-                "decay_bg",
-                "irf_bg",
-                "chi_squared",
-                "dw",
-                "dw_5",
-                "dw_1",
-                "dw_03",
-                "dw_01",
-            ]
-        else:
-            life_cols_add = [""]
-            max_numexp = None
-        if options["ex_df_levels"] or options["ex_df_grouped_levels"]:
-            levels_cols = [
-                "particle",
-                "is_primary_part",
-                "tcspc_card",
-                "level",
-                "start",
-                "end",
-                "dwell",
-                "dwell_frac",
-                "int",
-                "num_photons",
-            ]
-            grouped_levels_cols = levels_cols.copy()
-            # grouped_levels_cols[1] = 'grouped_level'
-            grouped_levels_cols.insert(2, "group_index")
-            if any_has_lifetime:
-                if options["ex_df_levels_lifetimes"]:
-                    levels_cols.extend(life_cols_add)
-                if options["ex_df_grouped_levels_lifetimes"]:
-                    grouped_levels_cols.extend(life_cols_add)
-            levels_cols.append("is_in_roi")
-            grouped_levels_cols.append("is_in_roi")
-
-            data_levels = list()
-            if options["ex_df_grouped_levels"]:
-                data_grouped_levels = list()
-
-        if options["ex_df_grouping_info"]:
-            grouping_info_cols = [
-                "particle",
-                "is_primary_part",
-                "tcspc_card",
-                "group",
-                "total_dwell",
-                "int",
-                "num_levels",
-                "num_photons",
-                "num_steps",
-                "is_best_step",
-            ]
-            data_grouping_info = list()
-
-        for p in particles:
-            if not p.has_levels:
-                continue
-            roi_first_level_ind = p.first_level_ind_in_roi
-            roi_last_level_ind = p.last_level_ind_in_roi
-            pname = p.unique_name
-            if options["ex_df_levels"]:
-                for l_num, l in enumerate(p.cpts.levels):
-                    level_in_roi = roi_first_level_ind <= l_num <= roi_last_level_ind
-                    row = [
-                        pname,
-                        not p.is_secondary_part,
-                        p.tcspc_card,
-                        l_num + 1,
-                        *get_level_data(
-                            l,
-                            p.dwell_time,
-                            incl_lifetimes=all(
-                                [
-                                    options["ex_df_levels_lifetimes"],
-                                    p.has_fit_a_lifetime,
-                                ]
-                            ),
-                            max_numexp=max_numexp,
-                        ),
-                        level_in_roi,
-                    ]
-                    data_levels.append(row)
-
-            if options["ex_df_grouped_levels"]:
-                roi_first_group_level_ind = p.first_group_level_ind_in_roi
-                roi_last_group_level_ind = p.last_group_level_ind_in_roi
-                for g_l_num, g_l in enumerate(p.group_levels):
-                    group_level_in_roi = (
-                        roi_first_group_level_ind <= g_l_num <= roi_last_group_level_ind
-                    )
-                    row = [
-                        pname,
-                        not p.is_secondary_part,
-                        p.tcspc_card,
-                        g_l_num + 1,
-                        g_l.group_ind + 1,
-                        *get_level_data(
-                            g_l,
-                            p.dwell_time,
-                            incl_lifetimes=all(
-                                [
-                                    options["ex_df_grouped_levels_lifetimes"],
-                                    p.has_fit_a_lifetime,
-                                ]
-                            ),
-                            max_numexp=max_numexp,
-                        ),
-                        group_level_in_roi,
-                    ]
-                    data_grouped_levels.append(row)
-
-            if options["ex_df_grouping_info"]:
-                if p.has_groups:
-                    for g_num, g in enumerate(p.ahca.selected_step.groups):
-                        row = [
-                            pname,
-                            not p.is_secondary_part,
-                            p.tcspc_card,
-                            g_num + 1,
-                            g.int_p_s,
-                            g.dwell_time_s,
-                            len(g.lvls),
-                            g.num_photons,
-                            p.ahca.num_steps,
-                            p.ahca.selected_step == p.ahca.best_step_ind,
-                        ]
-                        data_grouping_info.append(row)
-                else:
-                    row = [pname]
-                    row.extend([np.NaN] * 7)
-                    data_grouping_info.append(row)
-
-        if options["ex_df_levels"]:
-            df_levels = pd.DataFrame(data=data_levels, columns=levels_cols)
-            df_levels["particle"] = df_levels["particle"].astype("string")
-            # levels_df_path = os.path.join(f_dir, 'levels.df')
-            # feather.write_feather(df=df_levels, dest=levels_df_path)
-            write_dataframe_to_file(
-                dataframe=df_levels,
-                path=f_dir,
-                filename="levels",
-                file_type=options["ex_df_format"],
-            )
-            if signals:
-                signals.progress.emit()
-
-        if options["ex_df_grouped_levels"]:
-            df_grouped_levels = pd.DataFrame(
-                data=data_grouped_levels, columns=grouped_levels_cols
-            )
-            df_grouped_levels["particle"] = df_grouped_levels.particle.astype("string")
-            # grouped_levels_df_path = os.path.join(f_dir, 'grouped_levels.df')
-            # feather.write_feather(df=df_grouped_levels, dest=grouped_levels_df_path)
-            write_dataframe_to_file(
-                dataframe=df_grouped_levels,
-                path=f_dir,
-                filename="grouped_levels",
-                file_type=options["ex_df_format"],
-            )
-            if signals:
-                signals.progress.emit()
-
-        if options["ex_df_grouping_info"]:
-            df_grouping_info = pd.DataFrame(
-                data=data_grouping_info, columns=grouping_info_cols
-            )
-            # grouping_info_df_path = os.path.join(f_dir, 'grouping_info.df')
-            # feather.write_feather(df=df_grouping_info, dest=grouping_info_df_path)
-            write_dataframe_to_file(
-                dataframe=df_grouping_info,
-                path=f_dir,
-                filename="grouping_info",
-                file_type=options["ex_df_format"],
-            )
-            if signals:
-                signals.progress.emit()
+        export_dataframes(f_dir, options, particles, signals)
 
     if signals:
         signals.end_progress.emit()
@@ -643,94 +360,265 @@ def get_options(main_window: MainWindow) -> dict:
     return options
 
 
-# def export_lifetime_plots(
-#     f_dir: str,
-#     particle: smsh5.Particle,
-#     lock: Lock,
-#     main_window: MainWindow,
-#     signals: WorkerSignals = None,
-#     with_fit: bool = False,
-#     only_groups: bool = False,
-# ):
-#     if signals:
-#         signals.plot_decay_lock.emit(-1, particle, False, True, True)
-#         lock.acquire()
-#         while lock.locked():
-#             sleep(0.1)
-#         signals.plot_convd_export_lock.emit(-1, particle, False, True, f_dir, True)
-#         lock.acquire()
-#         while lock.locked():
-#             sleep(0.1)
-#     else:
-#         main_window.lifetime_controller.plot_decay(
-#             selected_level_or_group=-1, particle=particle, for_export=True
-#         )
-#         main_window.lifetime_controller.plot_convd(
-#             selected_level_or_group=-1,
-#             particle=particle,
-#             for_export=True,
-#             export_path=f_dir,
-#         )
-#     write_hists(only_groups, f_dir, lock, particle, signals)
+##############################################################
+# pandas DataFrame exports
+##############################################################
 
 
-def plot_lifetimes(
-    f_dir: str,
-    lock: Lock,
-    main_window: MainWindow,
-    particle: smsh5.Particle,
-    signals: WorkerSignals = None,
-    with_fit: bool = False,
-    only_groups: bool = False,
-) -> None:
-    p_name = particle.unique_name
-    hist_path = os.path.join(f_dir, p_name + " hists")
-    try:
-        os.mkdir(hist_path)
-    except FileExistsError:
-        pass
-    if particle.has_levels:
-        # None -> Particle Histogram
-        levels_and_groups: List[Union[None, Level, GlobalLevel, Group]] = [None]
-        if not only_groups:
-            if particle.has_levels:
-                levels_and_groups.extend(particle.cpts.levels)
-            if particle.has_groups:
-                levels_and_groups.extend(particle.ahca.selected_step.group_levels)
-        if particle.has_groups:
-            levels_and_groups.extend(particle.groups)
-        for l_or_g in levels_and_groups:
-            path = f_dir if l_or_g is None else hist_path
-            if signals:
-                signals.plot_decay_export_lock.emit(
-                    l_or_g, particle, False, True, hist_path, True
-                )
-                lock.acquire()
-                while lock.locked():
-                    sleep(0.1)
-            else:
-                main_window.lifetime_controller.plot_decay(
-                    selected_level_or_group=l_or_g,
-                    particle=particle,
-                    for_export=True,
-                    export_path=path if not with_fit else None,
-                )
-                if with_fit:
-                    main_window.lifetime_controller.plot_convd(
-                        selected_level_or_group=l_or_g,
-                        particle=particle,
-                        for_export=True,
-                        export_path=path,
-                    )
-
-
-def export_hists(f_dir: str, particle: smsh5.Particle, use_roi: bool = False):
-    def _export_hist(tr_path: str, particle: smsh5.Particle, roi: bool = False):
-        rows = list()
-        if roi:
-            histogram = particle._histogram_roi
+def write_dataframe_to_file(
+    dataframe: pd.DataFrame, path: str, filename: str, file_type: dict
+):
+    if file_type == 0:  # Parquet
+        file_path = os.path.join(path, filename + ".parquet")
+        dataframe.to_parquet(path=file_path)
+    elif file_type == 1 or file_type == 2:  # Feather
+        if file_type == 1:  # with .ftr
+            file_path = os.path.join(path, filename + ".ftr")
         else:
-            histogram = particle._histogram
+            file_path = os.path.join(path, filename + ".df")
+        feather.write_feather(df=dataframe, dest=file_path)
+    elif file_type == 3:  # Pickle
+        file_path = os.path.join(path, filename + ".pkl")
+        dataframe.to_pickle(path=file_path)
+    elif file_type == 4:  # HDF
+        file_path = os.path.join(path, filename + ".h5")
+        dataframe.to_hdf(path_or_buf=file_path, key=filename, format="table")
+    elif file_type == 5:  # Excel
+        file_path = os.path.join(path, filename + ".xlsx")
+        dataframe.to_excel(file_path)
+    elif file_type == 6:  # CSV
+        file_path = os.path.join(path, filename + ".csv")
+        dataframe.to_csv(file_path)
+    else:
+        logger.error("File type not configured yet")
+    pass
+
+
+def export_dataframes(f_dir, options, particles, signals):
+    any_has_lifetime = any([p.has_fit_a_lifetime for p in particles])
+    if not any_has_lifetime:
+        if signals:
+            signals.progress.emit()
+            signals.progress.emit()
+            signals.progress.emit()
+        return
+
+    max_exp_num = np.max(
+        [
+            np.max([p.histogram.numexp for p in particles]),
+            np.max([[l.histogram.numexp for l in p.levels] for p in particles]),
+            np.max([[g.histogram.numexp for g in p.groups] for p in particles]),
+        ]
+    )
+    if options["ex_df_levels"]:
+        all_levels = [l for p in particles for l in p.levels]
+        df_levels = levels_to_df(max_exp_num=max_exp_num, levels=all_levels)
+        write_dataframe_to_file(
+            dataframe=df_levels,
+            path=f_dir,
+            filename="levels",
+            file_type=options["ex_df_format"],
+        )
+        if signals:
+            signals.progress.emit()
+
+    if options["ex_df_grouped_levels"]:
+        all_group_levels = [g_l for p in particles for g_l in p.group_levels]
+        df_group_levels = levels_to_df(max_exp_num=max_exp_num, levels=all_group_levels)
+        write_dataframe_to_file(
+            dataframe=df_group_levels,
+            path=f_dir,
+            filename="group_levels",
+            file_type=options["ex_df_format"],
+        )
+        if signals:
+            signals.progress.emit()
+
+    if options["ex_df_grouping_info"]:
+        all_groups = [group for p in particles for group in p.groups]
+        df_groups = groups_to_df(groups=all_groups)
+        write_dataframe_to_file(
+            dataframe=df_groups,
+            path=f_dir,
+            filename="groups",
+            file_type=options["ex_df_format"],
+        )
+        if signals:
+            signals.progress.emit()
+
+
+def groups_to_df(groups: List[Group]):
+    s = dict()
+    s["particle"] = pd.Series([g.lvls[0].particle.unique_name for g in groups])
+    s["group"] = pd.Series([g.group_ind + 1 for g in groups])
+    s["total_dwell_time"] = pd.Series([g.dwell_time_s for g in groups])
+    s["int"] = pd.Series([g.int_p_s for g in groups])
+    s["num_levels"] = pd.Series([len(g.lvls) for g in groups])
+    s["num_photons"] = pd.Series([g.num_photons for g in groups])
+    s["num_steps"] = pd.Series([g.lvls[0].particle.ahca.num_steps for g in groups])
+    s["is_best_step"] = pd.Series(
+        [
+            g.lvls[0].particle.ahca.selected_step_ind
+            == g.lvls[0].particle.ahca.best_step_ind
+            for g in groups
+        ]
+    )
+    s["is_primary_particle"] = pd.Series(
+        [not g.lvls[0].particle.is_secondary_part for g in groups]
+    )
+    s["tcspc_card"] = pd.Series([g.lvls[0].particle.tcspc_card for g in groups])
+
+    return pd.DataFrame(s)
+
+
+def levels_to_df(max_exp_num: int, levels: List[Union[Level, GlobalLevel]]):
+    s = dict()
+    s["p_name"] = pd.Series([l.particle.unique_name for l in levels])
+    s["l_name"] = pd.Series([l.particle_ind + 1 for l in levels])
+    s["group_index"] = pd.Series(
+        [l.group_ind + 1 if l.particle.has_groups else None for l in levels]
+    )
+    s["start"] = pd.Series([l.abs_times[0] / 1e9 for l in levels])
+    s["end"] = pd.Series([l.abs_times[-1] / 1e9 for l in levels])
+    s["dwell"] = pd.Series([l.dwell_time_s for l in levels])
+    s["dwell_frac"] = pd.Series(
+        [l.dwell_time_s / l.particle.dwell_time_s for l in levels]
+    )
+    s["int"] = pd.Series([l.int_p_s for l in levels])
+    s["num_photons"] = pd.Series([l.num_photons for l in levels])
+    s["num_photons_in_lifetime_fit"] = pd.Series(
+        [l.histogram.num_photons_used if l.histogram.fitted else None for l in levels]
+    )
+    for exp_num in range(max_exp_num):
+        taus, tau_stds, amps, amp_stds = list(
+            zip(
+                *[
+                    (
+                        l.histogram.tau[exp_num],
+                        l.histogram.stds[exp_num],
+                        l.histogram.amp[exp_num],
+                        l.histogram.stds[exp_num + l.histogram.numexp],
+                    )
+                    if l.histogram.numexp <= exp_num and l.histogram.fitted
+                    else None
+                    for l in levels
+                ]
+            )
+        )
+        s[f"tau_{exp_num}"] = pd.Series(taus)
+        s[f"tau_std_{exp_num}"] = pd.Series(tau_stds)
+        s[f"amp_{exp_num}"] = pd.Series(amps)
+        s[f"amp_std_{exp_num}"] = pd.Series(amp_stds)
+
+    s["irf"] = pd.Series(
+        [l.histogram.shift if l.histogram.fitted else None for l in levels]
+    )
+    s["decay_bg"] = pd.Series(
+        [
+            l.histogram.stds[2 * l.histogram.numexp] if l.histogram.fitted else None
+            for l in levels
+        ]
+    )
+    s["irf_bg"] = pd.Series(
+        [l.histogram.irfbg if l.histogram.fitted else None for l in levels]
+    )
+    s["chisq"] = pd.Series(
+        [l.histogram.chisq if l.histogram.fitted else None for l in levels]
+    )
+    s["dw"] = pd.Series(
+        [l.histogram.dw if l.histogram.fitted else None for l in levels]
+    )
+    s["dw_5"] = pd.Series(
+        [
+            l.histogram.dw_bound[0]
+            if l.histogram.fitted and l.histogram.dw_bound is not None
+            else None
+            for l in levels
+        ]
+    )
+    s["dw_1"] = pd.Series(
+        [
+            l.histogram.dw_bound[1]
+            if l.histogram.fitted and l.histogram.dw_bound is not None
+            else None
+            for l in levels
+        ]
+    )
+    s["dw_03"] = pd.Series(
+        [
+            l.histogram.dw_bound[2]
+            if l.histogram.fitted and l.histogram.dw_bound is not None
+            else None
+            for l in levels
+        ]
+    )
+    s["dw_01"] = pd.Series(
+        [
+            l.histogram.dw_bound[3]
+            if l.histogram.fitted and l.histogram.dw_bound is not None
+            else None
+            for l in levels
+        ]
+    )
+    s["chisq"] = pd.Series(
+        [l.histogram.chisq if l.histogram.fitted else None for l in levels]
+    )
+    s["is_in_roi"] = pd.Series(
+        [
+            l.particle.first_level_ind_in_roi
+            <= l.particle_ind
+            <= l.particle.last_level_ind_in_roi
+            for l in levels
+        ]
+    )
+
+    return pd.DataFrame(s)
+
+
+##############################################################
+# NON pandas DataFrame exports
+##############################################################
+
+
+def export_raster_scan_2d(f_dir, raster_scan):
+    raster_scan_2d_path = os.path.join(
+        f_dir, f"Raster Scan {raster_scan.dataset_index + 1} data.csv"
+    )
+    top_row = [np.NaN, *raster_scan.x_axis_pos]
+    y_and_data = np.column_stack((raster_scan.y_axis_pos, raster_scan.dataset[:]))
+    x_y_data = np.insert(y_and_data, 0, top_row, axis=0)
+    with open_file(raster_scan_2d_path) as f:
+        f.write("Rows = X-Axis (um)")
+        f.write("Columns = Y-Axis (um)")
+        f.write("")
+        writer = csv.writer(f, dialect=csv.excel)
+        writer.writerows(x_y_data)
+
+
+def export_spectra_2d(f_dir: str, particle: smsh5.Particle):
+    p_name = particle.unique_name
+    spectra_2d_path = os.path.join(f_dir, p_name + " spectra-2D.csv")
+    with open_file(spectra_2d_path) as f:
+        f.write("First row:,Wavelength (nm)\n")
+        f.write("First column:,Time (s)\n")
+        f.write("Values:,Intensity (counts/s)\n\n")
+
+        rows = list()
+        rows.append([""] + particle.spectra.wavelengths.tolist())
+        for num, spec_row in enumerate(particle.spectra.data[:]):
+            this_row = list()
+            this_row.append(str(particle.spectra.series_times[num]))
+            for single_val in spec_row:
+                this_row.append(str(single_val))
+            rows.append(this_row)
+
+        writer = csv.writer(f, dialect=csv.excel)
+        writer.writerows(rows)
+
+
+def export_hists(f_dir: str, particle: smsh5.Particle):
+    def _export_hist(f_path: str, histogram: smsh5.Histogram):
+        rows = list()
         if histogram.fitted:
             times = histogram.convd_t
             if times is not None:
@@ -748,53 +636,40 @@ def export_hists(f_dir: str, particle: smsh5.Particle, use_roi: bool = False):
             rows.append(["Times (ns)", "Decay"])
             for i, time in enumerate(times):
                 rows.append([str(time), str(decay[i])])
-        with open_file(tr_path) as f:
+        with open_file(f_path) as f:
             writer = csv.writer(f, dialect=csv.excel)
             writer.writerows(rows)
 
     p_name = particle.unique_name
-    tr_path = os.path.join(f_dir, p_name + " hist.csv")
-    _export_hist(open_file, particle, tr_path)
-    if use_roi:
-        tr_path = os.path.join(f_dir, p_name + " hist (ROI).csv")
-        _export_hist(open_file, particle, tr_path, roi=True)
+    use_roi = particle.use_roi_for_histogram
+    post_fix_roi = " hist (roi).csv" if use_roi else " hist.csv"
+    tr_path = os.path.join(f_dir, p_name + post_fix_roi)
+    _export_hist(f_path=tr_path, histogram=particle.histogram)
+
+    dir_path = os.path.join(f_dir, p_name + " hists")
+    try:
+        os.mkdir(dir_path)
+    except FileExistsError:
+        pass
+
+    hists_with_name: List[Tuple[str, smsh5.Histogram]] = []
     if particle.has_levels:
-        dir_path = os.path.join(f_dir, p_name + " hists")
-        try:
-            os.mkdir(dir_path)
-        except FileExistsError:
-            pass
-        # if not p.using_group_levels:
-        #     roi_start_ind = p.first_level_ind_in_roi
-        #     roi_end_ind = p.last_level_ind_in_roi
-        # else:
-        #     roi_start_ind = p.first_group_level_ind_in_roi
-        #     roi_end_ind = p.last_group_level_ind_in_roi
-        roi_start_ind = particle.first_level_ind_in_roi
-        roi_end_ind = particle.last_level_ind_in_roi
-        for i, l in enumerate(particle.cpts.levels):
-            roi_tag = " (ROI)" if use_roi and roi_start_ind <= i <= roi_end_ind else ""
-            hist_path = os.path.join(
-                dir_path, "level " + str(i + 1) + roi_tag + " hist.csv"
-            )
-            _export_hist(open_file, l, hist_path, level=True)
+        levels = particle.levels if not use_roi else particle.levels_roi
+        hists_with_name.extend(
+            [(f"level {i+1}", l.histogram) for i, l in enumerate(levels)]
+        )
+    if particle.has_groups:
+        g_levels = particle.group_levels if not use_roi else particle.group_levels_roi
+        hists_with_name.extend(
+            [(f"group_level {i+1}", g_l.histogram) for i, g_l in enumerate(g_levels)]
+        )
+        hists_with_name.extend(
+            [(f"group {i+1}", g.histogram) for i, g in enumerate(particle.groups)]
+        )
 
-        if particle.has_groups:
-            roi_start_ind = particle.first_group_level_ind_in_roi
-            roi_end_ind = particle.last_group_level_ind_in_roi
-            for i, g in enumerate(particle.group_levels):
-                roi_tag = (
-                    " (ROI)" if use_roi and roi_start_ind <= i <= roi_end_ind else ""
-                )
-                hist_path = os.path.join(
-                    dir_path,
-                    "group level " + str(i + 1) + roi_tag + " hist.csv",
-                )
-                _export_hist(open_file, g, hist_path, level=True)
-
-            for i, g in enumerate(particle.groups):
-                hist_path = os.path.join(dir_path, "group " + str(i + 1) + " hist.csv")
-                _export_hist(open_file, g, hist_path, level=True)
+    for name, hist in hists_with_name:
+        f_path = dir_path + name + (" (roi)" if use_roi else "") + ".csv"
+        _export_hist(f_path=f_path, histogram=hist)
 
 
 def export_lifetimes(
@@ -962,24 +837,6 @@ def export_lifetimes(
                     _export_lifetimes(lvl_path, p.levels_roi, levels=True)
 
 
-def plot_grouping_bic(
-    f_dir: str,
-    lock: Lock,
-    main_window: MainWindow,
-    particle: smsh5.Particle,
-    signals: WorkerSignals = None,
-):
-    if signals:
-        signals.plot_grouping_bic_export_lock.emit(particle, True, f_dir, True)
-        lock.acquire()
-        while lock.locked():
-            sleep(0.1)
-    else:
-        main_window.grouping_controller.plot_group_bic(
-            particle=particle, for_export=True, export_path=f_dir
-        )
-
-
 def export_grouping_results(f_dir: str, particle: smsh5.Particle):
     pname = particle.unique_name
     grouping_results_path = os.path.join(f_dir, pname + " grouping-results")
@@ -1121,37 +978,6 @@ def export_levels_grouped_plot(f_dir: str, particle: smsh5.Particle):
         writer.writerows(rows)
 
 
-def plot_levels(
-    f_dir: str,
-    lock: Lock,
-    main_window: MainWindow,
-    particle: smsh5.Particle,
-    signals: WorkerSignals = None,
-    plot_groups: bool = False,
-):
-    if signals:
-        signals.plot_trace_lock.emit(particle, True, True)
-        lock.acquire()
-        while lock.locked():
-            sleep(0.1)
-        signals.plot_levels_lock.emit(particle, True, True)
-        lock.acquire()
-        while lock.locked():
-            sleep(0.1)
-        if plot_groups:
-            signals.plot_group_bounds_export_lock.emit(particle, True, f_dir, True)
-            lock.acquire()
-            while lock.locked():
-                sleep(0.1)
-    else:
-        main_window.intensity_controller.plot_trace(particle=particle, for_export=True)
-        main_window.intensity_controller.plot_levels(particle=particle, for_export=True)
-        if plot_groups:
-            main_window.intensity_controller.plot_group_bounds(
-                particle=particle, for_export=True, export_path=f_dir
-            )
-
-
 def export_levels(f_dir: str, particle: smsh5.Particle, use_roi: bool):
     def _export_level_plot(
         ints: Union[list, np.ndarray], lvl_tr_path: str, times: Union[list, np.ndarray]
@@ -1210,24 +1036,6 @@ def export_levels(f_dir: str, particle: smsh5.Particle, use_roi: bool):
         _export_levels(lvl_path=lvl_path, particle=particle, roi=True)
 
 
-def plot_intensities(
-    f_dir: str,
-    lock: Lock,
-    main_window: MainWindow,
-    particle: smsh5.Particle,
-    signals: WorkerSignals = None,
-):
-    if signals:
-        signals.plot_trace_export_lock.emit(particle, True, f_dir, True)
-        lock.acquire()
-        while lock.locked():
-            sleep(0.1)
-    else:
-        main_window.intensity_controller.plot_trace(
-            particle=particle, for_export=True, export_path=f_dir
-        )
-
-
 def export_corr_hists(f_dir: str, particle: smsh5.Particle, use_roi: bool = False):
     pname = particle.unique_name
     tr_path = os.path.join(f_dir, pname + " corr.csv")
@@ -1271,31 +1079,6 @@ def export_trace(f_dir: str, particle: smsh5.Particle, use_roi: bool):
         )
 
 
-# def write_hists(
-#     f_dir: str,
-#     lock: Lock,
-#     p: smsh5.Particle,
-#     signals: WorkerSignals,
-#     only_groups: bool = False,
-#     residuals=False,
-# ):
-#     pname = p.unique_name
-#     dir_path = os.path.join(f_dir, pname + " hists")
-#     try:
-#         os.mkdir(dir_path)
-#     except FileExistsError:
-#         pass
-#     if p.has_levels:
-#         args = p, dir_path, p.has_groups, only_groups, True
-#         if not residuals:
-#             signals.plot_decay_convd_export_lock.emit(*args)
-#         else:
-#             signals.plot_decay_convd_residuals_export_lock.emit(*args)
-#         lock.acquire()
-#         while lock.locked():
-#             sleep(0.1)
-
-
 def export_corr(tr_path: str, particle: smsh5.Particle):
     bins = particle.ab_analysis.corr_bins
     hist = particle.ab_analysis.corr_hist / 1e3
@@ -1308,90 +1091,223 @@ def export_corr(tr_path: str, particle: smsh5.Particle):
         writer.writerows(rows)
 
 
-def write_dataframe_to_file(
-    dataframe: pd.DataFrame, path: str, filename: str, file_type: dict
-):
-    if file_type == 0:  # Parquet
-        file_path = os.path.join(path, filename + ".parquet")
-        dataframe.to_parquet(path=file_path)
-    elif file_type == 1 or file_type == 2:  # Feather
-        if file_type == 1:  # with .ftr
-            file_path = os.path.join(path, filename + ".ftr")
-        else:
-            file_path = os.path.join(path, filename + ".df")
-        feather.write_feather(df=dataframe, dest=file_path)
-    elif file_type == 3:  # Pickle
-        file_path = os.path.join(path, filename + ".pkl")
-        dataframe.to_pickle(path=file_path)
-    elif file_type == 4:  # HDF
-        file_path = os.path.join(path, filename + ".h5")
-        dataframe.to_hdf(path_or_buf=file_path, key=filename, format="table")
-    elif file_type == 5:  # Excel
-        file_path = os.path.join(path, filename + ".xlsx")
-        dataframe.to_excel(file_path)
-    elif file_type == 6:  # CSV
-        file_path = os.path.join(path, filename + ".csv")
-        dataframe.to_csv(file_path)
-    else:
-        logger.error("File type not configured yet")
-    pass
+##############################################################
+# Plots
+##############################################################
 
 
-def get_level_data(
-    level: Level,
-    total_dwelltime: float,
-    incl_lifetimes: bool = False,
-    max_numexp: int = 3,
-) -> List:
-    data = [
-        *level.times_s,
-        level.dwell_time_s,
-        level.dwell_time_s / total_dwelltime,
-        level.int_p_s,
-        level.num_photons,
-    ]
-    if incl_lifetimes:
-        h = level.histogram
-        if h.fitted:
-            data.append(h.num_photons_used)
-            if h.numexp == 1:
-                taus = [h.tau] if type(h.tau) is not list else h.tau
-                taustds = [h.stds[0]]
-                amps = [h.amp]
-                ampstds = [h.stds[0]]
+def plot_lifetimes(
+    f_dir: str,
+    lock: Lock,
+    main_window: MainWindow,
+    particle: smsh5.Particle,
+    signals: WorkerSignals = None,
+    with_fit: bool = False,
+    only_groups: bool = False,
+) -> None:
+    p_name = particle.unique_name
+    hist_path = os.path.join(f_dir, p_name + " hists")
+    try:
+        os.mkdir(hist_path)
+    except FileExistsError:
+        pass
+    if particle.has_levels:
+        # None -> Particle Histogram
+        levels_and_groups: List[Union[None, Level, GlobalLevel, Group]] = [None]
+        if not only_groups:
+            if particle.has_levels:
+                levels_and_groups.extend(particle.cpts.levels)
+            if particle.has_groups:
+                levels_and_groups.extend(particle.ahca.selected_step.group_levels)
+        if particle.has_groups:
+            levels_and_groups.extend(particle.groups)
+        for l_or_g in levels_and_groups:
+            path = f_dir if l_or_g is None else hist_path
+            if signals:
+                signals.plot_decay_export_lock.emit(
+                    l_or_g, particle, False, True, hist_path, True
+                )
+                lock.acquire()
+                while lock.locked():
+                    sleep(0.1)
             else:
-                taus = list(h.tau)
-                taustds = list(h.stds[: h.numexp])
-                amps = list(h.amp)
-                ampstds = list(h.stds[h.numexp : 2 * h.numexp])
+                main_window.lifetime_controller.plot_decay(
+                    selected_level_or_group=l_or_g,
+                    particle=particle,
+                    for_export=True,
+                    export_path=path if not with_fit else None,
+                )
+                if with_fit:
+                    main_window.lifetime_controller.plot_convd(
+                        selected_level_or_group=l_or_g,
+                        particle=particle,
+                        for_export=True,
+                        export_path=path,
+                    )
 
-            taus.extend([np.NaN] * (max_numexp - h.numexp))
-            data.extend(taus)
-            taustds.extend([np.NaN] * (max_numexp - h.numexp))
-            data.extend(taustds)
 
-            amps.extend([np.NaN] * (max_numexp - h.numexp))
-            data.extend(amps)
-            ampstds.extend([np.NaN] * (max_numexp - h.numexp))
-            data.extend(ampstds)
+def plot_raster_scan(f_dir, lock, main_window, p, raster_scan, signals):
+    if signals:
+        # with lock:
+        signals.plot_raster_scan_export_lock.emit(p, raster_scan, True, f_dir, True)
+        lock.acquire()
+        while lock.locked():
+            sleep(0.1)
+    main_window.raster_scan_controller.plot_raster_scan(
+        raster_scan=raster_scan, for_export=True, export_path=f_dir
+    )
 
-            if h.dw_bound is None:
-                h.dw_bound = [None, None, None, None]
-            data.extend(
-                [
-                    h.shift,
-                    h.stds[2 * h.numexp],
-                    h.bg,
-                    h.irfbg,
-                    h.chisq,
-                    h.dw,
-                    h.dw_bound[0],
-                    h.dw_bound[1],
-                    h.dw_bound[2],
-                    h.dw_bound[3],
-                ]
+
+def plot_corr_hists(
+    f_dir: str,
+    lock: Lock,
+    main_window: MainWindow,
+    particle: smsh5.Particle,
+    signals: WorkerSignals,
+):
+    if signals:
+        signals.plot_corr_export_lock.emit(particle, True, f_dir, True)
+        lock.acquire()
+        while lock.locked():
+            sleep(0.1)
+    else:
+        main_window.antibunch_controller.plot_corr_hists(
+            particle=particle, for_export=True, export_path=f_dir
+        )
+
+
+def plot_spectra(
+    f_dir: str,
+    lock: Lock,
+    main_window: MainWindow,
+    particle: smsh5.Particle,
+    signals: WorkerSignals,
+):
+    if signals:
+        signals.plot_spectra_export_lock.emit(particle, True, f_dir, True)
+        lock.acquire()
+        while lock.locked():
+            sleep(0.1)
+    else:
+        main_window.spectra_controller.plot_spectra(
+            particle=particle, for_export=True, export_path=f_dir
+        )
+
+
+def plot_lifetime_fit_residuals(
+    f_dir: str,
+    lock: Lock,
+    main_window: MainWindow,
+    particle: smsh5.Particle,
+    signals: WorkerSignals,
+    only_groups: bool = False,
+):
+    p_name = particle.unique_name
+    hist_path = os.path.join(f_dir, p_name + " hists")
+    try:
+        os.mkdir(hist_path)
+    except FileExistsError:
+        pass
+    if particle.has_levels:
+        # None -> Particle Histogram
+        levels_and_groups: List[Union[None, Level, GlobalLevel, Group]] = []
+        if particle.histogram.fitted:
+            levels_and_groups.append(None)
+        if not only_groups:
+            if particle.has_levels:
+                levels_and_groups.extend(
+                    [l for l in particle.cpts.levels if l.histogram.fitted]
+                )
+            if particle.has_groups:
+                levels_and_groups.extend(
+                    [
+                        gl
+                        for gl in particle.ahca.selected_step.group_levels
+                        if gl.histogram.fitted
+                    ]
+                )
+        if particle.has_groups:
+            levels_and_groups.extend([g for g in particle.groups if g.histogram.fitted])
+        for l_or_g in levels_and_groups:
+            path = f_dir if l_or_g is None else hist_path
+            if signals:
+                signals.plot_residuals_export_lock.emit(
+                    l_or_g, particle, True, path, True
+                )
+                lock.acquire()
+                while lock.locked():
+                    sleep(0.1)
+            else:
+                main_window.lifetime_controller.plot_decay(
+                    selected_level_or_group=l_or_g,
+                    particle=particle,
+                    for_export=True,
+                    export_path=path,
+                )
+
+
+def plot_grouping_bic(
+    f_dir: str,
+    lock: Lock,
+    main_window: MainWindow,
+    particle: smsh5.Particle,
+    signals: WorkerSignals = None,
+):
+    if signals:
+        signals.plot_grouping_bic_export_lock.emit(particle, True, f_dir, True)
+        lock.acquire()
+        while lock.locked():
+            sleep(0.1)
+    else:
+        main_window.grouping_controller.plot_group_bic(
+            particle=particle, for_export=True, export_path=f_dir
+        )
+
+
+def plot_levels(
+    f_dir: str,
+    lock: Lock,
+    main_window: MainWindow,
+    particle: smsh5.Particle,
+    signals: WorkerSignals = None,
+    plot_groups: bool = False,
+):
+    if signals:
+        signals.plot_trace_lock.emit(particle, True, True)
+        lock.acquire()
+        while lock.locked():
+            sleep(0.1)
+        signals.plot_levels_lock.emit(particle, True, True)
+        lock.acquire()
+        while lock.locked():
+            sleep(0.1)
+        if plot_groups:
+            signals.plot_group_bounds_export_lock.emit(particle, True, f_dir, True)
+            lock.acquire()
+            while lock.locked():
+                sleep(0.1)
+    else:
+        main_window.intensity_controller.plot_trace(particle=particle, for_export=True)
+        main_window.intensity_controller.plot_levels(particle=particle, for_export=True)
+        if plot_groups:
+            main_window.intensity_controller.plot_group_bounds(
+                particle=particle, for_export=True, export_path=f_dir
             )
-        else:
-            data.extend([np.NaN] * (9 + max_numexp))
 
-    return data
+
+def plot_intensities(
+    f_dir: str,
+    lock: Lock,
+    main_window: MainWindow,
+    particle: smsh5.Particle,
+    signals: WorkerSignals = None,
+):
+    if signals:
+        signals.plot_trace_export_lock.emit(particle, True, f_dir, True)
+        lock.acquire()
+        while lock.locked():
+            sleep(0.1)
+    else:
+        main_window.intensity_controller.plot_trace(
+            particle=particle, for_export=True, export_path=f_dir
+        )

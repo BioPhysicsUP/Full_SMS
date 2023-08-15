@@ -886,7 +886,7 @@ class IntController(QObject):
             if particle.level_or_group_selected is None:
                 info = info + "Whole Trace"
                 info = info + f"\n{'*' * len(info)}"
-                info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time: .3g}"
+                info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time_s: .3g}"
                 info = info + f"\n# of Photons = {particle.num_photons}"
                 if particle.has_levels:
                     info = info + f"\n# of Levels = {particle.num_levels}"
@@ -1054,7 +1054,7 @@ class IntController(QObject):
                 # plot_pen.setJoinStyle(Qt.RoundJoin)
                 line_pen.setColor(QColor(0, 0, 0, 150))
                 line_pen.setCosmetic(True)
-                line_times = [0, self.main_window.current_particle.dwell_time]
+                line_times = [0, self.main_window.current_particle.dwell_time_s]
             for group in groups:
                 g_int = group.int_p_s * int_conv
                 if not for_export:
@@ -1824,7 +1824,7 @@ class LifetimeController(QObject):
             info = info + f"\n# of photons = {level.num_photons}"
             info = info + f"\n# used for fit = {level.histogram.num_photons_used}"
         else:
-            info = info + f"\n\nDwell Times (s) = {particle.dwell_time: .3g}"
+            info = info + f"\n\nDwell Times (s) = {particle.dwell_time_s: .3g}"
             info = info + f"\n# of photons = {particle.num_photons}"
             info = info + f"\n# used for fit = {particle.histogram.num_photons_used}"
 
@@ -1946,7 +1946,7 @@ class LifetimeController(QObject):
 
     def plot_decay(
         self,
-        selected_level_or_group: Union[Level, GlobalLevel, Group] = None,
+        selected_level_or_group: Union[None, Level, GlobalLevel, Group] = None,
         use_selected: bool = False,
         particle: Particle = None,
         remove_empty: bool = False,

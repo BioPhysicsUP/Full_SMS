@@ -535,8 +535,9 @@ class FluoFit:
 
         """
 
-        self.tau = tau
-        self.amp = amp
+        # TODO: Make sure this doesn't break something
+        self.tau = tau if type(tau) is list else [tau]
+        self.amp = amp if type(amp) is list else [amp]
         self.shift = shift * self.channelwidth
         self.fwhm = fwhm
         self.stds = stds
