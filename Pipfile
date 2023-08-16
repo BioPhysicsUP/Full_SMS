@@ -17,9 +17,10 @@ pyqt5-stubs = "*"
 pyqt5 = "*"
 statsmodels = "*"
 pyqtgraph = "*"
+importlib-resources = "*"
+zipp = "*"
 
 [dev-packages]
-black = {extras = ["d"], version = "*"}
 auto-py-to-exe = "*"
 pympler = "*"
 

@@ -115,7 +115,7 @@ class ClusteringStep:
         self.group_levels = None
 
         if self.first or self.single_level:
-            self._seed_groups = [Group([i], particle, i) for i in range(self._num_levels)]
+            self._seed_groups = [Group(lvls_inds=[i], particle=particle, group_ind=i) for i in range(self._num_levels)]
             self._seed_p_mj = np.identity(n=self._num_levels)
             if self.single_level:
                 self.groups = self._seed_groups
@@ -336,7 +336,7 @@ class ClusteringStep:
         for m in range(self._num_prev_groups - 1):
             g_m_levels = list(np.nonzero(self._em_p_mj[m, :])[0])
             if len(g_m_levels):
-                new_groups.append(Group(lvls_inds=g_m_levels, particle=self._particle))
+                new_groups.append(Group(lvls_inds=g_m_levels, particle=self._particle, group_ind=m))
         new_groups.sort(key=lambda group: group.int_p_s)
         self.groups = new_groups
         self.num_groups = len(new_groups)
@@ -373,13 +373,14 @@ class ClusteringStep:
         global_part_levels = set()
         start_time_ns = None
         prev_start_time = 0
+        num_levels = -1
         for i, part_level in enumerate(part_levels):
             if is_global:
                 global_part_levels.add(part_level)
             if not busy_joining:
                 start_ind = part_level.level_inds[0] if not is_global else None
-                if is_global:
-                    start_time_ns = prev_start_time
+                # if is_global:
+                #     start_time_ns = prev_start_time
             if i == len(part_levels) - 1:
                 busy_joining = False
             else:
@@ -388,11 +389,13 @@ class ClusteringStep:
                 else:
                     busy_joining = False
             if not busy_joining:
+                num_levels += 1
                 if not is_global:
                     end_ind = part_level.level_inds[1]
                     group_levels.append(
                         Level(
                             particle=self._particle,
+                            particle_ind=num_levels,
                             level_inds=(start_ind, end_ind),
                             int_p_s=self.group_ints[self.level_group_ind[i]],
                             group_ind=self.level_group_ind[i],

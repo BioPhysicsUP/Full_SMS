@@ -1774,8 +1774,8 @@ class LifetimeController(QObject):
         if type(avtau) is list or type(avtau) is np.ndarray:
             avtau = avtau[0]
         if np.size(tau) == 1:
-            info = info + f"Tau = {tau:.3g} ± {stds[0]:.1g} ns"
-            info = info + f"\nAmp = {amp:.3g}"
+            info = info + f"Tau = {tau[0]:.3g} ± {stds[0]:.1g} ns"
+            info = info + f"\nAmp = {amp[0]:.3g}"
         elif np.size(tau) == 2:
             info = info + f"Tau 1 = {tau[0]:.3g} ± {stds[0]:.1g} ns"
             info = info + f"\nTau 2 = {tau[1]:.3g} ± {stds[1]:.1g} ns"

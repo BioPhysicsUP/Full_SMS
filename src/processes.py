@@ -405,7 +405,7 @@ class SingleProcess(mp.Process):
                     self.task_queue.task_done()
                     self.result_queue.put(True)
                 else:
-                    task_run = getattr(task.obj, task.plot_lifetimes)
+                    task_run = getattr(task.obj, task.method_name)
                     if (
                         self.feedback_queue
                         and "feedback_queue" in task_run.__func__.__code__.co_varnames
@@ -424,7 +424,7 @@ class SingleProcess(mp.Process):
                         else:
                             task_return = task_run()
                     dont_send = False
-                    if task.plot_lifetimes == "run_cpa":
+                    if task.method_name == "run_cpa":
                         task.obj._particle = None
                         task.obj._cpa._particle = None
                         if task.obj.has_levels:
@@ -435,7 +435,7 @@ class SingleProcess(mp.Process):
                             for level in task.obj._cpa.levels:
                                 level._particle = None
                                 level.microtimes._particle = None
-                    elif task.plot_lifetimes == "run_grouping":
+                    elif task.method_name == "run_grouping":
                         # dont_send = True
                         is_global = (
                             hasattr(task.obj._particle, "is_global")
@@ -495,7 +495,7 @@ class SingleProcess(mp.Process):
                         #                                   new_task_obj=task.obj)
                         # with open(file_path, 'wb') as f:
                         #     pickle.dump(obj=pickle_result, file=f)
-                    elif task.plot_lifetimes == "fit_part_and_levels":
+                    elif task.method_name == "fit_part_and_levels":
                         task.obj.part_hist._particle = None
                         task.obj.part_hist.microtimes = None
                         levels_groups_hists = list()

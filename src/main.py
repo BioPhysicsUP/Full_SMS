@@ -14,6 +14,7 @@ import os
 import sys
 from platform import system
 import ctypes
+import importlib
 
 from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot, QRegExp
 from PyQt5.QtGui import QIcon, QRegExpValidator  # , QResizeEvent
@@ -65,7 +66,7 @@ from save_and_load import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.5.0"
+SMS_VERSION = "0.6.0"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
