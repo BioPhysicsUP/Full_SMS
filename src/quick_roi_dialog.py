@@ -33,9 +33,7 @@ class QuickROIDialog(QDialog, UI_Quick_ROI_Dialog):
         self.btnResetSelected.clicked.connect(self.gui_reset_roi_selected)
         self.btnResetAll.clicked.connect(self.gui_reset_roi_all)
 
-        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(
-            self.accepted_callback
-        )
+        self.buttonBox.button(QDialogButtonBox.Apply).clicked.connect(self.accepted_callback)
         self.buttonBox.rejected.connect(self.rejected_callback)
 
         self.should_trim_traces = False
@@ -86,9 +84,7 @@ class QuickROIDialog(QDialog, UI_Quick_ROI_Dialog):
                     reset_roi=self.chbReset_ROI.isChecked(),
                 )
                 if trimmed is False and self.chbUncheck_If_Not_Valid.isChecked():
-                    self.mainwindow.set_particle_check_state(
-                        particle.dataset_ind, False
-                    )
+                    self.mainwindow.set_particle_check_state(particle.dataset_ind, False)
         self.mainwindow.lifetime_controller.test_need_roi_apply()
         self.mainwindow.intensity_controller.plot_all()
 

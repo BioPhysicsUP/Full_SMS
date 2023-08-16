@@ -4,9 +4,7 @@ import sys
 from typing import Union
 
 
-def setup_logger(
-    logger: Union[str, logging.Logger], is_main: bool = None
-) -> logging.Logger:
+def setup_logger(logger: Union[str, logging.Logger], is_main: bool = None) -> logging.Logger:
     assert type(logger) in [str, logging.Logger], "Provided logger not " "correct type"
 
     class StdOutFilter(logging.Filter):
@@ -25,14 +23,11 @@ def setup_logger(
 
     line = "-" * 100
     err_fmt = (
-        f"{line}\n%(asctime)s -> %(threadName)s -> %(module)s -> %(funcName)s(%(lineno)d): "
-        f"%(message)s\n{line}"
+        f"{line}\n%(asctime)s -> %(threadName)s -> %(module)s -> %(funcName)s(%(lineno)d): " f"%(message)s\n{line}"
     )
     err_formatter = logging.Formatter(fmt=err_fmt)
 
-    debug_fmt = (
-        f"%(asctime)s -> %(threadName)s -> %(module)s -> %(funcName)s: " f"%(message)s"
-    )
+    debug_fmt = f"%(asctime)s -> %(threadName)s -> %(module)s -> %(funcName)s: " f"%(message)s"
     debug_formatter = logging.Formatter(fmt=debug_fmt)
 
     cli_err = logging.StreamHandler(stream=sys.stderr)

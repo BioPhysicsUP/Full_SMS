@@ -38,11 +38,7 @@ class RangeSelectionDialog(QDialog, UI_Range_Selection):
                     section_range_text = range_section.split("-")
                     if section_range_text[1] == "":
                         section_range_text[1] = str(max_range)
-                    section_range_indexes = list(
-                        range(
-                            int(section_range_text[0]), int(section_range_text[1]) + 1
-                        )
-                    )
+                    section_range_indexes = list(range(int(section_range_text[0]), int(section_range_text[1]) + 1))
                     range_indexes.extend(section_range_indexes)
 
         return range_indexes

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Union, List, Tuple, Any
 
 import numpy as np
 import pandas as pd
+import pyqtgraph.graphicsItems.PlotCurveItem
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import QObject, Qt
@@ -21,16 +22,17 @@ import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from pyqtgraph.exporters import ImageExporter
 
-import smsh5
+import grouping
 from threads import ProcessThread, ProcessTaskResult
 from dataclasses import dataclass
 
 from my_logger import setup_logger
 from smsh5 import Particle, ParticleAllHists, RasterScan, GlobalParticle
+from grouping import GlobalLevel, Group
+from change_point import Level
 from tcspcfit import FittingParameters, FittingDialog
 from quick_roi_dialog import QuickROIDialog
 from thread_tasks import OpenFile
-from grouping import GlobalLevel
 
 if TYPE_CHECKING:
     from main import MainWindow
@@ -296,13 +298,13 @@ class IntController(QObject):
                     self.main_window.lifetime_controller.test_need_roi_apply(
                         particle=cur_part, update_buttons=False
                     )
-                    if cur_part.level_selected is not None:
+                    if cur_part.level_or_group_selected is not None:
                         if (
                             cur_part.first_level_ind_in_roi
-                            < cur_part.level_selected
+                            < cur_part.level_or_group_selected
                             > cur_part.last_level_ind_in_roi
                         ):
-                            cur_part.level_selected = None
+                            cur_part.level_or_group_selected = None
                 self.plot_all()
                 # self.plot_hist()
                 if self.main_window.chbInt_Show_Level_Info.isChecked():
@@ -573,8 +575,8 @@ class IntController(QObject):
                     plot_item.getViewBox().setLimits(xMin=0, yMin=0, xMax=times[-1])
                     plot_item.plot(x=times, y=trace, pen=plot_pen, symbol=None)
                     if plot_2_trace and cur_tab_name == "tabIntensity":
-                        print("shloop")
-                        print(mw.current_particle.sec_part.tcspc_card)
+                        # print("shloop")
+                        # print(mw.current_particle.sec_part.tcspc_card)
                         plot_item.plot(x=times2, y=trace2, pen=plot_pen2, symbol=None)
 
                 else:
@@ -686,16 +688,19 @@ class IntController(QObject):
         if not for_export and (
             cur_tab_name == "tabLifetime" or cur_tab_name == "tabIntensity"
         ):
-            current_level = particle.level_selected
-            if current_level is not None:
-                if current_level <= particle.num_levels - 1:
-                    current_ints, current_times = particle.current2data(current_level)
+            selected = particle.level_or_group_selected
+            is_level = type(selected) is Level or type(selected) is GlobalLevel
+            current_level = selected if is_level else None
+            current_group = selected if not is_level else None
+            if selected is not None:
+                if is_level:
+                    current_int = current_level.int_p_s
+                    current_times = current_level.times_s
                 else:
-                    current_group = current_level - particle.num_levels
-                    current_ints, current_times = particle.current_group2data(
-                        current_group
-                    )
-                current_ints = current_ints * self.get_bin() / 1e3
+                    current_int = current_group.int_p_s
+                    current_times = times[0], times[-1]
+                current_int = current_int * self.get_bin() / 1e3
+                current_ints = [current_int] * 2
 
                 if not (current_ints[0] == np.inf or current_ints[1] == np.inf):
                     level_plot_pen = QPen()
@@ -878,10 +883,10 @@ class IntController(QObject):
         cur_tab_name = self.main_window.tabWidget.currentWidget().objectName()
         if cur_tab_name == "tabIntensity" and self.show_level_info:
             info = ""
-            if particle.level_selected is None:
+            if particle.level_or_group_selected is None:
                 info = info + "Whole Trace"
                 info = info + f"\n{'*' * len(info)}"
-                info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time: .3g}"
+                info = info + f"\nTotal Dwell Time (s) = {particle.dwell_time_s: .3g}"
                 info = info + f"\n# of Photons = {particle.num_photons}"
                 if particle.has_levels:
                     info = info + f"\n# of Levels = {particle.num_levels}"
@@ -904,23 +909,47 @@ class IntController(QObject):
                     if particle.has_levels:
                         info = info + f"\nHas Photon Bursts = {particle.has_burst}"
             elif particle.has_levels:
-                is_group_level = False
-                if particle.level_selected <= particle.num_levels - 1:
-                    level = particle.levels[particle.level_selected]
-                    info = info + f"Level {particle.level_selected + 1}"
-                else:
-                    level = particle.groups[
-                        particle.level_selected - particle.num_levels
-                    ]
-                    is_group_level = True
-                    info = (
-                        info
-                        + f"Group {particle.level_selected - particle.num_levels + 1}"
+                selected = particle.level_or_group_selected
+                is_level = type(selected) is Level or type(selected) is GlobalLevel
+                current_level = selected if is_level else None
+                current_group = selected if not is_level else None
+                if is_level:
+                    all_levels = (
+                        particle.levels
+                        if type(current_level) is Level
+                        else particle.group_levels
                     )
+                    level_ind = np.argmax(
+                        [current_level is level for level in all_levels]
+                    )
+                    info = info + f"Level {level_ind + 1}"
+                else:
+                    current_level = current_group
+                    is_global = False
+                    if current_group in particle.groups:
+                        group_ind = np.argmax(
+                            [current_group is group for group in particle.groups]
+                        )
+                    elif current_group in particle.global_particle.groups:
+                        group_ind = np.argmax(
+                            [
+                                current_group is group
+                                for group in particle.global_particle.groups
+                            ]
+                        )
+                        is_global = True
+                    else:
+                        raise AttributeError("Group not found in list of known groups?")
+                    group_header = (
+                        f"Global Group {group_ind + 1}"
+                        if is_global
+                        else f"Group {group_ind + 1}"
+                    )
+                    info = info + group_header
                 info = info + f"\n{'*' * len(info)}"
-                info = info + f"\nIntensity (counts/s) = {level.int_p_s: .3g}"
-                info = info + f"\nDwell Time (s) = {level.dwell_time_s: .3g}"
-                info = info + f"\n# of Photons = {level.num_photons}"
+                info = info + f"\nIntensity (counts/s) = {current_level.int_p_s: .3g}"
+                info = info + f"\nDwell Time (s) = {current_level.dwell_time_s: .3g}"
+                info = info + f"\n# of Photons = {current_level.num_photons}"
             self.level_info_text.setText(info)
 
     def plot_group_bounds(
@@ -976,7 +1005,7 @@ class IntController(QObject):
             except AttributeError:
                 logger.error("No groups!")
                 return
-
+            int_plot = None
             if cur_tab_name == "tabIntensity":
                 mw = self.main_window
                 if (
@@ -1025,7 +1054,7 @@ class IntController(QObject):
                 # plot_pen.setJoinStyle(Qt.RoundJoin)
                 line_pen.setColor(QColor(0, 0, 0, 150))
                 line_pen.setCosmetic(True)
-                line_times = [0, self.main_window.current_particle.dwell_time]
+                line_times = [0, self.main_window.current_particle.dwell_time_s]
             for group in groups:
                 g_int = group.int_p_s * int_conv
                 if not for_export:
@@ -1155,7 +1184,7 @@ class IntController(QObject):
     def resolve_thread_complete(self, thread: ProcessThread):
         count = 0
 
-        print("resolve complete")
+        # print("resolve complete")
         while self.results_gathered is False:
             time.sleep(1)
             count += 1
@@ -1238,52 +1267,86 @@ class IntController(QObject):
             cp = self.main_window.current_particle
             if cp.has_levels:
                 use_groups = False
-                if event.currentItem is self.int_plot.vb:
+                use_global_groups = False
+                select_groups = self.main_window.chbInt_Select_Groups.isChecked()
+                current_tab = self.main_window.tabWidget.currentWidget().objectName()
+                if current_tab == "tabIntensity":
                     use_groups = self.main_window.chbInt_Show_Groups.isChecked()
-                elif event.currentItem is self.groups_int_plot.vb:
+                    use_global_groups = (
+                        self.main_window.chbInt_Show_Global_Groups.isChecked()
+                    )
+                elif current_tab == "tabGrouping":
                     use_groups = True
-                elif event.currentItem is self.lifetime_plot.vb:
+                    use_global_groups = (
+                        self.main_window.chbInt_Show_Global_Groups.isChecked()
+                    )
+                elif current_tab == "tabLifetime":
                     use_groups = self.main_window.chbLifetime_Show_Groups.isChecked()
+                    use_global_groups = (
+                        self.main_window.chbInt_Show_Global_Groups.isChecked()
+                    )
 
-                if cp.has_groups and use_groups:
-                    clicked_int = event.currentItem.mapSceneToView(event.scenePos()).y()
+                if (
+                    type(event.currentItem)
+                    is pyqtgraph.graphicsItems.PlotCurveItem.PlotCurveItem
+                    or type(event.currentItem) is pyqtgraph.LinearRegionItem
+                ):
+                    clicked_mapped_pos = event.currentItem.getViewBox().mapSceneToView(
+                        event.scenePos()
+                    )
+                elif type(event.currentItem) is pyqtgraph.ViewBox:
+                    clicked_mapped_pos = event.currentItem.mapSceneToView(
+                        event.scenePos()
+                    )
+                else:
+                    try:
+                        clicked_mapped_pos = (
+                            event.currentItem.getViewBox().mapSceneToView(
+                                event.scenePos()
+                            )
+                        )
+                    except AttributeError:
+                        cp.level_or_group_selected = None
+                        self.main_window.display_data()
+                        return
+
+                if select_groups and (
+                    (use_groups and cp.has_groups)
+                    or (use_global_groups and cp.global_particle.has_groups)
+                ):
+                    clicked_int = clicked_mapped_pos.y()
                     clicked_int = clicked_int * (
                         1000 / self.main_window.spbBinSize.value()
                     )
                     clicked_group = None
-                    group_bounds = cp.groups_bounds
-                    group_bounds.reverse()
-                    for i, (group_low, group_high) in enumerate(group_bounds):
+                    groups = cp.groups if use_groups else cp.global_particle.groups
+                    # groups = groups[::-1]
+                    group_bounds = (
+                        cp.groups_bounds
+                        if use_groups
+                        else cp.global_particle.groups_bounds
+                    )
+                    group_bounds = group_bounds[::-1]
+                    for group, (group_low, group_high) in zip(groups, group_bounds):
                         if group_low <= clicked_int <= group_high:
-                            clicked_group = i
+                            clicked_group = group
                             break
                     if clicked_group is not None:
-                        cp.level_selected = clicked_group + cp.num_levels
+                        cp.level_or_group_selected = clicked_group
                         self.main_window.display_data()
                 else:
-                    try:
-                        clicked_time = event.currentItem.mapSceneToView(
-                            event.scenePos()
-                        ).x()
-                    except AttributeError as err:
-                        if (
-                            err.args[0]
-                            == "'AxisItem' object has no attribute 'mapSceneToView'"
-                        ):
-                            cp.level_selected = None
-                        else:
-                            logger.error(err)
-                            raise err
-                    else:
-                        level_times = [lvl.times_s for lvl in cp.levels]
-                        clicked_level = None
-                        for i, (start, end) in enumerate(level_times):
-                            if start <= clicked_time <= end:
-                                clicked_level = i
-                                break
-                        if clicked_level is not None:
-                            cp.level_selected = clicked_level
-                    finally:
+                    clicked_time = clicked_mapped_pos.x()
+                    levels = (
+                        cp.levels if not use_global_groups else cp.global_group_levels
+                    )
+                    level_times = [lvl.times_s for lvl in levels]
+                    clicked_level = None
+                    for level, (start, end) in zip(levels, level_times):
+                        if start <= clicked_time <= end:
+                            clicked_level = level
+                            break
+                    if clicked_level is not None:
+                        cp.level_or_group_selected = clicked_level
                         self.main_window.display_data()
 
     def error(self, e):
@@ -1378,50 +1441,62 @@ class LifetimeController(QObject):
 
     def gui_prev_lev(self):
         """Moves to the previous resolves level and displays its decay curve."""
-
         cp = self.main_window.current_particle
-        changed = False
-        if cp.level_selected is not None:
-            if cp.level_selected == 0:
-                cp.level_selected = None
-                changed = True
-            else:
-                cp.level_selected -= 1
-                changed = True
+        selected_level_or_group = cp.level_or_group_selected
+        if selected_level_or_group is cp.groups[0]:
+            cp.level_or_group_selected = cp.levels[-1]
+        elif selected_level_or_group is cp.levels[0]:
+            cp.level_or_group_selected = None
+        elif selected_level_or_group is None:
+            return
+        elif type(selected_level_or_group) in [Level, GlobalLevel]:
+            level_ind = np.argmax(
+                [selected_level_or_group is level for level in cp.levels]
+            )
+            cp.level_or_group_selected = cp.levels[level_ind - 1]
+        else:
+            group_ind = np.argmax(
+                [selected_level_or_group is group for group in cp.groups]
+            )
+            cp.level_or_group_selected = cp.groups[group_ind - 1]
 
-        if changed:
-            self.main_window.display_data()
+        self.main_window.display_data()
 
     def gui_next_lev(self):
         """Moves to the next resolves level and displays its decay curve."""
 
         cp = self.main_window.current_particle
-        changed = False
-        if cp.level_selected is None:
-            cp.level_selected = 0
-            changed = True
-        elif cp.has_groups:
-            if cp.level_selected < cp.num_levels + cp.num_groups - 1:
-                cp.level_selected += 1
-                changed = True
-        elif cp.level_selected < cp.num_levels - 1:
-            cp.level_selected += 1
-            changed = True
+        selected_level_or_group = cp.level_or_group_selected
+        if selected_level_or_group is None:
+            cp.level_or_group_selected = cp.levels[0]
+        elif selected_level_or_group is cp.levels[-1]:
+            cp.level_or_group_selected = cp.groups[0]
+        elif selected_level_or_group is cp.groups[-1]:
+            return
+        elif type(selected_level_or_group) in [Level, GlobalLevel]:
+            level_ind = np.argmax(
+                [selected_level_or_group is level for level in cp.levels]
+            )
+            cp.level_or_group_selected = cp.levels[level_ind + 1]
+        else:
+            group_ind = np.argmax(
+                [selected_level_or_group is group for group in cp.groups]
+            )
+            cp.level_or_group_selected = cp.groups[group_ind + 1]
 
-        if changed:
-            self.main_window.display_data()
+        self.main_window.display_data()
 
     def gui_whole_trace(self):
         "Unselects selected level and shows whole trace's decay curve"
 
         # self.mainwindow.current_level = None
-        self.main_window.current_particle.level_selected = None
+        self.main_window.current_particle.level_or_group_selected = None
         self.main_window.display_data()
 
     def gui_jump_to_groups(self):
         cp = self.main_window.current_particle
         if cp.has_groups:
-            cp.level_selected = cp.num_levels
+            cp.level_or_group_selected = cp.groups[0]
             self.main_window.display_data()
 
     def gui_show_hide_residuals(self):
@@ -1488,7 +1563,7 @@ class LifetimeController(QObject):
         """Fits the currently selected level's decay curve using the provided settings."""
 
         cp = self.main_window.current_particle
-        selected_level = cp.level_selected
+        selected_level = cp.level_or_group_selected
         if selected_level is None:
             histogram = cp.histogram
         else:
@@ -1510,7 +1585,7 @@ class LifetimeController(QObject):
                 start = int(f_p.start / channelwidth)
             else:
                 start = None
-            print(f_p.autoend, f_p.end)
+            # print(f_p.autoend, f_p.end)
             if f_p.autoend:
                 end = None
             elif f_p.end is not None:
@@ -1641,33 +1716,48 @@ class LifetimeController(QObject):
 
     def update_results(
         self,
-        select_ind: int = None,
+        use_selected: bool = False,
+        selected_level_or_group: Union[Level, GlobalLevel, Group] = None,
         particle: Particle = None,
         for_export: bool = False,
         str_return: bool = False,
     ) -> Union[str, None]:
-        if select_ind is None:
-            select_ind = self.main_window.current_particle.level_selected
-        elif select_ind <= -1:
-            select_ind = None
+        if use_selected:
+            if selected_level_or_group is None:
+                selected_level_or_group = (
+                    self.main_window.current_particle.level_or_group_selected
+                )
+        else:
+            selected_level_or_group = None
         if particle is None:
             particle = self.main_window.current_particle
         is_group = False
         is_level = False
 
         fit_name = f"{particle.name}"
-        if select_ind is None:
+        if selected_level_or_group is None:
             histogram = particle.histogram
             fit_name = fit_name + ", Whole Trace"
-        elif select_ind <= particle.num_levels - 1:
-            histogram = particle.cpts.levels[select_ind].histogram
-            fit_name = fit_name + f", Level #{select_ind + 1}"
-            is_level = True
         else:
-            group_ind = select_ind - particle.num_levels
-            histogram = particle.groups[group_ind].histogram
-            is_group = True
-            fit_name = fit_name + f", Group #{group_ind + 1}"
+            histogram = selected_level_or_group.histogram
+            if type(selected_level_or_group) in [Level, GlobalLevel]:
+                level_ind = np.argmax(
+                    [selected_level_or_group is level for level in particle.levels]
+                )
+                fit_name = fit_name + f", Level #{level_ind + 1}"
+                is_level = True
+            elif type(selected_level_or_group) is Group:
+                group_ind = np.argmax(
+                    [selected_level_or_group is group for group in particle.groups]
+                )
+                histogram = selected_level_or_group.histogram
+                is_group = True
+                fit_name = fit_name + f", Group #{group_ind + 1}"
+            else:
+                raise AssertionError(
+                    "Provided `selected_level_or_group` is not a level or a group"
+                )
+
         if not histogram.fitted:
             self.main_window.textBrowser.setText("")
             return
@@ -1684,8 +1774,8 @@ class LifetimeController(QObject):
         if type(avtau) is list or type(avtau) is np.ndarray:
             avtau = avtau[0]
         if np.size(tau) == 1:
-            info = info + f"Tau = {tau:.3g} ± {stds[0]:.1g} ns"
-            info = info + f"\nAmp = {amp:.3g}"
+            info = info + f"Tau = {tau[0]:.3g} ± {stds[0]:.1g} ns"
+            info = info + f"\nAmp = {amp[0]:.3g}"
         elif np.size(tau) == 2:
             info = info + f"Tau 1 = {tau[0]:.3g} ± {stds[0]:.1g} ns"
             info = info + f"\nTau 2 = {tau[1]:.3g} ± {stds[1]:.1g} ns"
@@ -1724,17 +1814,17 @@ class LifetimeController(QObject):
             info = info + f"\n(DW (0.1%) > {histogram.dw_bound[3]: .4g})"
 
         if is_group:
-            group = particle.groups[group_ind]
+            group = selected_level_or_group
             info = info + f"\n\nTotal Dwell Time (s) = {group.dwell_time_s: .3g}"
             info = info + f"\n# of photons = {group.num_photons}"
             info = info + f"\n# used for fit = {group.histogram.num_photons_used}"
         elif is_level:
-            level = particle.cpts.levels[select_ind]
+            level = selected_level_or_group
             info = info + f"\n\nDwell Time (s) {level.dwell_time_s: .3g}"
             info = info + f"\n# of photons = {level.num_photons}"
             info = info + f"\n# used for fit = {level.histogram.num_photons_used}"
         else:
-            info = info + f"\n\nDwell Times (s) = {particle.dwell_time: .3g}"
+            info = info + f"\n\nDwell Times (s) = {particle.dwell_time_s: .3g}"
             info = info + f"\n# of photons = {particle.num_photons}"
             info = info + f"\n# used for fit = {particle.histogram.num_photons_used}"
 
@@ -1752,34 +1842,38 @@ class LifetimeController(QObject):
         only_groups: bool = False,
         lock: bool = False,
     ):
+        use_selected = True if particle.level_or_group_selected is None else False
         if not only_groups:
-            for i in range(particle.num_levels):
+            for level in particle.levels:
                 self.plot_decay(
-                    select_ind=i,
+                    selected_level_or_group=level,
+                    use_selected=use_selected,
                     particle=particle,
                     remove_empty=False,
                     for_export=True,
                     export_path=None,
                 )
                 self.plot_convd(
-                    select_ind=i,
+                    selected_level_or_group=level,
+                    use_selected=use_selected,
                     particle=particle,
                     remove_empty=False,
                     for_export=True,
                     export_path=export_path,
                 )
         if has_groups:
-            for i in range(particle.num_groups):
-                i_g = i + particle.num_levels
+            for group in particle.groups:
                 self.plot_decay(
-                    select_ind=i_g,
+                    selected_level_or_group=group,
+                    use_selected=use_selected,
                     particle=particle,
                     remove_empty=False,
                     for_export=True,
                     export_path=None,
                 )
                 self.plot_convd(
-                    select_ind=i_g,
+                    selected_level_or_group=group,
+                    use_selected=use_selected,
                     particle=particle,
                     remove_empty=False,
                     for_export=True,
@@ -1796,47 +1890,53 @@ class LifetimeController(QObject):
         only_groups: bool = False,
         lock: bool = False,
     ):
+        use_selected = True if particle.level_or_group_selected is None else False
         if not only_groups:
-            for i in range(particle.num_levels):
+            for level in particle.levels:
                 self.plot_decay(
-                    select_ind=i,
+                    selected_level_or_group=level,
+                    use_selected=use_selected,
                     particle=particle,
                     remove_empty=False,
                     for_export=True,
                     export_path=None,
                 )
                 self.plot_convd(
-                    select_ind=i,
+                    selected_level_or_group=level,
+                    use_selected=use_selected,
                     particle=particle,
                     remove_empty=False,
                     for_export=True,
                     export_path=None,
                 )
                 self.plot_residuals(
-                    select_ind=i,
+                    selected_level_or_group=level,
+                    use_selected=use_selected,
                     particle=particle,
                     for_export=True,
                     export_path=export_path,
                 )
         if has_groups:
-            for i in range(particle.num_groups):
-                i_g = i + particle.num_levels
+            for group in particle.groups:
                 self.plot_decay(
-                    select_ind=i_g,
+                    selected_level_or_group=group,
+                    use_selected=use_selected,
                     particle=particle,
                     remove_empty=False,
                     for_export=True,
                     export_path=None,
                 )
                 self.plot_convd(
-                    select_ind=i_g,
+                    selected_level_or_group=group,
+                    use_selected=use_selected,
                     particle=particle,
                     remove_empty=False,
                     for_export=True,
                     export_path=None,
                 )
                 self.plot_residuals(
-                    select_ind=i_g,
+                    selected_level_or_group=group,
+                    use_selected=use_selected,
                     particle=particle,
                     for_export=True,
                     export_path=export_path,
@@ -1846,7 +1946,8 @@ class LifetimeController(QObject):
 
     def plot_decay(
         self,
-        select_ind: int = None,
+        selected_level_or_group: Union[None, Level, GlobalLevel, Group] = None,
+        use_selected: bool = False,
         particle: Particle = None,
         remove_empty: bool = False,
         for_export: bool = False,
@@ -1858,17 +1959,21 @@ class LifetimeController(QObject):
         if type(export_path) is bool:
             lock = export_path
             export_path = None
-        if select_ind is None:
-            select_ind = self.main_window.current_particle.level_selected
-        elif select_ind <= -1:
-            select_ind = None
-        # print(currentlevel)
+
+        if use_selected:
+            if selected_level_or_group is None:
+                selected_level_or_group = (
+                    self.main_window.current_particle.level_or_group_selected
+                )
+        else:
+            selected_level_or_group = None
         if particle is None:
             particle = self.main_window.current_particle
 
         min_t = 0
-        group_ind = None
-        if select_ind is None:
+        decay = None
+        t = None
+        if selected_level_or_group is None:
             if particle.histogram.fitted:
                 decay = particle.histogram.fit_decay
                 t = particle.histogram.convd_t
@@ -1880,29 +1985,32 @@ class LifetimeController(QObject):
                 except AttributeError:
                     logger.error("No Decay!")
                     return
-        elif select_ind < particle.num_levels:
-            if particle.cpts.levels[select_ind].histogram.fitted:
-                decay = particle.cpts.levels[select_ind].histogram.fit_decay
-                t = particle.cpts.levels[select_ind].histogram.convd_t
+        elif type(selected_level_or_group) in [Level, GlobalLevel]:
+            if selected_level_or_group.histogram.fitted:
+                decay = selected_level_or_group.histogram.fit_decay
+                t = selected_level_or_group.histogram.convd_t
                 min_t = t[0]
             else:
                 try:
-                    decay = particle.cpts.levels[select_ind].histogram.decay
-                    t = particle.cpts.levels[select_ind].histogram.t
+                    decay = selected_level_or_group.histogram.decay
+                    t = selected_level_or_group.histogram.t
+                except ValueError:
+                    return
+        elif type(selected_level_or_group) is Group:
+            if selected_level_or_group.histogram.fitted:
+                decay = selected_level_or_group.histogram.fit_decay
+                t = selected_level_or_group.histogram.convd_t
+                min_t = t[0]
+            else:
+                try:
+                    decay = selected_level_or_group.histogram.decay
+                    t = selected_level_or_group.histogram.t
                 except ValueError:
                     return
         else:
-            group_ind = select_ind - particle.num_levels
-            if particle.groups[group_ind].histogram.fitted:
-                decay = particle.groups[group_ind].histogram.fit_decay
-                t = particle.groups[group_ind].histogram.convd_t
-                min_t = t[0]
-            else:
-                try:
-                    decay = particle.groups[group_ind].histogram.decay
-                    t = particle.groups[group_ind].histogram.t
-                except ValueError:
-                    return
+            raise AttributeError(
+                "Provided `selected_level_or_group` not a level or group"
+            )
 
         try:
             decay.size
@@ -1987,16 +2095,26 @@ class LifetimeController(QObject):
                 if not (os.path.exists(export_path) and os.path.isdir(export_path)):
                     raise AssertionError("Provided path not valid")
                 pname = particle.unique_name
-                logger.info(select_ind)
-                if select_ind is None:
+                logger.info(selected_level_or_group)
+                if selected_level_or_group is None:
                     type_str = " hist (whole trace).png"
                     title_str = f"{pname} Decay Trace"
-                elif group_ind is None:
-                    type_str = f" hist (level {select_ind + 1}).png"
-                    title_str = f"{pname}, Level {select_ind + 1} Decay Trace"
-                else:
+                elif type(selected_level_or_group) in [Level, GlobalLevel]:
+                    level_ind = np.argmax(
+                        [selected_level_or_group is level for level in particle.levels]
+                    )
+                    type_str = f" hist (level {level_ind + 1}).png"
+                    title_str = f"{pname}, Level {level_ind + 1} Decay Trace"
+                elif type(selected_level_or_group) is Group:
+                    group_ind = np.argmax(
+                        [selected_level_or_group is level for level in particle.groups]
+                    )
                     type_str = f" hist (group {group_ind + 1}).png"
                     title_str = f"{pname}, Group {group_ind + 1} Decay Trace"
+                else:
+                    raise AttributeError(
+                        "Provides `selected_level_or_group` is not a level or group"
+                    )
                 self.temp_fig.suptitle(title_str)
                 full_path = os.path.join(export_path, pname + type_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
@@ -2007,7 +2125,8 @@ class LifetimeController(QObject):
 
     def plot_convd(
         self,
-        select_ind: int = None,
+        selected_level_or_group: Union[Level, GlobalLevel, Group] = None,
+        use_selected: bool = False,
         particle: Particle = None,
         remove_empty: bool = False,
         for_export: bool = False,
@@ -2019,33 +2138,31 @@ class LifetimeController(QObject):
         if type(export_path) is bool:
             lock = export_path
             export_path = None
-        if select_ind is None:
-            select_ind = self.main_window.current_particle.level_selected
-        elif select_ind <= -1:
-            select_ind = None
+
+        if use_selected:
+            if selected_level_or_group is None:
+                selected_level_or_group = (
+                    self.main_window.current_particle.level_or_group_selected
+                )
+        else:
+            selected_level_or_group = None
         if particle is None:
             particle = self.main_window.current_particle
 
         group_ind = None
-        if select_ind is None:
+        convd = None
+        t = None
+        if selected_level_or_group is None:
             try:
                 convd = particle.histogram.convd
                 t = particle.histogram.convd_t
-
             except AttributeError:
                 logger.error("No Decay!")
                 return
-        elif select_ind <= particle.num_levels - 1:
-            try:
-                convd = particle.cpts.levels[select_ind].histogram.convd
-                t = particle.cpts.levels[select_ind].histogram.convd_t
-            except ValueError:
-                return
         else:
             try:
-                group_ind = select_ind - particle.num_levels
-                convd = particle.groups[group_ind].histogram.convd
-                t = particle.groups[group_ind].histogram.convd_t
+                convd = selected_level_or_group.histogram.convd
+                t = selected_level_or_group.histogram.convd_t
             except ValueError:
                 return
 
@@ -2055,6 +2172,7 @@ class LifetimeController(QObject):
         # convd = convd / convd.max()
 
         cur_tab_name = self.main_window.tabWidget.currentWidget().objectName()
+        decay_ax = None
         if cur_tab_name == "tabLifetime" or for_export:
             if not for_export:
                 plot_pen = QPen()
@@ -2081,21 +2199,31 @@ class LifetimeController(QObject):
 
             if for_export and export_path is not None:
                 # plot_item = self.life_hist_plot
-                if select_ind is None:
+                if selected_level_or_group is None:
                     type_str = f"{particle.unique_name} hist-fitted (whole trace).png"
                     title_str = f"{particle.unique_name} Decay Trace and Fit"
-                elif group_ind is None:
-                    type_str = f"{particle.unique_name} hist-fitted (level {select_ind + 1}).png"
-                    title_str = f"{particle.unique_name}, Level {select_ind + 1} Decay Trace and Fit"
-                else:
+                elif type(selected_level_or_group) in [Level, GlobalLevel]:
+                    level_ind = np.argmax(
+                        [selected_level_or_group is level for level in particle.levels]
+                    )
+                    type_str = f"{particle.unique_name} hist-fitted (level {selected_level_or_group + 1}).png"
+                    title_str = f"{particle.unique_name}, Level {selected_level_or_group + 1} Decay Trace and Fit"
+                elif type(selected_level_or_group) is Group:
+                    group_ind = np.argmax(
+                        [selected_level_or_group is level for level in particle.groups]
+                    )
                     type_str = f"{particle.unique_name} hist-fitted (group {group_ind + 1}).png"
                     title_str = f"{particle.unique_name}, Group {group_ind + 1} Decay Trace and Fit"
+                else:
+                    raise AttributeError(
+                        "Provided `selected_level_or_group` is not a level or a group"
+                    )
                 full_path = os.path.join(export_path, type_str)
-                text_select_ind = select_ind
+                text_select_ind = selected_level_or_group
                 if text_select_ind is None:
                     text_select_ind = -1
                 text_str = self.update_results(
-                    select_ind=text_select_ind,
+                    selected_level_or_group=text_select_ind,
                     particle=particle,
                     for_export=True,
                     str_return=True,
@@ -2109,15 +2237,14 @@ class LifetimeController(QObject):
                 else:
                     export_dpi = EXPORT_MPL_DPI
                 self.temp_fig.savefig(full_path, dpi=export_dpi)
-                # sleep(1)
-
                 # export_plot_item(plot_item=plot_item, path=full_path, text=text_str)
         if lock:
             self.main_window.lock.release()
 
     def plot_residuals(
         self,
-        select_ind: int = None,
+        selected_level_or_group: Union[Level, GlobalLevel, Group] = None,
+        use_selected: bool = False,
         particle: Particle = None,
         for_export: bool = False,
         export_path: str = None,
@@ -2128,34 +2255,28 @@ class LifetimeController(QObject):
         if type(export_path) is bool:
             lock = export_path
             export_path = None
-        if select_ind is None:
-            select_ind = self.main_window.current_particle.level_selected
-        elif select_ind <= -1:
-            select_ind = None
+        if selected_level_or_group is None:
+            selected_level_or_group = (
+                self.main_window.current_particle.level_or_group_selected
+            )
         if particle is None:
             particle = self.main_window.current_particle
 
         group_ind = None
-        if select_ind is None:
+        residuals = None
+        t = None
+        if selected_level_or_group is None:
+            selected_level_or_group = particle.level_or_group_selected
+        if use_selected and selected_level_or_group is not None:
             try:
-                residuals = particle.histogram.residuals
-                t = particle.histogram.convd_t
-            except AttributeError:
-                logger.error("No Decay!")
-                return
-        elif select_ind <= particle.num_levels - 1:
-            try:
-                residuals = particle.cpts.levels[select_ind].histogram.residuals
-                t = particle.cpts.levels[select_ind].histogram.convd_t
+                residuals = selected_level_or_group.histogram.residuals
+                t = selected_level_or_group.histogram.convd_t
             except ValueError:
                 return
         else:
-            try:
-                group_ind = select_ind - particle.num_levels
-                residuals = particle.groups[group_ind].histogram.residuals
-                t = particle.groups[group_ind].histogram.convd_t
-            except ValueError:
-                return
+            selected_level_or_group = None
+            residuals = particle.histogram.residuals
+            t = particle.histogram.convd_t
 
         cur_tab_name = self.main_window.tabWidget.currentWidget().objectName()
         if cur_tab_name == "tabLifetime" or for_export:
@@ -2184,26 +2305,33 @@ class LifetimeController(QObject):
                 residual_ax.set(xlim=[min_x, max_x], xlabel=f"decay time ({unit})")
 
             if for_export and export_path is not None:
-                if select_ind is None:
+                if selected_level_or_group is None:
                     type_str = " residuals (whole trace).png"
                     title_str = f"{particle.unique_name} Decay Trace, Fit and Residuals"
-                elif group_ind is None:
-                    type_str = f" residuals (level {select_ind + 1} with residuals).png"
+                elif type(selected_level_or_group) in [Level, GlobalLevel]:
+                    level_ind = np.argmax(
+                        [selected_level_or_group is level for level in particle.levels]
+                    )
+                    type_str = f" residuals (level {level_ind + 1} with residuals).png"
                     title_str = (
                         f"{particle.unique_name},"
-                        f" Level {select_ind + 1} Decay Trace, Fit and Residuals"
+                        f" Level {level_ind + 1} Decay Trace, Fit and Residuals"
                     )
-                else:
+                elif type(selected_level_or_group) is Group:
+                    group_ind = np.argmax(
+                        [selected_level_or_group is level for level in particle.groups]
+                    )
                     type_str = f" residuals (group {group_ind + 1} with residuals).png"
                     title_str = (
                         f"{particle.unique_name}, Group {group_ind + 1}"
                         f" Decay Trace, Fit and Residuals"
                     )
-                text_select_ind = select_ind
-                if text_select_ind is None:
-                    text_select_ind = -1
+                else:
+                    raise AssertionError(
+                        "Provided `selected_level_or_group` is not a level or a group"
+                    )
                 text_str = self.update_results(
-                    select_ind=text_select_ind,
+                    selected_level_or_group=selected_level_or_group,
                     particle=particle,
                     for_export=True,
                     str_return=True,
@@ -2215,7 +2343,6 @@ class LifetimeController(QObject):
                 full_path = os.path.join(export_path, particle.unique_name + type_str)
                 self.temp_fig.suptitle(title_str)
                 self.temp_fig.savefig(full_path, dpi=EXPORT_MPL_DPI)
-                # sleep(1)
         if lock:
             self.main_window.lock.release()
 
@@ -2463,7 +2590,7 @@ class GroupingController(QObject):
             new_ind = curr_part.ahca.steps_num_groups.index(point_num_groups)
             curr_part.ahca.set_selected_step(new_ind)
             curr_part.using_group_levels = False
-            curr_part.level_selected = None
+            curr_part.level_or_group_selected = None
             if last_solution:
                 last_solution.setPen(pg.mkPen(width=1, color="k"))
             for p in points:
@@ -2709,7 +2836,7 @@ class GroupingController(QObject):
         elif mode == "all":
             all_particles = mw.current_dataset.particles
             grouping_objs = [particle.ahca for particle in all_particles]
-            print(grouping_objs)
+            # print(grouping_objs)
             status_message = "Grouping levels for all particle..."
 
         # g_process_thread = ProcessThread(num_processes=1, task_buffer_size=1)
@@ -2744,7 +2871,7 @@ class GroupingController(QObject):
             for num, result in enumerate(results):
                 result_part_ind = part_uuids.index(result_part_uuids[num])
                 new_part = self.main_window.current_dataset.particles[result_part_ind]
-                new_part.level_selected = None
+                new_part.level_or_group_selected = None
 
                 result_ahca = None
                 if new_part.has_levels:
@@ -2865,7 +2992,7 @@ class GroupingController(QObject):
         bool_use = not all([part.using_group_levels for part in particles])
         for particle in particles:
             particle.using_group_levels = bool_use
-            particle.level_selected = None
+            particle.level_or_group_selected = None
 
         self.main_window.intensity_controller.plot_all()
 
@@ -4583,7 +4710,11 @@ class FilteringController(QObject):
                             levels.append(level)
                     if particle.has_groups:
                         for level in particle.ahca.selected_step.group_levels:
-                            if level.histogram.fitted:
+                            if (
+                                hasattr(level, "histogram")
+                                and level.histogram is not None
+                                and level.histogram.fitted
+                            ):
                                 levels.append(level)
         return levels
 
@@ -4624,7 +4755,7 @@ class FilteringController(QObject):
                 if norm_int_p_s >= level.int_p_s:
                     level.is_normalized = True
                     continue
-            level.num_photons = np.int(np.round(norm_int_p_s * level.dwell_time_s))
+            level.num_photons = int(np.round(norm_int_p_s * level.dwell_time_s))
             level.int_p_s = level.num_photons / level.dwell_time_s
             level.is_normalized = True
 

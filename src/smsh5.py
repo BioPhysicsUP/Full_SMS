@@ -21,6 +21,7 @@ import numpy as np
 from pyqtgraph import ScatterPlotItem, SpotItem
 
 import dbg
+import grouping
 import tcspcfit
 from change_point import ChangePoints
 from generate_sums import CPSums
@@ -421,7 +422,7 @@ class Particle:
                 self.roi_region = (0, 0)
 
             self.startpoint = None
-            self.level_selected = None
+            self.level_or_group_selected = None
             self.using_group_levels = False
 
             self.has_fit_a_lifetime = False
@@ -592,7 +593,7 @@ class Particle:
         return self.ab_analysis.has_corr
 
     @property
-    def groups(self):
+    def groups(self) -> List[grouping.Group]:
         if self.has_groups:
             return self.ahca.selected_step.groups
 
@@ -655,7 +656,7 @@ class Particle:
         ]
 
     @property
-    def group_levels(self) -> List[Level]:
+    def group_levels(self) -> List[Union[Level, GlobalLevel]]:
         if self.has_groups:
             return self.ahca.selected_step.group_levels
 
@@ -679,7 +680,7 @@ class Particle:
         return (self.last_level_ind_in_roi - self.first_level_ind_in_roi) + 1
 
     @property
-    def dwell_time(self):
+    def dwell_time_s(self):
         return (self.abstimes[-1] - self.abstimes[0]) / 1e9
 
     @property
@@ -825,18 +826,18 @@ class Particle:
             else:
                 levels = self.levels_roi
 
-        if not use_global_groups:
-            times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
-        else:
-            times = np.array(
-                [
-                    [
-                        level.times_s[0] - level.start_time_offset_ns / 1e9,
-                        level.times_s[1] - level.start_time_offset_ns / 1e9,
-                    ]
-                    for level in levels
-                ]
-            )
+        # if not use_global_groups:
+        times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
+        # else:
+        #     times = np.array(
+        #         [
+        #             [
+        #                 level.times_s[0] - level.start_time_offset_ns / 1e9,
+        #                 level.times_s[1] - level.start_time_offset_ns / 1e9,
+        #             ]
+        #             for level in levels
+        #         ]
+        #     )
         times = times.flatten()
 
         ints = np.array([[level.int_p_s, level.int_p_s] for level in levels])
@@ -1055,7 +1056,6 @@ class GlobalParticle:
         start_time_offset_ns = 0
         for p in particles:
             p_levels = p.levels_roi if use_roi else p.levels
-            start_time_offset_ns -= p_levels[0].times_ns[0]
             for l in p_levels:
                 level = GlobalLevel(
                     global_particle=self,
@@ -1176,11 +1176,11 @@ class Trace:
 
         binsize_ns = binsize * 1e6  # Convert ms to ns
         try:
-            endbin = np.int(np.max(data) / binsize_ns)
+            endbin = int(np.max(data) / binsize_ns)
         except ValueError:
             endbin = 0
 
-        binned = np.zeros(endbin + 1, dtype=np.int)
+        binned = np.zeros(endbin + 1, dtype=int)
         for step in range(endbin):
             binned[step + 1] = np.size(
                 data[((step + 1) * binsize_ns > data) * (data > step * binsize_ns)]
