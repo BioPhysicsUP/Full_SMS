@@ -1004,6 +1004,7 @@ class Histogram:
             window = tmax - tmin
             numpoints = int(window // self._particle.channelwidth)
 
+            print(tmin, tmax, self._particle.channelwidth)
             t = np.arange(tmin, tmax, self._particle.channelwidth)
 
             self.decay, self.t = np.histogram(self.microtimes, bins=t)

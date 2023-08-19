@@ -2276,8 +2276,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>254</width>
-                 <height>68</height>
+                 <width>229</width>
+                 <height>76</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2459,8 +2459,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>207</width>
-                 <height>97</height>
+                 <width>233</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2700,8 +2700,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>204</width>
-                 <height>97</height>
+                 <width>229</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2932,8 +2932,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>167</width>
-                 <height>67</height>
+                 <width>190</width>
+                 <height>75</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3117,8 +3117,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>225</width>
-                 <height>97</height>
+                 <width>254</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3358,8 +3358,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>205</width>
-                 <height>97</height>
+                 <width>230</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -5090,6 +5090,9 @@
             </property>
             <property name="minimum">
              <double>-99.989999999999995</double>
+            </property>
+            <property name="maximum">
+             <double>99999999.989999994635582</double>
             </property>
            </widget>
           </item>
@@ -7344,7 +7347,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>24</height>
+     <height>29</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

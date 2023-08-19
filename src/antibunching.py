@@ -77,8 +77,8 @@ class AntibunchingAnalysis:
         events: 1D array
             difftimes used to construct histogram in case, returned in case rebinning is needed.
         """
-        abstimes1 = abstimes1 + microtimes1
-        abstimes2 = abstimes2 + microtimes2 + difftime
+        # abstimes1 = abstimes1 + microtimes1
+        # abstimes2 = abstimes2 + microtimes2 + difftime
         size1 = np.size(abstimes1)
         size2 = np.size(abstimes2)
         channel = np.concatenate(
@@ -87,9 +87,6 @@ class AntibunchingAnalysis:
         ind = all_times.argsort()
         all_times = all_times[ind]
         channel = channel[ind]  # sort channel array to match times
-
-        all_times_full = np.concatenate((all_times, all_times[::-1]))
-        channel_full = np.concatenate((channel, channel[::-1]))
 
         events = []
         for i, time1 in enumerate(all_times):
