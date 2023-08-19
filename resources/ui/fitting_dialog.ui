@@ -88,6 +88,16 @@
           </property>
          </spacer>
         </item>
+        <item>
+         <widget class="QCheckBox" name="chbNormAmps">
+          <property name="text">
+           <string>Normalize Amplitudes</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
       <item>
@@ -678,7 +688,7 @@
             <item row="8" column="3">
              <widget class="QCheckBox" name="check2AmpFix2">
               <property name="enabled">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
@@ -732,7 +742,7 @@
             <item row="8" column="1">
              <widget class="QLineEdit" name="line2AmpMin2">
               <property name="enabled">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
@@ -856,7 +866,7 @@
             <item row="8" column="2">
              <widget class="QLineEdit" name="line2AmpMax2">
               <property name="enabled">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
@@ -878,7 +888,7 @@
             <item row="8" column="0">
              <widget class="QLineEdit" name="line2AmpInit2">
               <property name="enabled">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
@@ -968,7 +978,7 @@
             <item row="10" column="3">
              <widget class="QCheckBox" name="check3AmpFix3">
               <property name="enabled">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
@@ -1179,7 +1189,7 @@
             <item row="10" column="2">
              <widget class="QLineEdit" name="line3AmpMax3">
               <property name="enabled">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
@@ -1294,7 +1304,7 @@
             <item row="10" column="1">
              <widget class="QLineEdit" name="line3AmpMin3">
               <property name="enabled">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
@@ -1462,7 +1472,7 @@
             <item row="10" column="0">
              <widget class="QLineEdit" name="line3AmpInit3">
               <property name="enabled">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">

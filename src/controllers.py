@@ -1484,6 +1484,9 @@ class LifetimeController(QObject):
                 self.irf_loaded = True
                 self.main_window.reset_gui()
 
+    def testymctestface(self):
+        print('lalalalal')
+
     def gui_fit_current(self):
         """Fits the currently selected level's decay curve using the provided settings."""
 
@@ -1529,6 +1532,7 @@ class LifetimeController(QObject):
                 f_p.addopt,
                 f_p.irf,
                 f_p.fwhm,
+                f_p.normalize_amps
             ):
                 return  # fit unsuccessful
             else:

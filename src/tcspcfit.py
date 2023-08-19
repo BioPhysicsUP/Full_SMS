@@ -180,6 +180,8 @@ class FluoFit:
         Whether to automatically plot the irf_data.
     fwhm : float = None
         Full-width at half maximum of simulated irf. IRF is not simulated if fwhm is None.
+    normalize_amps : bool = True
+        Whether to use normalized lifetime amplitudes.
     numexp : int, optional
         Number of exponential components in fit.
     """
@@ -197,9 +199,11 @@ class FluoFit:
         boundaries=None,
         ploton=False,
         fwhm=None,
-        numexp=None,
+        normalize_amps=True,
+        numexp = None
     ):
         self.numexp = numexp
+        self.normalize_amps = normalize_amps
         self.channelwidth = channelwidth
         self.ploton = ploton
         self.t = t
@@ -250,14 +254,14 @@ class FluoFit:
         self.measured_unbounded = measured
         measured = measured[self.startpoint : self.endpoint]
         self.measured_not_normalized = self.meas_bef_bg[self.startpoint : self.endpoint]
-        self.meas_max = np.nansum(measured)
+        self.meas_sum = np.nansum(measured)
         meas_std = np.sqrt(np.abs(measured))
         self.bg_n = None
         self.meas_std = None
-        if self.meas_max != 0:
-            self.measured = measured / self.meas_max  # Normalize measured
-            self.bg_n = self.bg / self.meas_max  # Normalized background
-            self.meas_std = meas_std / self.meas_max
+        if self.meas_sum != 0:
+            self.measured = measured / self.meas_sum  # Normalize measured
+            self.bg_n = self.bg / self.meas_sum  # Normalized background
+            self.meas_std = meas_std / self.meas_sum
         # self.measured = measured
         # self.bg_n = self.bg
         # self.meas_std = meas_std
@@ -618,13 +622,13 @@ class FluoFit:
 
         measured = self.meas_bef_bg
         measured = measured[self.startpoint : self.endpoint]
-        measured = measured / self.meas_max
+        measured = measured / self.meas_sum
 
         convd = self.convd + self.bg_n
 
-        residuals = (convd - measured) * self.meas_max
+        residuals = (convd - measured) * self.meas_sum
 
-        residuals = residuals / np.sqrt(np.abs(convd * self.meas_max))
+        residuals = residuals / np.sqrt(np.abs(convd * self.meas_sum))
 
         residualsnotinf = np.abs(residuals) != np.inf
         residuals = residuals[
@@ -686,13 +690,13 @@ class FluoFit:
         if fwhm is None:
             irf = self.irf
         else:  # Simulate gaussian irf with max at max of measured data
-            # irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured_unbounded)
-            irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured)
+            irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured_unbounded)
 
         irf = colorshift(irf, shift)
         convd = convolve(irf, model)
         convd = convd[self.startpoint : self.endpoint]
-        # convd = convd / convd.sum()
+        if self.normalize_amps:
+            convd = convd / convd.sum()
         return convd
 
     @staticmethod
@@ -856,7 +860,7 @@ class OneExp(FluoFit):
 
         try:
             if addopt is None:
-                param, pcov = curve_fit(
+                param, pcov, *extra = curve_fit(
                     self.fitfunc,
                     self.t,  # , self.t[self.startpoint: self.endpoint],
                     self.measured,
@@ -864,7 +868,7 @@ class OneExp(FluoFit):
                     p0=paraminit,
                 )
             else:
-                param, pcov = curve_fit(
+                param, pcov, *extra = curve_fit(
                     self.fitfunc,
                     self.t[self.startpoint : self.endpoint],
                     self.measured,
@@ -921,6 +925,7 @@ class TwoExp(FluoFit):
         addopt=None,
         ploton=False,
         fwhm=None,
+        normalize_amps=True
     ):
         if tau is None:
             tau = [1, 5]
@@ -941,6 +946,7 @@ class TwoExp(FluoFit):
             boundaries,
             ploton,
             fwhm,
+            normalize_amps,
             numexp=2,
         )
 
@@ -972,11 +978,10 @@ class TwoExp(FluoFit):
             )
 
         tau = param[0:2]
-        # amp = np.append(param[2], 1 - param[2])
         amp = param[2:4]
         shift = param[4]
         stds = np.sqrt(np.diag(pcov))
-        stds[3] = stds[2]  # second amplitude std is same as that of the first
+        # stds[3] = stds[2]  # second amplitude std is same as that of the first
         avtaustd = np.sqrt(
             tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]))
             + tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1]))
@@ -993,7 +998,10 @@ class TwoExp(FluoFit):
     def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Double exponential model function passed to curve_fit, to be fitted to data."""
         model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
-        return self.makeconvd(shift, model, fwhm)
+        if self.normalize_amps:
+            return self.makeconvd(shift, model, fwhm) + (1 - a1 - a2)
+        else:
+            return self.makeconvd(shift, model, fwhm)
 
 
 class ThreeExp(FluoFit):
@@ -1022,6 +1030,7 @@ class ThreeExp(FluoFit):
         addopt=None,
         ploton=False,
         fwhm=None,
+        normalize_amps=True
     ):
         if tau is None:
             tau = [0.1, 1, 5]
@@ -1042,6 +1051,7 @@ class ThreeExp(FluoFit):
             boundaries,
             ploton,
             fwhm,
+            normalize_amps,
             numexp=3,
         )
 
@@ -1073,13 +1083,12 @@ class ThreeExp(FluoFit):
             )
 
         tau = param[0:3]
-        # amp = np.append(param[3:5], 1 - param[3] - param[4])
         amp = param[3:6]
         shift = param[6]
         stds = np.sqrt(np.diag(pcov))
-        stds[5] = np.sqrt(
-            stds[3] ** 2 + stds[4] ** 2
-        )  # third amp std is based on first two
+        # stds[5] = np.sqrt(
+        #     stds[3] ** 2 + stds[4] ** 2
+        # )  # third amp std is based on first two
         avtaustd = np.sqrt(
             tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0]))
             + tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1]))
@@ -1103,7 +1112,10 @@ class ThreeExp(FluoFit):
             + a2 * np.exp(-t / tau2)
             + a3 * np.exp(-t / tau3)
         )
-        return self.makeconvd(shift, model, fwhm) + (1 - a1 - a2 - a3)
+        if self.normalize_amps:
+            return self.makeconvd(shift, model, fwhm) + (1 - a1 - a2 - a3)
+        else:
+            return self.makeconvd(shift, model, fwhm)
 
 
 class FittingParameters:
@@ -1134,9 +1146,11 @@ class FittingParameters:
         self.numexp = None
         self.addopt = None
         self.fwhm = None
+        self.normalize_amps = True
 
     def getfromdialog(self):
         self.numexp = int(self.fpd.combNumExp.currentText())
+        self.normalize_amps = self.fpd.chbNormAmps.isChecked()
         if self.numexp == 1:
             self.tau = [
                 [
@@ -1203,7 +1217,8 @@ class FittingParameters:
                     ]
                 ],
             ]
-            # self.amp[1][0] = 1 - self.amp[0][0]
+            if self.normalize_amps:
+                self.amp[1][0] = 1 - self.amp[0][0]
 
         elif self.numexp == 3:
             self.tau = [
@@ -1264,7 +1279,8 @@ class FittingParameters:
                     ]
                 ],
             ]
-            # self.amp[2][0] = 1 - self.amp[0][0] - self.amp[1][0]
+            if self.normalize_amps:
+                self.amp[2][0] = 1 - self.amp[0][0] - self.amp[1][0]
 
         self.shift = [
             self.get_from_gui(i)
@@ -1384,6 +1400,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         # self.load_settings()
 
         self.checkSimIRF.stateChanged.connect(self.enable_sim_vals)
+        self.chbNormAmps.stateChanged.connect(self.disable_amps)
 
         self.tau_edits = [
             self.line1Init,
@@ -1501,6 +1518,19 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.checkfwhmFix.setEnabled(enable)
         self.updateplot()
 
+    def disable_amps(self, disable):
+        """Called to enable the secondary amplitudes when not normalized."""
+        enable = not disable
+        self.line2AmpInit2.setEnabled(enable)
+        self.line2AmpMin2.setEnabled(enable)
+        self.line2AmpMax2.setEnabled(enable)
+        self.check2AmpFix2.setEnabled(enable)
+        self.line3AmpInit3.setEnabled(enable)
+        self.line3AmpMin3.setEnabled(enable)
+        self.line3AmpMax3.setEnabled(enable)
+        self.check3AmpFix3.setEnabled(enable)
+        self.updateplot()
+
     def updateplot(self, *args):
         """Update the plot using the current input values."""
         if not hasattr(self.lifetime_controller, "fitparam"):
@@ -1535,6 +1565,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     group = level - self.mainwindow.current_particle.num_levels
                     histogram = self.mainwindow.current_particle.groups[group].histogram
             decay = histogram.decay
+            raw_decay = decay
             decay = decay / decay.sum()
             t = histogram.t
 
@@ -1548,7 +1579,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                         irf = irf / max(irf)
                         irft = fp.irft
                     else:
-                        irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], decay)
+                        irf, irft = FluoFit.sim_irf(channelwidth, fp.fwhm[0], raw_decay)
                 except AttributeError:
                     logger.error("No IRF!")
                     return
