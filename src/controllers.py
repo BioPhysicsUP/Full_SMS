@@ -1683,7 +1683,8 @@ class LifetimeController(QObject):
         tau = histogram.tau
         amp = histogram.amp
         stds = histogram.stds
-        avtau = np.dot(histogram.amp, histogram.tau)
+        # avtau = np.dot(histogram.amp, histogram.tau)
+        avtau = histogram.avtau
         avtaustd = histogram.avtaustd
         if type(avtau) is list or type(avtau) is np.ndarray:
             avtau = avtau[0]

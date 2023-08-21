@@ -1593,7 +1593,8 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 convd = scipy.signal.convolve(irf, model)
                 convd = convd[: np.size(irf)]
                 print('max:', max(convd))
-                # convd = convd / convd.sum()
+                if fp.normalize_amps:
+                    convd = convd / convd.sum()
 
                 bg = FluoFit.estimate_bg(decay, settings=self.settings)
                 start = int(start / channelwidth)
