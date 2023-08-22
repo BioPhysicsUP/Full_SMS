@@ -147,8 +147,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.raster_scan_controller = RasterScanController(main_window=self)
 
+        # self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
+        #                                                    corr_sum_widget=self.pgAntibunching_Sum_PlotWidget)
         self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
-                                                           corr_sum_widget=self.pgAntibunching_Sum_PlotWidget)
+                                                           corr_sum_widget=None)
         a_c = self.antibunch_controller
         self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
         self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)

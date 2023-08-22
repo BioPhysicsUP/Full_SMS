@@ -3472,7 +3472,7 @@ class AntibunchingController(QObject):
 
     def __init__(self, mainwindow: MainWindow, corr_widget: pg.PlotWidget, corr_sum_widget: pg.PlotWidget):
         super().__init__()
-        self.main_window = main_window
+        self.main_window = mainwindow
 
         self.resolve_mode = None
         self.results_gathered = False
@@ -3483,9 +3483,10 @@ class AntibunchingController(QObject):
         self.setup_plot(self.corr_plot)
 
         self.corr_sum_widget = corr_sum_widget
-        self.corr_sum_plot = corr_sum_widget.getPlotItem()
-        self.setup_widget(self.corr_sum_widget)
-        self.setup_plot(self.corr_sum_plot)
+        # self.corr_sum_plot = corr_sum_widget.getPlotItem()
+        self.corr_sum_plot = None
+        # self.setup_widget(self.corr_sum_widget)
+        # self.setup_plot(self.corr_sum_plot)
 
         self.temp_fig = None
         self.temp_ax = None
@@ -3494,12 +3495,9 @@ class AntibunchingController(QObject):
         self.bins = None
         self.irfdiff = 0
 
-        self.main_window.btnLoadIRFCorr.clicked.connect(self.gui_load_irf)
         self.main_window.btnCorrCurrent.clicked.connect(self.gui_correlate_current)
         self.main_window.btnCorrSelected.clicked.connect(self.gui_correlate_selected)
         self.main_window.btnCorrAll.clicked.connect(self.gui_correlate_all)
-        self.main_window.chbIRFCorrDiff.stateChanged.connect(self.gui_irf_chb)
-        self.main_window.chbCurrCorrDiff.stateChanged.connect(self.gui_curr_chb)
 
     def setup_plot(self, plot_item: pg.PlotItem):
         # Set axis label bold and size
