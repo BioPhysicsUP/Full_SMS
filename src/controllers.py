@@ -4,6 +4,7 @@ __docformat__ = "NumPy"
 
 import os
 import pickle
+import random
 import tempfile
 import time
 from copy import copy
@@ -3468,18 +3469,24 @@ class RasterScanController(QObject):
 
 
 class AntibunchingController(QObject):
-    def __init__(self, main_window: MainWindow):
+
+    def __init__(self, mainwindow: MainWindow, corr_widget: pg.PlotWidget, corr_sum_widget: pg.PlotWidget):
         super().__init__()
         self.main_window = main_window
 
         self.resolve_mode = None
         self.results_gathered = False
 
-        self.corr_widget = self.main_window.pgAntibunching_PlotWidget
-        self.corr_plot = self.corr_widget.getPlotItem()
-
+        self.corr_widget = corr_widget
+        self.corr_plot = corr_widget.getPlotItem()
         self.setup_widget(self.corr_widget)
         self.setup_plot(self.corr_plot)
+
+        self.corr_sum_widget = corr_sum_widget
+        self.corr_sum_plot = corr_sum_widget.getPlotItem()
+        self.setup_widget(self.corr_sum_widget)
+        self.setup_plot(self.corr_sum_plot)
+
         self.temp_fig = None
         self.temp_ax = None
 
@@ -3510,9 +3517,9 @@ class AntibunchingController(QObject):
         left_axis.label.setFont(font)
         bottom_axis.label.setFont(font)
 
-        left_axis.setLabel("Number of occur.", "counts/bin")
-        bottom_axis.setLabel("Delay time", "ns")
-        plot_item.vb.setLimits(xMin=0, yMin=0)
+        left_axis.setLabel('Number of occur.', 'counts/bin')
+        bottom_axis.setLabel('Delay time', 'ns')
+        # plot_item.vb.setLimits(xMin=0, yMin=0)
 
     @staticmethod
     def setup_widget(plot_widget: pg.PlotWidget):
@@ -3546,49 +3553,6 @@ class AntibunchingController(QObject):
     def gui_correlate_all(self):
         self.start_corr_thread("all")
 
-    def gui_load_irf(self):
-        """Allow the user to load a IRF instead of the IRF that has already been loaded."""
-
-        file_path = QFileDialog.getOpenFileName(
-            self.main_window, "Open HDF5 file", "", "HDF5 files (*.h5)"
-        )
-        if file_path != ("", ""):  # fname will equal ('', '') if the user canceled.
-            mw = self.main_window
-            mw.status_message(message="Opening IRF file...")
-            of_process_thread = ProcessThread(num_processes=1)
-            of_process_thread.worker_signals.add_datasetindex.connect(mw.add_dataset)
-            of_process_thread.worker_signals.add_particlenode.connect(mw.add_node)
-            of_process_thread.worker_signals.add_all_particlenodes.connect(
-                mw.add_all_nodes
-            )
-            of_process_thread.worker_signals.bin_size.connect(mw.set_bin_size)
-            of_process_thread.worker_signals.data_loaded.connect(mw.set_data_loaded)
-            of_process_thread.worker_signals.add_irf.connect(self.add_irf)
-            of_process_thread.signals.status_update.connect(mw.status_message)
-            of_process_thread.signals.start_progress.connect(mw.start_progress)
-            of_process_thread.signals.set_progress.connect(mw.set_progress)
-            of_process_thread.signals.step_progress.connect(mw.update_progress)
-            of_process_thread.signals.add_progress.connect(mw.update_progress)
-            of_process_thread.signals.end_progress.connect(mw.end_progress)
-            of_process_thread.signals.error.connect(mw.error_handler)
-            of_process_thread.signals.finished.connect(mw.reset_gui)
-
-            of_obj = OpenFile(file_path=file_path, is_irf=True, tmin=0)
-            of_process_thread.add_tasks_from_methods(of_obj, "open_irf")
-            mw.threadpool.start(of_process_thread)
-            mw.active_threads.append(of_process_thread)
-
-    def add_irf(self, decay, t, irfdata):
-        irfhist2 = irfdata.particles[0].sec_part.histogram
-        decay2 = irfhist2.decay
-        t2 = irfhist2.t
-
-        irf1_maxt = t[np.argmax(decay)]
-        irf2_maxt = t2[np.argmax(decay2)]
-        irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
-        self.main_window.chbIRFCorrLoaded.setChecked(True)
-        self.main_window.spbCorrDiff.setValue(irfdiff)
-        self.irfdiff = irfdiff
 
     def plot_corr(
         self,
@@ -3623,6 +3587,7 @@ class AntibunchingController(QObject):
 
             plot_pen.setJoinStyle(Qt.RoundJoin)
             plot_item.plot(x=bins, y=corr, pen=plot_pen, symbol=None)
+            self.plot_corr_sum()
         else:
             if self.temp_fig is None:
                 self.temp_fig = plt.figure()
@@ -3651,6 +3616,34 @@ class AntibunchingController(QObject):
         if lock:
             self.main_window.lock.release()
 
+    def plot_corr_sum(self):
+        plot_item = self.corr_sum_widget
+        plot_item.clear()
+
+        allcorr = None
+        bins = None
+        for particle in self.mainwindow.get_checked_particles():
+            ab_analysis = particle.ab_analysis
+            if not ab_analysis.has_corr:
+                logger.info(particle.name + ' has no correlation')
+                return
+            else:
+                bins = ab_analysis.corr_bins
+                corr = ab_analysis.corr_hist
+                if allcorr is None:
+                    allcorr = corr.copy()
+                else:
+                    allcorr += corr
+
+        plot_pen = QPen()
+        plot_pen.setCosmetic(True)
+
+        plot_pen.setWidthF(1.5)
+        plot_pen.setColor(QColor('green'))
+
+        plot_pen.setJoinStyle(Qt.RoundJoin)
+        plot_item.plot(x=bins, y=allcorr, pen=plot_pen, symbol=None)
+
     def gui_curr_chb(self, checked):
         mw = self.main_window
         if checked or mw.chbIRFCorrDiff.isChecked():
@@ -3660,28 +3653,7 @@ class AntibunchingController(QObject):
         if checked:
             if mw.chbIRFCorrDiff.isChecked():
                 mw.chbIRFCorrDiff.setChecked(False)
-            irfhist1 = mw.current_particle.histogram
-            irfhist2 = mw.current_particle.sec_part.histogram
-            decay1 = irfhist1.decay
-            decay2 = irfhist2.decay
-            t1 = irfhist1.t
-            t2 = irfhist2.t
-
-            irf1_maxt = t1[np.argmax(decay1)]
-            irf2_maxt = t2[np.argmax(decay2)]
-            irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
-            self.main_window.spbCorrDiff.setValue(irfdiff)
-
-    def gui_irf_chb(self, checked):
-        mw = self.main_window
-        if checked or mw.chbCurrCorrDiff.isChecked():
-            mw.spbCorrDiff.setEnabled(False)
-        else:
-            mw.spbCorrDiff.setEnabled(True)
-        if checked:
-            if mw.chbCurrCorrDiff.isChecked():
-                mw.chbCurrCorrDiff.setChecked(False)
-            mw.spbCorrDiff.setValue(self.irfdiff)
+            self.update_corr_diff()
 
     def start_corr_thread(self, mode: str = "current") -> None:
         """
@@ -3733,7 +3705,7 @@ class AntibunchingController(QObject):
         c_process_thread.signals.end_progress.connect(mw.end_progress)
         c_process_thread.signals.error.connect(self.error)
         c_process_thread.signals.results.connect(self.gather_replace_results)
-        c_process_thread.signals.finished.connect(self.fitting_thread_complete)
+        c_process_thread.signals.finished.connect(self.corr_thread_complete)
         c_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
         c_process_thread.status_message = status_message
 
@@ -3754,17 +3726,30 @@ class AntibunchingController(QObject):
                 target_particle = particles[result_part_ind]
                 result.new_task_obj._particle = target_particle
                 target_particle.ab_analysis = result.new_task_obj
+                print('lala', target_particle)
             self.results_gathered = True
         except ValueError as e:
             logger.error(e)
 
-    def fitting_thread_complete(self, mode: str = None):
-        if self.main_window.current_particle is not None:
-            self.main_window.display_data()
-        if not mode == "current":
-            self.main_window.status_message("Done")
-        self.main_window.current_dataset.has_corr = True
-        logger.info("Correlation complete")
+    def corr_thread_complete(self, mode: str = None):
+        if self.mainwindow.current_particle is not None:
+            self.mainwindow.display_data()
+        if not mode == 'current':
+            self.mainwindow.status_message("Done")
+        self.mainwindow.current_dataset.has_corr = True
+        logger.info('Correlation complete')
+
+    def rebin_corrs(self):
+        window = self.mainwindow.spbWindow.value()
+        binsize = self.mainwindow.spbBinSizeCorr.value()
+        if binsize == 0:
+            return
+        binsize = binsize / 1000  # convert to ns
+        ab_objs = [part.ab_analysis for part in self.mainwindow.current_dataset.particles]
+        for ab in ab_objs:
+            if ab.has_corr:
+                ab.rebin_corr(window, binsize)
+        self.mainwindow.display_data()
 
     def error(self, e):
         logger.error(e)
@@ -4762,3 +4747,4 @@ class FilteringController(QObject):
         self.is_normalized = True
         self.main_window.lblFiltResults.setText("Applied Normalization")
         self.plot_features(use_current_plot=True)
+

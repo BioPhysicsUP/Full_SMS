@@ -408,7 +408,7 @@ class Particle:
             self.ahca = AHCA(
                 self
             )  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
-            self.ab_analysis = AntibunchingAnalysis(self)
+
             self.avg_int_weighted = None
             self.int_std_weighted = None
 
@@ -420,12 +420,14 @@ class Particle:
                 self.raster_scan = self.prim_part.raster_scan
                 self.has_raster_scan = self.prim_part.has_raster_scan
                 self.description = self.prim_part.description
+            # self.ab_analysis = self.prim_part.ab_analysis
             else:
                 self.spectra = Spectra(self)
                 self._raster_scan_dataset_index = raster_scan_dataset_index
                 self.raster_scan = raster_scan
                 self.has_raster_scan = raster_scan is not None
                 self.description = h5_fr.description(particle=self)
+                self._ab_analysis = AntibunchingAnalysis(self)
 
             self.irf = None
             try:
@@ -644,6 +646,19 @@ class Particle:
     def has_corr(self):
         """Whether the particle has a second-order correlation."""
         return self.ab_analysis.has_corr
+
+    @property
+    def ab_analysis(self):
+        if self.is_secondary_part:
+            return self.prim_part._ab_analysis
+        else:
+            return self._ab_analysis
+
+    @ab_analysis.setter
+    def ab_analysis(self, ab_analysis):
+        if not self.is_secondary_part:
+            self._ab_analysis = ab_analysis
+
 
     @property
     def groups(self) -> List[grouping.Group]:
@@ -1520,6 +1535,7 @@ class Histogram:
             window = tmax - tmin
             numpoints = int(window // self._particle.channelwidth)
 
+            print(tmin, tmax, self._particle.channelwidth)
             t = np.arange(tmin, tmax, self._particle.channelwidth)
 
             self.decay, self.t = np.histogram(self.microtimes, bins=t)

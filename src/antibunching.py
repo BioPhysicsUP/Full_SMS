@@ -12,6 +12,9 @@ from __future__ import annotations
 __docformat__ = "NumPy"
 
 import numpy as np
+from my_logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class AntibunchingAnalysis:
@@ -56,6 +59,7 @@ class AntibunchingAnalysis:
         self.corr_hist = hist
         self.corr_events = events
         self.has_corr = True
+        logger.info(msg=f"{self._particle.name} photons correlated")
 
     @staticmethod
     def correlate_times(
@@ -111,7 +115,9 @@ class AntibunchingAnalysis:
         ind = all_times.argsort()
         all_times = all_times[ind]
         channel = channel[ind]  # sort channel array to match times
+
         events = []
+        print(size1, size2, np.size(all_times))
         for i, time1 in enumerate(all_times):
             for j, time2 in enumerate(all_times[i:]):
                 channel1 = channel[i]
@@ -119,10 +125,19 @@ class AntibunchingAnalysis:
                 if channel1 == channel2:
                     continue  # ignore photons from same card
                 difftime = time2 - time1
-                if difftime > window:  # 500 ns window
+                if channel1 == 1:
+                    difftime = - difftime  # channel 0 is start channel
+                if abs(difftime) > window:
                     break
                 events.append(difftime)
         numbins = int(window / binsize)
         corr, bins = np.histogram(events, numbins)
         events = np.array(events)
         return bins[:-1], corr, events
+
+    def rebin_corr(self, window, binsize):
+        numbins = int(window / binsize)
+        corr, bins = np.histogram(self.corr_events, numbins)
+        self.corr_bins = bins[:-1]
+        self.corr_hist = corr
+
