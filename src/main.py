@@ -260,8 +260,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
         self._root_was_checked = False
 
-        self.treeViewAntibunching.setModel(self.treemodel)
-
         self.comboSelectCard.currentIndexChanged.connect(self.card_selected)
 
         self.part_nodes = list()
