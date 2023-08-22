@@ -196,14 +196,10 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
                                                            corr_sum_widget=self.pgAntibunching_Sum_PlotWidget)
         a_c = self.antibunch_controller
-        self.btnLoadIRFCorr.clicked.connect(a_c.gui_load_irf)
         self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
         self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
         self.btnCorrAll.clicked.connect(a_c.gui_correlate_all)
-        self.chbIRFCorrDiff.stateChanged.connect(a_c.gui_irf_chb)
-        self.chbCurrCorrDiff.stateChanged.connect(a_c.gui_curr_chb)
         self.spbBinSizeCorr.valueChanged.connect(a_c.rebin_corrs)
-
 
         self.filtering_controller = FilteringController(main_window=self)
 

@@ -2930,54 +2930,11 @@ class AntibunchingController(QObject):
     def gui_correlate_all(self):
         self.start_corr_thread('all')
 
-    def gui_load_irf(self):
-        """ Allow the user to load a IRF instead of the IRF that has already been loaded. """
-
-        file_path = QFileDialog.getOpenFileName(self.mainwindow, 'Open HDF5 file', '',
-                                                "HDF5 files (*.h5)")
-        if file_path != ('', ''):  # fname will equal ('', '') if the user canceled.
-            mw = self.mainwindow
-            mw.status_message(message="Opening IRF file...")
-            of_process_thread = ProcessThread(num_processes=1)
-            of_process_thread.worker_signals.add_datasetindex.connect(mw.add_dataset)
-            of_process_thread.worker_signals.add_particlenode.connect(mw.add_node)
-            of_process_thread.worker_signals.add_all_particlenodes.connect(mw.add_all_nodes)
-            of_process_thread.worker_signals.bin_size.connect(mw.set_bin_size)
-            of_process_thread.worker_signals.data_loaded.connect(mw.set_data_loaded)
-            of_process_thread.worker_signals.add_irf.connect(self.add_irf)
-            of_process_thread.signals.status_update.connect(mw.status_message)
-            of_process_thread.signals.start_progress.connect(mw.start_progress)
-            of_process_thread.signals.set_progress.connect(mw.set_progress)
-            of_process_thread.signals.step_progress.connect(mw.update_progress)
-            of_process_thread.signals.add_progress.connect(mw.update_progress)
-            of_process_thread.signals.end_progress.connect(mw.end_progress)
-            of_process_thread.signals.error.connect(mw.error_handler)
-            of_process_thread.signals.finished.connect(mw.reset_gui)
-
-            of_obj = OpenFile(file_path=file_path, is_irf=True, tmin=0)
-            of_process_thread.add_tasks_from_methods(of_obj, 'open_irf')
-            mw.threadpool.start(of_process_thread)
-            mw.active_threads.append(of_process_thread)
-
-    def add_irf(self, decay, t, irfdata):
-
-        irfhist2 = irfdata.particles[0].sec_part.histogram
-        decay2 = irfhist2.decay
-        t2 = irfhist2.t
-
-        irf1_maxt = t[np.argmax(decay)]
-        irf2_maxt = t2[np.argmax(decay2)]
-        irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
-        self.mainwindow.chbIRFCorrLoaded.setChecked(True)
-        self.mainwindow.spbCorrDiff.setValue(irfdiff)
-        self.irfdiff = irfdiff
 
     def plot_corr(self, particle: Particle = None,
                   for_export: bool = False,
                   export_path: str = None,
                   lock: bool = False) -> None:
-
-        self.update_corr_diff()
 
         if type(export_path) is bool:
             lock = export_path
@@ -3074,30 +3031,6 @@ class AntibunchingController(QObject):
                 mw.chbIRFCorrDiff.setChecked(False)
             self.update_corr_diff()
 
-    def update_corr_diff(self):
-        mw = self.mainwindow
-        irfhist1 = mw.current_particle.histogram
-        irfhist2 = mw.current_particle.sec_part.histogram
-        decay1 = irfhist1.decay
-        decay2 = irfhist2.decay
-        t1 = irfhist1.t
-        t2 = irfhist2.t
-        irf1_maxt = t1[np.argmax(decay1)]
-        irf2_maxt = t2[np.argmax(decay2)]
-        irfdiff = np.around(irf1_maxt - irf2_maxt, 2)
-        self.mainwindow.spbCorrDiff.setValue(irfdiff)
-
-    def gui_irf_chb(self, checked):
-        mw = self.mainwindow
-        if checked or mw.chbCurrCorrDiff.isChecked():
-            mw.spbCorrDiff.setEnabled(False)
-        else:
-            mw.spbCorrDiff.setEnabled(True)
-        if checked:
-            if mw.chbCurrCorrDiff.isChecked():
-                mw.chbCurrCorrDiff.setChecked(False)
-            mw.spbCorrDiff.setValue(self.irfdiff)
-
     def start_corr_thread(self, mode: str = 'current') -> None:
         """
         Creates a worker to calculate correlations.
@@ -3143,7 +3076,7 @@ class AntibunchingController(QObject):
         c_process_thread.signals.end_progress.connect(mw.end_progress)
         c_process_thread.signals.error.connect(self.error)
         c_process_thread.signals.results.connect(self.gather_replace_results)
-        c_process_thread.signals.finished.connect(self.fitting_thread_complete)
+        c_process_thread.signals.finished.connect(self.corr_thread_complete)
         c_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
         c_process_thread.status_message = status_message
 
@@ -3162,11 +3095,12 @@ class AntibunchingController(QObject):
                 target_particle = particles[result_part_ind]
                 result.new_task_obj._particle = target_particle
                 target_particle.ab_analysis = result.new_task_obj
+                print('lala', target_particle)
             self.results_gathered = True
         except ValueError as e:
             logger.error(e)
 
-    def fitting_thread_complete(self, mode: str = None):
+    def corr_thread_complete(self, mode: str = None):
         if self.mainwindow.current_particle is not None:
             self.mainwindow.display_data()
         if not mode == 'current':

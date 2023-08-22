@@ -40,7 +40,7 @@ class AntibunchingAnalysis:
         self.corr_hist = hist
         self.corr_events = events
         self.has_corr = True
-        logger.info(msg=f"{self._particle.name} levels resolved")
+        logger.info(msg=f"{self._particle.name} photons correlated")
 
     @staticmethod
     def correlate_times(abstimes1, abstimes2, microtimes1, microtimes2, difftime=0., window=500., binsize=0.5):
@@ -77,8 +77,8 @@ class AntibunchingAnalysis:
         events: 1D array
             difftimes used to construct histogram in case, returned in case rebinning is needed.
         """
-        # abstimes1 = abstimes1 + microtimes1
-        # abstimes2 = abstimes2 + microtimes2 + difftime
+        abstimes1 = abstimes1 + microtimes1
+        abstimes2 = abstimes2 + microtimes2 + difftime
         size1 = np.size(abstimes1)
         size2 = np.size(abstimes2)
         channel = np.concatenate(
@@ -89,6 +89,7 @@ class AntibunchingAnalysis:
         channel = channel[ind]  # sort channel array to match times
 
         events = []
+        print(size1, size2, np.size(all_times))
         for i, time1 in enumerate(all_times):
             for j, time2 in enumerate(all_times[i:]):
                 channel1 = channel[i]
@@ -98,7 +99,7 @@ class AntibunchingAnalysis:
                 difftime = time2 - time1
                 if channel1 == 1:
                     difftime = - difftime  # channel 0 is start channel
-                if abs(difftime) > window:  # 500 ns window
+                if abs(difftime) > window:
                     break
                 events.append(difftime)
         numbins = int(window / binsize)
