@@ -25,9 +25,7 @@ class TimedMessageBox(QMessageBox):
             message_posttime = " seconds.)"
         self.message_pretime = message_pretime
         self.message_posttime = message_posttime
-        self.setText(
-            f"{self.user_text}\n\n{self.message_pretime}{timeout}{self.message_posttime}"
-        )
+        self.setText(f"{self.user_text}\n\n{self.message_pretime}{timeout}{self.message_posttime}")
         self.setStandardButtons(QMessageBox.NoButton)
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(1000)
@@ -48,9 +46,7 @@ class TimedMessageBox(QMessageBox):
         self._new_set_text()
 
     def _new_set_text(self):
-        super().setText(
-            f"{self.user_text}\n\n{self.message_pretime}{self.time_to_wait}{self.message_posttime}"
-        )
+        super().setText(f"{self.user_text}\n\n{self.message_pretime}{self.time_to_wait}{self.message_posttime}")
 
     def exec(self) -> Tuple[int, bool]:
         self.timer.start()

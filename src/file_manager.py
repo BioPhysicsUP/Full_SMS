@@ -70,9 +70,7 @@ def path(name: str, file_type: Type = None, custom_folder: str = None):
         if file_type is not Type.ProjectRoot:
             base_path += os.path.sep + get_path_type_str(file_type)
         if custom_folder:
-            assert (
-                type(custom_folder) is str
-            ), "Provided custom_folder is not of type str"
+            assert type(custom_folder) is str, "Provided custom_folder is not of type str"
             base_path += os.path.sep + custom_folder
         return os.path.join(base_path, name)
     except Exception as err:

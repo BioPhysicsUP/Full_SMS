@@ -1,8 +1,8 @@
-"""Module for handling SMS data from HDF5 files.
+"""Module for handling SMS data from HDF5 files
 
-Bertus van Heerden and Joshua Botha,
-University of Pretoria,
-2018,
+Bertus van Heerden and Joshua Botha
+University of Pretoria
+2018
 """
 from __future__ import annotations
 
@@ -16,9 +16,12 @@ from typing import List, Union, TYPE_CHECKING, Tuple
 from uuid import uuid1
 
 import h5pickle
+import h5py
 import numpy as np
+from pyqtgraph import ScatterPlotItem, SpotItem
 
 import dbg
+import grouping
 import tcspcfit
 from change_point import ChangePoints
 from generate_sums import CPSums
@@ -458,7 +461,7 @@ class Particle:
                 self.roi_region = (0, 0)
 
             self.startpoint = None
-            self.level_selected = None
+            self.level_or_group_selected = None
             self.using_group_levels = False
 
             self.has_fit_a_lifetime = False
@@ -643,7 +646,7 @@ class Particle:
         return self.ab_analysis.has_corr
 
     @property
-    def groups(self):
+    def groups(self) -> List[grouping.Group]:
         """The particle's grouped levels."""
         if self.has_groups:
             return self.ahca.selected_step.groups
@@ -720,7 +723,7 @@ class Particle:
         ]
 
     @property
-    def group_levels(self) -> List[Level]:
+    def group_levels(self) -> List[Union[Level, GlobalLevel]]:
         """The particle's grouped levels."""
         if self.has_groups:
             return self.ahca.selected_step.group_levels
@@ -748,7 +751,7 @@ class Particle:
         return (self.last_level_ind_in_roi - self.first_level_ind_in_roi) + 1
 
     @property
-    def dwell_time(self):
+    def dwell_time_s(self):
         """The particle's total measurement time."""
         return (self.abstimes[-1] - self.abstimes[0]) / 1e9
 
@@ -911,18 +914,18 @@ class Particle:
             else:
                 levels = self.levels_roi
 
-        if not use_global_groups:
-            times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
-        else:
-            times = np.array(
-                [
-                    [
-                        level.times_s[0] - level.start_time_offset_ns / 1e9,
-                        level.times_s[1] - level.start_time_offset_ns / 1e9,
-                    ]
-                    for level in levels
-                ]
-            )
+        # if not use_global_groups:
+        times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
+        # else:
+        #     times = np.array(
+        #         [
+        #             [
+        #                 level.times_s[0] - level.start_time_offset_ns / 1e9,
+        #                 level.times_s[1] - level.start_time_offset_ns / 1e9,
+        #             ]
+        #             for level in levels
+        #         ]
+        #     )
         times = times.flatten()
 
         ints = np.array([[level.int_p_s, level.int_p_s] for level in levels])
@@ -1237,7 +1240,6 @@ class GlobalParticle:
         start_time_offset_ns = 0
         for p in particles:
             p_levels = p.levels_roi if use_roi else p.levels
-            start_time_offset_ns -= p_levels[0].times_ns[0]
             for l in p_levels:
                 level = GlobalLevel(
                     global_particle=self,

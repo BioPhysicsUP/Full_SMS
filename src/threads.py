@@ -119,14 +119,10 @@ class ProcessThread(QRunnable):
         all_valid = all([type(task) is ProcessTask for task in tasks])
         # assert all_valid, "At least some provided tasks are not correct type"
         if not all_valid:
-            raise TypeError(
-                "At least some of provided tasks are not of " "type ProcessTask"
-            )
+            raise TypeError("At least some of provided tasks are not of " "type ProcessTask")
         self.tasks.extend(tasks)
 
-    def add_tasks_from_methods(
-        self, objects: Union[object, List[object]], method_name: str, args=None
-    ):
+    def add_tasks_from_methods(self, objects: Union[object, List[object]], method_name: str, args=None):
         if type(objects) is not list:
             objects = [objects]
         # assert type(method_name) is str, 'Method_name is not str'
@@ -198,9 +194,7 @@ class ProcessThread(QRunnable):
             process_progress = None
             if not single_task:
                 prog_fb = ProcessProgFeedback(feedback_queue=self.feedback_queue)
-                process_progress = ProcessProgress(
-                    prog_fb=prog_fb, num_iterations=num_init_tasks
-                )
+                process_progress = ProcessProgress(prog_fb=prog_fb, num_iterations=num_init_tasks)
                 process_progress.start_progress()
 
             next_task_ind = 0
@@ -230,9 +224,7 @@ class ProcessThread(QRunnable):
                         if isinstance(result, Exception):
                             raise result
                         else:
-                            raise TypeError(
-                                "Task result is not of type ProcessTaskResult"
-                            )
+                            raise TypeError("Task result is not of type ProcessTaskResult")
 
                     elif not result.dont_send:
                         self.signals.results.emit(result)
@@ -290,9 +282,7 @@ class ProcessThread(QRunnable):
     def check_fbk_queue(self):
         fbk_return = self.feedback_queue.get()
         if type(fbk_return) is PPTask:
-            prog_sig_pass(
-                signals=self.signals, cmd=fbk_return.task_cmd, args=fbk_return.args
-            )
+            prog_sig_pass(signals=self.signals, cmd=fbk_return.task_cmd, args=fbk_return.args)
         elif type(fbk_return) is PSTask:
             worker_sig_pass(
                 signals=self.worker_signals,

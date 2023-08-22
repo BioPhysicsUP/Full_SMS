@@ -45,8 +45,9 @@ def max_jm(array: np.ndarray):
 
 
 class Group:
-    def __init__(self, lvls_inds: List[int_p_s] = None, particle: Particle = None):
+    def __init__(self, lvls_inds: List[int_p_s] = None, particle: Particle = None, group_ind: int = None):
         self.lvls_inds = lvls_inds
+        self.group_ind = group_ind
         self.lvls = None
         self.histogram = None
 
@@ -91,7 +92,7 @@ class ClusteringStep:
         seed_groups: List[Group] = None,
         single_level: bool = False,
     ):
-        self._particle = particle
+        self._particle: Particle = particle
         if not self._particle.use_roi_for_grouping:
             self._num_levels = particle.cpts.num_levels
         else:
@@ -114,7 +115,7 @@ class ClusteringStep:
         self.group_levels = None
 
         if self.first or self.single_level:
-            self._seed_groups = [Group([i], particle) for i in range(self._num_levels)]
+            self._seed_groups = [Group(lvls_inds=[i], particle=particle, group_ind=i) for i in range(self._num_levels)]
             self._seed_p_mj = np.identity(n=self._num_levels)
             if self.single_level:
                 self.groups = self._seed_groups
@@ -185,40 +186,52 @@ class ClusteringStep:
             return int_bounds
 
     def ahc(self):
-        merge = np.full(
+        """Agglomerative Hierarchical Clustering"""
+
+        # Calculate merge merit value for each possible merging situation
+        merge_merit = np.full(
             shape=(self._num_prev_groups, self._num_prev_groups), fill_value=-np.inf
         )
         for j, group_j in enumerate(self._seed_groups):  # Row
             for m, group_m in enumerate(self._seed_groups):  # Column
                 if j < m:
-                    n_m = group_m.num_photons
-                    n_j = group_j.num_photons
-                    t_m = group_m.dwell_time_s
-                    t_j = group_j.dwell_time_s
+                    n_m = group_m.num_photons  # Number of photons in group m
+                    n_j = group_j.num_photons  # Number of photons in group j
+                    t_m = group_m.dwell_time_s  # Dwell time of group m in seconds
+                    t_j = group_j.dwell_time_s  # Dwell time of group j in seconds
 
-                    merge[j, m] = (
-                        (n_m + n_j) * np.log((n_m + n_j) / (t_m + t_j))
-                        - n_m * np.log(n_m / t_m)
-                        - n_j * np.log(n_j / t_j)
+                    merge_merit[
+                        j, m
+                    ] = (  # Log-Likelihood Merge merit function for joining groups j and m, eq. 11
+                        (n_m + n_j)
+                        * np.log(
+                            (n_m + n_j) / (t_m + t_j)
+                        )  # (n_m - n_j)\ln[\frac{n_m + n_j}{T_m + T_j}]
+                        - n_m * np.log(n_m / t_m)  # - n_m\ln[\frac{n_m}{T_m}]
+                        - n_j * np.log(n_j / t_j)  # - n_j\ln[\frac{n_j}{T_j}]
                     )
-        max_j, max_m = max_jm(merge)
 
+        max_j, max_m = max_jm(merge_merit)  # Find most probably merge
+
+        # Perform merging of groups max_j and max_m
         new_groups = []
         p_mj = np.zeros(shape=(self._num_prev_groups - 1, self._num_levels))
         group_num = -1
         for i, group_i in enumerate(self._seed_groups):
             if i != max_m:
                 group_num += 1
-                if i == max_j:
-                    merge_lvls = group_i.lvls_inds.copy()
-                    merge_lvls.extend(self._seed_groups[max_m].lvls_inds.copy())
-                    merge_lvls.sort()
+                if i == max_j:  # Then merge
+                    merge_levels = group_i.lvls_inds.copy()
+                    merge_levels.extend(self._seed_groups[max_m].lvls_inds.copy())
+                    merge_levels.sort()
+                    # New group made up of all the levels in groups max_j and max_m
                     new_groups.append(
-                        Group(lvls_inds=merge_lvls, particle=self._particle)
+                        Group(lvls_inds=merge_levels, particle=self._particle, group_ind=group_num)
                     )
                 else:
                     new_groups.append(group_i)
 
+                # Set up new assignment matrix, to be as initial start for EM clustering
                 for ind in new_groups[-1].lvls_inds:
                     p_mj[group_num, ind] = 1
 
@@ -229,20 +242,23 @@ class ClusteringStep:
     def emc(self):
         """Expectation Maximisation clustering"""
 
-        p_mj = self._ahc_p_mj.copy()
+        p_mj = self._ahc_p_mj.copy()  # Initial state, as provided by AHC
+
         prev_p_mj = p_mj.copy()
         if not self._particle.use_roi_for_grouping:
             levels = self._particle.cpts.levels
         else:
             levels = self._particle.levels_roi
 
+        # M-Step
+        ######################################################################
         i = 0
         diff_p_mj = 1
         p_hat_g = None
         while diff_p_mj > 1e-5 and i < 50:
             i += 1
             if not self._particle.use_roi_for_grouping:
-                cap_t = self._particle.dwell_time
+                cap_t = self._particle.dwell_time_s
             else:
                 cap_t = self._particle.dwell_time_roi
 
@@ -254,14 +270,21 @@ class ClusteringStep:
             p_hat_g = np.zeros(shape=(self._num_prev_groups - 1, self._num_levels))
             denom = np.zeros(shape=(self._num_levels,))
 
-            for m, group in enumerate(self._ahc_groups):
+            for m, group in enumerate(self._ahc_groups):  # As in Fig. 9
+                # \hat{T}_m = \sum\limits_{j=1}^{J+1}\bar{p}_{mj}T_j
                 t_hat[m] = np.sum(
                     [p_mj[m, j] * l.dwell_time_s for j, l in enumerate(levels)]
                 )
+
+                # \hat{n}_m = \sum\limits_{j=1}^{J+1}\bar{p}_{mj}n_j
                 n_hat[m] = np.sum(
                     [p_mj[m, j] * l.num_photons for j, l in enumerate(levels)]
                 )
+
+                # \hat{p}_m = \frac{\hat{T}_m}{T}
                 p_hat[m] = t_hat[m] / cap_t
+
+                # \hat{I}_m = \sum\limits_{j=1}^{J+1}\frac{\bar{p}_{mj}n_j}{\hat{T}_m}
                 i_hat[m] = np.sum(
                     [
                         p_mj[m, j] * l.num_photons / t_hat[m]
@@ -269,18 +292,22 @@ class ClusteringStep:
                     ]
                 )
 
-                denom_sum = 0
+                # Let \bar{p}_{mj} = \frac{\alpha_{mj}}{\sum_{m=1}^G\alpha_{mj}}
+                # where \alpha_{mj} = \hat{p}_mg(n_j;\hat{I}_m,T_j)
                 for j, l in enumerate(levels):
                     p_hat_g[m, j] = p_hat[m] * poisson.pmf(
                         l.num_photons, i_hat[m] * l.dwell_time_s
-                    )
+                    )  # \alpha_{mj}
 
+            # \sum_{m=1}^G\alpha_{mj} = \sum_{m=1}^G\hat{p}_mg(n_j;\hat{I}_m,T_j)
             for j in range(self._num_levels):
                 denom[j] = np.sum(p_hat_g[:, j])
 
                 for m in range(self._num_prev_groups - 1):
                     try:
-                        p_mj[m, j] = p_hat_g[m, j] / denom[j]
+                        p_mj[m, j] = (
+                            p_hat_g[m, j] / denom[j]
+                        )  # \bar{p}_{mj}=\frac{\alpha_{mj}}{\sum_{m=1}^G\alpha_{mj}}
                     except:
                         # print('here')  # TODO: Fix div by zero
                         pass
@@ -294,6 +321,8 @@ class ClusteringStep:
             eff_p_mj[level_p_max[j], j] = 1
         self._em_p_mj = eff_p_mj
 
+        # E-Step
+        ######################################################################
         log_l = 0
         for m in range(self._num_prev_groups - 1):
             for j in range(self._num_levels):
@@ -307,7 +336,7 @@ class ClusteringStep:
         for m in range(self._num_prev_groups - 1):
             g_m_levels = list(np.nonzero(self._em_p_mj[m, :])[0])
             if len(g_m_levels):
-                new_groups.append(Group(lvls_inds=g_m_levels, particle=self._particle))
+                new_groups.append(Group(lvls_inds=g_m_levels, particle=self._particle, group_ind=m))
         new_groups.sort(key=lambda group: group.int_p_s)
         self.groups = new_groups
         self.num_groups = len(new_groups)
@@ -344,13 +373,14 @@ class ClusteringStep:
         global_part_levels = set()
         start_time_ns = None
         prev_start_time = 0
+        num_levels = -1
         for i, part_level in enumerate(part_levels):
             if is_global:
                 global_part_levels.add(part_level)
             if not busy_joining:
                 start_ind = part_level.level_inds[0] if not is_global else None
-                if is_global:
-                    start_time_ns = prev_start_time
+                # if is_global:
+                #     start_time_ns = prev_start_time
             if i == len(part_levels) - 1:
                 busy_joining = False
             else:
@@ -359,11 +389,13 @@ class ClusteringStep:
                 else:
                     busy_joining = False
             if not busy_joining:
+                num_levels += 1
                 if not is_global:
                     end_ind = part_level.level_inds[1]
                     group_levels.append(
                         Level(
                             particle=self._particle,
+                            particle_ind=num_levels,
                             level_inds=(start_ind, end_ind),
                             int_p_s=self.group_ints[self.level_group_ind[i]],
                             group_ind=self.level_group_ind[i],
@@ -535,7 +567,7 @@ class AHCA:
                         steps.append(c_step)
                         current_num_groups = c_step.num_groups
                         if current_num_groups != 1:
-                            print(current_num_groups)
+                            # print(current_num_groups)
                             c_step = c_step.setup_next_step()
                             if feedback_queue is not None:
                                 feedback_queue.put(
@@ -587,7 +619,7 @@ class AHCA:
 class GlobalLevel:
     def __init__(
         self,
-        global_particle: GlobalParticle,
+        global_particle: Union[Particle, GlobalParticle],
         parent_particle_dataset_ind: int,
         particle_levels: List[Union[Level, GlobalLevel]],
         int_p_s: float,

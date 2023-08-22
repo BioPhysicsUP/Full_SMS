@@ -39,9 +39,7 @@ class Pt3Reader:
                     converted_string = str()
                     for char_byte in str_bytes:
                         if char_byte != 0:
-                            converted_string += codecs.decode(
-                                char_byte.to_bytes(1, "little"), "ascii"
-                            )
+                            converted_string += codecs.decode(char_byte.to_bytes(1, "little"), "ascii")
                     return converted_string
                 else:
                     return False
@@ -178,16 +176,10 @@ class Pt3Reader:
                         self.micro_times = None
                         self.macro_times = None
                     else:
-                        self.micro_times = np.delete(
-                            self.micro_times, np.s_[self.count :]
-                        )
-                        self.macro_times = np.delete(
-                            self.macro_times, np.s_[self.count :]
-                        )
+                        self.micro_times = np.delete(self.micro_times, np.s_[self.count :])
+                        self.macro_times = np.delete(self.macro_times, np.s_[self.count :])
 
-            self.channel_records = [
-                Records(self.num_records) for _ in range(self.num_routing_channels)
-            ]
+            self.channel_records = [Records(self.num_records) for _ in range(self.num_routing_channels)]
             overflow = 0
             bar = False
             if "--dev" in sys.argv:
@@ -228,9 +220,7 @@ class Pt3Reader:
                     c_r.micro_times[c_r.count] = dtime * self.resolution
 
                     true_sync = overflow + nsync
-                    macro_time = (true_sync * self._sync_period) + c_r.micro_times[
-                        c_r.count
-                    ]
+                    macro_time = (true_sync * self._sync_period) + c_r.micro_times[c_r.count]
                     c_r.macro_times[c_r.count] = macro_time
 
                     c_r.count += 1
@@ -324,17 +314,11 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
     def convert(self):
         self.setEnabled(False)
         all_source_files = [
-            f
-            for f in os.listdir(self._source_path)
-            if os.path.isfile(os.path.join(self._source_path, f))
+            f for f in os.listdir(self._source_path) if os.path.isfile(os.path.join(self._source_path, f))
         ]
 
         pt3_f_name = self.edtFileNames_pt3.text()
-        pt3_fs = [
-            file
-            for file in all_source_files
-            if file.startswith(pt3_f_name) and file.endswith(".pt3")
-        ]
+        pt3_fs = [file for file in all_source_files if file.startswith(pt3_f_name) and file.endswith(".pt3")]
         pt3_fs.sort()
         num_files = len(pt3_fs)
 
@@ -351,18 +335,14 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
         if add_spec:
             all_okay = False
             spec_file_name = self.edtFileNames_Spectra.text()
-            spec_fs = [
-                file for file in all_source_files if file.startswith(spec_file_name)
-            ]
+            spec_fs = [file for file in all_source_files if file.startswith(spec_file_name)]
             spec_fs.sort()
             if len(pt3_fs) == len(spec_fs):
                 spec_file_ext = spec_fs[0].find(".")
                 if spec_file_ext == -1:
                     spec_nums = [file[len(spec_file_name) :] for file in spec_fs]
                 else:
-                    spec_nums = [
-                        file[len(spec_file_name) : file.find(".")] for file in spec_fs
-                    ]
+                    spec_nums = [file[len(spec_file_name) : file.find(".")] for file in spec_fs]
                 if all([num.isalnum() for num in spec_nums]):
                     spec_nums = [int(num) for num in spec_nums]
                     spec_nums.sort()
@@ -398,23 +378,15 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
 
                     abs_times = pt3_reader.channel_records[channel].macro_times
                     micro_times = pt3_reader.channel_records[channel].micro_times
-                    part_group.create_dataset(
-                        "Absolute Times (ns)", dtype=np.uint64, data=abs_times
-                    )
-                    part_group.create_dataset(
-                        "Micro Times (s)", dtype=np.float64, data=micro_times
-                    )
+                    part_group.create_dataset("Absolute Times (ns)", dtype=np.uint64, data=abs_times)
+                    part_group.create_dataset("Micro Times (s)", dtype=np.float64, data=micro_times)
 
                     if add_spec:
-                        spec_data = np.loadtxt(
-                            os.path.join(self._source_path, spec_fs[num])
-                        )
+                        spec_data = np.loadtxt(os.path.join(self._source_path, spec_fs[num]))
                         wavelengths = spec_data[:, 0]
                         spec_data = np.delete(spec_data, 0, axis=1).T
                         exposure = self.spbExposure.value()
-                        spec_t_series = np.array(
-                            [(n + 1) * exposure for n in range(spec_data.shape[0])]
-                        )
+                        spec_t_series = np.array([(n + 1) * exposure for n in range(spec_data.shape[0])])
 
                         spec_dataset = part_group.create_dataset(
                             "Spectra (counts\s)", dtype=np.float64, data=spec_data
@@ -425,9 +397,7 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
                             dtype=np.float64,
                             data=spec_t_series,
                         )
-                        spec_dataset.attrs.create(
-                            "Wavelengths", dtype=np.float64, data=wavelengths
-                        )
+                        spec_dataset.attrs.create("Wavelengths", dtype=np.float64, data=wavelengths)
 
             except Exception as e:
                 logger.error(e)
@@ -436,7 +406,5 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
 
 
 if __name__ == "__main__":
-    pt3_file = Pt3Reader(
-        "C:\\Google Drive\\Current_Projects\\Full_SMS\\test_data\\trace0.pt3"
-    )
+    pt3_file = Pt3Reader("C:\\Google Drive\\Current_Projects\\Full_SMS\\test_data\\trace0.pt3")
     # print('here')

@@ -13,7 +13,7 @@ def convert_ui(ui_name: str = None, ui_path: str = None, ui_py_name: str = None)
     ui_py_name : str, Optional
     """
     if ui_name is None:
-        ui_name = "mainwindow.ui"
+        ui_name = "main_window.ui"
     if ui_path is None:
         ui_path = os.getcwd() +os.sep  # +"ui"
         print(os.sep)
@@ -25,5 +25,5 @@ def convert_ui(ui_name: str = None, ui_path: str = None, ui_py_name: str = None)
 
 
 if __name__ == '__main__':
-    convert_ui('mainwindow.ui', os.getcwd(), 'mainwindow.py')
+    convert_ui('main_window.ui', os.getcwd(), 'mainwindow.py')
     convert_ui('fitting_dialog.ui', os.getcwd(), 'fitting_dialog.py')
