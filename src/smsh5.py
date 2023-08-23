@@ -1,8 +1,8 @@
-"""Module for handling SMS data from HDF5 files.
+"""Module for handling SMS data from HDF5 files
 
-Bertus van Heerden and Joshua Botha,
-University of Pretoria,
-2018,
+Bertus van Heerden and Joshua Botha
+University of Pretoria
+2018
 """
 from __future__ import annotations
 
@@ -16,9 +16,12 @@ from typing import List, Union, TYPE_CHECKING, Tuple
 from uuid import uuid1
 
 import h5pickle
+import h5py
 import numpy as np
+from pyqtgraph import ScatterPlotItem, SpotItem
 
 import dbg
+import grouping
 import tcspcfit
 from change_point import ChangePoints
 from generate_sums import CPSums
@@ -405,7 +408,7 @@ class Particle:
             self.ahca = AHCA(
                 self
             )  # Added by Josh: creates an object for Agglomerative Hierarchical Clustering Algorithm
-            self.ab_analysis = AntibunchingAnalysis(self)
+
             self.avg_int_weighted = None
             self.int_std_weighted = None
 
@@ -417,12 +420,14 @@ class Particle:
                 self.raster_scan = self.prim_part.raster_scan
                 self.has_raster_scan = self.prim_part.has_raster_scan
                 self.description = self.prim_part.description
+            # self.ab_analysis = self.prim_part.ab_analysis
             else:
                 self.spectra = Spectra(self)
                 self._raster_scan_dataset_index = raster_scan_dataset_index
                 self.raster_scan = raster_scan
                 self.has_raster_scan = raster_scan is not None
                 self.description = h5_fr.description(particle=self)
+                self._ab_analysis = AntibunchingAnalysis(self)
 
             self.irf = None
             try:
@@ -458,7 +463,7 @@ class Particle:
                 self.roi_region = (0, 0)
 
             self.startpoint = None
-            self.level_selected = None
+            self.level_or_group_selected = None
             self.using_group_levels = False
 
             self.has_fit_a_lifetime = False
@@ -643,7 +648,20 @@ class Particle:
         return self.ab_analysis.has_corr
 
     @property
-    def groups(self):
+    def ab_analysis(self):
+        if self.is_secondary_part:
+            return self.prim_part._ab_analysis
+        else:
+            return self._ab_analysis
+
+    @ab_analysis.setter
+    def ab_analysis(self, ab_analysis):
+        if not self.is_secondary_part:
+            self._ab_analysis = ab_analysis
+
+
+    @property
+    def groups(self) -> List[grouping.Group]:
         """The particle's grouped levels."""
         if self.has_groups:
             return self.ahca.selected_step.groups
@@ -720,7 +738,7 @@ class Particle:
         ]
 
     @property
-    def group_levels(self) -> List[Level]:
+    def group_levels(self) -> List[Union[Level, GlobalLevel]]:
         """The particle's grouped levels."""
         if self.has_groups:
             return self.ahca.selected_step.group_levels
@@ -748,7 +766,7 @@ class Particle:
         return (self.last_level_ind_in_roi - self.first_level_ind_in_roi) + 1
 
     @property
-    def dwell_time(self):
+    def dwell_time_s(self):
         """The particle's total measurement time."""
         return (self.abstimes[-1] - self.abstimes[0]) / 1e9
 
@@ -911,18 +929,18 @@ class Particle:
             else:
                 levels = self.levels_roi
 
-        if not use_global_groups:
-            times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
-        else:
-            times = np.array(
-                [
-                    [
-                        level.times_s[0] - level.start_time_offset_ns / 1e9,
-                        level.times_s[1] - level.start_time_offset_ns / 1e9,
-                    ]
-                    for level in levels
-                ]
-            )
+        # if not use_global_groups:
+        times = np.array([[level.times_s[0], level.times_s[1]] for level in levels])
+        # else:
+        #     times = np.array(
+        #         [
+        #             [
+        #                 level.times_s[0] - level.start_time_offset_ns / 1e9,
+        #                 level.times_s[1] - level.start_time_offset_ns / 1e9,
+        #             ]
+        #             for level in levels
+        #         ]
+        #     )
         times = times.flatten()
 
         ints = np.array([[level.int_p_s, level.int_p_s] for level in levels])
@@ -1237,7 +1255,6 @@ class GlobalParticle:
         start_time_offset_ns = 0
         for p in particles:
             p_levels = p.levels_roi if use_roi else p.levels
-            start_time_offset_ns -= p_levels[0].times_ns[0]
             for l in p_levels:
                 level = GlobalLevel(
                     global_particle=self,
@@ -1357,11 +1374,11 @@ class Trace:
 
         binsize_ns = binsize * 1e6  # Convert ms to ns
         try:
-            endbin = np.int(np.max(data) / binsize_ns)
+            endbin = int(np.max(data) / binsize_ns)
         except ValueError:
             endbin = 0
 
-        binned = np.zeros(endbin + 1, dtype=np.int)
+        binned = np.zeros(endbin + 1, dtype=int)
         for step in range(endbin):
             binned[step + 1] = np.size(
                 data[((step + 1) * binsize_ns > data) * (data > step * binsize_ns)]
@@ -1840,7 +1857,7 @@ class RasterScan:
     @property
     def dataset(self) -> h5pickle.Dataset:
         if self.h5dataset.file is not None and self.h5dataset.file.__bool__() is True:
-            return h5_fr.raster_scan(h5_fr.particle(self.particle_num, self.h5dataset))
+            return h5_fr.raster_scan(h5_fr.particle(self.particle_num + 1, self.h5dataset))
 
 
 class Spectra:

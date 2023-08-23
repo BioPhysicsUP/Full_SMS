@@ -33,16 +33,12 @@ class SaveAnalysisWorker(QRunnable):
     @pyqtSlot()
     def run(self) -> None:
         try:
-            save_analysis(
-                main_window=self.main_window, dataset=self.dataset, signals=self.signals
-            )
+            save_analysis(main_window=self.main_window, dataset=self.dataset, signals=self.signals)
         except Exception as err:
             self.signals.error.emit(err)
 
 
-def save_analysis(
-    main_window: MainWindow, dataset: H5dataset, signals: WorkerSignals = None
-):
+def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSignals = None):
     if signals:
         signals.status_message.emit("Saving analysis...")
         signals.start_progress.emit(0)
@@ -103,9 +99,7 @@ class LoadAnalysisWorker(QRunnable):
             self.signals.error.emit(err)
 
 
-def load_analysis(
-    main_window: MainWindow, analysis_file: str, signals: WorkerSignals = None
-):
+def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSignals = None):
     if signals:
         signals.status_message.emit("Loading analysis file...")
         signals.start_progress.emit(0)
@@ -116,7 +110,7 @@ def load_analysis(
         peek_bytes = f.read(7)
     if len(peek_bytes) >= 7 and peek_bytes[0:7] == b"\xfd7zXZ\x00\x00":
         file_format = "lzma"
-    elif len(peek_bytes) >= 1 and peek_bytes[0:1] == b"80":
+    elif len(peek_bytes) >= 1 and peek_bytes[0:1] == b"\x80":
         file_format = "pickle"
 
     if file_format == "pickle":
@@ -138,10 +132,7 @@ def load_analysis(
 
     loaded_dataset.load_file(h5_file)
 
-    if (
-        not hasattr(loaded_dataset, "save_version")
-        or loaded_dataset.save_version != SAVING_VERSION
-    ):
+    if not hasattr(loaded_dataset, "save_version") or loaded_dataset.save_version != SAVING_VERSION:
         if float(loaded_dataset.save_version) >= 1.05:
             for particle in loaded_dataset.particles:
                 if float(loaded_dataset.save_version) <= 1.05:  # Added in version 1.06
@@ -168,9 +159,7 @@ def load_analysis(
         if not hasattr(particle.ahca, "plots_need_to_be_updated"):
             particle.ahca.plots_need_to_be_updated = None
 
-    dataset_node = DatasetTreeNode(
-        analysis_file[analysis_file.rfind("/") + 1 : -3], loaded_dataset, "dataset"
-    )
+    dataset_node = DatasetTreeNode(analysis_file[analysis_file.rfind("/") + 1 : -3], loaded_dataset, "dataset")
 
     all_nodes = [(dataset_node, -1)]
     all_has_lifetimes = list()
@@ -200,12 +189,7 @@ def load_analysis(
     main_window.chbInt_Show_Groups.setChecked(not show_global_checked)
     main_window.chbInt_Show_Groups.blockSignals(False)
 
-    grouping_mode_index = (
-        1
-        if loaded_dataset.global_settings["global_grouping_mode_selected"]
-        == "tabGlobal"
-        else 0
-    )
+    grouping_mode_index = 1 if loaded_dataset.global_settings["global_grouping_mode_selected"] == "tabGlobal" else 0
     main_window.tabGroupingMode.blockSignals(True)
     main_window.tabGroupingMode.setCurrentIndex(grouping_mode_index)
     main_window.tabGroupingMode.blockSignals(False)

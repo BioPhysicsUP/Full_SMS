@@ -18,7 +18,7 @@ logger = setup_logger(__name__)
 
 
 class DatasetTreeNode(object):
-    """ Contains the files with their respective particles. Also seems to house the actual data objects. """
+    """Contains the files with their respective particles. Also seems to house the actual data objects."""
 
     def __init__(self, name, dataobj, datatype, checked=False) -> None:
         """
@@ -34,7 +34,7 @@ class DatasetTreeNode(object):
         self._data = name
         if type(name) == tuple:
             self._data = list(name)
-        if type(name) in (str, bytes) or not hasattr(name, '__getitem__'):
+        if type(name) in (str, bytes) or not hasattr(name, "__getitem__"):
             self._data = [name]
             # self._data = [name, False]
 
@@ -44,10 +44,10 @@ class DatasetTreeNode(object):
         self._row = 0
 
         self.datatype = datatype
-        if datatype == 'dataset':
+        if datatype == "dataset":
             pass
 
-        elif datatype == 'particle':
+        elif datatype == "particle":
             pass
 
         # self.icon = QIcon('c:\\google drive\\current_projects\\full_sms\\resources\\icons\\group-all.png')
@@ -68,7 +68,17 @@ class DatasetTreeNode(object):
         self._checked = bool(checked)
 
     def data(self, in_column):
-        """ TODO: Docstring """
+        """
+        Return the data from a provided index
+
+        Parameters
+        ----------
+        in_column: Index of column
+
+        Returns
+        -------
+        data
+        """
 
         if in_column == 0:
             return self._data[in_column]
@@ -76,34 +86,68 @@ class DatasetTreeNode(object):
         #     return QIcon('c:\\google drive\\current_projects\\full_sms\\resources\\icons\\group-all.png')
 
     def columnCount(self):
-        """ TODO: Docstring """
+        """
+        Returns the number of columns within the node.
+
+        Returns
+        -------
+        int
+        """
 
         return self._columncount
 
     def childCount(self):
-        """ TODO: Docstring """
+        """
+        Returns the number of children within the node.
+
+        Returns
+        -------
+        int
+        """
 
         return len(self._children)
 
     def child(self, in_row):
-        """ TODO: Docstring """
+        """
+        Returns the child of the provided row index.
+
+        Parameters
+        ----------
+        in_row: Row index
+
+        Returns
+        -------
+        child
+        """
 
         if in_row >= 0 and in_row < self.childCount():
             return self._children[in_row]
 
     def parent(self):
-        """ TODO: Docstring """
+        """
+        Returns the parent of this node.
+
+        Returns
+        -------
+        parent
+        """
 
         return self._parent
 
     def row(self):
-        """ TODO: Docstring """
+        """
+        Returns the row of this node.
+
+        Returns
+        -------
+        row
+        """
 
         return self._row
 
     def addChild(self, in_child):
         """
-        TODO: Docstring
+        Add a child at the provided index.
 
         Parameters
         ----------
@@ -119,10 +163,11 @@ class DatasetTreeNode(object):
 
 
 class DatasetTreeModel(QAbstractItemModel):
-    """ TODO: Docstring """
+    """
+    An item model for the dataset tree view.
+    """
 
     def __init__(self):
-        """ TODO: Docstring """
 
         QAbstractItemModel.__init__(self)
         self._root = DatasetTreeNode(None, None, None)
@@ -130,41 +175,40 @@ class DatasetTreeModel(QAbstractItemModel):
         #     self._root.addChild(node)
         height = 16
 
-        self.none = QPixmap(fm.path('particle-none.png', fm.Type.Icons)).scaledToHeight(height)
+        self.none = QPixmap(fm.path("particle-none.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.r = QPixmap(fm.path('particle-r.png', fm.Type.Icons)).scaledToHeight(height)
-        self.l = QPixmap(fm.path('particle-l.png', fm.Type.Icons)).scaledToHeight(height)
-        self.a = QPixmap(fm.path('particle-a.png', fm.Type.Icons)).scaledToHeight(height)
-        self.e = QPixmap(fm.path('particle-e.png', fm.Type.Icons)).scaledToHeight(height)
+        self.r = QPixmap(fm.path("particle-r.png", fm.Type.Icons)).scaledToHeight(height)
+        self.l = QPixmap(fm.path("particle-l.png", fm.Type.Icons)).scaledToHeight(height)
+        self.a = QPixmap(fm.path("particle-a.png", fm.Type.Icons)).scaledToHeight(height)
+        self.e = QPixmap(fm.path("particle-e.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.rl = QPixmap(fm.path('particle-rl.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rg = QPixmap(fm.path('particle-rg.png', fm.Type.Icons)).scaledToHeight(height)
-        self.ra = QPixmap(fm.path('particle-ra.png', fm.Type.Icons)).scaledToHeight(height)
-        self.re = QPixmap(fm.path('particle-re.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rl = QPixmap(fm.path("particle-rl.png", fm.Type.Icons)).scaledToHeight(height)
+        self.rg = QPixmap(fm.path("particle-rg.png", fm.Type.Icons)).scaledToHeight(height)
+        self.ra = QPixmap(fm.path("particle-ra.png", fm.Type.Icons)).scaledToHeight(height)
+        self.re = QPixmap(fm.path("particle-re.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.la = QPixmap(fm.path('particle-la.png', fm.Type.Icons)).scaledToHeight(height)
-        self.le = QPixmap(fm.path('particle-le.png', fm.Type.Icons)).scaledToHeight(height)
+        self.la = QPixmap(fm.path("particle-la.png", fm.Type.Icons)).scaledToHeight(height)
+        self.le = QPixmap(fm.path("particle-le.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.ae = QPixmap(fm.path('particle-ae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.ae = QPixmap(fm.path("particle-ae.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.rlg = QPixmap(fm.path('particle-rlg.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rla = QPixmap(fm.path('particle-rla.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rle = QPixmap(fm.path('particle-rle.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rlg = QPixmap(fm.path("particle-rlg.png", fm.Type.Icons)).scaledToHeight(height)
+        self.rla = QPixmap(fm.path("particle-rla.png", fm.Type.Icons)).scaledToHeight(height)
+        self.rle = QPixmap(fm.path("particle-rle.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.rga = QPixmap(fm.path('particle-rga.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rge = QPixmap(fm.path('particle-rge.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rga = QPixmap(fm.path("particle-rga.png", fm.Type.Icons)).scaledToHeight(height)
+        self.rge = QPixmap(fm.path("particle-rge.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.rae = QPixmap(fm.path('particle-rae.png', fm.Type.Icons)).scaledToHeight(height)
-        self.lae = QPixmap(fm.path('particle-lae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rae = QPixmap(fm.path("particle-rae.png", fm.Type.Icons)).scaledToHeight(height)
+        self.lae = QPixmap(fm.path("particle-lae.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.rlga = QPixmap(fm.path('particle-rlga.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rlge = QPixmap(fm.path('particle-rlge.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rlga = QPixmap(fm.path("particle-rlga.png", fm.Type.Icons)).scaledToHeight(height)
+        self.rlge = QPixmap(fm.path("particle-rlge.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.rlae = QPixmap(fm.path('particle-rlae.png', fm.Type.Icons)).scaledToHeight(height)
-        self.rgae = QPixmap(fm.path('particle-rgae.png', fm.Type.Icons)).scaledToHeight(height)
+        self.rlae = QPixmap(fm.path("particle-rlae.png", fm.Type.Icons)).scaledToHeight(height)
+        self.rgae = QPixmap(fm.path("particle-rgae.png", fm.Type.Icons)).scaledToHeight(height)
 
-        self.rlgae = QPixmap(fm.path('particle-rlgae.png', fm.Type.Icons)).scaledToHeight(height)
-
+        self.rlgae = QPixmap(fm.path("particle-rlgae.png", fm.Type.Icons)).scaledToHeight(height)
 
     def flags(self, index):
         # return self.flags(index) | Qt.ItemIsUserCheckable
@@ -184,7 +228,7 @@ class DatasetTreeModel(QAbstractItemModel):
             return in_index.internalPointer().childCount()
         return self._root.childCount()
 
-    def addChild(self, in_node, in_parent=None):  #, progress_sig=None):
+    def addChild(self, in_node, in_parent=None):  # , progress_sig=None):
         """
         TODO: Docstring
 
@@ -291,7 +335,7 @@ class DatasetTreeModel(QAbstractItemModel):
         if role == Qt.DisplayRole:
             return node.data(in_index.column())
         if role == Qt.DecorationRole:
-            if hasattr(node, 'datatype') and node.datatype == 'particle':
+            if hasattr(node, "datatype") and node.datatype == "particle":
                 p = node.dataobj
                 r = p.has_levels
                 g = p.has_groups or p.has_global_grouping
@@ -314,6 +358,8 @@ class DatasetTreeModel(QAbstractItemModel):
                     icon = self.rge
                 elif l and not any([r, g, a, e]):
                     icon = self.l
+                elif a and not any([r, g, l, e]):
+                    icon = self.a
                 elif all([l, e]) and not any([r, g, a]):
                     icon = self.le
                 elif all([r, l]) and not any([g, e, a]):
@@ -360,10 +406,10 @@ class DatasetTreeModel(QAbstractItemModel):
         return None
 
     def setData(self, index, value, role=Qt.EditRole):
-
         if index.isValid():
             if role == Qt.CheckStateRole:
                 node = index.internalPointer()
                 node.setChecked(not node.checked())
+                self.dataChanged.emit(index, index)
                 return True
         return False

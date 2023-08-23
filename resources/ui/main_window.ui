@@ -93,6 +93,45 @@
        </widget>
       </item>
       <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_7">
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="label_3">
+          <property name="font">
+           <font>
+            <italic>false</italic>
+           </font>
+          </property>
+          <property name="text">
+           <string>Number Selected: </string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lblNum_Selected">
+          <property name="text">
+           <string>0</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="Line" name="line_2">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
        <layout class="QHBoxLayout" name="layEx_Buttons_6">
         <property name="spacing">
          <number>0</number>
@@ -133,31 +172,6 @@
            </size>
           </property>
          </spacer>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_3">
-          <property name="font">
-           <font>
-            <italic>false</italic>
-           </font>
-          </property>
-          <property name="text">
-           <string>Number Selected: </string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="lblNum_Selected">
-          <property name="text">
-           <string>0</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-          </property>
-         </widget>
         </item>
        </layout>
       </item>
@@ -267,7 +281,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>4</number>
       </property>
       <property name="iconSize">
        <size>
@@ -319,30 +333,67 @@
           <property name="verticalSpacing">
            <number>0</number>
           </property>
-          <item row="1" column="0">
-           <widget class="QSpinBox" name="spbBinSize">
+          <item row="1" column="8">
+           <widget class="QPushButton" name="btnResolveAll">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
             <property name="minimumSize">
              <size>
-              <width>80</width>
+              <width>95</width>
               <height>30</height>
              </size>
             </property>
-            <property name="suffix">
-             <string> ms</string>
+            <property name="text">
+             <string>Resolve All</string>
             </property>
-            <property name="prefix">
-             <string/>
+            <property name="icon">
+             <iconset resource="../icons.qrc">
+              <normaloff>:/icons/icons/resolve-all.png</normaloff>:/icons/icons/resolve-all.png</iconset>
             </property>
-            <property name="maximum">
-             <number>9999</number>
+            <property name="iconSize">
+             <size>
+              <width>25</width>
+              <height>25</height>
+             </size>
             </property>
            </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="lblInt_Bin_Size">
+            <property name="font">
+             <font>
+              <weight>50</weight>
+              <bold>false</bold>
+              <underline>false</underline>
+             </font>
+            </property>
+            <property name="text">
+             <string>Bin Size</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="9">
+           <spacer name="spcInt_Buttons_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
           </item>
           <item row="1" column="1">
            <widget class="QPushButton" name="btnApplyBin">
@@ -364,97 +415,6 @@
             <property name="icon">
              <iconset resource="../icons.qrc">
               <normaloff>:/icons/icons/apply-one.png</normaloff>:/icons/icons/apply-one.png</iconset>
-            </property>
-            <property name="iconSize">
-             <size>
-              <width>25</width>
-              <height>25</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="3">
-           <spacer name="spcInt_Buttons">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeType">
-             <enum>QSizePolicy::Expanding</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="lblInt_Bin_Size">
-            <property name="font">
-             <font>
-              <weight>50</weight>
-              <bold>false</bold>
-              <underline>false</underline>
-             </font>
-            </property>
-            <property name="text">
-             <string>Bin Size</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="5">
-           <widget class="QPushButton" name="btnResolve">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>80</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Resolve</string>
-            </property>
-            <property name="icon">
-             <iconset resource="../icons.qrc">
-              <normaloff>:/icons/icons/resolve-current.png</normaloff>:/icons/icons/resolve-current.png</iconset>
-            </property>
-            <property name="iconSize">
-             <size>
-              <width>25</width>
-              <height>25</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="6">
-           <widget class="QPushButton" name="btnResolve_Selected">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>125</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Resolve Selected</string>
-            </property>
-            <property name="icon">
-             <iconset resource="../icons.qrc">
-              <normaloff>:/icons/icons/resolve-selected.png</normaloff>:/icons/icons/resolve-selected.png</iconset>
             </property>
             <property name="iconSize">
              <size>
@@ -493,8 +453,49 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="7">
-           <widget class="QPushButton" name="btnResolveAll">
+          <item row="1" column="0">
+           <widget class="QSpinBox" name="spbBinSize">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>80</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="suffix">
+             <string> ms</string>
+            </property>
+            <property name="prefix">
+             <string/>
+            </property>
+            <property name="maximum">
+             <number>9999</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="3">
+           <spacer name="spcInt_Buttons">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item row="1" column="5">
+           <widget class="QPushButton" name="btnResolve">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -503,16 +504,16 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>95</width>
+              <width>80</width>
               <height>30</height>
              </size>
             </property>
             <property name="text">
-             <string>Resolve All</string>
+             <string>Resolve</string>
             </property>
             <property name="icon">
              <iconset resource="../icons.qrc">
-              <normaloff>:/icons/icons/resolve-all.png</normaloff>:/icons/icons/resolve-all.png</iconset>
+              <normaloff>:/icons/icons/resolve-current.png</normaloff>:/icons/icons/resolve-current.png</iconset>
             </property>
             <property name="iconSize">
              <size>
@@ -558,6 +559,35 @@
             </item>
            </widget>
           </item>
+          <item row="1" column="6">
+           <widget class="QPushButton" name="btnResolve_Selected">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>125</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Resolve Selected</string>
+            </property>
+            <property name="icon">
+             <iconset resource="../icons.qrc">
+              <normaloff>:/icons/icons/resolve-selected.png</normaloff>:/icons/icons/resolve-selected.png</iconset>
+            </property>
+            <property name="iconSize">
+             <size>
+              <width>25</width>
+              <height>25</height>
+             </size>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="4">
            <widget class="QLabel" name="lblInt_Confidence">
             <property name="text">
@@ -568,23 +598,7 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="8">
-           <spacer name="spcInt_Buttons_2">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeType">
-             <enum>QSizePolicy::Expanding</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item row="1" column="9">
+          <item row="1" column="10">
            <widget class="QPushButton" name="btnQuickROI">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -635,7 +649,7 @@
           <item row="1" column="3" colspan="3">
            <layout class="QHBoxLayout" name="layInt_Chbs">
             <property name="spacing">
-             <number>5</number>
+             <number>2</number>
             </property>
             <item>
              <spacer name="horizontalSpacer_2">
@@ -652,6 +666,9 @@
             </item>
             <item>
              <widget class="QCheckBox" name="chbSecondCard">
+              <property name="layoutDirection">
+               <enum>Qt::RightToLeft</enum>
+              </property>
               <property name="text">
                <string>2nd Card</string>
               </property>
@@ -659,8 +676,11 @@
             </item>
             <item>
              <widget class="QCheckBox" name="chbInt_Exp_Trace">
+              <property name="layoutDirection">
+               <enum>Qt::RightToLeft</enum>
+              </property>
               <property name="text">
-               <string>Exp Trace</string>
+               <string>| Exp Trace</string>
               </property>
              </widget>
             </item>
@@ -674,14 +694,14 @@
               </property>
               <property name="font">
                <font>
-                <pointsize>10</pointsize>
+                <pointsize>8</pointsize>
                </font>
               </property>
               <property name="layoutDirection">
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>Hide ROI</string>
+               <string>| Hide ROI</string>
               </property>
               <property name="iconSize">
                <size>
@@ -707,14 +727,14 @@
               </property>
               <property name="font">
                <font>
-                <pointsize>10</pointsize>
+                <pointsize>8</pointsize>
                </font>
               </property>
               <property name="layoutDirection">
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>Groups</string>
+               <string>| Show Groups</string>
               </property>
               <property name="iconSize">
                <size>
@@ -740,14 +760,44 @@
               </property>
               <property name="font">
                <font>
-                <pointsize>10</pointsize>
+                <pointsize>8</pointsize>
                </font>
               </property>
               <property name="layoutDirection">
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>Global Groups</string>
+               <string>| Show Global Groups</string>
+              </property>
+              <property name="iconSize">
+               <size>
+                <width>16</width>
+                <height>16</height>
+               </size>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Select_Groups">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::RightToLeft</enum>
+              </property>
+              <property name="text">
+               <string>| Select Groups</string>
               </property>
               <property name="iconSize">
                <size>
@@ -770,14 +820,14 @@
               </property>
               <property name="font">
                <font>
-                <pointsize>10</pointsize>
+                <pointsize>8</pointsize>
                </font>
               </property>
               <property name="layoutDirection">
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>Level Info</string>
+               <string>| Level Info</string>
               </property>
               <property name="iconSize">
                <size>
@@ -807,7 +857,7 @@
                <enum>Qt::RightToLeft</enum>
               </property>
               <property name="text">
-               <string>Hist</string>
+               <string>| Hist</string>
               </property>
               <property name="iconSize">
                <size>
@@ -899,98 +949,6 @@
              </item>
             </layout>
            </widget>
-          </item>
-          <item row="1" column="0" colspan="3">
-           <layout class="QHBoxLayout" name="layInt_Display">
-            <property name="spacing">
-             <number>20</number>
-            </property>
-            <item>
-             <widget class="QCheckBox" name="chbInt_Disp_Resolved">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Resoved</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbInt_Disp_Photon_Bursts">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Removed Photon Bursts</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbInt_Disp_Grouped">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Grouped</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbInt_Disp_Using_Groups">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>8</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Using Groups</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>10</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
           </item>
           <item row="3" column="2">
            <widget class="Line" name="lineInt_3">
@@ -1159,6 +1117,98 @@
              <enum>Qt::Horizontal</enum>
             </property>
            </widget>
+          </item>
+          <item row="1" column="0">
+           <layout class="QHBoxLayout" name="layInt_Display">
+            <property name="spacing">
+             <number>5</number>
+            </property>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Disp_Resolved">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>6</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Resoved</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Disp_Photon_Bursts">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>6</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Removed Photon Bursts</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Disp_Grouped">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>6</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Grouped</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chbInt_Disp_Using_Groups">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>6</pointsize>
+               </font>
+              </property>
+              <property name="text">
+               <string>Using Groups</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>10</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
           </item>
          </layout>
         </item>
@@ -1580,6 +1630,9 @@
              </property>
              <item>
               <layout class="QHBoxLayout" name="horizontalLayout_6">
+               <property name="spacing">
+                <number>3</number>
+               </property>
                <item>
                 <widget class="QCheckBox" name="chbLifetime_Use_ROI">
                  <property name="layoutDirection">
@@ -1600,8 +1653,14 @@
                  </property>
                  <item>
                   <widget class="QLabel" name="label_5">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
                    <property name="text">
-                    <string>Apply ROI to</string>
+                    <string>Apply ROI</string>
                    </property>
                   </widget>
                  </item>
@@ -1613,9 +1672,15 @@
                      <verstretch>0</verstretch>
                     </sizepolicy>
                    </property>
-                   <property name="maximumSize">
+                   <property name="minimumSize">
                     <size>
                      <width>50</width>
+                     <height>0</height>
+                    </size>
+                   </property>
+                   <property name="maximumSize">
+                    <size>
+                     <width>60</width>
                      <height>27</height>
                     </size>
                    </property>
@@ -1634,6 +1699,12 @@
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>50</width>
+                     <height>0</height>
+                    </size>
                    </property>
                    <property name="maximumSize">
                     <size>
@@ -1656,6 +1727,12 @@
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="minimumSize">
+                    <size>
+                     <width>30</width>
+                     <height>0</height>
+                    </size>
                    </property>
                    <property name="maximumSize">
                     <size>
@@ -1695,7 +1772,7 @@
                   <enum>Qt::RightToLeft</enum>
                  </property>
                  <property name="text">
-                  <string>Show Residuals</string>
+                  <string>Residuals</string>
                  </property>
                 </widget>
                </item>
@@ -1709,7 +1786,7 @@
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
-                   <width>20</width>
+                   <width>5</width>
                    <height>20</height>
                   </size>
                  </property>
@@ -1733,7 +1810,37 @@
                   <enum>Qt::RightToLeft</enum>
                  </property>
                  <property name="text">
-                  <string>Groups</string>
+                  <string>Show Groups</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="chbLifetime_Select_Groups">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>8</pointsize>
+                  </font>
+                 </property>
+                 <property name="layoutDirection">
+                  <enum>Qt::RightToLeft</enum>
+                 </property>
+                 <property name="text">
+                  <string>Select Groups</string>
+                 </property>
+                 <property name="iconSize">
+                  <size>
+                   <width>16</width>
+                   <height>16</height>
+                  </size>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
                  </property>
                 </widget>
                </item>
@@ -2354,8 +2461,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>268</width>
-                 <height>143</height>
+                 <width>251</width>
+                 <height>76</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2537,8 +2644,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>205</width>
-                 <height>91</height>
+                 <width>233</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2778,8 +2885,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>199</width>
-                 <height>91</height>
+                 <width>229</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3010,8 +3117,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>164</width>
-                 <height>65</height>
+                 <width>190</width>
+                 <height>75</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3195,8 +3302,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>221</width>
-                 <height>91</height>
+                 <width>254</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3436,8 +3543,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>204</width>
-                 <height>91</height>
+                 <width>230</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -5176,6 +5283,23 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_25">
         <item>
+         <widget class="QLabel" name="label_16">
+          <property name="text">
+           <string>Sum over selected particles:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="PlotWidget" name="pgAntibunching_Sum_PlotWidget"/>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_17">
+          <property name="text">
+           <string>Current particle correlation:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="PlotWidget" name="pgAntibunching_PlotWidget">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -5190,33 +5314,6 @@
           <property name="topMargin">
            <number>10</number>
           </property>
-          <item>
-           <widget class="QPushButton" name="btnLoadIRFCorr">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Load IRF</string>
-            </property>
-            <property name="icon">
-             <iconset>
-              <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="chbIRFCorrLoaded">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
           <item>
            <spacer name="horizontalSpacer_4">
             <property name="orientation">
@@ -5243,7 +5340,7 @@
           <item>
            <widget class="QDoubleSpinBox" name="spbCorrDiff">
             <property name="enabled">
-             <bool>false</bool>
+             <bool>true</bool>
             </property>
             <property name="suffix">
              <string> ns</string>
@@ -5254,34 +5351,11 @@
            </widget>
           </item>
           <item>
-           <layout class="QVBoxLayout" name="verticalLayout_24" stretch="0,0">
-            <property name="sizeConstraint">
-             <enum>QLayout::SetMinimumSize</enum>
+           <widget class="QLabel" name="label_8">
+            <property name="text">
+             <string>Time window:</string>
             </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <widget class="QCheckBox" name="chbIRFCorrDiff">
-              <property name="text">
-               <string>From IRF</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbCurrCorrDiff">
-              <property name="text">
-               <string>From current decay</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
+           </widget>
           </item>
           <item>
            <spacer name="horizontalSpacer_7">
@@ -5297,54 +5371,40 @@
            </spacer>
           </item>
           <item>
-           <layout class="QGridLayout" name="gridLayout_5">
-            <property name="rightMargin">
-             <number>6</number>
+           <widget class="QSpinBox" name="spbWindow">
+            <property name="suffix">
+             <string> ns</string>
             </property>
-            <item row="1" column="1">
-             <widget class="QSpinBox" name="spbBinSizeCorr">
-              <property name="suffix">
-               <string> ps</string>
-              </property>
-              <property name="maximum">
-               <number>1000</number>
-              </property>
-              <property name="singleStep">
-               <number>1</number>
-              </property>
-              <property name="value">
-               <number>500</number>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="label_9">
-              <property name="text">
-               <string>Bin size:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QSpinBox" name="spbWindow">
-              <property name="suffix">
-               <string> ns</string>
-              </property>
-              <property name="maximum">
-               <number>2000</number>
-              </property>
-              <property name="value">
-               <number>500</number>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="0">
-             <widget class="QLabel" name="label_8">
-              <property name="text">
-               <string>Time window:</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
+            <property name="maximum">
+             <number>2000</number>
+            </property>
+            <property name="value">
+             <number>500</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_9">
+            <property name="text">
+             <string>Bin size:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="spbBinSizeCorr">
+            <property name="suffix">
+             <string> ps</string>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="value">
+             <number>500</number>
+            </property>
+           </widget>
           </item>
           <item>
            <spacer name="horizontalSpacer_5">
@@ -7536,7 +7596,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1250</width>
-     <height>21</height>
+     <height>29</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -7544,6 +7604,7 @@ Python: import pandas.read_feather)</string>
      <string>File</string>
     </property>
     <addaction name="actionOpen_h5"/>
+    <addaction name="actionClose"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Selected"/>
     <addaction name="separator"/>
@@ -7617,7 +7678,7 @@ Python: import pandas.read_feather)</string>
     </property>
     <widget class="QMenu" name="menuSwitching_Rates">
      <property name="enabled">
-      <bool>false</bool>
+      <bool>true</bool>
      </property>
      <property name="title">
       <string>Switching Rates...</string>
@@ -7912,6 +7973,11 @@ Python: import pandas.read_feather)</string>
    </property>
    <property name="text">
     <string>Filtering and Normalization</string>
+   </property>
+  </action>
+  <action name="actionClose">
+   <property name="text">
+    <string>Close</string>
    </property>
   </action>
  </widget>

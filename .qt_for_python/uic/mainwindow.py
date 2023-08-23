@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'd:\Google Drive\Current_Projects\Full_SMS\resources\ui\mainwindow.ui'
+# Form implementation generated from reading ui file 'd:\Google Drive\Current_Projects\Full_SMS\resources\ui\main_window.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.1
 #
