@@ -164,7 +164,7 @@ class DatasetTreeNode(object):
 
 class DatasetTreeModel(QAbstractItemModel):
     """
-    A item model for the dataset tree view.
+    An item model for the dataset tree view.
     """
 
     def __init__(self):
@@ -358,6 +358,8 @@ class DatasetTreeModel(QAbstractItemModel):
                     icon = self.rge
                 elif l and not any([r, g, a, e]):
                     icon = self.l
+                elif a and not any([r, g, l, e]):
+                    icon = self.a
                 elif all([l, e]) and not any([r, g, a]):
                     icon = self.le
                 elif all([r, l]) and not any([g, e, a]):
@@ -408,5 +410,6 @@ class DatasetTreeModel(QAbstractItemModel):
             if role == Qt.CheckStateRole:
                 node = index.internalPointer()
                 node.setChecked(not node.checked())
+                self.dataChanged.emit(index, index)
                 return True
         return False

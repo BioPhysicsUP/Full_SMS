@@ -3483,10 +3483,9 @@ class AntibunchingController(QObject):
         self.setup_plot(self.corr_plot)
 
         self.corr_sum_widget = corr_sum_widget
-        # self.corr_sum_plot = corr_sum_widget.getPlotItem()
-        self.corr_sum_plot = None
-        # self.setup_widget(self.corr_sum_widget)
-        # self.setup_plot(self.corr_sum_plot)
+        self.corr_sum_plot = corr_sum_widget.getPlotItem()
+        self.setup_widget(self.corr_sum_widget)
+        self.setup_plot(self.corr_sum_plot)
 
         self.temp_fig = None
         self.temp_ax = None
@@ -3534,19 +3533,6 @@ class AntibunchingController(QObject):
 
     def gui_correlate_selected(self):
         self.start_corr_thread("selected")
-        # checked_parts = self.mainwindow.get_checked_particles()
-        # allcorr = None
-        # for part in checked_parts:
-        #     bins, corr, events = self.correlate_particle(part, self.difftime)
-        #     if allcorr is None:
-        #         allcorr = corr
-        #     else:
-        #         allcorr += corr
-        # self.bins = bins[:-1]
-        # self.corr = allcorr
-        # # plt.plot(bins[:-1], corr)
-        # print(np.size(events))
-        # self.plot_corr()
 
     def gui_correlate_all(self):
         self.start_corr_thread("all")
@@ -3620,7 +3606,7 @@ class AntibunchingController(QObject):
 
         allcorr = None
         bins = None
-        for particle in self.mainwindow.get_checked_particles():
+        for particle in self.main_window.get_checked_particles():
             ab_analysis = particle.ab_analysis
             if not ab_analysis.has_corr:
                 logger.info(particle.name + ' has no correlation')
@@ -3724,30 +3710,29 @@ class AntibunchingController(QObject):
                 target_particle = particles[result_part_ind]
                 result.new_task_obj._particle = target_particle
                 target_particle.ab_analysis = result.new_task_obj
-                print('lala', target_particle)
             self.results_gathered = True
         except ValueError as e:
             logger.error(e)
 
     def corr_thread_complete(self, mode: str = None):
-        if self.mainwindow.current_particle is not None:
-            self.mainwindow.display_data()
+        if self.main_window.current_particle is not None:
+            self.main_window.display_data()
         if not mode == 'current':
-            self.mainwindow.status_message("Done")
-        self.mainwindow.current_dataset.has_corr = True
+            self.main_window.status_message("Done")
+        self.main_window.current_dataset.has_corr = True
         logger.info('Correlation complete')
 
     def rebin_corrs(self):
-        window = self.mainwindow.spbWindow.value()
-        binsize = self.mainwindow.spbBinSizeCorr.value()
+        window = self.main_window.spbWindow.value()
+        binsize = self.main_window.spbBinSizeCorr.value()
         if binsize == 0:
             return
         binsize = binsize / 1000  # convert to ns
-        ab_objs = [part.ab_analysis for part in self.mainwindow.current_dataset.particles]
+        ab_objs = [part.ab_analysis for part in self.main_window.current_dataset.particles]
         for ab in ab_objs:
             if ab.has_corr:
                 ab.rebin_corr(window, binsize)
-        self.mainwindow.display_data()
+        self.main_window.display_data()
 
     def error(self, e):
         logger.error(e)

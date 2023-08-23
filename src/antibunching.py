@@ -117,7 +117,6 @@ class AntibunchingAnalysis:
         channel = channel[ind]  # sort channel array to match times
 
         events = []
-        print(size1, size2, np.size(all_times))
         for i, time1 in enumerate(all_times):
             for j, time2 in enumerate(all_times[i:]):
                 channel1 = channel[i]

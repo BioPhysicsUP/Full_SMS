@@ -93,6 +93,45 @@
        </widget>
       </item>
       <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_7">
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="label_3">
+          <property name="font">
+           <font>
+            <italic>false</italic>
+           </font>
+          </property>
+          <property name="text">
+           <string>Number Selected: </string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lblNum_Selected">
+          <property name="text">
+           <string>0</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="Line" name="line_2">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
        <layout class="QHBoxLayout" name="layEx_Buttons_6">
         <property name="spacing">
          <number>0</number>
@@ -133,31 +172,6 @@
            </size>
           </property>
          </spacer>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_3">
-          <property name="font">
-           <font>
-            <italic>false</italic>
-           </font>
-          </property>
-          <property name="text">
-           <string>Number Selected: </string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="lblNum_Selected">
-          <property name="text">
-           <string>0</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-          </property>
-         </widget>
         </item>
        </layout>
       </item>
@@ -267,7 +281,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>4</number>
       </property>
       <property name="iconSize">
        <size>
@@ -2447,8 +2461,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>195</width>
-                 <height>65</height>
+                 <width>251</width>
+                 <height>76</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2630,8 +2644,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>205</width>
-                 <height>91</height>
+                 <width>233</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2871,8 +2885,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>199</width>
-                 <height>91</height>
+                 <width>229</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3103,8 +3117,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>164</width>
-                 <height>65</height>
+                 <width>190</width>
+                 <height>75</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3288,8 +3302,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>221</width>
-                 <height>91</height>
+                 <width>254</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3529,8 +3543,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>204</width>
-                 <height>91</height>
+                 <width>230</width>
+                 <height>110</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -5269,6 +5283,23 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_25">
         <item>
+         <widget class="QLabel" name="label_16">
+          <property name="text">
+           <string>Sum over selected particles:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="PlotWidget" name="pgAntibunching_Sum_PlotWidget"/>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_17">
+          <property name="text">
+           <string>Current particle correlation:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="PlotWidget" name="pgAntibunching_PlotWidget">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -5283,33 +5314,6 @@
           <property name="topMargin">
            <number>10</number>
           </property>
-          <item>
-           <widget class="QPushButton" name="btnLoadIRFCorr">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Load IRF</string>
-            </property>
-            <property name="icon">
-             <iconset>
-              <normaloff>:/icons/icons/load-irf.png</normaloff>:/icons/icons/load-irf.png</iconset>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="chbIRFCorrLoaded">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
           <item>
            <spacer name="horizontalSpacer_4">
             <property name="orientation">
@@ -5336,7 +5340,7 @@
           <item>
            <widget class="QDoubleSpinBox" name="spbCorrDiff">
             <property name="enabled">
-             <bool>false</bool>
+             <bool>true</bool>
             </property>
             <property name="suffix">
              <string> ns</string>
@@ -5347,34 +5351,11 @@
            </widget>
           </item>
           <item>
-           <layout class="QVBoxLayout" name="verticalLayout_24" stretch="0,0">
-            <property name="sizeConstraint">
-             <enum>QLayout::SetMinimumSize</enum>
+           <widget class="QLabel" name="label_8">
+            <property name="text">
+             <string>Time window:</string>
             </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <widget class="QCheckBox" name="chbIRFCorrDiff">
-              <property name="text">
-               <string>From IRF</string>
-              </property>
-              <property name="checked">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QCheckBox" name="chbCurrCorrDiff">
-              <property name="text">
-               <string>From current decay</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
+           </widget>
           </item>
           <item>
            <spacer name="horizontalSpacer_7">
@@ -5390,54 +5371,40 @@
            </spacer>
           </item>
           <item>
-           <layout class="QGridLayout" name="gridLayout_5">
-            <property name="rightMargin">
-             <number>6</number>
+           <widget class="QSpinBox" name="spbWindow">
+            <property name="suffix">
+             <string> ns</string>
             </property>
-            <item row="1" column="1">
-             <widget class="QSpinBox" name="spbBinSizeCorr">
-              <property name="suffix">
-               <string> ps</string>
-              </property>
-              <property name="maximum">
-               <number>1000</number>
-              </property>
-              <property name="singleStep">
-               <number>1</number>
-              </property>
-              <property name="value">
-               <number>500</number>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="label_9">
-              <property name="text">
-               <string>Bin size:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QSpinBox" name="spbWindow">
-              <property name="suffix">
-               <string> ns</string>
-              </property>
-              <property name="maximum">
-               <number>2000</number>
-              </property>
-              <property name="value">
-               <number>500</number>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="0">
-             <widget class="QLabel" name="label_8">
-              <property name="text">
-               <string>Time window:</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
+            <property name="maximum">
+             <number>2000</number>
+            </property>
+            <property name="value">
+             <number>500</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_9">
+            <property name="text">
+             <string>Bin size:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="spbBinSizeCorr">
+            <property name="suffix">
+             <string> ps</string>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="value">
+             <number>500</number>
+            </property>
+           </widget>
           </item>
           <item>
            <spacer name="horizontalSpacer_5">
@@ -7629,7 +7596,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1250</width>
-     <height>21</height>
+     <height>29</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
