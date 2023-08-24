@@ -9,8 +9,8 @@ scan images and spectral time traces and perform second-order cross-correlations
 .. toctree::
     :maxdepth: 1
 
-    usage/userguide
     usage/installation
+    usage/userguide
     usage/contributing
     usage/contact
 
@@ -26,6 +26,6 @@ Indices and tables
 Source Code
 -----------
 
-- Source Code: https://bitbucket.org/BiophysicsUP/full_sms
+- Source Code: https://github.com/BioPhysicsUP/Full_SMS
 
 

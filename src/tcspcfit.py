@@ -961,7 +961,7 @@ class TwoExp(FluoFit):
             fwhm = None
 
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
-        self.results(tau, stds, avtaustd, shift, amp, fwhm)
+        self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm)
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Double exponential model function passed to curve_fit, to be fitted to data."""
@@ -1062,7 +1062,7 @@ class ThreeExp(FluoFit):
             fwhm = None
 
         self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
-        self.results(tau, stds, avtaustd, shift, amp, fwhm)
+        self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm)
 
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Triple exponential model function passed to curve_fit, to be fitted to data"""

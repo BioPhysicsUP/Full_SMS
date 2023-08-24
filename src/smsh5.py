@@ -1704,7 +1704,9 @@ class Histogram:
             if numexp == 1:
                 self.avtau = self.tau
             else:
-                self.avtau = sum(self.tau * self.amp) / self.amp.sum()
+                print(self.tau, self.amp)
+                # self.avtau = sum(self.tau * self.amp) / self.amp.sum()
+                self.avtau = np.dot(self.tau, self.amp) / self.amp.sum()
             self.decay_roi_start_ns = fit.startpoint * self._particle.channelwidth
             self.decay_roi_end_ns = fit.endpoint * self._particle.channelwidth
             self.num_photons_used = np.sum(fit.measured_not_normalized)
