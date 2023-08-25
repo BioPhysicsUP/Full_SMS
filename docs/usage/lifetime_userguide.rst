@@ -1,4 +1,4 @@
-User's Guide: Lifetime fitting
+Lifetime fitting
 ==============================
 
 Below is a guide to performing lifetime fits using the GUI. For more information on how to get good fits, see this guide:
