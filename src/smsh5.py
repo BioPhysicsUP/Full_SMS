@@ -51,6 +51,7 @@ class H5dataset:
     prog_fb : ProcessProgFeedback, optional
         feedback queue for updating progress bar
     """
+
     def __init__(
         self,
         filename,
@@ -105,7 +106,7 @@ class H5dataset:
             if (
                 h5_fr.abstimes2(prim_part) is not None
             ):  # if second card data exists, create secondary particle
-                print(particle_name)
+                # print(particle_name)
                 sec_part = Particle(
                     name=particle_name,
                     dataset_ind=num,
@@ -428,15 +429,23 @@ class Particle:
                 self.description = h5_fr.description(particle=self)
 
             self.irf = None
-            try:
-                if channelwidth is None:
-                    differences = np.diff(np.sort(self.microtimes[:]))
-                    channelwidth = np.unique(differences)[1]
-            except IndexError as e:
-                logger.error(
-                    f"channelwidth could not be determined. Inspect {self.name}."
-                )
+            if channelwidth is None and not (
+                len(self.microtimes) == 0 and len(self.abstimes) == 0
+            ):
+                differences = np.diff(np.sort(self.microtimes[:]))
+                possible_channelwidths = np.unique(np.diff(np.unique(differences)))
+                if len(possible_channelwidths) != 1:
+                    channelwidth = 0.01220703125
+                    logger.warning(
+                        f"Channel width could not be determined. Inspect {self.name}. A default of {channelwidth} used."
+                    )
+                else:
+                    channelwidth = possible_channelwidths[0]
+            else:
                 channelwidth = 0.01220703125
+                logger.warning(
+                    f"Channel width could not be determined. Inspect {self.name}. A default of {channelwidth} used."
+                )
             self.channelwidth = channelwidth
             if tmin is None:
                 self.tmin = 0
@@ -704,7 +713,7 @@ class Particle:
         else:
             return self.cpts.levels
 
-#  TODO: The following 4 functions don't seem to be entirely sensible
+    #  TODO: The following 4 functions don't seem to be entirely sensible
     @property
     def levels_roi(self):
         """The particle's raw or grouped levels, from ROI."""
@@ -1215,6 +1224,7 @@ class FakeCpts:
     levels : List[GlobalLevel]
         list of global levels
     """
+
     def __init__(self, num_levels: int, levels: list):
         self.num_levels = num_levels
         self.levels = levels
@@ -1232,6 +1242,7 @@ class GlobalParticle:
     use_roi : bool = False
         Whether to use ROI's.
     """
+
     def __init__(self, particles: List[Particle], use_roi: bool = False):
         self.is_global = True
         self.name = "Global Particle"
@@ -1397,6 +1408,7 @@ class Histogram:
     is_for_roi : bool = False
         Whether this histogram is from a trace ROI.
     """
+
     def __init__(
         self,
         particle: Particle,
@@ -1729,6 +1741,7 @@ class ParticleAllHists:
     particle : Particle
         The parent particle of this object.
     """
+
     def __init__(self, particle: Particle):
         self.part_uuid = particle.uuid
         self.numexp = None
@@ -1815,6 +1828,7 @@ class RasterScan:
     particle_indexes : List[int]
         Dataset indices of the particles in this raster scan.
     """
+
     def __init__(
         self,
         h5dataset: H5dataset,
@@ -1856,6 +1870,7 @@ class Spectra:
     particle : Particle
         The parent particle object.
     """
+
     def __init__(self, particle: Particle):
         self._particle = particle
 
@@ -1886,5 +1901,3 @@ class Spectra:
                 if self._has_spectra
                 else None
             )
-
-
