@@ -8,6 +8,7 @@ import pickle
 import lzma
 
 import h5pickle
+import numpy as np
 from PyQt5.QtCore import QRunnable, pyqtSlot
 
 import smsh5
@@ -33,12 +34,16 @@ class SaveAnalysisWorker(QRunnable):
     @pyqtSlot()
     def run(self) -> None:
         try:
-            save_analysis(main_window=self.main_window, dataset=self.dataset, signals=self.signals)
+            save_analysis(
+                main_window=self.main_window, dataset=self.dataset, signals=self.signals
+            )
         except Exception as err:
             self.signals.error.emit(err)
 
 
-def save_analysis(main_window: MainWindow, dataset: H5dataset, signals: WorkerSignals = None):
+def save_analysis(
+    main_window: MainWindow, dataset: H5dataset, signals: WorkerSignals = None
+):
     if signals:
         signals.status_message.emit("Saving analysis...")
         signals.start_progress.emit(0)
@@ -99,7 +104,9 @@ class LoadAnalysisWorker(QRunnable):
             self.signals.error.emit(err)
 
 
-def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSignals = None):
+def load_analysis(
+    main_window: MainWindow, analysis_file: str, signals: WorkerSignals = None
+):
     if signals:
         signals.status_message.emit("Loading analysis file...")
         signals.start_progress.emit(0)
@@ -132,7 +139,10 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
 
     loaded_dataset.load_file(h5_file)
 
-    if not hasattr(loaded_dataset, "save_version") or loaded_dataset.save_version != SAVING_VERSION:
+    if (
+        not hasattr(loaded_dataset, "save_version")
+        or loaded_dataset.save_version != SAVING_VERSION
+    ):
         if float(loaded_dataset.save_version) >= 1.05:
             for particle in loaded_dataset.particles:
                 if float(loaded_dataset.save_version) <= 1.05:  # Added in version 1.06
@@ -159,12 +169,16 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
         if not hasattr(particle.ahca, "plots_need_to_be_updated"):
             particle.ahca.plots_need_to_be_updated = None
 
-    dataset_node = DatasetTreeNode(analysis_file[analysis_file.rfind("/") + 1 : -3], loaded_dataset, "dataset")
+    dataset_node = DatasetTreeNode(
+        analysis_file[analysis_file.rfind("/") + 1 : -3], loaded_dataset, "dataset"
+    )
 
     all_nodes = [(dataset_node, -1)]
     all_has_lifetimes = list()
     for i, particle in enumerate(loaded_dataset.particles):
         particlenode = DatasetTreeNode(particle.name, particle, "particle")
+        if particle.is_secondary_part:
+            continue
         all_nodes.append((particlenode, i))
         if hasattr(particlenode.dataobj.histogram, "fitted"):
             all_has_lifetimes.append(particlenode.dataobj.histogram.fitted)
@@ -175,8 +189,18 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
         main_window.lifetime_controller.irf_loaded = True
         main_window.chbHasIRF.setChecked(True)
     main_window.add_all_nodes(all_nodes=all_nodes)
-    for i, node in enumerate(main_window.part_nodes):
-        node.setChecked(loaded_dataset.save_selected[i])
+    dup_num = int(len(main_window.part_nodes) / len(loaded_dataset.save_selected))
+    if dup_num > 1:
+        save_selected = (
+            np.array([[save] * dup_num for save in loaded_dataset.save_selected])
+            .reshape((len(main_window.part_nodes),))
+            .tolist()
+        )
+    else:
+        save_selected = loaded_dataset.save_selected
+
+    for node, save in zip(main_window.part_nodes, save_selected):
+        node.setChecked(save)
     dataset_node.setChecked(all([node.checked() for node in main_window.part_nodes]))
     num_checked = sum([node.checked() for node in main_window.part_nodes])
     main_window.lblNum_Selected.setText(str(num_checked))
@@ -189,7 +213,12 @@ def load_analysis(main_window: MainWindow, analysis_file: str, signals: WorkerSi
     main_window.chbInt_Show_Groups.setChecked(not show_global_checked)
     main_window.chbInt_Show_Groups.blockSignals(False)
 
-    grouping_mode_index = 1 if loaded_dataset.global_settings["global_grouping_mode_selected"] == "tabGlobal" else 0
+    grouping_mode_index = (
+        1
+        if loaded_dataset.global_settings["global_grouping_mode_selected"]
+        == "tabGlobal"
+        else 0
+    )
     main_window.tabGroupingMode.blockSignals(True)
     main_window.tabGroupingMode.setCurrentIndex(grouping_mode_index)
     main_window.tabGroupingMode.blockSignals(False)

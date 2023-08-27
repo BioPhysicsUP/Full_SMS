@@ -592,8 +592,8 @@ class FluoFit:
         """
 
         # TODO: Make sure this doesn't break something
-        self.tau = tau if type(tau) is list else [tau]
-        self.amp = amp if type(amp) is list else [amp]
+        self.tau = tau if type(tau) in [list, np.ndarray] else [tau]
+        self.amp = amp if type(amp) in [list, np.ndarray] else [amp]
         self.shift = shift * self.channelwidth
         self.fwhm = fwhm
         self.stds = stds

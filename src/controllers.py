@@ -1574,7 +1574,7 @@ class LifetimeController(QObject):
         try:
             channelwidth = self.main_window.current_particle.channelwidth
             f_p = self.fitparam
-            shift = f_p.shift[:-1] / channelwidth
+            shift = np.array(f_p.shift[:-1]) / channelwidth
             shiftfix = f_p.shift[-1]
             shift = [*shift, shiftfix]
             if f_p.autostart != "Manual":
@@ -2904,7 +2904,7 @@ class GroupingController(QObject):
                                                 ahc_hist._particle = new_part
                 new_part.ahca = result_ahca
 
-                if new_part.has_groups:
+                if hasattr(new_part, "has_groups") and new_part.has_groups:
                     new_part.makegrouphists()
                     new_part.makegrouplevelhists()
         except ValueError as e:
