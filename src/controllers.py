@@ -2932,11 +2932,11 @@ class GroupingController(QObject):
         export_group_roi_label = ""
         label_color = "black"
         all_has_groups = np.array(
-            [p.has_groups for p in self.main_window.current_dataset.particles]
+            [p.has_groups for p in self.main_window.current_dataset.particles if not p.is_secondary_part]
         )
         if any(all_has_groups):
             all_grouped_with_roi = np.array(
-                [p.grouped_with_roi for p in self.main_window.current_dataset.particles]
+                [p.grouped_with_roi for p in self.main_window.current_dataset.particles if not p.is_secondary_part]
             )
             all_grouped_and_with_roi = all_grouped_with_roi[all_has_groups]
             if all(all_grouped_and_with_roi):
