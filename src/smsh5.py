@@ -1889,7 +1889,7 @@ class RasterScan:
     @property
     def dataset(self) -> h5pickle.Dataset:
         if self.h5dataset.file is not None and self.h5dataset.file.__bool__() is True:
-            return h5_fr.raster_scan(h5_fr.particle(self.particle_num + 1, self.h5dataset))
+            return h5_fr.raster_scan(h5_fr.particle(self.particle_num, self.h5dataset))
 
 
 class Spectra:

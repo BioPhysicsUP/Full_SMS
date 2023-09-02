@@ -3447,13 +3447,14 @@ class RasterScanController(QObject):
             for num, part_index in enumerate(raster_scan.particle_indexes):
                 if num != 0:
                     all_text = all_text + "<br></br>"
-                if particle is dataset.particles[part_index]:
-                    all_text = (
+                part_name = f'Particle {part_index + 1}'
+                if particle.name == part_name:
+                        all_text = (
                         all_text + f"<strong>{num + 1}) {particle.name}</strong>: "
                     )
                 else:
                     all_text = (
-                        all_text + f"{num + 1}) {dataset.particles[part_index].name}: "
+                        all_text + f"{num + 1}) {part_name}: "
                     )
                 all_text = (
                     all_text + f"x={rs_part_coord[num][0]: .1f}, "
