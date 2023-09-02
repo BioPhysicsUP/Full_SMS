@@ -378,7 +378,7 @@ class DatasetTreeModel(QAbstractItemModel):
                     icon = self.rga
                 elif all([r, g, e]) and not any([l, a]):
                     icon = self.rge
-                elif all([l, a]) and not any([r, g, a, e]):
+                elif all([l, a]) and not any([r, g, e]):
                     icon = self.la
                 elif all([l, a, e]) and not any([r, g, a]):
                     icon = self.lae
