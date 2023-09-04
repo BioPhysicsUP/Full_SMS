@@ -24,6 +24,7 @@ from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from pyqtgraph.exporters import ImageExporter
 
 import grouping
+import smsh5
 from threads import ProcessThread, ProcessTaskResult
 from dataclasses import dataclass
 
@@ -1563,21 +1564,17 @@ class LifetimeController(QObject):
     def gui_fit_current(self):
         """Fits the currently selected level's decay curve using the provided settings."""
 
-        cp = self.main_window.current_particle
-        selected_level = cp.level_or_group_selected
-        if selected_level is None:
-            histogram = cp.histogram
+        cur_part = self.main_window.current_particle
+        selected: Union[Level, GlobalLevel, Group] = cur_part.level_or_group_selected
+        histogram: smsh5.Histogram = None
+        if selected is None:
+            histogram = cur_part.histogram
         else:
-            # level = self.mainwindow.current_level
-            if selected_level <= cp.num_levels - 1:
-                histogram = cp.cpts.levels[selected_level].histogram
-            else:
-                selected_group = selected_level - cp.num_levels
-                histogram = cp.groups[selected_group].histogram
+            histogram = selected.histogram
         try:
             channelwidth = self.main_window.current_particle.channelwidth
             f_p = self.fitparam
-            shift = f_p.shift[:-1] / channelwidth
+            shift = np.array(f_p.shift[:-1]) / channelwidth
             shiftfix = f_p.shift[-1]
             shift = [*shift, shiftfix]
             if f_p.autostart != "Manual":
@@ -1594,21 +1591,21 @@ class LifetimeController(QObject):
             else:
                 end = None
             boundaries = [start, end, f_p.autostart, f_p.autoend]
-            if not histogram.fit_intensity_lifetime(
-                f_p.numexp,
-                f_p.tau,
-                f_p.amp,
-                shift,
-                f_p.decaybg,
-                f_p.irfbg,
-                boundaries,
-                f_p.addopt,
-                f_p.irf,
-                f_p.fwhm,
+            if not histogram.fit(
+                numexp=f_p.numexp,
+                tauparam=f_p.tau,
+                ampparam=f_p.amp,
+                shift=shift,
+                decaybg=f_p.decaybg,
+                irfbg=f_p.irfbg,
+                boundaries=boundaries,
+                addopt=f_p.addopt,
+                irf=f_p.irf,
+                fwhm=f_p.fwhm,
             ):
                 return  # fit unsuccessful
             else:
-                cp.has_fit_a_lifetime = True
+                cur_part.has_fit_a_lifetime = True
         except AttributeError:
             logger.error("No decay")
         else:
@@ -2907,7 +2904,7 @@ class GroupingController(QObject):
                                                 ahc_hist._particle = new_part
                 new_part.ahca = result_ahca
 
-                if new_part.has_groups:
+                if hasattr(new_part, "has_groups") and new_part.has_groups:
                     new_part.makegrouphists()
                     new_part.makegrouplevelhists()
         except ValueError as e:
@@ -2935,11 +2932,11 @@ class GroupingController(QObject):
         export_group_roi_label = ""
         label_color = "black"
         all_has_groups = np.array(
-            [p.has_groups for p in self.main_window.current_dataset.particles]
+            [p.has_groups for p in self.main_window.current_dataset.particles if not p.is_secondary_part]
         )
         if any(all_has_groups):
             all_grouped_with_roi = np.array(
-                [p.grouped_with_roi for p in self.main_window.current_dataset.particles]
+                [p.grouped_with_roi for p in self.main_window.current_dataset.particles if not p.is_secondary_part]
             )
             all_grouped_and_with_roi = all_grouped_with_roi[all_has_groups]
             if all(all_grouped_and_with_roi):
@@ -3450,13 +3447,14 @@ class RasterScanController(QObject):
             for num, part_index in enumerate(raster_scan.particle_indexes):
                 if num != 0:
                     all_text = all_text + "<br></br>"
-                if particle is dataset.particles[part_index]:
-                    all_text = (
+                part_name = f'Particle {part_index + 1}'
+                if particle.name == part_name:
+                        all_text = (
                         all_text + f"<strong>{num + 1}) {particle.name}</strong>: "
                     )
                 else:
                     all_text = (
-                        all_text + f"{num + 1}) {dataset.particles[part_index].name}: "
+                        all_text + f"{num + 1}) {part_name}: "
                     )
                 all_text = (
                     all_text + f"x={rs_part_coord[num][0]: .1f}, "

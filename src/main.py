@@ -1462,7 +1462,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.btnGroupGlobal.setEnabled(has_levels)
             if has_levels:
                 has_groups = any(
-                    [particle.has_groups for particle in self.current_dataset.particles]
+                    [particle.has_groups for particle in self.current_dataset.particles if not particle.is_secondary_part]
                 )
                 self.btnApplyGroupsCurrent.setEnabled(has_groups)
                 self.btnApplyGroupsSelected.setEnabled(has_groups)
