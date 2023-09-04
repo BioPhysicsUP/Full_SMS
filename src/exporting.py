@@ -74,43 +74,21 @@ class ExporterOptions:
     def __init__(self, main_window: MainWindow):
         self._main_window = main_window
 
-    @property
-    def ex_traces(self):
-        return self._main_window.chbEx_Trace.isChecked()
+    ############################################################################
+    #       ROI
+    ############################################################################
 
     @property
     def use_roi(self):
         return self._main_window.chbEx_Use_ROI.isChecked()
 
     @property
+    def ex_traces(self):
+        return self._main_window.chbEx_Trace.isChecked()
+
+    @property
     def ex_levels(self):
         return self._main_window.chbEx_Levels.isChecked()
-
-    @property
-    def ex_plot_intensities(self):
-        return self._main_window.chbEx_Plot_Intensity.isChecked()
-
-    @property
-    def ex_plot_and_groups(self):
-        return False
-
-    @property
-    def ex_plot_int_only(self):
-        return self._main_window.rdbInt_Only.isChecked()
-
-    @property
-    def ex_plot_with_levels(self):
-        if self.ex_plot_intensities and not self.ex_plot_int_only:
-            return self._main_window.rdbWith_Levels.isChecked()
-        else:
-            return False
-
-    @property
-    def ex_plot_with_levels(self):
-        if self.ex_plot_intensities and not self.ex_plot_int_only:
-            return not self._main_window.rdbWith_Levels.isChecked()
-        else:
-            return False
 
     @property
     def ex_grouped_levels(self):
@@ -129,10 +107,6 @@ class ExporterOptions:
         return self._main_window.chbEx_Grouping_Results.isChecked()
 
     @property
-    def ex_plot_grouping_bics(self):
-        return self._main_window.chbEx_Plot_Group_BIC.isChecked()
-
-    @property
     def ex_lifetime(self):
         return self._main_window.chbEx_Lifetimes.isChecked()
 
@@ -141,53 +115,20 @@ class ExporterOptions:
         return self._main_window.chbEx_Hist.isChecked()
 
     @property
-    def ex_plot_lifetimes(self):
-        return self._main_window.chbEx_Plot_Lifetimes.isChecked()
-
-    @property
-    def ex_plot_hist_only(self):
-        return self.ex_plot_lifetimes and self._main_window.mwdbHist_Only.isChecked()
-
-    @property
-    def ex_plot_with_fit(self):
-        return not self.ex_plot_hist_only and self._main_window.rdbWith_Fit.isChecked()
-
-    @property
-    def ex_plot_and_residuals(self):
-        return (
-            not self.ex_plot_hist_only and not self._main_window.rdbWith_Fit.isChecked()
-        )
-
-    @property
-    def ex_plot_lifetimes_only_groups(self):
-        return (
-            self.ex_plot_lifetimes
-            and self._main_window.chbEx_Plot_Lifetimes_Only_Groups.isChecked()
-        )
-
-    @property
     def ex_spectra_2d(self):
         return self._main_window.chbEx_Spectra_2D.isChecked()
-
-    @property
-    def ex_plot_spectra(self):
-        return self._main_window.chbEx_Plot_Spectra.isChecked()
 
     @property
     def ex_raster_scan_2d(self):
         return self._main_window.chbEx_Raster_Scan_2D.isChecked()
 
     @property
-    def ex_plot_raster_scans(self):
-        return self._main_window.chbEx_Plot_Raster_Scans.isChecked()
-
-    @property
     def ex_corr_hists(self):
         return self._main_window.chbEx_Corr.isChecked()
 
-    @property
-    def ex_plot_corr_hists(self):
-        return self._main_window.chbEx_Plot_Corr.isChecked()
+    ############################################################################
+    #       DataFrames
+    ############################################################################
 
     @property
     def ex_df_levels(self):
@@ -212,6 +153,65 @@ class ExporterOptions:
     @property
     def ex_df_format(self):
         return self._main_window.cmbEx_DataFrame_Format.currentIndex()
+
+    ############################################################################
+    #       Plots
+    ############################################################################
+
+    @property
+    def ex_plot_intensities(self):
+        return self._main_window.chbEx_Plot_Intensity.isChecked()
+
+    @property
+    def ex_plot_intensities_only(self):
+        return self.ex_plot_intensities and self._main_window.rdbInt_Only.isChecked()
+
+    @property
+    def ex_plot_intensities_with_levels(self):
+        return self.ex_plot_intensities and self._main_window.rdbWith_Levels.isChecked()
+
+    @property
+    def ex_plot_intensities_with_levels_and_groups(self):
+        return self.ex_plot_intensities and self._main_window.rdbAnd_Groups.isChecked()
+
+    @property
+    def ex_plot_lifetimes(self):
+        return self._main_window.chbEx_Plot_Lifetimes.isChecked()
+
+    @property
+    def ex_plot_lifetimes_hist_only(self):
+        return self.ex_plot_lifetimes and self._main_window.mwdbHist_Only.isChecked()
+
+    @property
+    def ex_plot_lifetimes_with_fit(self):
+        return self.ex_plot_lifetimes and self._main_window.rdbWith_Fit.isChecked()
+
+    @property
+    def ex_plot_lifetimes_fit_and_residuals(self):
+        return self.ex_plot_lifetimes and self._main_window.rdbAnd_Residuals.isChecked()
+
+    @property
+    def ex_plot_lifetimes_only_groups(self):
+        return (
+            self.ex_plot_lifetimes
+            and self._main_window.chbEx_Plot_Lifetimes_Only_Groups.isChecked()
+        )
+
+    @property
+    def ex_plot_grouping_bics(self):
+        return self._main_window.chbEx_Plot_Group_BIC.isChecked()
+
+    @property
+    def ex_plot_raster_scans(self):
+        return self._main_window.chbEx_Plot_Raster_Scans.isChecked()
+
+    @property
+    def ex_plot_spectra(self):
+        return self._main_window.chbEx_Plot_Spectra.isChecked()
+
+    @property
+    def ex_plot_corr_hists(self):
+        return self._main_window.chbEx_Plot_Corr.isChecked()
 
     @property
     def any_particle_text_plot(self):
@@ -333,31 +333,14 @@ class Exporter:
                 if self.options.ex_corr_hists:
                     self.export_corr_hists(particle=p)
 
-                if self.options.ex_plot_intensities and self.options.ex_plot_int_only:
-                    self.plot_intensities(particle=p)
-
                 if self.options.ex_plot_lifetimes and p.has_levels:
                     self.plot_lifetimes(particle=p)
-
-                if (
-                    self.options.ex_plot_intensities
-                    and self.options.ex_plot_with_levels
-                ):
-                    if p.has_levels:
-                        self.plot_levels(particle=p)
 
                 if self.options.ex_grouped_levels and p.has_groups:
                     self.export_levels_grouped_plot(particle=p)
 
                 if self.options.ex_global_grouped_levels and p.has_global_grouping:
                     self.export_levels_global_grouped_plot(particle=p)
-
-                if (
-                    self.options.ex_plot_intensities
-                    and self.options.ex_plot_and_groups
-                    and p.has_groups
-                ):
-                    self.plot_levels(particle=p, plot_groups=True)
 
                 if self.options.ex_grouping_info and p.has_groups:
                     self.export_grouping_info(particle=p)
@@ -374,10 +357,19 @@ class Exporter:
                 if self.options.ex_hist:
                     self.export_hists(particle=p)
 
-                if self.options.ex_plot_lifetimes:
-                    self.plot_lifetimes(particle=p)
+                if self.options.ex_plot_intensities_only:
+                    self.plot_intensities(particle=p)
+                elif self.options.ex_plot_intensities_with_levels:
+                    if p.has_levels:
+                        self.plot_levels(particle=p)
+                elif self.options.ex_plot_intensities_with_levels_and_groups:
+                    if p.has_groups:
+                        self.plot_levels(particle=p, plot_groups=True)
 
-                if self.options.ex_plot_and_residuals:
+                if self.options.ex_plot_lifetimes:
+                    # handles with_fit and only_groups options internally
+                    self.plot_lifetimes(particle=p)
+                elif self.options.ex_plot_lifetimes_fit_and_residuals:
                     self.plot_lifetime_fit_residuals(particle=p)
 
                 if self.options.ex_spectra_2d:
@@ -573,6 +565,20 @@ class Exporter:
             ]
         )
         for exp_num in range(1, max_exp_num + 1):
+            if exp_num == 1:
+                av_taus, av_tau_stds = list(
+                    zip(
+                        *[
+                            (l.histogram.avtau, l.histogram.avtaustd)
+                            if l.histogram.fitted
+                            else (None, None)
+                            for l in levels
+                        ]
+                    )
+                )
+                s["av_tau"] = pd.Series(av_taus)
+                s["av_tau_std"] = pd.Series(av_tau_stds)
+
             taus, tau_stds, amps, amp_stds = list(
                 zip(
                     *[
@@ -582,7 +588,7 @@ class Exporter:
                             l.histogram.amp[exp_num - 1],
                             l.histogram.stds[exp_num - 1 + l.histogram.numexp],
                         )
-                        if l.histogram.fitted and l.histogram.numexp <= exp_num
+                        if l.histogram.fitted and l.histogram.numexp <= max_exp_num
                         else (None, None, None, None)
                         for l in levels
                     ]
@@ -1198,7 +1204,9 @@ class Exporter:
             self._export_levels(lvl_path=lvl_path, particle=particle)
         else:
             lvl_tr_path = os.path.join(self.f_dir, p_name + " levels-plot (ROI).csv")
-            ints, times = particle.levels2data(use_grouped=False, use_roi=use_roi)
+            ints, times = particle.levels2data(
+                use_grouped=False, use_roi=self.options.use_roi
+            )
             self._export_level_plot(ints=ints, lvl_tr_path=lvl_tr_path, times=times)
             lvl_path = os.path.join(self.f_dir, p_name + " levels (ROI).csv")
             self._export_levels(lvl_path=lvl_path, particle=particle, roi=True)
@@ -1264,10 +1272,12 @@ class Exporter:
         self,
         particle: smsh5.Particle,
     ) -> None:
+        with_fit = self.options.ex_plot_lifetimes_with_fit
+        only_groups = self.options.ex_plot_lifetimes_only_groups
+
         p_name = particle.unique_name
         hist_path = os.path.join(self.f_dir, p_name + " hists")
-        with_fit = self.options.ex_plot_with_fit
-        only_groups = self.options.ex_plot_lifetimes_only_groups
+
         try:
             os.mkdir(hist_path)
         except FileExistsError:
