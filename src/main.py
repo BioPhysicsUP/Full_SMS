@@ -147,7 +147,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.raster_scan_controller = RasterScanController(main_window=self)
 
-        self.antibunch_controller = AntibunchingController(main_window=self)
+        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
+                                                           corr_sum_widget=self.pgAntibunching_Sum_PlotWidget)
+        # self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
+        #                                                    corr_sum_widget=None)
+        a_c = self.antibunch_controller
+        self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
+        self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
+        self.btnCorrAll.clicked.connect(a_c.gui_correlate_all)
+        self.spbBinSizeCorr.valueChanged.connect(a_c.rebin_corrs)
 
         self.filtering_controller = FilteringController(main_window=self)
 
@@ -231,6 +239,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # Connect the tree selection to data display
         self.treeViewParticles.selectionModel().currentChanged.connect(
             self.display_data
+        )
+        self.treemodel.dataChanged.connect(
+            self.selection_changed
         )
         self.treeViewParticles.clicked.connect(self.tree_view_clicked)
         # self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
@@ -609,7 +620,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def tree_view_key_press(self, event):
         pass
-        # print('here')
 
     def act_select_all(self, *args, **kwargs):
         if self.data_loaded:
@@ -679,6 +689,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def card_selected(self) -> None:
         self.display_data(combocard=True)
 
+    def selection_changed(self) -> None:
+        self.display_data()
+
     def display_data(
         self, current=None, prev=None, combocard=False, is_global_group=False
     ) -> None:
@@ -686,8 +699,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
             Directly called by the tree signal currentChanged, thus the two arguments.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         current : QtCore.QModelIndex
             The index of the current selected particle as defined by QtCore.QModelIndex.
         prev : QtCore.QModelIndex
@@ -1449,7 +1462,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.btnGroupGlobal.setEnabled(has_levels)
             if has_levels:
                 has_groups = any(
-                    [particle.has_groups for particle in self.current_dataset.particles]
+                    [particle.has_groups for particle in self.current_dataset.particles if not particle.is_secondary_part]
                 )
                 self.btnApplyGroupsCurrent.setEnabled(has_groups)
                 self.btnApplyGroupsSelected.setEnabled(has_groups)

@@ -3,7 +3,7 @@
 The function distfluofit is based on MATLAB code by Jörg Enderlein:
 https://www.uni-goettingen.de/en/513325.html
 
-Bertus van Heerden and Joshua Botha
+Bertus van Heerden and Joshua Botha,
 University of Pretoria
 """
 
@@ -38,10 +38,31 @@ logger = setup_logger(__name__)
 fitting_dialog_file = fm.path(name="fitting_dialog.ui", file_type=fm.Type.UI)
 UI_Fitting_Dialog, _ = uic.loadUiType(fitting_dialog_file)
 
-BACKGOURD_SECTION_LENGTH = 50
+BACKGROUND_SECTION_LENGTH = 50
 
 
-def moving_avg(vector: Union[list, np.ndarray], window_length: int, pad_same_size: bool = True) -> np.ndarray:
+def moving_avg(
+    vector: Union[list, np.ndarray], window_length: int, pad_same_size: bool = True
+) -> np.ndarray:
+    """Moving average filter.
+
+    This function is used to smooth the decay histgram before determining a suitable fitting endpoint.
+
+    Arguments
+    ---------
+    vector : 1D ndarray
+        data moving average is to be applied to
+    window_length : int
+        moving average window size in number of datapoints
+    pad_same_size : bool, default True
+        whether to pad the data with zeros before calculating moving average
+
+    Returns
+    -------
+    new_vector: 1D ndarray
+        filtered data
+    """
+
     vector_size = vector.size
     left_window = int(np.floor(window_length / 2))
     right_window = int(np.ceil(window_length / 2))
@@ -63,11 +84,29 @@ def moving_avg(vector: Union[list, np.ndarray], window_length: int, pad_same_siz
 
 
 def max_continuous_zeros(vector: np.ndarray) -> int:
+    """Find the maximum number of continuous zeros in data.
+
+    Used by `FluoFit.estimate_bg`, this function finds the maximum number
+    of consecutive zeros in the input data.
+
+    Arguments
+    ----------
+    vector : 1D ndarray
+        input data
+
+    Returns
+    -------
+    maxzeros : int
+        maximum number of consecutive zeros
+    """
     if type(vector) is list:
         vector = np.array(vector)
     is_zero = vector == 0
-    continous_zeros = np.diff(np.where(np.concatenate(([is_zero[0]], is_zero[:-1] != is_zero[1:], [True])))[0])[::2]
-    return np.max(continous_zeros) if len(continous_zeros) > 0 else 0
+    continous_zeros = np.diff(
+        np.where(np.concatenate(([is_zero[0]], is_zero[:-1] != is_zero[1:], [True])))[0]
+    )[::2]
+    maxzeros = np.max(continous_zeros) if len(continous_zeros) > 0 else 0
+    return maxzeros
 
 
 def makerow(vector):
@@ -75,31 +114,38 @@ def makerow(vector):
     return np.reshape(vector, (1, -1))
 
 
-def colorshift(irf, shift, irflength=None):
+def colorshift(irf, shift):
     """Shift irf left or right 'periodically'.
 
     A shift past the start or end results in those values of irf
     'wrapping around'.
 
-    Arguments:
-    irf -- row vector or 1D
-    shift -- float
-    irflength -- float
-    t -- 1D vector
+    Arguments
+    ---------
+    irf : row vector or 1D
+        data to be shifted
+    shift : float
+        amount to be shifted in number of channels
 
-    Output:
-    irs -- shifted irf, as row vector
+    Returns
+    -------
+    irs : ndarray
+        shifted irf, as row vector
     """
-    if irflength is not None:
-        raise Warning("Don't input irflength and t")
     irf = irf.flatten()
     irflength = np.size(irf)
     t = np.arange(irflength)
-    new_index_left = np.fmod(np.fmod(t - np.floor(shift), irflength) + irflength, irflength).astype(int)
-    new_index_right = np.fmod(np.fmod(t - np.ceil(shift), irflength) + irflength, irflength).astype(int)
+    new_index_left = np.fmod(
+        np.fmod(t - np.floor(shift), irflength) + irflength, irflength
+    ).astype(int)
+    new_index_right = np.fmod(
+        np.fmod(t - np.ceil(shift), irflength) + irflength, irflength
+    ).astype(int)
     integer_left_shift = irf[new_index_left]
     integer_right_shift = irf[new_index_right]
-    irs = (1 - shift + np.floor(shift)) * integer_left_shift + (shift - np.floor(shift)) * integer_right_shift
+    irs = (1 - shift + np.floor(shift)) * integer_left_shift + (
+        shift - np.floor(shift)
+    ) * integer_right_shift
     return irs
 
 
@@ -129,19 +175,16 @@ class FluoFit:
         Background value for decay. Will be estimated if not given.
     irfbg : float
         Background value for IRF. Will be estimated if not given.
-    startpoint : int
-        Start of fitting range - will default to channel of decay max or
-        IRF max, whichever is least.
-    endpoint : int
-        End of fitting range - will default to the channel of the
-        fluorescence decay that is either around 10 times higher than the
-        background level or equivalent to 0.1% of the counts in the peak
-        channel, whichever is greater.
+    boundaries : list
+        Start and end of fitting range as well as options for automatic
+        determination of the parameters as used by `calculate_boundaries`.
     ploton : bool
-        Whether to automatically plot the irf_data
-
+        Whether to automatically plot the irf_data.
+    fwhm : float = None
+        Full-width at half maximum of simulated irf. IRF is not simulated if fwhm is None.
+    numexp : int, optional
+        Number of exponential components in fit.
     """
-
     def __init__(
         self,
         irf,
@@ -224,6 +267,7 @@ class FluoFit:
         self.is_fit = False
 
     def load_settings(self):
+        """Load configuration from settings.json file."""
         settings_file_path = fm.path("settings.json", fm.Type.ProjectRoot)
         with open(settings_file_path, "r") as settings_file:
             if not hasattr(self, "settings"):
@@ -232,7 +276,7 @@ class FluoFit:
 
     @staticmethod
     def calculate_boundaries(measured, boundaries, bg, settings, channel_width):
-        """Set the start and endpoints
+        """Set the start and endpoints.
 
         Sets the values to the given ones or automatically find good ones.
         The start value is chosen as earliest point that is at least 80%
@@ -241,18 +285,18 @@ class FluoFit:
         maximum or 20 times the background value, whichever is highest.
         These values can be modified in the settings dialog.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         measured : ndarray
-            The measured decay data
+            The measured decay data.
         boundaries : list
-                [startpoint, endpoint, autostart, autoend]
+                [startpoint, endpoint, autostart, autoend].
         bg : float
-            Calculated decay background
+            Calculated decay background.
         settings : settings_dialog.Settings() object
-            Contains config settings
+            Contains config settings.
         channel_width : float
-            Duration of a single channel
+            Duration of a single channel.
         """
         if boundaries is None:
             boundaries = [None, None, "Manual", False]
@@ -326,9 +370,8 @@ class FluoFit:
         If not given, the  background value is estimated from the first part
         of the curve, before the rise.
 
-        Parameters:
-        -----------
-
+        Arguments
+        ---------
         bg : float
             Decay background value
         irf : ndarray
@@ -346,7 +389,7 @@ class FluoFit:
                 maxind = np.argmax(irf)
                 for i in range(maxind):
                     reverse = maxind - i
-                    if np.int(irf[reverse]) == np.int(np.mean(irf[:20])):
+                    if int(irf[reverse]) == int(np.mean(irf[:20])):
                         bglim = reverse
                         break
 
@@ -368,9 +411,8 @@ class FluoFit:
 
         Optionally returns only the index of rise start.
 
-        Parameters
-        ----------
-
+        Arguments
+        ---------
         measured : ndarray
             measured decay data
         return_bglim : bool
@@ -382,23 +424,34 @@ class FluoFit:
         maxind = np.argmax(measured)
 
         meas_real_start = np.nonzero(measured)[0][0]
-        bg_section = measured[meas_real_start : meas_real_start + BACKGOURD_SECTION_LENGTH]
+        bg_section = measured[
+            meas_real_start : meas_real_start + BACKGROUND_SECTION_LENGTH
+        ]
 
         # Attempt to remove low `island` of counts before real start
         if (
-            max_continuous_zeros(bg_section) / BACKGOURD_SECTION_LENGTH >= 0.5
-            and len(measured[meas_real_start:]) > 2 * BACKGOURD_SECTION_LENGTH
+            max_continuous_zeros(bg_section) / BACKGROUND_SECTION_LENGTH >= 0.5
+            and len(measured[meas_real_start:]) > 2 * BACKGROUND_SECTION_LENGTH
         ):
             original_start = meas_real_start.copy()
-            while max_continuous_zeros(bg_section) / BACKGOURD_SECTION_LENGTH >= 0.5:
+            while max_continuous_zeros(bg_section) / BACKGROUND_SECTION_LENGTH >= 0.5:
                 next_seg_start = meas_real_start + np.argmax(bg_section == 0) + 1
-                if len(measured[meas_real_start + next_seg_start :]) < 2 * BACKGOURD_SECTION_LENGTH:
+                if (
+                    len(measured[meas_real_start + next_seg_start :])
+                    < 2 * BACKGROUND_SECTION_LENGTH
+                ):
                     logger.warning("No reasonable background estimate could be made")
                     meas_real_start = original_start
-                    bg_section = measured[meas_real_start : meas_real_start + BACKGOURD_SECTION_LENGTH]
+                    bg_section = measured[
+                        meas_real_start : meas_real_start + BACKGROUND_SECTION_LENGTH
+                    ]
                     break
-                meas_real_start = np.nonzero(measured[next_seg_start:])[0][0] + next_seg_start
-                bg_section = measured[meas_real_start : meas_real_start + BACKGOURD_SECTION_LENGTH]
+                meas_real_start = (
+                    np.nonzero(measured[next_seg_start:])[0][0] + next_seg_start
+                )
+                bg_section = measured[
+                    meas_real_start : meas_real_start + BACKGROUND_SECTION_LENGTH
+                ]
 
         bg_section_mean = np.mean(bg_section)
         found = False
@@ -429,9 +482,8 @@ class FluoFit:
         input system is flexible, allowing optional input of min and max
         values as well as choosing to fix a value.
 
-        Parameters
-        ----------
-
+        Arguments
+        ---------
         amp : list or float
             Amplitude(s)
         shift : list or float
@@ -509,6 +561,10 @@ class FluoFit:
 
     @staticmethod
     def df_len(test_obj) -> int:
+        """Find the 'length' of an object
+
+        Returns len(obj) if possible, else returns 1 iff obj is not None
+        """
         df_num = 0
         if type(test_obj) in [list, np.ndarray]:
             df_num = len(test_obj)
@@ -522,8 +578,8 @@ class FluoFit:
         After fitting, the results are processed. Chi-squared is calculated
         and optional plotting is done.
 
-        Parameters:
-        -----------
+        Arguments
+        ---------
         tau : ndarray or float
             Fitted lifetime(s)
         dtau : ndarray or float
@@ -536,8 +592,8 @@ class FluoFit:
         """
 
         # TODO: Make sure this doesn't break something
-        self.tau = tau if type(tau) is list else [tau]
-        self.amp = amp if type(amp) is list else [amp]
+        self.tau = tau if type(tau) in [list, np.ndarray] else [tau]
+        self.amp = amp if type(amp) in [list, np.ndarray] else [amp]
         self.shift = shift * self.channelwidth
         self.fwhm = fwhm
         self.stds = stds
@@ -590,16 +646,20 @@ class FluoFit:
     def makeconvd(self, shift, model, fwhm=None):
         """Makes a convolved decay using IRF and exponential model
 
-        Parameters:
-        -----------
+        The IRF is either `self.irf` or, if `fwhm` is provided, a simulated Gaussian.
 
+        Arguments
+        ---------
         shift : float
             IRF colour shift
         model : ndarray
             Exponential model function
 
+        Returns
+        -------
+        convd : 1D ndarray
+            convolution of model with shifted IRF
         """
-
         if fwhm is None:
             irf = self.irf
         else:  # Simulate gaussian irf with max at max of measured data
@@ -613,6 +673,27 @@ class FluoFit:
 
     @staticmethod
     def sim_irf(channelwidth, fwhm, measured):
+        """Return a simulated Gaussian IRF.
+
+        The IRF is shifted and scaled to have its peak lined up with
+        the peak of the provided measured data.
+
+        Arguments
+        ---------
+        channelwidth : float
+            TCSPC channelwidth in ns
+        fwhm : float
+            full width at half maximum of Gaussian IRF
+        measured : 1D ndarray
+            measured decay function
+
+        Returns
+        -------
+        irf : 1D ndarray
+            simulated IRF
+        irft : 1D ndarray
+            time axis for IRF
+        """
         fwhm = fwhm / channelwidth
         c = fwhm / 2.35482
         t = np.arange(np.size(measured))
@@ -626,7 +707,7 @@ class FluoFit:
         """Calculates Durbin-Watson lower bound.
 
         Based on Turner 2020 https://doi.org/10.1080/13504851.2019.1691711
-        We use 1% or 5% critical bound for lower bound d_L of DW parameter.
+        We use 0.1%, 0.3%, 1% or 5% critical bound for lower bound d_L of DW parameter.
         """
         numpoints = np.size(self.residuals)
         # for 5% and 1% calculate lower bound on critical value.
@@ -691,7 +772,15 @@ class FluoFit:
 
 
 class OneExp(FluoFit):
-    """ "Single exponential fit. Takes exact same arguments as Fluofit"""
+    """Single exponential fit.
+
+    Takes exact same arguments as `FluoFit` with the addition of addopt.
+
+    Parameters
+    ----------
+    addopt : Dict = None
+        Additional options for `curve_fit`.
+    """
 
     def __init__(
         self,
@@ -775,14 +864,21 @@ class OneExp(FluoFit):
             self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm)
 
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
-        """Function passed to curve_fit, to be fitted to data"""
-
+        """Single exponential model function passed to curve_fit, to be fitted to data."""
         model = a * np.exp(-t / tau1)
         return self.makeconvd(shift, model, fwhm)
 
 
 class TwoExp(FluoFit):
-    """ "Double exponential fit. Takes exact same arguments as Fluofit"""
+    """Double exponential fit.
+
+    Takes exact same arguments as `FluoFit` with the addition of addopt.
+
+    Parameters
+    ----------
+    addopt : Dict = None
+        Additional options for `curve_fit`.
+    """
 
     def __init__(
         self,
@@ -868,14 +964,21 @@ class TwoExp(FluoFit):
         self.results(tau, stds, avtaustd, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
-        """Function passed to curve_fit, to be fitted to data"""
-
+        """Double exponential model function passed to curve_fit, to be fitted to data."""
         model = a1 * np.exp(-t / tau1) + (1 - a1) * np.exp(-t / tau2)
         return self.makeconvd(shift, model, fwhm)
 
 
 class ThreeExp(FluoFit):
-    """ "Triple exponential fit. Takes exact same arguments as Fluofit"""
+    """Triple exponential fit.
+
+    Takes exact same arguments as `FluoFit` with the addition of addopt.
+
+    Parameters
+    ----------
+    addopt : Dict = None
+        Additional options for `curve_fit`.
+    """
 
     def __init__(
         self,
@@ -962,13 +1065,27 @@ class ThreeExp(FluoFit):
         self.results(tau, stds, avtaustd, shift, amp, fwhm)
 
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
-        """Function passed to curve_fit, to be fitted to data"""
-
-        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2) + (1 - a1 - a2) * np.exp(-t / tau3)
+        """Triple exponential model function passed to curve_fit, to be fitted to data"""
+        model = (
+            a1 * np.exp(-t / tau1)
+            + a2 * np.exp(-t / tau2)
+            + (1 - a1 - a2) * np.exp(-t / tau3)
+        )
         return self.makeconvd(shift, model, fwhm)
 
 
 class FittingParameters:
+    """This class encapsulates lifetime fitting parameters.
+
+    An instance of the class is created by `LifetimeController` to get the fitting
+    parameters from the `FittingDialog` and a copy of this instance is passed to the
+    fitting thread.
+
+    Parameters
+    -----------
+    parent : controllers.LifetimeController
+        the parent object
+    """
     def __init__(self, parent: LifetimeController):
         self.parent = parent
         self.fpd = self.parent.fitparamdialog
@@ -1153,6 +1270,11 @@ class FittingParameters:
 
     # @staticmethod
     def get_from_gui(self, guiobj):
+        """Get cleaned-up values from gui
+
+        This function checks the validity of gui values in the fitting dialog
+        and returns them to `getfromdialog`.
+        """
         if type(guiobj) == QLineEdit:
             invalid = 0
             if guiobj in [*self.fpd.tau_edits, *self.fpd.amp_edits]:
@@ -1204,8 +1326,15 @@ class FittingParameters:
 
 
 class FittingDialog(QDialog, UI_Fitting_Dialog):
-    """Class for dialog that is used to choose lifetime fit parameters."""
+    """Class for dialog that is used to choose lifetime fit parameters.
 
+    Parameters
+    -----------
+    mainwindow : main.MainWindow
+        the current mainwindow instance
+    lifetime_controller : controllers.LifetimeController
+        the parent of this object
+    """
     def __init__(self, mainwindow, lifetime_controller):
         QDialog.__init__(self)
         UI_Fitting_Dialog.__init__(self)
@@ -1321,6 +1450,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         # self.lineEndTime.setValidator(QIntValidator())
 
     def load_settings(self):
+        """Load configuration from settings.json file."""
         settings_file_path = fm.path("settings.json", fm.Type.ProjectRoot)
         with open(settings_file_path, "r") as settings_file:
             if not hasattr(self, "settings"):
@@ -1328,6 +1458,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             self.settings.load_settings_from_file(file_or_path=settings_file)
 
     def enable_sim_vals(self, enable):
+        """Called to enable the IRF simulation parameter input widgets."""
         self.fwhmInit.setEnabled(enable)
         self.fwhmMin.setEnabled(enable)
         self.fwhmMax.setEnabled(enable)
@@ -1335,6 +1466,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         self.updateplot()
 
     def updateplot(self, *args):
+        """Update the plot using the current input values."""
         if not hasattr(self.lifetime_controller, "fitparam"):
             return
         else:
@@ -1399,7 +1531,6 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 bg = FluoFit.estimate_bg(decay, settings=self.settings)
                 start = int(start / channelwidth)
                 end = int(end / channelwidth) if end is not None else None
-                # print(end)
                 start, end = FluoFit.calculate_boundaries(
                     decay,
                     [start, end, autostart, autoend],
@@ -1407,7 +1538,6 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     self.settings,
                     channelwidth,
                 )
-                # print(end)
                 if autostart != "Manual":
                     self.lineStartTime.setText(f"{start * channelwidth:.3g}")
                 if autoend:
@@ -1472,6 +1602,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     msg.exec_()
 
     def getparams(self):
+        """Return fit parameters from `FittingParameters` object."""
         fp = self.lifetime_controller.fitparam
         irf = fp.irf
         shift = fp.shift[0]
@@ -1494,6 +1625,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
         return shift, decaybg, irfbg, start, autostart, end, autoend
 
     def make_model(self):
+        """Return multi-exponential model based on fitting parameters."""
         fp = self.lifetime_controller.fitparam
         t = self.mainwindow.current_particle.histogram.t
         fp.getfromdialog()
