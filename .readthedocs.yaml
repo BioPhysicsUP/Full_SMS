@@ -10,8 +10,11 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
+  jobs:
+    pre_build:
+      - rm -r docs/_build/*
 
-# Build documentation in the docs/ directory with Sphinx
+      # Build documentation in the docs/ directory with Sphinx
 sphinx:
   configuration: docs/conf.py
 
