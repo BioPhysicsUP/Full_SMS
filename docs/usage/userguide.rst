@@ -7,6 +7,7 @@ User's guide
 
     basic_overview
     level_resolution
+    roi
     lifetime_userguide
     grouping
     filtering
