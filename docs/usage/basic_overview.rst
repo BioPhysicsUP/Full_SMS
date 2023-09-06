@@ -3,7 +3,7 @@ Basic overview
 
 The GUI looks like this:
 
-.. image:: GUI_screenshot.png
+.. image:: images/GUI_screenshot.png
    :alt: GUI screenshot
    :align: left
 

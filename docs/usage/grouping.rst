@@ -4,14 +4,14 @@ Intensity level grouping
 After resolving intensity levels, they can be grouped (clustered) together using agglomerative hierarchical
 clustering (AHC). This is done in the Grouping tab.
 
-.. image:: ungrouped.png
+.. image:: images/ungrouped.png
    :alt: Intensity tab in the GUI
    :align: left
 
 To group levels on an individual particle basis, use "Group Current", "Group Selected" or "Group All" buttons to
 group levels for the current, selected or all particles.
 
-.. image:: ungrouped.png
+.. image:: images/ungrouped.png
    :alt: Intensity tab in the GUI
    :align: left
 

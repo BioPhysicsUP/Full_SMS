@@ -10,7 +10,7 @@ Below is a guide to performing lifetime fits using the GUI. For more information
 
 Lifetime fitting is performed using the Lifetime tab:
 
-.. image:: Lifetime_tab.png
+.. image:: images/Lifetime_tab.png
    :alt: Lifetime tab in the GUI
    :align: left
 
@@ -21,7 +21,7 @@ the left and right arrows next to the upper plot as well as the "To Groups" and 
 An IRF can be loaded by clicking on "Load IRF". Before performing a fit, click on "Fitting Parameters".
 This brings up a dialog:
 
-.. image:: Fitting_dialog.png
+.. image:: images/Fitting_dialog.png
    :alt: Lifetime fitting dialog
    :align: left
 
@@ -35,7 +35,7 @@ After choosing suitable starting values, click on "OK" to close the dialog. Now 
 the relevant "Fit ..." button. Once completed, the fitted curve will be displayed along with the residuals, and the fit
 results will be printed in the box on the right:
 
-.. image:: Lifetime_fitted.png
+.. image:: images/Lifetime_fitted.png
    :alt: Lifetime tab in GUI after fitting
    :align: left
 

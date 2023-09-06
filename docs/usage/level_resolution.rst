@@ -1,7 +1,7 @@
 Intensity level resolution
 ==========================
 
-.. image:: intensity.png
+.. image:: images/intensity.png
    :alt: Intensity tab in the GUI
    :align: left
 
@@ -15,7 +15,7 @@ Intensity levels can be resolved using change-point analysis in the "Intensity" 
 then click "Resolve" to resolve the current particle levels, "Resolve Selected" ot resolve all selected particles, or
 "Resolve All" to resolve the levels for all particles.
 
-.. image:: resolved.png
+.. image:: images/resolved.png
    :alt: Intensity tab in the GUI after resolving levels
    :align: left
 
@@ -27,7 +27,7 @@ application.
 Sometimes, a dialog will pop up to let you know that one
 or more "photon bursts" have been detected:
 
-.. image:: photonburst_dialog.png
+.. image:: images/photonburst_dialog.png
    :alt: Intensity tab in the GUI after resolving levels
    :align: center
 
@@ -36,13 +36,13 @@ be removed automatically.
 
 Before:
 
-.. image:: photonburst.png
+.. image:: images/photonburst.png
    :alt: Intensity tab in the GUI after resolving levels
    :align: left
 
 After:
 
-.. image:: nophotonburst.png
+.. image:: images/nophotonburst.png
    :alt: Intensity tab in the GUI after resolving levels
    :align: left
 
