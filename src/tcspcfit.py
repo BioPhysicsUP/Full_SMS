@@ -951,8 +951,8 @@ class TwoExp(FluoFit):
         stds = np.sqrt(np.diag(pcov))
         stds[3] = stds[2]  # second amplitude std is same as that of the first
         avtaustd = np.sqrt(
-            tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]))
-            + tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1]))
+            (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]) ** 2)) ** 2
+            + (tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1]) ** 2)) ** 2
         )
 
         if self.simulate_irf:
@@ -1051,9 +1051,9 @@ class ThreeExp(FluoFit):
         stds = np.sqrt(np.diag(pcov))
         stds[5] = np.sqrt(stds[3] ** 2 + stds[4] ** 2)  # third amp std is based on first two
         avtaustd = np.sqrt(
-            tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0]))
-            + tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1]))
-            + tau[2] * amp[2] * np.sqrt((stds[2] / tau[2]) ** 2 + (stds[5] / amp[2]))
+            (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0]) ** 2)) ** 2
+            + (tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1]) ** 2)) ** 2
+            + (tau[2] * amp[2] * np.sqrt((stds[2] / tau[2]) ** 2 + (stds[5] / amp[2]) ** 2)) ** 2
         )
 
         if self.simulate_irf:
