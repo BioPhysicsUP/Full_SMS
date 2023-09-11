@@ -12,7 +12,7 @@ build:
     python: "3.11"
   jobs:
     pre_build:
-      - ls
+      - rm -r $READTHEDOCS_OUTPUT/*
 
       # Build documentation in the docs/ directory with Sphinx
 sphinx:
