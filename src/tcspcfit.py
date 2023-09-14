@@ -1564,10 +1564,8 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                 shift = shift / channelwidth
                 # irf = tcspcfit.colorshift(irf, shift)
                 irf = colorshift(irf, shift)
-                print(max(irf), max(decay), max(model))
                 convd = scipy.signal.convolve(irf, model)
                 convd = convd[: np.size(irf)]
-                print('max:', max(convd))
                 if fp.normalize_amps:
                     convd = convd / convd.sum()
 
@@ -1680,9 +1678,7 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             tau2 = fp.tau[1][0]
             amp1 = fp.amp[0][0]
             amp2 = fp.amp[1][0]
-            print(amp1, amp2, tau1, tau2)
             model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2)
-            print(max(model))
         elif fp.numexp == 3:
             tau1 = fp.tau[0][0]
             tau2 = fp.tau[1][0]

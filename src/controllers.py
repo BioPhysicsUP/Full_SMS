@@ -1602,7 +1602,7 @@ class LifetimeController(QObject):
                 addopt=f_p.addopt,
                 irf=f_p.irf,
                 fwhm=f_p.fwhm,
-                f_p.normalize_amps
+                normalize_amps=f_p.normalize_amps
             ):
                 return  # fit unsuccessful
             else:
