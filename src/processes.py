@@ -1,4 +1,8 @@
 from __future__ import annotations
+
+import gc
+import time
+
 import dbg
 import multiprocessing as mp
 from multiprocessing import managers
@@ -505,6 +509,8 @@ class SingleProcess(mp.Process):
                             hist._particle = None
                             hist.microtimes = None
                             hist.level = None
+                    elif task.method_name == 'correlate_particle':
+                        task.obj._particle = None
 
                     if not dont_send:
                         process_result = ProcessTaskResult(
@@ -517,6 +523,7 @@ class SingleProcess(mp.Process):
 
                     self.result_queue.put(process_result)
                     del task
+                    gc.collect()
                     if process_result.task_complete:
                         self.task_queue.task_done()
         except Exception as e:

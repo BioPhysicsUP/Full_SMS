@@ -1,52 +1,45 @@
-User's Guide: Lifetime fitting
+Lifetime fitting
 ==============================
 
-The main lifetime fitting code is in the module :mod:`tcspcfit`.
+Below is a guide to performing lifetime fits using the GUI. For more information on how to get good fits, see this guide:
 
-A fit is performed by creating an instance of a class. Currently the available classes are
-:class:`tcspcfit.OneExp`, :class:`tcspcfit.TwoExp` and :class:`tcspcfit.ThreeExp`.
+.. toctree::
+    :maxdepth: 2
 
-A very simple usage would be::
+    get_good_fits
 
-    from tcspcfit import *
-    fit1 = OneExp(irf, measured, t, channelwidth, ploton=True)
+Lifetime fitting is performed using the Lifetime tab:
 
-Where ``irf``, ``measured`` and ``t`` are all one-dimensional and the same size. ``channelwidth`` is the width of one
-channel in nanoseconds. ``ploton=True`` instructs the fitting code to plot the result.
+.. image:: Lifetime_tab.png
+   :alt: Lifetime tab in the GUI
+   :align: left
 
-Now, ``fit1`` is an object that contains all the information of the fit. This includes the results such as fitted
-lifetimes, amplitudes, etc. as well as the raw data and all kinds of other things. A few important properties:
+The decay histogram is displayed for the whole trace or for individual levels or grouped levels.
+The fitted intensity trace is also displayed at the top in order to navigate trough levels or groups(use
+the left and right arrows next to the upper plot as well as the "To Groups" and "Whole Trace" buttons.)
 
-- ``fit1.tau`` is the lifetimes
-- ``fit1.amp`` is the amplitudes
-- ``fit1.shift`` is the IRF shift
-- ``fit1.chisq`` is the chi-squared value
-- ``fit1.bg`` is the decay background value
-- ``fit1.irfbg`` is the IRF background value
+An IRF can be loaded by clicking on "Load IRF". Before performing a fit, click on "Fitting Parameters".
+This brings up a dialog:
 
-Fits generally require initial values::
+.. image:: Fitting_dialog.png
+   :alt: Lifetime fitting dialog
+   :align: left
 
-    fit1 = OneExp(irf, measured, t, channelwidth, tau=[1.5, 0.1, 10, 0],
-                  shift=[0, -100, 100, 0], ploton=True)
+Different fitting parameters can here be interactively adjusted. The parameters that are optimized as part of the fit
+routine are the lifetimes, amplitudes, IRF shift and, if the option to simulate an IRF is chosen, the simulated IRF
+full-width at half maximum (fwhm). Values can be specified for the decay and IRF background values, or these fields can
+be left blank, in which case the values will be automatically be determined prior to fitting. The start and endpoints
+for fitting can also be specified or set to automatically determined values.
 
-Where for example ``tau=[1.5, 0.1, 10, 0]`` means: starting value 1.5, minimum value 0.1, maximum value 10, and the
-final 0 means that the value should not be fixed (it would be a 1 if it should be fixed. If the parameter value is
-fixed, the min and max values are ignored).
+After choosing suitable starting values, click on "OK" to close the dialog. Now a fit(s) can be performed by clicking on
+the relevant "Fit ..." button. Once completed, the fitted curve will be displayed along with the residuals, and the fit
+results will be printed in the box on the right:
 
-The IRF shift units are number of channels.
+.. image:: Lifetime_fitted.png
+   :alt: Lifetime tab in GUI after fitting
+   :align: left
 
-A two exponential fit has amplitudes as parameters as well (note how multiple parameters are specified)::
-
-    tau = [[3, 0.01, 10, 0],
-          [0.1, 0.01, 10, 0]]
-
-    shift = [0, -100, 100, 0]
-
-    amp = [[1, 0.01, 100, 0],
-          [1, 0.01, 100, 0]]
-
-    fit = TwoExp(irf, measured, t, channelwidth, tau=tau, amp=amp, shift=shift, ploton=True)
-
-
+Fitted parameters are returned as well as the goodness-of-fit parameters of Chi-squared and the Durbin-Watson parameter.
+The residuals are also plotted for easy visual inspection of the goodness-of-fit.
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __docformat__ = "NumPy"
 
+import time
 from matplotlib.font_manager import json_dump
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QDialogButtonBox
@@ -77,28 +78,18 @@ class Settings:
         return Settings(settings_dict=self.default_settings_dict)
 
     def set_all_dict(self, settings_dict: dict):
-        self.cpa_min_num_photons = settings_dict["change_point_analysis"][
-            "min_num_photons"
-        ]
-        self.cpa_min_boundary_offset = settings_dict["change_point_analysis"][
-            "min_boundary_offset"
-        ]
+        self.cpa_min_num_photons = settings_dict["change_point_analysis"]["min_num_photons"]
+        self.cpa_min_boundary_offset = settings_dict["change_point_analysis"]["min_boundary_offset"]
         self.pb_min_dwell_time = settings_dict["photon_bursts"]["min_level_dwell_time"]
-        self.pb_use_sigma_thresh = settings_dict["photon_bursts"][
-            "use_sigma_int_thresh"
-        ]
+        self.pb_use_sigma_thresh = settings_dict["photon_bursts"]["use_sigma_int_thresh"]
         self.pb_sigma_int_thresh = settings_dict["photon_bursts"]["sigma_int_thresh"]
-        self.pb_defined_int_thresh = settings_dict["photon_bursts"][
-            "defined_int_thresh"
-        ]
+        self.pb_defined_int_thresh = settings_dict["photon_bursts"]["defined_int_thresh"]
         self.lt_use_moving_avg = settings_dict["lifetimes"]["use_moving_avg"]
         self.lt_moving_avg_window = settings_dict["lifetimes"]["moving_avg_window"]
         self.lt_start_percent = settings_dict["lifetimes"]["start_percent"]
         self.lt_end_multiple = settings_dict["lifetimes"]["end_multiple"]
         self.lt_end_percent = settings_dict["lifetimes"]["end_percent"]
-        self.lt_minimum_decay_window = settings_dict["lifetimes"][
-            "minimum_decay_window"
-        ]
+        self.lt_minimum_decay_window = settings_dict["lifetimes"]["minimum_decay_window"]
         self.lt_bg_percent = settings_dict["lifetimes"]["bg_percent"]
 
     def get_all_dict(self) -> dict:
@@ -153,11 +144,11 @@ class Settings:
         opened_file = False
         if type(file_or_path) is str:
             if not os.path.exists(file_or_path):
-                raise FileNotFoundError(f"Path provided does not exist. {file_or_path}")
+                file_name = file_or_path if file_or_path.endswith(".json") else file_or_path + ".json"
+                with open(file_name, mode="w") as file:
+                    json.dump(self.default_settings_dict, file, indent=4)
             if not os.path.isfile(file_or_path):
-                raise FileNotFoundError(
-                    f"Path provided is not valid file. {file_or_path}"
-                )
+                raise FileNotFoundError(f"Path provided is not valid file. {file_or_path}")
             file = open(file_or_path, mode="r")
             opened_file = True
         else:
@@ -207,9 +198,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
 
         self.default_settings = self.settings.get_default_settings()
 
-        self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(
-            self.reset_to_default
-        )
+        self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(self.reset_to_default)
         self.buttonBox.accepted.connect(self.accepted_callback)
         self.buttonBox.rejected.connect(self.rejected_callback)
 
@@ -259,6 +248,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
     def set_dialog_settings(self, settings: Settings = None) -> None:
         if settings is None:
             settings = self.settings
+        time.sleep(1)
         self.spbCPA_min_num_photons.setValue(settings.cpa_min_num_photons)
         self.spbCPA_min_boundary_off.setValue(settings.cpa_min_boundary_offset)
         self.dsbPB_min_dwell_time.setValue(settings.pb_min_dwell_time)

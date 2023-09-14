@@ -14,6 +14,7 @@ import os
 import sys
 from platform import system
 import ctypes
+import importlib
 
 from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot, QRegExp
 from PyQt5.QtGui import QIcon, QRegExpValidator  # , QResizeEvent
@@ -49,10 +50,10 @@ from tree_model import DatasetTreeNode, DatasetTreeModel
 # import save_analysis
 from settings_dialog import SettingsDialog, Settings
 
-try:
-    import pkg_resources.py2_warn
-except ImportError:
-    pass
+# try:
+#     import pkg_resources.py2_warn
+# except ImportError:
+#     pass
 
 import smsh5
 from generate_sums import CPSums
@@ -60,18 +61,18 @@ from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
 from convert_pt3 import ConvertPt3Dialog
-from exporting import export_data, ExportWorker, DATAFRAME_FORMATS
+from exporting import ExportWorker, DATAFRAME_FORMATS
 from save_and_load import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.4.1"
+SMS_VERSION = "0.6.0"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
 sys.setrecursionlimit(1000 * 10)
 
-main_window_file = fm.path(name="mainwindow.ui", file_type=fm.Type.UI)
+main_window_file = fm.path(name="main_window.ui", file_type=fm.Type.UI)
 UI_Main_Window, _ = uic.loadUiType(main_window_file)
 
 logger = setup_logger(__name__, is_main=True)
@@ -82,14 +83,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
     """
     Class for Full SMS application that returns QMainWindow object.
 
-    This class uses a \*.ui converted to a \*.py script to generate g Be
-    sure to run convert_py after having made changes to mainwindow.
+    This class uses a *.ui converted to a *.py script to generate g Be
+    sure to run convert_py after having made changes to main_window.
     """
 
     def __init__(self):
         """Initialise MainWindow object.
 
-        Creates and populates QMainWindow object as described by mainwindow.py
+        Creates and populates QMainWindow object as described by main_window.py
         as well as creates MplWidget
         """
 
@@ -146,7 +147,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.raster_scan_controller = RasterScanController(main_window=self)
 
-        self.antibunch_controller = AntibunchingController(main_window=self)
+        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
+                                                           corr_sum_widget=self.pgAntibunching_Sum_PlotWidget)
+        # self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
+        #                                                    corr_sum_widget=None)
+        a_c = self.antibunch_controller
+        self.btnCorrCurrent.clicked.connect(a_c.gui_correlate_current)
+        self.btnCorrSelected.clicked.connect(a_c.gui_correlate_selected)
+        self.btnCorrAll.clicked.connect(a_c.gui_correlate_all)
+        self.spbBinSizeCorr.valueChanged.connect(a_c.rebin_corrs)
 
         self.filtering_controller = FilteringController(main_window=self)
 
@@ -195,6 +204,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.act_restore_bursts_selected
         )
         self.actionRestore_Bursts_All.triggered.connect(self.act_restore_bursts_all)
+        self.actionClose.triggered.connect(self.close_file)
 
         self.chbGroup_Use_ROI.stateChanged.connect(self.gui_group_use_roi)
         self.btnEx_Current.clicked.connect(self.gui_export_current)
@@ -212,6 +222,12 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.btnSelectAllExport_DataFrames.clicked.connect(
             self.select_all_dataframes_export_options
         )
+        self.chbInt_Select_Groups.stateChanged.connect(
+            lambda: self.gui_select_groups_changed(self.chbInt_Select_Groups)
+        )
+        self.chbLifetime_Select_Groups.stateChanged.connect(
+            lambda: self.gui_select_groups_changed(self.chbLifetime_Select_Groups)
+        )
 
         self.lblGrouping_ROI.setVisible(False)
 
@@ -223,6 +239,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         # Connect the tree selection to data display
         self.treeViewParticles.selectionModel().currentChanged.connect(
             self.display_data
+        )
+        self.treemodel.dataChanged.connect(
+            self.selection_changed
         )
         self.treeViewParticles.clicked.connect(self.tree_view_clicked)
         # self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
@@ -319,6 +338,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def gui_export_all(self):
         self.gui_export(mode="all")
 
+    def gui_select_groups_changed(self, chb_changed):
+        chb_other = (
+            self.chbLifetime_Select_Groups
+            if chb_changed is self.chbInt_Select_Groups
+            else self.chbInt_Select_Groups
+        )
+        chb_other.setChecked(chb_changed.isChecked())
+
     def act_detect_remove_bursts_current(self):
         self.detect_remove_bursts(mode="current")
 
@@ -368,6 +395,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         last_opened_file = fm.path(
             name="last_opened.txt", file_type=fm.Type.ResourcesRoot
         )
+        last_opened_path = ""
         if os.path.exists(last_opened_file) and os.path.isfile(last_opened_file):
             with open(last_opened_file, "r") as file:
                 last_opened_path = file.read()
@@ -592,7 +620,6 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def tree_view_key_press(self, event):
         pass
-        # print('here')
 
     def act_select_all(self, *args, **kwargs):
         if self.data_loaded:
@@ -662,6 +689,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def card_selected(self) -> None:
         self.display_data(combocard=True)
 
+    def selection_changed(self) -> None:
+        self.display_data()
+
     def display_data(
         self, current=None, prev=None, combocard=False, is_global_group=False
     ) -> None:
@@ -669,8 +699,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
             Directly called by the tree signal currentChanged, thus the two arguments.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         current : QtCore.QModelIndex
             The index of the current selected particle as defined by QtCore.QModelIndex.
         prev : QtCore.QModelIndex
@@ -742,10 +772,17 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 if cur_tab_name != "tabLifetime":
                     self.intensity_controller.plot_hist()
                 else:
-                    self.lifetime_controller.plot_decay(remove_empty=False)
-                    self.lifetime_controller.plot_convd()
-                    self.lifetime_controller.plot_residuals()
-                    self.lifetime_controller.update_results()
+                    use_selected = (
+                        False
+                        if self.current_particle.level_or_group_selected is None
+                        else True
+                    )
+                    self.lifetime_controller.plot_decay(
+                        use_selected=use_selected, remove_empty=False
+                    )
+                    self.lifetime_controller.plot_convd(use_selected=use_selected)
+                    self.lifetime_controller.plot_residuals(use_selected=use_selected)
+                    self.lifetime_controller.update_results(use_selected=use_selected)
                     self.lifetime_controller.update_apply_roi_button_colors()
 
                 if (
@@ -795,7 +832,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             # self.btnApplyGroupsSelected.setEnabled(set_apply_groups)
             # self.btnApplyGroupsAll.setEnabled(set_apply_groups)
 
-            logger.info("Current data displayed")
+            logger.info(f"{self.current_particle.name} data displayed")
 
     def status_message(self, message: str) -> None:
         """
@@ -1288,7 +1325,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.lock = Lock()
         f_dir = QFileDialog.getExistingDirectory(self)
         export_worker = ExportWorker(
-            mainwindow=self, mode=mode, lock=self.lock, f_dir=f_dir
+            main_window=self, mode=mode, lock=self.lock, f_dir=f_dir
         )
         sigs = export_worker.signals
         sigs.start_progress.connect(self.start_progress)
@@ -1425,7 +1462,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.btnGroupGlobal.setEnabled(has_levels)
             if has_levels:
                 has_groups = any(
-                    [particle.has_groups for particle in self.current_dataset.particles]
+                    [particle.has_groups for particle in self.current_dataset.particles if not particle.is_secondary_part]
                 )
                 self.btnApplyGroupsCurrent.setEnabled(has_groups)
                 self.btnApplyGroupsSelected.setEnabled(has_groups)
@@ -1445,6 +1482,15 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.btnSubBackground.setEnabled(new_state)
         else:
             self.tabSpectra.setEnabled(False)
+
+    def close_file(self):
+        if self.current_dataset is not None:
+            self.current_particle = None
+            self.current_dataset.file.close()
+            self.current_dataset = None
+            self.treemodel = DatasetTreeModel()
+            self.treeViewParticles.setModel(self.treemodel)
+            self.data_loaded = False
 
     def error_handler(self, e: Exception):
         raise e

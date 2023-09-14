@@ -17,13 +17,12 @@ pyqt5-stubs = "*"
 pyqt5 = "*"
 statsmodels = "*"
 pyqtgraph = "*"
-termcolor = "*"
+importlib-resources = "*"
+zipp = "*"
 
 [dev-packages]
-black = {extras = ["d"], version = "*"}
 auto-py-to-exe = "*"
 pympler = "*"
 
 [requires]
-python_version = "3.9"
-python_full_version = "3.9.13"
+python_version = "3"

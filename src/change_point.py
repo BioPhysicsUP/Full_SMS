@@ -13,7 +13,7 @@ from __future__ import annotations
 __docformat__ = "NumPy"
 
 import os
-from typing import Tuple, Optional, TYPE_CHECKING
+from typing import Tuple, Optional, TYPE_CHECKING, List
 
 import numpy as np
 from h5py import Dataset
@@ -146,7 +146,7 @@ class ChangePoints:
         return self._cpa.has_levels
 
     @property
-    def levels(self):
+    def levels(self) -> List[Level]:
         return self._cpa.levels
 
     @property
@@ -277,27 +277,28 @@ class ChangePoints:
         sigam_int_thresh = self._cpa.settings.pb_sigma_int_thresh
         defined_int_thresh = self._cpa.settings.pb_defined_int_thresh
 
-        assert (
-            self._particle.has_levels
-        ), "ChangePoints\tNeeds to have levels to check photon bursts."
-        if self.bursts_deleted is not None:
-            self.restore_bursts()
-        if use_sigma:
-            self.calc_mean_std()  # self.level_ints
-            burst_def = self._particle.avg_int_weighted + (
-                self._particle.int_std_weighted * sigam_int_thresh
+        # assert (
+        #     self._particle.has_levels
+        # ), "ChangePoints\tNeeds to have levels to check photon bursts."
+        if self._particle.has_levels:
+            if self.bursts_deleted is not None:
+                self.restore_bursts()
+            if use_sigma:
+                self.calc_mean_std()  # self.level_ints
+                burst_def = self._particle.avg_int_weighted + (
+                    self._particle.int_std_weighted * sigam_int_thresh
+                )
+            else:
+                burst_def = defined_int_thresh
+            # Chaning to logical_and, instead of logical_or
+            burst_bools = np.logical_and(
+                self.level_ints > burst_def,
+                np.array(self.level_dwelltimes) < min_dwell_time,
             )
-        else:
-            burst_def = defined_int_thresh
-        # Chaning to logical_and, instead of logical_or
-        burst_bools = np.logical_and(
-            self.level_ints > burst_def,
-            np.array(self.level_dwelltimes) < min_dwell_time,
-        )
-        burst_levels = np.where(burst_bools)[0]
-        if len(burst_levels):
-            self.has_burst = True
-            self.burst_levels = burst_levels
+            burst_levels = np.where(burst_bools)[0]
+            if len(burst_levels):
+                self.has_burst = True
+                self.burst_levels = burst_levels
 
     def remove_bursts(self):
         assert self.has_burst, "Particle\tNo bursts to remove."
@@ -372,6 +373,7 @@ class Level:
     def __init__(
         self,
         particle: Particle,
+        particle_ind: int,
         level_inds: Tuple[int, int],
         int_p_s: float = None,
         group_ind: int = None,
@@ -396,6 +398,7 @@ class Level:
         assert type(level_inds) is tuple, (
             "Level:\tLevel indexes argument is not a " "tuple (start, end)."
         )
+        self.particle_ind = particle_ind
         self.level_inds = level_inds  # (first_ind, last_ind)
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
         self.times_ns = (
@@ -1008,7 +1011,9 @@ class ChangePointAnalysis:
                             end_ind = self.num_photons
                         level_inds = (cpt, end_ind - 1)
                         self.levels[num + 1] = Level(
-                            particle=self._particle, level_inds=level_inds
+                            particle=self._particle,
+                            particle_ind=num + 1,
+                            level_inds=level_inds,
                         )
 
                         level_inds = (self.cpt_inds[num - 1], cpt - 1)
@@ -1016,14 +1021,17 @@ class ChangePointAnalysis:
                         level_inds = (self.cpt_inds[num - 1], cpt)
 
                     self.levels[num] = Level(
-                        particle=self._particle, level_inds=level_inds
+                        particle=self._particle, particle_ind=num, level_inds=level_inds
                     )
             else:
                 self.levels[0] = Level(
-                    particle=self._particle, level_inds=(0, self.cpt_inds[0] - 1)
+                    particle=self._particle,
+                    particle_ind=0,
+                    level_inds=(0, self.cpt_inds[0] - 1),
                 )
                 self.levels[1] = Level(
                     particle=self._particle,
+                    particle_ind=1,
                     level_inds=(self.cpt_inds[0], self.num_photons - 1),
                 )
 
@@ -1031,7 +1039,11 @@ class ChangePointAnalysis:
         elif self.has_run:  # Has run, no cpts -> One single level
             if self.num_photons >= 200:
                 self.levels = [
-                    Level(particle=self._particle, level_inds=(0, self.num_photons - 1))
+                    Level(
+                        particle=self._particle,
+                        particle_ind=0,
+                        level_inds=(0, self.num_photons - 1),
+                    )
                 ]
                 self.num_levels = 1
                 self.num_cpts = 0

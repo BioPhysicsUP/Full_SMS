@@ -60,9 +60,7 @@ class OpenFile:
     @file_path.setter
     def file_path(self, file_path: str):
         assert type(file_path) is str, "file_path must be of type str"
-        assert os.path.exists(file_path) and os.path.isfile(
-            file_path
-        ), "file_path is not a path to a valid file"
+        assert os.path.exists(file_path) and os.path.isfile(file_path), "file_path is not a path to a valid file"
         self._file_path = file_path
 
     @property
@@ -104,9 +102,7 @@ class OpenFile:
             sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
             prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
 
-            dataset = self.load_data(
-                fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb
-            )
+            dataset = self.load_data(fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb)
 
             datasetnode = DatasetTreeNode(
                 self.file_path[0][self.file_path[0].rfind("/") + 1 : -3],
@@ -120,9 +116,7 @@ class OpenFile:
 
             all_nodes = [(datasetnode, -1)]
             for i, particle in enumerate(dataset.particles):
-                if (
-                    not particle.is_secondary_part
-                ):  # "secondary" particles contain data from second TCSPC card
+                if not particle.is_secondary_part:  # "secondary" particles contain data from second TCSPC card
                     particlenode = DatasetTreeNode(particle.name, particle, "particle")
                     all_nodes.append((particlenode, i))
             sig_fb.add_all_particlenodes(all_nodes=all_nodes)
@@ -194,9 +188,7 @@ class OpenFile:
             sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
             prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
 
-            dataset = self.load_data(
-                fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb
-            )
+            dataset = self.load_data(fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb)
 
             for particle in dataset.particles:
                 particle.tmin = self.tmin
@@ -213,9 +205,7 @@ class OpenFile:
         except Exception as err:
             self.signals.error.emit(err)
 
-    def load_data(
-        self, fname: str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback
-    ):
+    def load_data(self, fname: str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
         dataset = smsh5.H5dataset(fname[0], sig_fb=sig_fb, prog_fb=prog_fb)
         bin_all(
             dataset=dataset,
@@ -243,9 +233,7 @@ class BinAll:
     def run_bin_all(self, feedback_queue: mp.JoinableQueue):
         sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
         prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
-        self.bin_all_func(
-            dataset=self.dataset, bin_size=self.bin_size, sig_fb=sig_fb, prog_fb=prog_fb
-        )
+        self.bin_all_func(dataset=self.dataset, bin_size=self.bin_size, sig_fb=sig_fb, prog_fb=prog_fb)
 
 
 def bin_all(

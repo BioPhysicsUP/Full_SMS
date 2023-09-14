@@ -25,6 +25,8 @@ import file_manager as fm
 from PyQt5 import uic
 from typing import TYPE_CHECKING, Union
 from settings_dialog import Settings
+from change_point import Level
+from grouping import GlobalLevel, Group
 
 if TYPE_CHECKING:
     from controllers import LifetimeController
@@ -246,9 +248,7 @@ class FluoFit:
         )
 
         self.meas_bef_bg = measured.copy()
-        measured = (
-            measured - self.bg
-        )  # This will result in negative counts, and can't see where it's dealt with
+        measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
         measured[measured <= 0] = 0
 
         self.measured_unbounded = measured
@@ -317,9 +317,7 @@ class FluoFit:
         if settings.lt_use_moving_avg:
             measured = moving_avg(
                 vector=measured,
-                window_length=min(
-                    settings.lt_moving_avg_window, int(0.1 * measured.size)
-                ),
+                window_length=min(settings.lt_moving_avg_window, int(0.1 * measured.size)),
                 pad_same_size=True,
             )
         if autostart == "Manual":
@@ -356,9 +354,7 @@ class FluoFit:
                 if not great_than_bg.size == 0:
                     endpoint = great_than_bg.max()
                 else:
-                    endpoint = startpoint + int(
-                        np.round(settings.lt_minimum_decay_window / channel_width)
-                    )
+                    endpoint = startpoint + int(np.round(settings.lt_minimum_decay_window / channel_width))
             if settings.lt_use_moving_avg:
                 endpoint += int(np.round(settings.lt_moving_avg_window / 2))
         elif endpoint is not None:
@@ -367,18 +363,11 @@ class FluoFit:
             endpoint = measured.size - 1
 
         if settings is not None:
-            if (
-                channel_width * (endpoint - startpoint)
-                < settings.lt_minimum_decay_window
-            ):
+            if channel_width * (endpoint - startpoint) < settings.lt_minimum_decay_window:
                 start = startmax if startmax is not None else startpoint
-                endpoint = start + int(
-                    np.round(settings.lt_minimum_decay_window / channel_width)
-                )
+                endpoint = start + int(np.round(settings.lt_minimum_decay_window / channel_width))
                 if autostart == "Safe rise start":
-                    startpoint -= int(
-                        np.round(0.3 * settings.lt_minimum_decay_window / channel_width)
-                    )
+                    startpoint -= int(np.round(0.3 * settings.lt_minimum_decay_window / channel_width))
 
         return startpoint, endpoint
 
@@ -485,9 +474,7 @@ class FluoFit:
             bg_percent = settings.lt_bg_percent / 100
         else:
             bg_percent = 0.05
-        bg_est = min(
-            bg_est, bg_percent * measured.max()
-        )  # bg shouldn't be more than given % of measured max
+        bg_est = min(bg_est, bg_percent * measured.max())  # bg shouldn't be more than given % of measured max
         if np.isnan(bg_est):  # bg also shouldn't be NaN
             bg_est = 0
         if return_bglim:
@@ -611,8 +598,9 @@ class FluoFit:
 
         """
 
-        self.tau = tau
-        self.amp = amp
+        # TODO: Make sure this doesn't break something
+        self.tau = tau if type(tau) in [list, np.ndarray] else [tau]
+        self.amp = amp if type(amp) in [list, np.ndarray] else [amp]
         self.shift = shift * self.channelwidth
         self.fwhm = fwhm
         self.stds = stds
@@ -631,16 +619,12 @@ class FluoFit:
         residuals = residuals / np.sqrt(np.abs(convd * self.meas_sum))
 
         residualsnotinf = np.abs(residuals) != np.inf
-        residuals = residuals[
-            residualsnotinf
-        ]  # For some reason this is the only way I could find that works
+        residuals = residuals[residualsnotinf]  # For some reason this is the only way I could find that works
         chisquared = np.sum((residuals**2)) / (np.size(measured) - param_df - 1)
         self.chisq = chisquared
         self.t = self.t[self.startpoint : self.endpoint]
         self.residuals = residuals
-        self.dw = np.sum(np.diff(residuals) ** 2) / np.sum(
-            residuals**2
-        )  # Durbin-Watson parameter
+        self.dw = np.sum(np.diff(residuals) ** 2) / np.sum(residuals**2)  # Durbin-Watson parameter
         self.dw_bound = self.durbinwatson()
 
         if self.ploton:
@@ -651,9 +635,7 @@ class FluoFit:
             textx = (self.endpoint - self.startpoint) * self.channelwidth * 1.4
             texty = measured.max()
             try:
-                ax1.text(
-                    textx, texty, "Tau = " + " ".join("{:#.3g}".format(F) for F in tau)
-                )
+                ax1.text(textx, texty, "Tau = " + " ".join("{:#.3g}".format(F) for F in tau))
                 ax1.text(
                     textx,
                     texty / 2,
@@ -662,9 +644,7 @@ class FluoFit:
             except TypeError:  # only one component
                 ax1.text(textx, texty, "Tau = {:#.3g}".format(tau))
             ax2.plot(self.t[residualsnotinf], residuals, ".", markersize=2)
-            ax2.text(
-                textx, residuals.max() / 1.1, r"$\chi ^2 = $ {:3.4f}".format(chisquared)
-            )
+            ax2.text(textx, residuals.max() / 1.1, r"$\chi ^2 = $ {:3.4f}".format(chisquared))
             ax2.set_xlabel("Time (ns)")
             ax2.set_ylabel("Weighted residual")
             ax1.set_ylabel("Number of photons in channel")
@@ -791,9 +771,7 @@ class FluoFit:
                 dw1 = dw
 
         # For < 1% use normal distribution
-        var = (4 * numpoints**2 * (numpoints - 2)) / (
-            (numpoints + 1) * (numpoints - 1) ** 3
-        )
+        var = (4 * numpoints**2 * (numpoints - 2)) / ((numpoints + 1) * (numpoints - 1) ** 3)
         std = np.sqrt(var)
         dw03 = np.round(2 - 3 * std, 3)
         dw01 = np.round(2 - 3.28 * std, 3)
@@ -983,8 +961,8 @@ class TwoExp(FluoFit):
         stds = np.sqrt(np.diag(pcov))
         # stds[3] = stds[2]  # second amplitude std is same as that of the first
         avtaustd = np.sqrt(
-            tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]))
-            + tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1]))
+            (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]) ** 2)) ** 2
+            + (tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1]) ** 2)) ** 2
         )
 
         if self.simulate_irf:
@@ -993,7 +971,7 @@ class TwoExp(FluoFit):
             fwhm = None
 
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
-        self.results(tau, stds, avtaustd, shift, amp, fwhm)
+        self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm)
 
     def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Double exponential model function passed to curve_fit, to be fitted to data."""
@@ -1090,9 +1068,9 @@ class ThreeExp(FluoFit):
         #     stds[3] ** 2 + stds[4] ** 2
         # )  # third amp std is based on first two
         avtaustd = np.sqrt(
-            tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0]))
-            + tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1]))
-            + tau[2] * amp[2] * np.sqrt((stds[2] / tau[2]) ** 2 + (stds[5] / amp[2]))
+            (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0]) ** 2)) ** 2
+            + (tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1]) ** 2)) ** 2
+            + (tau[2] * amp[2] * np.sqrt((stds[2] / tau[2]) ** 2 + (stds[5] / amp[2]) ** 2)) ** 2
         )
 
         if self.simulate_irf:
@@ -1100,10 +1078,8 @@ class ThreeExp(FluoFit):
         else:
             fwhm = None
 
-        self.convd = self.fitfunc(
-            self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm
-        )
-        self.results(tau, stds, avtaustd, shift, amp, fwhm)
+        self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
+        self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm)
 
     def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Triple exponential model function passed to curve_fit, to be fitted to data"""
@@ -1352,11 +1328,7 @@ class FittingParameters:
                     ",",
                 ]
                 if all([ch in num_chs for ch in text]):
-                    if (
-                        text.count("-") > 1
-                        or text.count(",") > 1
-                        or text.count(".") > 1
-                    ):
+                    if text.count("-") > 1 or text.count(",") > 1 or text.count(".") > 1:
                         return invalid
                     if text[0] in [".", ","]:
                         text = "0" + text
@@ -1555,15 +1527,18 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
 
         #  TODO: try should contain as little code as possible
         try:
-            if self.mainwindow.current_particle.level_selected is None:
+            selected_level_or_group = self.mainwindow.current_particle.level_or_group_selected
+            if selected_level_or_group is None:
                 histogram = self.mainwindow.current_particle.histogram
             else:
-                level = self.mainwindow.current_particle.level_selected
-                if level <= self.mainwindow.current_particle.num_levels - 1:
-                    histogram = self.mainwindow.current_particle.levels[level].histogram
-                else:
-                    group = level - self.mainwindow.current_particle.num_levels
-                    histogram = self.mainwindow.current_particle.groups[group].histogram
+                selected_level_or_group = self.mainwindow.current_particle.level_or_group_selected
+                histogram = selected_level_or_group.histogram
+                # if type(selected_level_or_group) in [Level, GlobalLevel]:
+                #     histogram = selected_level_or_group.histogram
+                # elif type(selected_level_or_group) is Group:
+                #     histogram = self.mainwindow.current_particle.groups[group].histogram
+                # else:
+                #     raise AttributeError("Provided `selected_level_or_group` not a level or group")
             decay = histogram.decay
             raw_decay = decay
             decay = decay / decay.sum()
@@ -1657,12 +1632,8 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
                     plot_pen.setJoinStyle(Qt.RoundJoin)
                     plot_pen.setCosmetic(True)
                     plot_pen.setColor(QColor("gray"))
-                    startline = pg.InfiniteLine(
-                        angle=90, pen=plot_pen, movable=False, pos=t[start]
-                    )
-                    endline = pg.InfiniteLine(
-                        angle=90, pen=plot_pen, movable=False, pos=t[end]
-                    )
+                    startline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[start])
+                    endline = pg.InfiniteLine(angle=90, pen=plot_pen, movable=False, pos=t[end])
                     plot_item.addItem(startline)
                     plot_item.addItem(endline)
                     # self.MW_fitparam.axes.axvline(t[start])
@@ -1719,9 +1690,5 @@ class FittingDialog(QDialog, UI_Fitting_Dialog):
             amp1 = fp.amp[0][0]
             amp2 = fp.amp[1][0]
             amp3 = fp.amp[2][0]
-            model = (
-                amp1 * np.exp(-t / tau1)
-                + amp2 * np.exp(-t / tau2)
-                + amp3 * np.exp(-t / tau3)
-            )
+            model = amp1 * np.exp(-t / tau1) + amp2 * np.exp(-t / tau2) + amp3 * np.exp(-t / tau3)
         return model

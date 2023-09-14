@@ -8,6 +8,7 @@ import pickle
 import lzma
 
 import h5pickle
+import numpy as np
 from PyQt5.QtCore import QRunnable, pyqtSlot
 
 import smsh5
@@ -116,7 +117,7 @@ def load_analysis(
         peek_bytes = f.read(7)
     if len(peek_bytes) >= 7 and peek_bytes[0:7] == b"\xfd7zXZ\x00\x00":
         file_format = "lzma"
-    elif len(peek_bytes) >= 1 and peek_bytes[0:1] == b"80":
+    elif len(peek_bytes) >= 1 and peek_bytes[0:1] == b"\x80":
         file_format = "pickle"
 
     if file_format == "pickle":
@@ -159,14 +160,15 @@ def load_analysis(
     for particle in loaded_dataset.particles:
         if not hasattr(particle, "roi_region"):
             particle.roi_region = (0, particle.abstimes[-1] / 1e9)
-        if not hasattr(particle, "use_roi_for_grouping"):
-            particle.ahca.use_roi_for_grouping = False
-        if not hasattr(particle, "grouped_with_roi"):
-            particle.ahca.grouped_with_roi = False
-        if not hasattr(particle.ahca, "backup"):
-            particle.ahca.backup = None
-        if not hasattr(particle.ahca, "plots_need_to_be_updated"):
-            particle.ahca.plots_need_to_be_updated = None
+        if not particle.is_secondary_part:
+            if not hasattr(particle, "use_roi_for_grouping"):
+                particle.ahca.use_roi_for_grouping = False
+            if not hasattr(particle, "grouped_with_roi"):
+                particle.ahca.grouped_with_roi = False
+            if not hasattr(particle.ahca, "backup"):
+                particle.ahca.backup = None
+            if not hasattr(particle.ahca, "plots_need_to_be_updated"):
+                particle.ahca.plots_need_to_be_updated = None
 
     dataset_node = DatasetTreeNode(
         analysis_file[analysis_file.rfind("/") + 1 : -3], loaded_dataset, "dataset"
@@ -176,6 +178,8 @@ def load_analysis(
     all_has_lifetimes = list()
     for i, particle in enumerate(loaded_dataset.particles):
         particlenode = DatasetTreeNode(particle.name, particle, "particle")
+        if particle.is_secondary_part:
+            continue
         all_nodes.append((particlenode, i))
         if hasattr(particlenode.dataobj.histogram, "fitted"):
             all_has_lifetimes.append(particlenode.dataobj.histogram.fitted)
@@ -186,8 +190,18 @@ def load_analysis(
         main_window.lifetime_controller.irf_loaded = True
         main_window.chbHasIRF.setChecked(True)
     main_window.add_all_nodes(all_nodes=all_nodes)
-    for i, node in enumerate(main_window.part_nodes):
-        node.setChecked(loaded_dataset.save_selected[i])
+    dup_num = int(len(main_window.part_nodes) / len(loaded_dataset.save_selected))
+    if dup_num > 1:
+        save_selected = (
+            np.array([[save] * dup_num for save in loaded_dataset.save_selected])
+            .reshape((len(main_window.part_nodes),))
+            .tolist()
+        )
+    else:
+        save_selected = loaded_dataset.save_selected
+
+    for node, save in zip(main_window.part_nodes, save_selected):
+        node.setChecked(save)
     dataset_node.setChecked(all([node.checked() for node in main_window.part_nodes]))
     num_checked = sum([node.checked() for node in main_window.part_nodes])
     main_window.lblNum_Selected.setText(str(num_checked))
