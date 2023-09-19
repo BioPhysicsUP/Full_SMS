@@ -780,23 +780,27 @@ class Exporter:
             if type(particles) is smsh5.Particle:
                 particles = [particles]
 
-            max_exp_number = np.max(
-                [
-                    *[p.histogram.numexp for p in particles if p.histogram.fitted],
-                    *[
-                        l.histogram.numexp
-                        for p in particles
-                        for l in p.levels
-                        if l.histogram.fitted
-                    ],
-                    *[
-                        g.histogram.numexp
-                        for p in particles
-                        for g in p.groups
-                        if g.histogram.fitted
-                    ],
-                ]
-            )
+            # TODO: better handling of the cases that produce the error instead of the try.
+            try:
+                max_exp_number = np.max(
+                    [
+                        *[p.histogram.numexp for p in particles if p.histogram.fitted],
+                        *[
+                            l.histogram.numexp
+                            for p in particles
+                            for l in p.levels
+                            if l.histogram.fitted
+                        ],
+                        *[
+                            g.histogram.numexp
+                            for p in particles
+                            for g in p.groups
+                            if g.histogram.fitted
+                        ],
+                    ]
+                )
+            except TypeError:  # no levels and/or no groups:
+                max_exp_number = np.max([p.histogram.numexp for p in particles if p.histogram.fitted])
 
             tau_cols = [f"Lifetime {i} (ns)" for i in range(max_exp_number)]
             tau_std_cols = [f"Lifetime {i} std (ns)" for i in range(max_exp_number)]
@@ -935,26 +939,34 @@ class Exporter:
                 _export_lifetimes(lifetime_path=lifetime_path, particles=all_fitted)
 
         else:
-            max_exp_number = np.max(
-                [
-                    *[p.histogram.numexp for p in particles if p.histogram.fitted],
-                    *[
-                        l.histogram.numexp
-                        for p in particles
-                        for l in p.levels
-                        if l.histogram.fitted
-                    ],
-                    *[
-                        g.histogram.numexp
-                        for p in particles
-                        for g in p.groups
-                        if g.histogram.fitted
-                    ],
-                ]
-            )
+            # TODO: fix so try is not needed, see line 783.
+            try:
+                max_exp_number = np.max(
+                    [
+                        *[p.histogram.numexp for p in particles if p.histogram.fitted],
+                        *[
+                            l.histogram.numexp
+                            for p in particles
+                            for l in p.levels
+                            if l.histogram.fitted
+                        ],
+                        *[
+                            g.histogram.numexp
+                            for p in particles
+                            for g in p.groups
+                            if g.histogram.fitted
+                        ],
+                    ]
+                )
+            except TypeError:  # no levels and/or no groups:
+                max_exp_number = np.max([p.histogram.numexp for p in particles if p.histogram.fitted])
 
             df_levels = None
-            all_levels = [l for p in particles for l in p.levels if l.histogram.fitted]
+            # TODO: fix so try is not needed, see line 783.
+            try:
+                all_levels = [l for p in particles for l in p.levels if l.histogram.fitted]
+            except TypeError:
+                all_levels = []
             if len(all_levels):
                 df_levels = self.levels_to_df(
                     max_exp_num=max_exp_number,
@@ -973,9 +985,13 @@ class Exporter:
                 )
 
             df_group_levels = None
-            all_group_levels = [
-                l for p in particles for l in p.group_levels if l.histogram.fitted
-            ]
+            # TODO: fix so try is not needed, see line 783.
+            try:
+                all_group_levels = [
+                    l for p in particles for l in p.group_levels if l.histogram.fitted
+                ]
+            except TypeError:
+                all_group_levels = []
             if len(all_group_levels):
                 df_group_levels = self.levels_to_df(
                     max_exp_num=max_exp_number,
