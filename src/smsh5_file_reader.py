@@ -23,7 +23,7 @@ def file_version(dataset: H5dataset) -> str:
 
 # File Groups
 def particle(particle_num: int, dataset: H5dataset) -> h5pickle.Dataset:
-    return dataset.file[f"Particle {particle_num}"]
+    return dataset.file[f"Particle {particle_num+1}"]
 
 
 # Particle Group Attributes

@@ -188,7 +188,7 @@ class H5dataset:
         file_keys = self.file.keys()
         for num, particle_name in enumerate(particle_names):
             if particle_name in file_keys:
-                particle = h5_fr.particle(particle_num=num + 1, dataset=self)
+                particle = h5_fr.particle(particle_num=num, dataset=self)
                 if h5_fr.has_raster_scan(particle=particle):
                     raster_scans.append((h5_fr.raster_scan(particle=particle), num))
 
