@@ -18,10 +18,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: BioPhysicsUP/checkout@latest
+    - uses: BioPhysicsUP/checkout@v4
     
     - name: Set up Python 3.9
-      uses: BioPhysicsUP/setup-python@latest
+      uses: BioPhysicsUP/setup-python@v4
       with:
         python-version: "3.9"
         
@@ -33,7 +33,7 @@ jobs:
     - name: PyInstaller Windows
       # You may pin to the exact commit or the version.
       # uses: JackMcKew/pyinstaller-action-windows@a8dee21ad01bbc7e7363d445bb632691b95ba057
-      uses: BioPhysicsUP/pyinstaller-action-windows@latest
+      uses: BioPhysicsUP/pyinstaller-action-windows@v0.1.2
       with:
         # Directory containing source code (optional requirements.txt).
         path: src
