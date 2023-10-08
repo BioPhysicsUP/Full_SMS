@@ -43,4 +43,4 @@ jobs:
         # Specify a custom URL for PYPI Index
         # pypi_index_url: # optional, default is https://pypi.python.org/simple
         # Specify a file path for .spec file
-        spec: build.spec
+        spec: src/build.spec
