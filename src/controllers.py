@@ -647,7 +647,8 @@ class IntController(QObject):
             level_ints, times = particle.levels2data(
                 use_roi=use_roi, use_global_groups=do_use_global
             )
-            level_ints = level_ints * self.get_bin() / 1e3
+            if level_ints is not None:
+                level_ints = level_ints * self.get_bin() / 1e3
         except AttributeError:
             logger.error("No levels!")
             return
@@ -2933,11 +2934,19 @@ class GroupingController(QObject):
         export_group_roi_label = ""
         label_color = "black"
         all_has_groups = np.array(
-            [p.has_groups for p in self.main_window.current_dataset.particles if not p.is_secondary_part]
+            [
+                p.has_groups
+                for p in self.main_window.current_dataset.particles
+                if not p.is_secondary_part
+            ]
         )
         if any(all_has_groups):
             all_grouped_with_roi = np.array(
-                [p.grouped_with_roi for p in self.main_window.current_dataset.particles if not p.is_secondary_part]
+                [
+                    p.grouped_with_roi
+                    for p in self.main_window.current_dataset.particles
+                    if not p.is_secondary_part
+                ]
             )
             all_grouped_and_with_roi = all_grouped_with_roi[all_has_groups]
             if all(all_grouped_and_with_roi):
@@ -3448,15 +3457,13 @@ class RasterScanController(QObject):
             for num, part_index in enumerate(raster_scan.particle_indexes):
                 if num != 0:
                     all_text = all_text + "<br></br>"
-                part_name = f'Particle {part_index + 1}'
+                part_name = f"Particle {part_index + 1}"
                 if particle.name == part_name:
-                        all_text = (
+                    all_text = (
                         all_text + f"<strong>{num + 1}) {particle.name}</strong>: "
                     )
                 else:
-                    all_text = (
-                        all_text + f"{num + 1}) {part_name}: "
-                    )
+                    all_text = all_text + f"{num + 1}) {part_name}: "
                 all_text = (
                     all_text + f"x={rs_part_coord[num][0]: .1f}, "
                     f"y={rs_part_coord[num][1]: .1f}"
@@ -3468,8 +3475,12 @@ class RasterScanController(QObject):
 
 
 class AntibunchingController(QObject):
-
-    def __init__(self, mainwindow: MainWindow, corr_widget: pg.PlotWidget, corr_sum_widget: pg.PlotWidget):
+    def __init__(
+        self,
+        mainwindow: MainWindow,
+        corr_widget: pg.PlotWidget,
+        corr_sum_widget: pg.PlotWidget,
+    ):
         super().__init__()
         self.main_window = mainwindow
 
@@ -3513,8 +3524,8 @@ class AntibunchingController(QObject):
         left_axis.label.setFont(font)
         bottom_axis.label.setFont(font)
 
-        left_axis.setLabel('Number of occur.', 'counts/bin')
-        bottom_axis.setLabel('Delay time', 'ns')
+        left_axis.setLabel("Number of occur.", "counts/bin")
+        bottom_axis.setLabel("Delay time", "ns")
         # plot_item.vb.setLimits(xMin=0, yMin=0)
 
     @staticmethod
@@ -3535,7 +3546,6 @@ class AntibunchingController(QObject):
 
     def gui_correlate_all(self):
         self.start_corr_thread("all")
-
 
     def plot_corr(
         self,
@@ -3608,7 +3618,7 @@ class AntibunchingController(QObject):
         for particle in self.main_window.get_checked_particles():
             ab_analysis = particle.ab_analysis
             if not ab_analysis.has_corr:
-                logger.info(particle.name + ' has no correlation')
+                logger.info(particle.name + " has no correlation")
                 return
             else:
                 bins = ab_analysis.corr_bins
@@ -3622,7 +3632,7 @@ class AntibunchingController(QObject):
         plot_pen.setCosmetic(True)
 
         plot_pen.setWidthF(1.5)
-        plot_pen.setColor(QColor('green'))
+        plot_pen.setColor(QColor("green"))
 
         plot_pen.setJoinStyle(Qt.RoundJoin)
         plot_item.plot(x=bins, y=allcorr, pen=plot_pen, symbol=None)
@@ -3716,10 +3726,10 @@ class AntibunchingController(QObject):
     def corr_thread_complete(self, mode: str = None):
         if self.main_window.current_particle is not None:
             self.main_window.display_data()
-        if not mode == 'current':
+        if not mode == "current":
             self.main_window.status_message("Done")
         self.main_window.current_dataset.has_corr = True
-        logger.info('Correlation complete')
+        logger.info("Correlation complete")
 
     def rebin_corrs(self):
         window = self.main_window.spbWindow.value()
@@ -3727,7 +3737,9 @@ class AntibunchingController(QObject):
         if binsize == 0:
             return
         binsize = binsize / 1000  # convert to ns
-        ab_objs = [part.ab_analysis for part in self.main_window.current_dataset.particles]
+        ab_objs = [
+            part.ab_analysis for part in self.main_window.current_dataset.particles
+        ]
         for ab in ab_objs:
             if ab.has_corr:
                 ab.rebin_corr(window, binsize)
@@ -3920,6 +3932,7 @@ class FilteringController(QObject):
             y=[0],
             pen=self.plot_fit_pen,
         )
+        self.filter_settings = None
 
     @staticmethod
     def _get_label(feature: PlotFeature = None) -> tuple:
@@ -4641,7 +4654,139 @@ class FilteringController(QObject):
 
         self.plot_fit_result()
 
+    def get_filter_settings(self) -> dict:
+        filter_settings = {
+            "photon_number": {
+                "enabled_min": self.main_window.chbFiltMinPhotons.isChecked(),
+                "min_value": self.main_window.spnFiltMinPhotons.value(),
+            },
+            "intensity": {
+                "enabled_min": self.main_window.chbFiltMinIntensity.isChecked(),
+                "min_value": self.main_window.dsbFiltMinIntensity.value(),
+                "enabled_max": self.main_window.chbFiltMaxIntensity.isChecked(),
+                "max_value": self.main_window.dsbFiltMaxIntensity.value(),
+            },
+            "lifetime": {
+                "enabled_min": self.main_window.chbFiltMinLifetime.isChecked(),
+                "min_value": self.main_window.dsbFiltMinLifetime.value(),
+                "enabled_max": self.main_window.chbFiltMaxLifetime.isChecked(),
+                "max_value": self.main_window.dsbFiltMaxLifetime.value(),
+            },
+            "dw": {
+                "enabled_dw": self.main_window.chbFiltUseDW.isChecked(),
+                "selected_dw_test": self.main_window.cmbFiltDWTest.currentText(),
+            },
+            "irf_shift": {
+                "enabled_min": self.main_window.chbFiltMinIRFShift.isChecked(),
+                "min_value": self.main_window.dsbFiltMinIRFShift.value(),
+                "enabled_max": self.main_window.chbFiltMaxIRFShift.isChecked(),
+                "max_value": self.main_window.dsbFiltMaxIRFShift.value(),
+            },
+            "chi_squared": {
+                "enabled_min": self.main_window.chbFiltMinChiSquared.isChecked(),
+                "min_value": self.main_window.dsbFiltMinChiSquared.value(),
+                "enabled_max": self.main_window.chbFiltMaxChiSquared.isChecked(),
+                "max_value": self.main_window.dsbFiltMaxChiSquared.value(),
+            },
+        }
+        return filter_settings
+
+    @staticmethod
+    def _block_change(obj, change_method_name, value):
+        print(str(obj) + change_method_name)
+        if not hasattr(obj, change_method_name):
+            assert ValueError("Method name provided does not exist")
+        change_method = getattr(obj, change_method_name)
+
+        if not hasattr(obj, "blockSignals"):
+            change_method(value)
+        else:
+            obj.blockSignals(True)
+            change_method(value)
+            obj.blockSignals(False)
+
+    def set_filter_settings(self, filter_settings: dict):
+        fs_pn = filter_settings["photon_number"]
+        fs_int = filter_settings["intensity"]
+        fs_lf = filter_settings["lifetime"]
+        fs_dw = filter_settings["dw"]
+        fs_irf = filter_settings["irf_shift"]
+        fs_chi = filter_settings["chi_squared"]
+
+        # Photon number
+        self._block_change(
+            self.main_window.chbFiltMinPhotons, "setChecked", fs_pn["enabled_min"]
+        )
+        self._block_change(
+            self.main_window.spnFiltMinPhotons, "setValue", fs_pn["min_value"]
+        )
+
+        # Intensity
+        self._block_change(
+            self.main_window.chbFiltMinIntensity, "setChecked", fs_int["enabled_min"]
+        )
+        self._block_change(
+            self.main_window.dsbFiltMinIntensity, "setValue", fs_int["min_value"]
+        )
+        self._block_change(
+            self.main_window.chbFiltMaxIntensity, "setChecked", fs_int["enabled_max"]
+        )
+        self._block_change(
+            self.main_window.dsbFiltMaxIntensity, "setValue", fs_int["max_value"]
+        )
+
+        # Lifetime
+        self._block_change(
+            self.main_window.chbFiltMinLifetime, "setChecked", fs_lf["enabled_min"]
+        )
+        self._block_change(
+            self.main_window.dsbFiltMinLifetime, "setValue", fs_lf["min_value"]
+        )
+        self._block_change(
+            self.main_window.chbFiltMaxLifetime, "setChecked", fs_lf["enabled_max"]
+        )
+        self._block_change(
+            self.main_window.dsbFiltMaxLifetime, "setValue", fs_lf["max_value"]
+        )
+
+        # Durbin Watson
+        self._block_change(
+            self.main_window.chbFiltUseDW, "setChecked", fs_dw["enabled_dw"]
+        )
+        self._block_change(
+            self.main_window.cmbFiltDWTest, "setCurrentText", fs_dw["selected_dw_test"]
+        )
+
+        # IRF Shift
+        self._block_change(
+            self.main_window.chbFiltMinIRFShift, "setChecked", fs_irf["enabled_min"]
+        )
+        self._block_change(
+            self.main_window.dsbFiltMinIRFShift, "setValue", fs_irf["min_value"]
+        )
+        self._block_change(
+            self.main_window.chbFiltMaxIRFShift, "setChecked", fs_irf["enabled_max"]
+        )
+        self._block_change(
+            self.main_window.dsbFiltMaxIRFShift, "setValue", fs_irf["max_value"]
+        )
+
+        # Chi Squared
+        self._block_change(
+            self.main_window.chbFiltMinChiSquared, "setChecked", fs_chi["enabled_min"]
+        )
+        self._block_change(
+            self.main_window.dsbFiltMinChiSquared, "setValue", fs_chi["min_value"]
+        )
+        self._block_change(
+            self.main_window.chbFiltMaxChiSquared, "setChecked", fs_chi["enabled_max"]
+        )
+        self._block_change(
+            self.main_window.dsbFiltMaxChiSquared, "setValue", fs_chi["max_value"]
+        )
+
     def apply_filters(self):
+        self.filter_settings = self.get_filter_settings()
         self.set_levels_to_use()
         all_filters = self.get_all_filter()
         for level, level_filter in zip(self.levels_to_use, all_filters):
@@ -4729,4 +4874,3 @@ class FilteringController(QObject):
         self.is_normalized = True
         self.main_window.lblFiltResults.setText("Applied Normalization")
         self.plot_features(use_current_plot=True)
-

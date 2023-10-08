@@ -477,7 +477,12 @@ class Exporter:
         )
         if self.options.ex_df_levels:
             all_levels = [l for p in particles for l in p.levels]
-            df_levels = self.levels_to_df(max_exp_num=max_exp_num, levels=all_levels)
+            df_levels = self.levels_to_df(
+                max_exp_num=max_exp_num,
+                levels=all_levels,
+                filter_settings=self.main_window.filtering_controller.filter_settings,
+                is_grouped=False,
+            )
             self.write_dataframe_to_file(
                 dataframe=df_levels,
                 path=self.f_dir,
@@ -490,7 +495,10 @@ class Exporter:
         if self.options.ex_df_grouped_levels:
             all_group_levels = [g_l for p in particles for g_l in p.group_levels]
             df_group_levels = self.levels_to_df(
-                max_exp_num=max_exp_num, levels=all_group_levels
+                max_exp_num=max_exp_num,
+                levels=all_group_levels,
+                filter_settings=self.main_window.filtering_controller.filter_settings,
+                is_grouped=True,
             )
             self.write_dataframe_to_file(
                 dataframe=df_group_levels,
@@ -538,7 +546,63 @@ class Exporter:
         return pd.DataFrame(s)
 
     @staticmethod
-    def levels_to_df(max_exp_num: int, levels: List[Union[Level, GlobalLevel]]):
+    def filter_with_settings(df: pd.DataFrame, filter_settings: dict) -> pd.DataFrame:
+        fs_pn = filter_settings["photon_number"]
+        fs_int = filter_settings["intensity"]
+        fs_lf = filter_settings["lifetime"]
+        fs_dw = filter_settings["dw"]
+        fs_irf = filter_settings["irf_shift"]
+        fs_chi = filter_settings["chi_squared"]
+        if "test_max" in fs_chi.keys():
+            fs_chi["enabled_min"] = fs_chi["test_min"]
+            fs_chi["enabled_max"] = fs_chi["test_max"]
+
+        df_tests = pd.DataFrame()
+        if fs_pn["enabled_min"]:
+            df_tests[("failed_photon_min")] = df.num_photons < fs_pn["min_value"]
+
+        if fs_int["enabled_max"]:
+            df_tests["failed_int_max"] = df.int > fs_int["max_value"]
+        if fs_int["enabled_min"]:
+            df_tests["failed_int_min"] = df.int < fs_int["min_value"]
+
+        if fs_lf["enabled_max"]:
+            df_tests["failed_tau_max"] = df["av_tau"] > fs_lf["max_value"]
+        if fs_lf["enabled_min"]:
+            df_tests["failed_tau_min"] = df["av_tau"] < fs_lf["min_value"]
+
+        if fs_dw["enabled_dw"]:
+            if fs_dw["selected_dw_test"] == "5%":
+                dw_bound_text = "dw_5"
+            elif fs_dw["selected_dw_test"] == "1%":
+                dw_bound_text = "dw_1"
+            elif fs_dw["selected_dw_test"] == "0.3%":
+                dw_bound_text = "dw_03"
+            else:
+                dw_bound_text = "dw_01"
+            df_tests["failed_" + dw_bound_text] = df["dw"] < df[dw_bound_text]
+
+        if fs_irf["enabled_max"]:
+            df_tests["failed_irf_max"] = df["irf_shift"] > fs_irf["max_value"]
+        if fs_irf["enabled_min"]:
+            df_tests["failed_irf_min"] = df["irf_shift"] < fs_irf["min_value"]
+
+        if fs_chi["enabled_max"]:
+            df_tests["failed_chisq_max"] = df["chisq"] > fs_chi["max_value"]
+        if fs_chi["enabled_min"]:
+            df_tests["failed_chisq_min"] = df["chisq"] < fs_chi["min_value"]
+
+        df["is_filtered_out"] = df_tests.apply(axis=1, func=lambda row: np.any(row))
+        return pd.concat([df, df_tests], axis=1)
+
+    # @staticmethod
+    def levels_to_df(
+        self,
+        max_exp_num: int,
+        levels: List[Union[Level, GlobalLevel]],
+        filter_settings: dict = None,
+        is_grouped: bool = None,
+    ):
         s = dict()
         s["particle"] = pd.Series([l._particle.unique_name for l in levels])
         s["level"] = pd.Series([l.particle_ind + 1 for l in levels])
@@ -661,7 +725,14 @@ class Exporter:
             ]
         )
 
-        return pd.DataFrame(s)
+        df = pd.DataFrame(s)
+        if filter_settings is not None:
+            df = self.filter_with_settings(df=df, filter_settings=filter_settings)
+
+        if is_grouped is not None:
+            df["is_grouped"] = is_grouped
+
+        return df
 
     ##############################################################
     # NON pandas DataFrame exports

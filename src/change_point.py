@@ -401,6 +401,8 @@ class Level:
         self.particle_ind = particle_ind
         self.level_inds = level_inds  # (first_ind, last_ind)
         self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
+        if len(self.abs_times) < self.level_inds[1]:
+            print("oops")
         self.times_ns = (
             self.abs_times[self.level_inds[0]],
             self.abs_times[self.level_inds[1]],
@@ -1021,7 +1023,9 @@ class ChangePointAnalysis:
                         level_inds = (self.cpt_inds[num - 1], cpt)
 
                     self.levels[num] = Level(
-                        particle=self._particle, particle_ind=num, level_inds=level_inds
+                        particle=self._particle,
+                        particle_ind=self._particle.dataset_ind,
+                        level_inds=level_inds,
                     )
             else:
                 self.levels[0] = Level(

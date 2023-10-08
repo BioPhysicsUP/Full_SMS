@@ -385,7 +385,7 @@ class Particle:
         self.uuid = uuid1()
         self.name = name
         self.dataset = dataset
-        self.dataset_ind = dataset_ind
+        self.dataset_ind: int = dataset_ind
         # self.get_file = lambda: dataset.get_file()
         self.file_version = h5_fr.file_version(dataset=dataset)
         # self.dataset_particle = self.file[self.name]
@@ -673,7 +673,6 @@ class Particle:
         if not self.is_secondary_part:
             self._ab_analysis = ab_analysis
 
-
     @property
     def groups(self) -> List[grouping.Group]:
         """The particle's grouped levels."""
@@ -934,8 +933,8 @@ class Particle:
             Intensities as a function of time for plotting.
         """
         assert self.has_levels, "ChangePointAnalysis:\tNo levels to convert to data."
-        if self.is_secondary_part:
-            return
+        # if self.is_secondary_part:
+        #     return None, None
         if use_grouped is None:
             use_grouped = self.has_groups and self.using_group_levels
 
@@ -1165,7 +1164,11 @@ class Particle:
 
     def makegrouplevelhists(self):
         """Make grouped level histograms."""
-        if not self.is_secondary_part and self.has_groups and self.ahca.selected_step.groups_have_hists:
+        if (
+            not self.is_secondary_part
+            and self.has_groups
+            and self.ahca.selected_step.groups_have_hists
+        ):
             if self.ahca.num_steps == 1:
                 self.groups[0].histogram = self.ahca.steps[0].groups[0].histogram
             else:
@@ -1739,7 +1742,9 @@ class Histogram:
             if numexp == 1:
                 self.avtau = self.tau
             else:
-                self.avtau = sum(np.array(self.tau) * np.array(self.amp)) / sum(self.amp)
+                self.avtau = sum(np.array(self.tau) * np.array(self.amp)) / sum(
+                    self.amp
+                )
             self.decay_roi_start_ns = fit.startpoint * self._particle.channelwidth
             self.decay_roi_end_ns = fit.endpoint * self._particle.channelwidth
             self.num_photons_used = np.sum(fit.measured_not_normalized)
