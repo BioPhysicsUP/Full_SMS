@@ -10,13 +10,14 @@ Example Structure
 Project_Root/
 ├── src/
 │   └── main.py
-├── resources/
-│   └── ui/
-│   │   └── main_window.ui
-│   └── icons/
-│   │   └── app.ico
-│   └── data/
-│       └── file.dat
+|   ├── ...
+|   ├── resources/
+|   │   └── ui/
+|   │   │   └── main_window.ui
+|   │   └── icons/
+|   │   │   └── app.ico
+|   │   └── data/
+|   │       └── file.dat
 └── docs/
     └── readme.md
 
@@ -57,10 +58,11 @@ def get_path_type_str(path_enum: Type):
 def path(name: str, file_type: Type = None, custom_folder: str = None):
     """Get absolute path to resource, works for dev and for PyInstaller"""
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except AttributeError:
-        base_path = os.path.abspath(".")
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            base_path = sys._MEIPASS
+    except:
+        base_path = os.path.abspath(os.path.dirname(__file__))
 
     try:
         if file_type is None:
@@ -70,7 +72,9 @@ def path(name: str, file_type: Type = None, custom_folder: str = None):
         if file_type is not Type.ProjectRoot:
             base_path += os.path.sep + get_path_type_str(file_type)
         if custom_folder:
-            assert type(custom_folder) is str, "Provided custom_folder is not of type str"
+            assert (
+                type(custom_folder) is str
+            ), "Provided custom_folder is not of type str"
             base_path += os.path.sep + custom_folder
         return os.path.join(base_path, name)
     except Exception as err:

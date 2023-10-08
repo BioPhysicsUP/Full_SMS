@@ -19,10 +19,12 @@ statsmodels = "*"
 pyqtgraph = "*"
 importlib-resources = "*"
 zipp = "*"
+auto-py-to-exe = "*"
 
 [dev-packages]
 auto-py-to-exe = "*"
 pympler = "*"
+pyinstaller = "*"
 
 [requires]
 python_version = "3"

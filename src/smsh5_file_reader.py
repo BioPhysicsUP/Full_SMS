@@ -69,7 +69,11 @@ def user(particle: Particle) -> str:
 
 # Particle Groups
 def abstimes(particle: Particle) -> h5pickle.Dataset:
-    return particle.file_group["Absolute Times (ns)"]
+    if particle.is_secondary_part:
+        abs_times = particle.file_group["Absolute Times 2 (ns)"]
+    else:
+        abs_times = particle.file_group["Absolute Times (ns)"]
+    return abs_times
 
 
 def abstimes2(particle: Particle) -> h5pickle.Dataset:
@@ -89,10 +93,16 @@ def abstimes2(particle: Particle) -> h5pickle.Dataset:
 
 
 def microtimes(particle: Particle) -> h5pickle.Dataset:
-    if particle.file_version in ["1.0", "1.01", "1.02"]:
-        microtimes_dataset = particle.file_group["Micro Times (s)"]
+    if particle.is_secondary_part:
+        if particle.file_version in ["1.0", "1.01", "1.02"]:
+            microtimes_dataset = particle.file_group["Micro Times 2 (s)"]
+        else:
+            microtimes_dataset = particle.file_group["Micro Times 2 (ns)"]
     else:
-        microtimes_dataset = particle.file_group["Micro Times (ns)"]
+        if particle.file_version in ["1.0", "1.01", "1.02"]:
+            microtimes_dataset = particle.file_group["Micro Times (s)"]
+        else:
+            microtimes_dataset = particle.file_group["Micro Times (ns)"]
     return microtimes_dataset
 
 
