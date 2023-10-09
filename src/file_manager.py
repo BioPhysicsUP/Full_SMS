@@ -57,12 +57,14 @@ def get_path_type_str(path_enum: Type):
 
 def path(name: str, file_type: Type = None, custom_folder: str = None):
     """Get absolute path to resource, works for dev and for PyInstaller"""
+
+    base_path = os.path.abspath(os.path.dirname(__file__))
     try:
         if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
             # PyInstaller creates a temp folder and stores path in _MEIPASS
             base_path = sys._MEIPASS
     except:
-        base_path = os.path.abspath(os.path.dirname(__file__))
+        pass
 
     try:
         if file_type is None:
