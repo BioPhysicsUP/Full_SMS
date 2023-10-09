@@ -163,7 +163,6 @@ Syncfolders_Database_db
 /.vs/
 /test_data/
 /.vscode/
-/.qt_for_python/
 /src/analysis/
 /output/
 /src/resources/last_opened.txt
