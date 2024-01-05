@@ -19,7 +19,8 @@ from PyQt5.QtGui import QPen, QColor, QDoubleValidator, QRegExpValidator
 from PyQt5.QtWidgets import QLineEdit, QCheckBox, QDialog, QComboBox, QMessageBox
 from matplotlib import pyplot as plt
 from scipy.fftpack import fft, ifft
-from scipy.optimize import curve_fit, nnls
+from scipy.linalg import svd
+from scipy.optimize import curve_fit, minimize
 from scipy.signal import convolve
 import file_manager as fm
 from PyQt5 import uic
@@ -27,6 +28,7 @@ from typing import TYPE_CHECKING, Union
 from settings_dialog import Settings
 from change_point import Level
 from grouping import GlobalLevel, Group
+from autograd import hessian
 
 if TYPE_CHECKING:
     from controllers import LifetimeController
@@ -149,6 +151,35 @@ def colorshift(irf, shift):
     return irs
 
 
+def minfunc(p0, fitfunc, t, measured):
+    # print(p0)
+    convd = fitfunc(t, *tuple(p0))
+    frac = np.divide(measured, convd, out=np.zeros_like(np.float64(measured)), where=convd != 0)
+    frac = np.clip(frac, 0, None)
+    # print(frac)
+    return np.sum(measured * np.log(frac, where=frac>0))  # multinomial
+    # return -np.sum(measured * np.log(convd, where=convd>0) - convd)  # poisson
+
+
+def ml_curve_fit(fitfunc, t, measured, bounds, p0):
+    bounds = np.column_stack(bounds).tolist()
+    bounds =[tuple(bound) for bound in bounds]
+    print(bounds)
+    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='Powell', options={'ftol': 1e-50})
+    return res
+
+
+#def fitfunc(self, t, tau1, a, shift, fwhm=None):
+# param, pcov, *extra = curve_fit(
+#     self.fitfunc,
+#     self.t[self.startpoint: self.endpoint],
+#     self.measured,
+#     bounds=(paramin, paramax),
+#     p0=paraminit,
+#     **addopt,
+# )
+
+
 class FluoFit:
     """Base class for fit of a multi-exponential decay curve.
 
@@ -258,13 +289,15 @@ class FluoFit:
         meas_std = np.sqrt(np.abs(measured))
         self.bg_n = None
         self.meas_std = None
-        if self.meas_sum != 0:
-            self.measured = measured / self.meas_sum  # Normalize measured
-            self.bg_n = self.bg / self.meas_sum  # Normalized background
-            self.meas_std = meas_std / self.meas_sum
-        # self.measured = measured
-        # self.bg_n = self.bg
-        # self.meas_std = meas_std
+
+        # if self.meas_sum != 0:
+        #     self.measured = measured / self.meas_sum  # Normalize measured
+        #     self.bg_n = self.bg / self.meas_sum  # Normalized background
+        #     self.meas_std = meas_std / self.meas_sum
+        self.measured = measured
+        self.bg_n = self.bg
+        self.meas_std = meas_std
+
         self.dtau = None
         self.chisq = None
         self.residuals = None
@@ -610,7 +643,7 @@ class FluoFit:
 
         measured = self.meas_bef_bg
         measured = measured[self.startpoint : self.endpoint]
-        measured = measured / self.meas_sum
+        # measured = measured / self.meas_sum
 
         convd = self.convd + self.bg_n
 
@@ -677,6 +710,7 @@ class FluoFit:
         convd = convd[self.startpoint : self.endpoint]
         if self.normalize_amps:
             convd = convd / convd.sum()
+            convd = convd * self.meas_sum
         return convd
 
     @staticmethod
@@ -838,13 +872,37 @@ class OneExp(FluoFit):
 
         try:
             if addopt is None:
-                param, pcov, *extra = curve_fit(
+                # param, pcov, *extra = curve_fit(
+                #     self.fitfunc,
+                #     self.t,  # , self.t[self.startpoint: self.endpoint],
+                #     self.measured,
+                #     bounds=(paramin, paramax),
+                #     p0=paraminit,
+                # )
+                # TODO: make the return format match curve_fit, ie move pcov calc to mlfitfunc
+                res = ml_curve_fit(
                     self.fitfunc,
                     self.t,  # , self.t[self.startpoint: self.endpoint],
                     self.measured,
                     bounds=(paramin, paramax),
                     p0=paraminit,
                 )
+                param = res.x
+                print(res.message)
+
+                # _, s, VT = svd(res.jac, full_matrices=False)
+                # threshold = np.finfo(float).eps * max(res.jac.shape) * s[0]
+                # s = s[s > threshold]
+                # VT = VT[:s.size]
+                # pcov = np.dot(VT.T / s ** 2, VT)
+
+                # hess_minfunc = lambda p0: minfunc(p0, self.fitfunc, self.t, self.measured)
+                # hessian_ = hessian(hess_minfunc)
+                # var = np.linalg.inv(hessian_(res.x))
+
+                pcov = np.zeros((4, 4))
+
+
             else:
                 param, pcov, *extra = curve_fit(
                     self.fitfunc,
@@ -855,6 +913,7 @@ class OneExp(FluoFit):
                     **addopt,
                 )
         except ValueError as error:
+            raise(error)
             logger.error("Fitting failed")
         else:
             tau = param[0]
@@ -868,12 +927,14 @@ class OneExp(FluoFit):
             else:
                 fwhm = None
 
+            print(amp)
             self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
             self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm)
 
     def fitfunc(self, t, tau1, a, shift, fwhm=None):
         """Single exponential model function passed to curve_fit, to be fitted to data."""
-        model = a * np.exp(-t / tau1)
+        # model = a * np.exp(-t / tau1)
+        model = np.exp(-t / tau1)
         return self.makeconvd(shift, model, fwhm)
 
 
