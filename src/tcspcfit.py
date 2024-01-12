@@ -11,7 +11,7 @@ from __future__ import annotations
 
 __docformat__ = "NumPy"
 
-import numpy as np
+import autograd.numpy as np
 import pyqtgraph as pg
 import scipy
 from PyQt5.QtCore import Qt, QRegExp
@@ -165,7 +165,7 @@ def ml_curve_fit(fitfunc, t, measured, bounds, p0):
     bounds = np.column_stack(bounds).tolist()
     bounds =[tuple(bound) for bound in bounds]
     print(bounds)
-    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='Powell', options={'ftol': 1e-50})
+    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='L-BFGS-B', options={'ftol': 1e-10})
     return res
 
 
@@ -683,7 +683,7 @@ class FluoFit:
             ax1.set_ylabel("Number of photons in channel")
             plt.show()
 
-    def makeconvd(self, shift, model, fwhm=None):
+    def makeconvd(self, shift, bg, model, fwhm=None):
         """Makes a convolved decay using IRF and exponential model
 
         The IRF is either `self.irf` or, if `fwhm` is provided, a simulated Gaussian.
@@ -706,8 +706,9 @@ class FluoFit:
             irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured_unbounded)
 
         irf = colorshift(irf, shift)
-        convd = convolve(irf, model)
+        convd = convolve(irf, model) + bg
         convd = convd[self.startpoint : self.endpoint]
+        # convd = convd + bg
         if self.normalize_amps:
             convd = convd / convd.sum()
             convd = convd * self.meas_sum
@@ -861,6 +862,8 @@ class OneExp(FluoFit):
             numexp=1,
         )
 
+        # self.ampmax = 5
+
         if self.simulate_irf:
             paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
             paramax = [self.taumax[0], self.ampmax, self.shiftmax, self.fwhmmax]
@@ -869,6 +872,8 @@ class OneExp(FluoFit):
             paramin = [self.taumin[0], self.ampmin, self.shiftmin]
             paramax = [self.taumax[0], self.ampmax, self.shiftmax]
             paraminit = [self.tau[0], self.amp, self.shift]
+
+        print(paraminit)
 
         try:
             if addopt is None:
@@ -879,7 +884,6 @@ class OneExp(FluoFit):
                 #     bounds=(paramin, paramax),
                 #     p0=paraminit,
                 # )
-                # TODO: make the return format match curve_fit, ie move pcov calc to mlfitfunc
                 res = ml_curve_fit(
                     self.fitfunc,
                     self.t,  # , self.t[self.startpoint: self.endpoint],
@@ -889,19 +893,17 @@ class OneExp(FluoFit):
                 )
                 param = res.x
                 print(res.message)
+                print(param)
 
-                # _, s, VT = svd(res.jac, full_matrices=False)
-                # threshold = np.finfo(float).eps * max(res.jac.shape) * s[0]
-                # s = s[s > threshold]
-                # VT = VT[:s.size]
-                # pcov = np.dot(VT.T / s ** 2, VT)
-
-                # hess_minfunc = lambda p0: minfunc(p0, self.fitfunc, self.t, self.measured)
-                # hessian_ = hessian(hess_minfunc)
-                # var = np.linalg.inv(hessian_(res.x))
-
-                pcov = np.zeros((4, 4))
-
+                ftol = 1e-10
+                tmp_i = np.zeros(len(res.x))
+                stds = np.zeros(len(res.x))
+                for i in range(len(res.x)):
+                    tmp_i[i] = 1.0
+                    hess_inv_i = res.hess_inv(tmp_i)[i]
+                    uncertainty_i = np.sqrt(max(1, abs(res.fun)) * ftol * hess_inv_i)
+                    tmp_i[i] = 0.0
+                    stds[i] = uncertainty_i
 
             else:
                 param, pcov, *extra = curve_fit(
@@ -919,7 +921,7 @@ class OneExp(FluoFit):
             tau = param[0]
             amp = param[1]
             shift = param[2]
-            stds = np.sqrt(np.diag(pcov))
+            # stds = np.sqrt(np.diag(pcov))
             avtaustd = stds[0]
 
             if self.simulate_irf:
@@ -931,11 +933,11 @@ class OneExp(FluoFit):
             self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
             self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm)
 
-    def fitfunc(self, t, tau1, a, shift, fwhm=None):
+    def fitfunc(self, t, tau1, bg, shift, fwhm=None):
         """Single exponential model function passed to curve_fit, to be fitted to data."""
         # model = a * np.exp(-t / tau1)
         model = np.exp(-t / tau1)
-        return self.makeconvd(shift, model, fwhm)
+        return self.makeconvd(shift, bg, model, fwhm)
 
 
 class TwoExp(FluoFit):

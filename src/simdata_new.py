@@ -58,14 +58,16 @@ irf = gauss
 
 def fitfunc1(t, tau1):
     model = np.exp(-t / tau1)
-    convd = convolve(irf, model)
-    convd = convd * (1 / convd.max())  # peak of 100 is about what you get at low excitation power
+    irs = tcspcfit.colorshift(irf, 20)
+    convd = convolve(irs, model)
+    convd = convd * (100 / convd.max())  # peak of 100 is about what you get at low excitation power
     return convd
 
 
 def fitfunc(t, amp1, tau1, tau2):
     model = amp1 * np.exp(-t / tau1) + (1 - amp1) * np.exp(-t / tau2)
-    convd = convolve(irf, model)
+    irs = tcspcfit.colorshift(irf, 0.1)
+    convd = convolve(irs, model)
     convd = convd * (100 / convd.max())  # peak of 100 is about what you get at low excitation power
     return convd
 
@@ -73,21 +75,27 @@ def fitfunc(t, amp1, tau1, tau2):
 convd = fitfunc1(t,3.4)
 tau = [[3.0, 3, 5, 0]]
 # tau = [[0.08, 0.01, 0.2, 1], [3.4, 0, 10, 0]]
-# amp = [0.9, 0.1]
+amp = [[0, 0, 1, 0]]
 # amp = [[0.1, 0, 1, 1], [0.9, 0, 1, 1]]
-shift = [0, 0, 1, 1]
+shift = [0, -40, 40, 0]
 
 
-convd = convd + 0  # bg of 1
+convd = convd + 30  # bg of 1
 convdnoise = np.random.poisson(convd)
+convdsum = convdnoise.sum()
+convdnoise = convdnoise / convdsum
 # convdnoise = convd
 
-fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0)
+bg_est = tcspcfit.FluoFit.estimate_bg(convdnoise)
+print(bg_est * convdsum)
+
+fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est*convdsum)
 print('# photons: ', convdnoise.sum())
 print('Tau: ', fit.tau)
 print('Amp: ', fit.amp)
 print('IRFbg: ', fit.irfbg)
 print('bg: ', fit.bg)
+print('shift: ', fit.shift)
 
 resid = (fit.convd - fit.measured) #/ np.sqrt(np.abs(fit.measured))
 acf = np.correlate(resid, resid, 'full')
@@ -95,11 +103,11 @@ chisq = np.sum(resid ** 2)
 print(chisq)
 plt.figure()
 plt.plot(resid, '.')
-plt.show()
+# plt.show()
 plt.figure()
 plt.plot(fit.measured)
 plt.plot(fit.convd)
-plt.show()
+# plt.show()
 #
 # # param, pcov = curve_fit(fitfunc, t, convdnoise, p0=[0.01, 0.08, 3.4])
 # # print(param)
