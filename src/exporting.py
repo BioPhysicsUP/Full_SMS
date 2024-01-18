@@ -1344,7 +1344,7 @@ class Exporter:
         bins = particle.ab_analysis.corr_bins
         hist = particle.ab_analysis.corr_hist / 1e3
         rows = list()
-        rows.append(["Bin #", "Bin Time (ns)", f"Correlation (counts/bin)"])
+        rows.append(["Bin #", "Bin Time (ns)", f"Correlation (counts/bin_old)"])
         for i in range(len(bins)):
             rows.append([str(i + 1), str(bins[i]), str(hist[i])])
         with self._open_file(tr_path) as f:

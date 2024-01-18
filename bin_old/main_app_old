@@ -1,0 +1,16 @@
+#!/usr/bin_old/env python3
+
+from src import main
+
+"""
+    my application.
+"""
+
+def main_func():
+    """run the application"""
+
+    main.main()
+
+
+if __name__ == '__main__':
+    main_func()

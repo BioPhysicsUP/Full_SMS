@@ -351,7 +351,7 @@ class IntController(QObject):
         logger.info("Show experimental trace")
 
     def gui_apply_bin(self):
-        """Changes the bin size of the data of the current particle and then displays the new trace."""
+        """Changes the bin_old size of the data of the current particle and then displays the new trace."""
         try:
             self.main_window.current_particle.binints(self.get_bin())
         except Exception as err:
@@ -372,28 +372,28 @@ class IntController(QObject):
         self.plot_all()
 
     def get_bin(self) -> int:
-        """Returns current GUI value for bin size in ms.
+        """Returns current GUI value for bin_old size in ms.
 
         Returns
         -------
         int
-            The value of the bin size on the GUI in spbBinSize.
+            The value of the bin_old size on the GUI in spbBinSize.
         """
 
         return self.main_window.spbBinSize.value()
 
     def set_bin(self, new_bin: int):
-        """Sets the GUI value for the bin size in ms
+        """Sets the GUI value for the bin_old size in ms
 
         Parameters
         ----------
         new_bin: int
-            Value to set bin size to, in ms.
+            Value to set bin_old size to, in ms.
         """
         self.main_window.spbBinSize.setValue(new_bin)
 
     def gui_apply_bin_all(self):
-        """Changes the bin size of the data of all the particles and then displays the new trace of the current particle."""
+        """Changes the bin_old size of the data of all the particles and then displays the new trace of the current particle."""
 
         self.start_binall_thread(self.get_bin())
 
@@ -1428,7 +1428,7 @@ class LifetimeController(QObject):
 
         # Setup axes and limits
         if not is_residuals:
-            plot.getAxis("left").setLabel("Num. of occur.", "counts/bin")
+            plot.getAxis("left").setLabel("Num. of occur.", "counts/bin_old")
             plot.getAxis("bottom").setLabel("Decay time", "ns")
             plot.getViewBox().setLimits(xMin=0, yMin=0)
         else:
@@ -3524,7 +3524,7 @@ class AntibunchingController(QObject):
         left_axis.label.setFont(font)
         bottom_axis.label.setFont(font)
 
-        left_axis.setLabel("Number of occur.", "counts/bin")
+        left_axis.setLabel("Number of occur.", "counts/bin_old")
         bottom_axis.setLabel("Delay time", "ns")
         # plot_item.vb.setLimits(xMin=0, yMin=0)
 
@@ -3595,7 +3595,7 @@ class AntibunchingController(QObject):
             corr_ax.spines["right"].set_visible(False)
             corr_ax.semilogy(bins, corr)
 
-            corr_ax.set(xlabel=f"Delay time (ns)", ylabel="Correlation (counts/bin)")
+            corr_ax.set(xlabel=f"Delay time (ns)", ylabel="Correlation (counts/bin_old)")
 
         if for_export and export_path is not None:
             if not (os.path.exists(export_path) and os.path.isdir(export_path)):

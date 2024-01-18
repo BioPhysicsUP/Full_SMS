@@ -281,7 +281,7 @@ class H5dataset:
         Arguments
         ---------
         binsize : float
-            Time bin size in ms
+            Time bin_old size in ms
         sig_fb : PassSigFeedback, optional
             feedback queue for signals
         prog_fb : ProcessProgFeedback, optional
@@ -1397,7 +1397,7 @@ class Trace:
     particle : Particle
         The Particle which creates the Trace.
     binsize : int
-        Size of time bin in ms.
+        Size of time bin_old in ms.
     """
 
     def __init__(self, particle: Particle, binsize: int):

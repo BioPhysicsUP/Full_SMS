@@ -45,7 +45,7 @@ class AntibunchingAnalysis:
         window : float
             time window for correlation in ns
         binsize : float
-            bin size for correlation histogram in ns
+            bin_old size for correlation histogram in ns
         """
 
         abstimes1 = self._particle.abstimes[:]
@@ -93,7 +93,7 @@ class AntibunchingAnalysis:
         window : float
             time window for correlation in ns
         binsize : float
-            bin size for correlation histogram in ns
+            bin_old size for correlation histogram in ns
 
         Returns:
         --------

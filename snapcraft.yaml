@@ -1,0 +1,18 @@
+name: full-sms
+version: "1.0"
+summary: Example python snap app
+description: Example python snap app
+confinement: devmode
+grade: stable
+base: core22
+
+apps:
+  full-sms:
+    command: bin/main_app
+
+parts:
+  full-sms:
+    plugin: python
+    stage-packages:
+      - nvidia-cg-toolkit
+    source: .
