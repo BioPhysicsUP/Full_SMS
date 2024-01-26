@@ -165,7 +165,9 @@ def ml_curve_fit(fitfunc, t, measured, bounds, p0):
     bounds = np.column_stack(bounds).tolist()
     bounds =[tuple(bound) for bound in bounds]
     print(bounds)
-    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='L-BFGS-B', options={'ftol': 1e-10})
+    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='Nelder-Mead',
+                   options={'maxfev': 2e4, 'fatol': 1e-35, 'xatol': 1e-40})
+    # res = minimize(minfunc, p0, args=(fitfunc, t, measured))#, method='L-BFGS-B',
     return res
 
 
@@ -393,7 +395,7 @@ class FluoFit:
         elif endpoint is not None:
             endpoint = min(endpoint, measured.size - 1)
         else:
-            endpoint = measured.size - 1
+            endpoint = measured.size #- 1
 
         if settings is not None:
             if channel_width * (endpoint - startpoint) < settings.lt_minimum_decay_window:
@@ -863,6 +865,9 @@ class OneExp(FluoFit):
         )
 
         # self.ampmax = 5
+        # self.amp = 2
+        # self.ampmin = 0
+        # self.ampmax = 100
 
         if self.simulate_irf:
             paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
@@ -898,12 +903,12 @@ class OneExp(FluoFit):
                 ftol = 1e-10
                 tmp_i = np.zeros(len(res.x))
                 stds = np.zeros(len(res.x))
-                for i in range(len(res.x)):
-                    tmp_i[i] = 1.0
-                    hess_inv_i = res.hess_inv(tmp_i)[i]
-                    uncertainty_i = np.sqrt(max(1, abs(res.fun)) * ftol * hess_inv_i)
-                    tmp_i[i] = 0.0
-                    stds[i] = uncertainty_i
+                # for i in range(len(res.x)):
+                #     tmp_i[i] = 1.0
+                #     hess_inv_i = res.hess_inv(tmp_i)[i]
+                #     uncertainty_i = np.sqrt(max(1, abs(res.fun)) * ftol * hess_inv_i)
+                #     tmp_i[i] = 0.0
+                #     stds[i] = uncertainty_i
 
             else:
                 param, pcov, *extra = curve_fit(
@@ -929,7 +934,6 @@ class OneExp(FluoFit):
             else:
                 fwhm = None
 
-            print(amp)
             self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
             self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm)
 
@@ -991,6 +995,10 @@ class TwoExp(FluoFit):
             numexp=2,
         )
 
+        self.ampmin = [0.49999, 2]  # amp, bg
+        self.ampmax = [0.50001, 5]  # amp, bg
+        self.amp = [0.5, 3]  # amp, bg
+
         if self.simulate_irf:
             paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
             paramax = self.taumax + self.ampmax + [self.shiftmax] + [self.fwhmmax]
@@ -1001,13 +1009,27 @@ class TwoExp(FluoFit):
             paraminit = self.tau + self.amp + [self.shift]
 
         if addopt is None:
-            param, pcov, *extra = curve_fit(
+            # param, pcov, *extra = curve_fit(
+            #     self.fitfunc,
+            #     self.t,
+            #     self.measured,
+            #     bounds=(paramin, paramax),
+            #     p0=paraminit,
+            # )
+            res = ml_curve_fit(
                 self.fitfunc,
-                self.t,
+                self.t,  # , self.t[self.startpoint: self.endpoint],
                 self.measured,
                 bounds=(paramin, paramax),
                 p0=paraminit,
             )
+            param = res.x
+            print(res.message)
+            print(param)
+
+            ftol = 1e-10
+            tmp_i = np.zeros(len(res.x))
+            stds = np.zeros(len(res.x))
         else:
             param, pcov, *extra = curve_fit(
                 self.fitfunc,
@@ -1021,7 +1043,7 @@ class TwoExp(FluoFit):
         tau = param[0:2]
         amp = param[2:4]
         shift = param[4]
-        stds = np.sqrt(np.diag(pcov))
+        # stds = np.sqrt(np.diag(pcov))
         # stds[3] = stds[2]  # second amplitude std is same as that of the first
         avtaustd = np.sqrt(
             (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]) ** 2)) ** 2
@@ -1036,11 +1058,11 @@ class TwoExp(FluoFit):
         self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
         self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm)
 
-    def fitfunc(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
+    def fitfunc(self, t, tau1, tau2, a1, bg, shift, fwhm=None):
         """Double exponential model function passed to curve_fit, to be fitted to data."""
-        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
+        model = a1 * np.exp(-t / tau1) + (1-a1) * np.exp(-t / tau2)
         if self.normalize_amps:
-            return self.makeconvd(shift, model, fwhm) + (1 - a1 - a2)
+            return self.makeconvd(shift, bg, model, fwhm)# + (1 - a1 - a2)
         else:
             return self.makeconvd(shift, model, fwhm)
 

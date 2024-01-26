@@ -60,7 +60,8 @@ def fitfunc1(t, tau1):
     model = np.exp(-t / tau1)
     irs = tcspcfit.colorshift(irf, 20)
     convd = convolve(irs, model)
-    convd = convd * (100 / convd.max())  # peak of 100 is about what you get at low excitation power
+    # convd = model
+    convd = convd * (10 / convd.max())  # peak of 100 is about what you get at low excitation power
     return convd
 
 
@@ -72,25 +73,32 @@ def fitfunc(t, amp1, tau1, tau2):
     return convd
 
 
-convd = fitfunc1(t,3.4)
-tau = [[3.0, 3, 5, 0]]
-# tau = [[0.08, 0.01, 0.2, 1], [3.4, 0, 10, 0]]
-amp = [[0, 0, 1, 0]]
+# convd = fitfunc1(t,1.3)
+# tau = [[1.3, 1.2, 1.4, 0]]
+convd = fitfunc(t,0.5, 0.08, 3.4)
+tau = [[0.08, 0.05, 0.1, 0], [3.4, 3.2, 3.6, 0]]
+amp = [[0.5, 0.4, 0.6, 0]]
 # amp = [[0.1, 0, 1, 1], [0.9, 0, 1, 1]]
-shift = [0, -40, 40, 0]
+shift = [20, -300, 300, 0]
 
 
-convd = convd + 30  # bg of 1
+convd = convd + 5
+convdsum = convd.sum()
 convdnoise = np.random.poisson(convd)
-convdsum = convdnoise.sum()
-convdnoise = convdnoise / convdsum
+# convdnoise[convdnoise <= 0] = 0
+# convdsum = convdnoise.sum()
+# convdnoise = convdnoise / convdsum
 # convdnoise = convd
 
 bg_est = tcspcfit.FluoFit.estimate_bg(convdnoise)
-print(bg_est * convdsum)
+# print(bg_est * convdsum)
+print(bg_est)
 
-fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est*convdsum)
+# fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est*convdsum)
+# fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est)
+fit = tcspcfit.TwoExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est)
 print('# photons: ', convdnoise.sum())
+print('# fit photos: ', fit.convd.sum())
 print('Tau: ', fit.tau)
 print('Amp: ', fit.amp)
 print('IRFbg: ', fit.irfbg)
@@ -101,13 +109,17 @@ resid = (fit.convd - fit.measured) #/ np.sqrt(np.abs(fit.measured))
 acf = np.correlate(resid, resid, 'full')
 chisq = np.sum(resid ** 2)
 print(chisq)
-plt.figure()
-plt.plot(resid, '.')
+# plt.figure()
+# plt.plot(resid, '.')
 # plt.show()
 plt.figure()
-plt.plot(fit.measured)
+plt.plot(convdnoise)
+plt.plot(convd)
+# plt.plot(irf)
+# plt.plot(fit.measured)
 plt.plot(fit.convd)
-# plt.show()
+# plt.plot(fit.irf)
+plt.show()
 #
 # # param, pcov = curve_fit(fitfunc, t, convdnoise, p0=[0.01, 0.08, 3.4])
 # # print(param)
