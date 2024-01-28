@@ -11,7 +11,7 @@ from __future__ import annotations
 
 __docformat__ = "NumPy"
 
-import autograd.numpy as np
+import numpy as np
 import pyqtgraph as pg
 import scipy
 from PyQt5.QtCore import Qt, QRegExp
@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Union
 from settings_dialog import Settings
 from change_point import Level
 from grouping import GlobalLevel, Group
-from autograd import hessian
 
 if TYPE_CHECKING:
     from controllers import LifetimeController
@@ -166,9 +165,12 @@ def ml_curve_fit(fitfunc, t, measured, bounds, p0):
     bounds =[tuple(bound) for bound in bounds]
     print(bounds)
     res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='Nelder-Mead',
-                   options={'maxfev': 2e4, 'fatol': 1e-35, 'xatol': 1e-40})
+                   options={'maxfev': 1e3, 'fatol': 1e-35, 'xatol': 1e-40})
     # res = minimize(minfunc, p0, args=(fitfunc, t, measured))#, method='L-BFGS-B',
-    return res
+    param = res.x
+    pcov = np.zeros(param.shape)
+    print(res.message)
+    return param, pcov
 
 
 #def fitfunc(self, t, tau1, a, shift, fwhm=None):
@@ -217,6 +219,8 @@ class FluoFit:
         Full-width at half maximum of simulated irf. IRF is not simulated if fwhm is None.
     normalize_amps : bool = True
         Whether to use normalized lifetime amplitudes.
+    method : str = 'ls'
+        Method for fitting - 'ls' for least-squares or 'ml' for maximum likelihood.
     numexp : int, optional
         Number of exponential components in fit.
     """
@@ -234,6 +238,7 @@ class FluoFit:
         boundaries=None,
         ploton=False,
         fwhm=None,
+        method = 'ls',
         normalize_amps=True,
         numexp = None
     ):
@@ -242,6 +247,7 @@ class FluoFit:
         self.channelwidth = channelwidth
         self.ploton = ploton
         self.t = t
+        self.method = method
 
         if fwhm is not None:
             self.simulate_irf = True
@@ -261,7 +267,10 @@ class FluoFit:
         self.fwhmmin = None
         self.fwhmmax = None
         self.stds = []
-        self.setup_params(amp, shift, tau, fwhm)
+        if self.method == 'ls':
+            self.setup_params(amp, shift, tau, fwhm)
+        elif self.method == 'ml':
+            self.setup_params(amp, shift, tau, fwhm, bg)
         self.settings = Settings()
         self.load_settings()
 
@@ -277,12 +286,13 @@ class FluoFit:
         self.startpoint = None
         self.endpoint = None
         self.startpoint, self.endpoint = self.calculate_boundaries(
-            measured, boundaries, self.bg, self.settings, channelwidth
+            measured, boundaries, self.bg, self.settings, channelwidth, self.method
         )
 
         self.meas_bef_bg = measured.copy()
-        measured = measured - self.bg  # This will result in negative counts, and can't see where it's dealt with
-        measured[measured <= 0] = 0
+        if self.method == 'ls':
+            measured = measured - self.bg
+            measured[measured <= 0] = 0
 
         self.measured_unbounded = measured
         measured = measured[self.startpoint : self.endpoint]
@@ -292,13 +302,15 @@ class FluoFit:
         self.bg_n = None
         self.meas_std = None
 
-        # if self.meas_sum != 0:
-        #     self.measured = measured / self.meas_sum  # Normalize measured
-        #     self.bg_n = self.bg / self.meas_sum  # Normalized background
-        #     self.meas_std = meas_std / self.meas_sum
-        self.measured = measured
-        self.bg_n = self.bg
-        self.meas_std = meas_std
+        if self.method == 'ls':
+            if self.meas_sum != 0:
+                self.measured = measured / self.meas_sum  # Normalize measured
+                self.bg_n = self.bg / self.meas_sum  # Normalized background
+                self.meas_std = meas_std / self.meas_sum
+        elif self.method == 'ml':
+            self.measured = measured
+            self.bg_n = 0
+            self.meas_std = meas_std
 
         self.dtau = None
         self.chisq = None
@@ -317,7 +329,7 @@ class FluoFit:
             self.settings.load_settings_from_file(file_or_path=settings_file)
 
     @staticmethod
-    def calculate_boundaries(measured, boundaries, bg, settings, channel_width):
+    def calculate_boundaries(measured, boundaries, bg, settings, channel_width, fitmethod='ls'):
         """Set the start and endpoints.
 
         Sets the values to the given ones or automatically find good ones.
@@ -339,6 +351,9 @@ class FluoFit:
             Contains config settings.
         channel_width : float
             Duration of a single channel.
+        fitmethod : string
+            Fitting method for lifetime fit - 'ls' for least
+            squares or 'ml' for maximum likelihood.
         """
         if boundaries is None:
             boundaries = [None, None, "Manual", False]
@@ -395,7 +410,10 @@ class FluoFit:
         elif endpoint is not None:
             endpoint = min(endpoint, measured.size - 1)
         else:
-            endpoint = measured.size #- 1
+            if fitmethod == 'ls':
+                endpoint = measured.size - 1
+            elif fitmethod == 'ml':
+                endpoint = measured.size
 
         if settings is not None:
             if channel_width * (endpoint - startpoint) < settings.lt_minimum_decay_window:
@@ -517,7 +535,7 @@ class FluoFit:
         else:
             return bg_est
 
-    def setup_params(self, amp, shift, tau, fwhm=None):
+    def setup_params(self, amp, shift, tau, fwhm=None, bg=None):
         """Setup fitting parameters.
 
         This method handles the input of initial parameters for fitting. The
@@ -587,6 +605,26 @@ class FluoFit:
             self.shiftmin = -2000
             self.shiftmax = 2000
 
+        if self.method == 'ls':
+            self.bgval = None
+            self.bgmin = None
+            self.bgmax = None
+        else:
+            if bg is None:
+                bg = 0
+            try:
+                self.bgval = bg[0]
+                if bg[-1]:
+                    self.bgmin = bg[0] - 0.0001
+                    self.bgmax = bg[0] + 0.0001
+                else:
+                    self.bgmin = bg[1]
+                    self.bgmax = bg[2]
+            except (TypeError, IndexError) as e:  # If shiftval is not a list
+                self.bgval = bg
+                self.bgmin = 0
+                self.bgmax = 10
+
         if self.simulate_irf:
             try:
                 self.fwhm = fwhm[0]
@@ -614,7 +652,7 @@ class FluoFit:
             df_num = 1
         return df_num
 
-    def results(self, tau, stds, avtaustd, shift, amp=1, fwhm=None):
+    def results(self, tau, stds, avtaustd, shift, amp=1, fwhm=None, bg=None):
         """Handle results after fitting
 
         After fitting, the results are processed. Chi-squared is calculated
@@ -640,6 +678,8 @@ class FluoFit:
         self.fwhm = fwhm
         self.stds = stds
         self.avtaustd = avtaustd
+        if bg is not None:
+            self.bg = bg
 
         param_df = self.df_len(tau) + (self.df_len(amp) - 1) + self.df_len(shift)
 
@@ -685,7 +725,7 @@ class FluoFit:
             ax1.set_ylabel("Number of photons in channel")
             plt.show()
 
-    def makeconvd(self, shift, bg, model, fwhm=None):
+    def makeconvd(self, shift, model, fwhm=None, bg=0):
         """Makes a convolved decay using IRF and exponential model
 
         The IRF is either `self.irf` or, if `fwhm` is provided, a simulated Gaussian.
@@ -708,12 +748,14 @@ class FluoFit:
             irf, irft = self.sim_irf(self.channelwidth, fwhm, self.measured_unbounded)
 
         irf = colorshift(irf, shift)
-        convd = convolve(irf, model) + bg
+        convd = convolve(irf, model)
+        if self.method == 'ml':
+            convd = convd + bg
         convd = convd[self.startpoint : self.endpoint]
-        # convd = convd + bg
         if self.normalize_amps:
             convd = convd / convd.sum()
-            convd = convd * self.meas_sum
+            if self.method == 'ml':
+                convd = convd * self.meas_sum
         return convd
 
     @staticmethod
@@ -842,6 +884,7 @@ class OneExp(FluoFit):
         addopt=None,
         ploton=False,
         fwhm=None,
+        method='ls'
     ):
         if tau is None:
             tau = 5
@@ -861,87 +904,87 @@ class OneExp(FluoFit):
             boundaries,
             ploton,
             fwhm,
+            method,
             numexp=1,
         )
 
-        # self.ampmax = 5
-        # self.amp = 2
-        # self.ampmin = 0
-        # self.ampmax = 100
+        if self.method == 'ls':
+            if self.simulate_irf:
+                paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
+                paramax = [self.taumax[0], self.ampmax, self.shiftmax, self.fwhmmax]
+                paraminit = [self.tau[0], self.amp, self.shift, self.fwhm]
+            else:
+                paramin = [self.taumin[0], self.ampmin, self.shiftmin]
+                paramax = [self.taumax[0], self.ampmax, self.shiftmax]
+                paraminit = [self.tau[0], self.amp, self.shift]
+        elif self.method == 'ml':
+            if self.simulate_irf:
+                paramin = [self.taumin[0], self.shiftmin, self.fwhmmin, self.bgmin]
+                paramax = [self.taumax[0], self.shiftmax, self.fwhmmax, self.bgmax]
+                paraminit = [self.tau[0],  self.shift, self.fwhm, self.bgval]
+            else:
+                paramin = [self.taumin[0], self.shiftmin, self.bgmin]
+                paramax = [self.taumax[0], self.shiftmax, self.bgmax]
+                paraminit = [self.tau[0], self.shift, self.bgval]
 
-        if self.simulate_irf:
-            paramin = [self.taumin[0], self.ampmin, self.shiftmin, self.fwhmmin]
-            paramax = [self.taumax[0], self.ampmax, self.shiftmax, self.fwhmmax]
-            paraminit = [self.tau[0], self.amp, self.shift, self.fwhm]
-        else:
-            paramin = [self.taumin[0], self.ampmin, self.shiftmin]
-            paramax = [self.taumax[0], self.ampmax, self.shiftmax]
-            paraminit = [self.tau[0], self.amp, self.shift]
-
-        print(paraminit)
-
+        if self.method == 'ls':
+            c_f = curve_fit
+            self.fitfunc = self.fitfunc_ls
+        elif self.method == 'ml':
+            c_f = ml_curve_fit
+            self.fitfunc = self.fitfunc_ml
         try:
             if addopt is None:
-                # param, pcov, *extra = curve_fit(
-                #     self.fitfunc,
-                #     self.t,  # , self.t[self.startpoint: self.endpoint],
-                #     self.measured,
-                #     bounds=(paramin, paramax),
-                #     p0=paraminit,
-                # )
-                res = ml_curve_fit(
+                param, pcov, *extra = c_f(
                     self.fitfunc,
                     self.t,  # , self.t[self.startpoint: self.endpoint],
                     self.measured,
                     bounds=(paramin, paramax),
                     p0=paraminit,
                 )
-                param = res.x
-                print(res.message)
                 print(param)
 
-                ftol = 1e-10
-                tmp_i = np.zeros(len(res.x))
-                stds = np.zeros(len(res.x))
-                # for i in range(len(res.x)):
-                #     tmp_i[i] = 1.0
-                #     hess_inv_i = res.hess_inv(tmp_i)[i]
-                #     uncertainty_i = np.sqrt(max(1, abs(res.fun)) * ftol * hess_inv_i)
-                #     tmp_i[i] = 0.0
-                #     stds[i] = uncertainty_i
-
             else:
-                param, pcov, *extra = curve_fit(
+                param, pcov, *extra = c_f(
                     self.fitfunc,
-                    self.t[self.startpoint : self.endpoint],
+                    self.t,
                     self.measured,
                     bounds=(paramin, paramax),
                     p0=paraminit,
                     **addopt,
                 )
+
         except ValueError as error:
             raise(error)
-            logger.error("Fitting failed")
+            #logger.error("Fitting failed")
         else:
             tau = param[0]
             amp = param[1]
             shift = param[2]
-            # stds = np.sqrt(np.diag(pcov))
+            stds = np.sqrt(np.diag(pcov))
             avtaustd = stds[0]
-
             if self.simulate_irf:
                 fwhm = param[3]
             else:
                 fwhm = None
 
-            self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
-            self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm)
+            if self.method == 'ls':
+                bg = None
+            elif self.method == 'ml':
+                bg = param[-1]
 
-    def fitfunc(self, t, tau1, bg, shift, fwhm=None):
+            self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
+            self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm, bg=bg)
+
+    def fitfunc_ls(self, t, tau1, a, shift, fwhm=None):
         """Single exponential model function passed to curve_fit, to be fitted to data."""
-        # model = a * np.exp(-t / tau1)
+        model = a * np.exp(-t / tau1)
+        return self.makeconvd(shift, model, fwhm)
+
+    def fitfunc_ml(self, t, tau1, shift, bg, fwhm=None):
+        """Single exponential model function passed to curve_fit, to be fitted to data."""
         model = np.exp(-t / tau1)
-        return self.makeconvd(shift, bg, model, fwhm)
+        return self.makeconvd(shift, model, fwhm, bg)
 
 
 class TwoExp(FluoFit):

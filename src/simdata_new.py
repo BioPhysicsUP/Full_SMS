@@ -73,11 +73,11 @@ def fitfunc(t, amp1, tau1, tau2):
     return convd
 
 
-# convd = fitfunc1(t,1.3)
-# tau = [[1.3, 1.2, 1.4, 0]]
-convd = fitfunc(t,0.5, 0.08, 3.4)
-tau = [[0.08, 0.05, 0.1, 0], [3.4, 3.2, 3.6, 0]]
-amp = [[0.5, 0.4, 0.6, 0]]
+convd = fitfunc1(t,1.3)
+tau = [[1.3, 1.2, 1.4, 0]]
+# convd = fitfunc(t,0.5, 0.08, 3.4)
+# tau = [[0.08, 0.05, 0.1, 0], [3.4, 3.2, 3.6, 0]]
+# amp = [[0.5, 0.4, 0.6, 0]]
 # amp = [[0.1, 0, 1, 1], [0.9, 0, 1, 1]]
 shift = [20, -300, 300, 0]
 
@@ -95,8 +95,8 @@ bg_est = tcspcfit.FluoFit.estimate_bg(convdnoise)
 print(bg_est)
 
 # fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est*convdsum)
-# fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est)
-fit = tcspcfit.TwoExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est)
+fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=[5, 0, 10, 0], method='ml')
+# fit = tcspcfit.TwoExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est)
 print('# photons: ', convdnoise.sum())
 print('# fit photos: ', fit.convd.sum())
 print('Tau: ', fit.tau)
