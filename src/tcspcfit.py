@@ -164,8 +164,8 @@ def ml_curve_fit(fitfunc, t, measured, bounds, p0):
     bounds = np.column_stack(bounds).tolist()
     bounds =[tuple(bound) for bound in bounds]
     print(bounds)
-    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='Nelder-Mead',
-                   options={'maxfev': 1e3, 'fatol': 1e-35, 'xatol': 1e-40})
+    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='L-BFGS-B')#,
+                   # options={'maxfev': 1e4, 'fatol': 1e-35, 'xatol': 1e-40})
     # res = minimize(minfunc, p0, args=(fitfunc, t, measured))#, method='L-BFGS-B',
     param = res.x
     pcov = np.zeros(param.shape)
