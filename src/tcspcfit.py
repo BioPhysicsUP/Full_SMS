@@ -164,12 +164,13 @@ def ml_curve_fit(fitfunc, t, measured, bounds, p0):
     bounds = np.column_stack(bounds).tolist()
     bounds =[tuple(bound) for bound in bounds]
     print(bounds)
-    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='L-BFGS-B')#,
-                   # options={'maxfev': 1e4, 'fatol': 1e-35, 'xatol': 1e-40})
+    res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='trust-constr',
+                   options={'xtol': 1e-30})
     # res = minimize(minfunc, p0, args=(fitfunc, t, measured))#, method='L-BFGS-B',
     param = res.x
-    pcov = np.zeros(param.shape)
+    pcov = np.zeros((param.size, param.size))
     print(res.message)
+    print(pcov)
     return param, pcov
 
 
@@ -1251,10 +1252,12 @@ class FittingParameters:
         self.addopt = None
         self.fwhm = None
         self.normalize_amps = True
+        self.maximum_likelihood = False
 
     def getfromdialog(self):
         self.numexp = int(self.fpd.combNumExp.currentText())
         self.normalize_amps = self.fpd.chbNormAmps.isChecked()
+        self.maximum_likelihood = self.fpd.chbMaxLike.isChecked()
         if self.numexp == 1:
             self.tau = [
                 [

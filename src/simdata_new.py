@@ -106,6 +106,7 @@ print('Amp: ', fit.amp)
 print('IRFbg: ', fit.irfbg)
 print('bg: ', fit.bg)
 print('shift: ', fit.shift)
+print('stds: ', fit.stds)
 
 resid = (fit.convd - fit.measured) #/ np.sqrt(np.abs(fit.measured))
 acf = np.correlate(resid, resid, 'full')

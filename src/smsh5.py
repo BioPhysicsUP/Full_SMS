@@ -1625,7 +1625,9 @@ class Histogram:
         addopt,
         irf,
         fwhm=None,
-        normalize_amps=True
+        normalize_amps=True,
+        maximum_likelihood=False
+
     ):
         """Fit a multiexponential decay to the histogram.
 
@@ -1659,11 +1661,18 @@ class Histogram:
             Additional options for `scipy.optimize.curve_fit` (such as optimization parameters).
         normalize_amps : bool = True
             Whether to use normalized lifetime amplitudes.
+        maximum_likelihood : bool = False
+            Whether to use maximum likelihood fitting (otherwise use least squares).
         """
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
         self.numexp = numexp
+        if maximum_likelihood:
+            method = 'ml'
+            decaybg = [5, 0, 10, 0]
+        else:
+            method = 'ls'
 
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
@@ -1681,6 +1690,7 @@ class Histogram:
                     boundaries,
                     addopt,
                     fwhm=fwhm,
+                    method=method
                 )
             elif numexp == 2:
                 fit = tcspcfit.TwoExp(
@@ -1696,7 +1706,8 @@ class Histogram:
                     boundaries,
                     addopt,
                     fwhm=fwhm,
-                    normalize_amps=normalize_amps
+                    normalize_amps=normalize_amps,
+                    method=method
                 )
             elif numexp == 3:
                 fit = tcspcfit.ThreeExp(
@@ -1712,7 +1723,8 @@ class Histogram:
                     boundaries,
                     addopt,
                     fwhm=fwhm,
-                    normalize_amps=normalize_amps
+                    normalize_amps=normalize_amps,
+                    method=method
                 )
         except Exception as e:
             trace_string = ""
@@ -1848,7 +1860,8 @@ class ParticleAllHists:
                         fit_param.addopt,
                         fit_param.irf,
                         fit_param.fwhm,
-                        fit_param.normalize_amps
+                        fit_param.normalize_amps,
+                        fit_param.maximum_likelihood
                     ):
                         pass  # fit unsuccessful
                 except AttributeError:
