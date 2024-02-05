@@ -95,7 +95,8 @@ bg_est = tcspcfit.FluoFit.estimate_bg(convdnoise)
 print(bg_est)
 
 # fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est*convdsum)
-fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=[5, 0, 10, 0], method='ml', boundaries=[500, 1300, 'Manual', False])
+fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=[5, 0, 10, 0], method='ml',
+                      boundaries=[500, 1300, 'Manual', False])
 # fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, method='ls',
 #                       boundaries=[500, 1300, 'Manual', False])
 # fit = tcspcfit.TwoExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=0, amp=bg_est)
@@ -120,14 +121,14 @@ plt.plot(convdnoise[500:1300])
 plt.plot(convd[500:1300])
 plt.plot(fit.convd)
 # plt.plot(irf)
-plt.show()
+# plt.show()
 plt.figure()
 plt.plot(fit.measured)
 
 plt.plot(fit.convd)
 
 # plt.plot(fit.irf)
-plt.show()
+# plt.show()
 #
 # # param, pcov = curve_fit(fitfunc, t, convdnoise, p0=[0.01, 0.08, 3.4])
 # # print(param)
@@ -135,3 +136,25 @@ plt.show()
 # # plt.plot(convdnoise)
 # # plt.show()
 #
+
+
+taus = np.array([])
+for i in range(100):
+    print(i)
+    convd = fitfunc1(t,1.3)
+    tau = [[1.3, 0.1, 2.9, 0]]
+    shift = [20, -300, 300, 0]
+    convd = convd + 2
+    convdsum = convd.sum()
+    convdnoise = np.random.poisson(convd)
+
+    bg_est = tcspcfit.FluoFit.estimate_bg(convdnoise)
+
+    fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=[5, 0, 10, 0], method='ml',
+                          boundaries=[500, 1300, 'Manual', False])
+    taus = np.append(taus, fit.tau)
+
+print('tau std = ', np.std(taus))
+plt.figure()
+plt.hist(taus)
+plt.show()

@@ -163,14 +163,15 @@ def minfunc(p0, fitfunc, t, measured):
 def ml_curve_fit(fitfunc, t, measured, bounds, p0):
     bounds = np.column_stack(bounds).tolist()
     bounds =[tuple(bound) for bound in bounds]
-    print(bounds)
+    # print(bounds)
     res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='trust-constr',
-                   options={'xtol': 1e-30})
+                   options={'gtol': 1e-2, 'verbose': 0})
     # res = minimize(minfunc, p0, args=(fitfunc, t, measured))#, method='L-BFGS-B',
     param = res.x
     pcov = np.zeros((param.size, param.size))
-    print(res.message)
-    print(pcov)
+    # print(res.message)
+    # print(res.nit)
+    # print(pcov)
     return param, pcov
 
 
@@ -943,7 +944,7 @@ class OneExp(FluoFit):
                     bounds=(paramin, paramax),
                     p0=paraminit,
                 )
-                print(param)
+                # print(param)
 
             else:
                 param, pcov, *extra = c_f(
