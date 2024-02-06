@@ -1670,7 +1670,7 @@ class Histogram:
         self.numexp = numexp
         if maximum_likelihood:
             method = 'ml'
-            decaybg = [5, 0, 10, 0]
+            decaybg = [5, 0, 30, 0]
         else:
             method = 'ls'
 

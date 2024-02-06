@@ -138,23 +138,23 @@ plt.plot(fit.convd)
 #
 
 
-taus = np.array([])
-for i in range(100):
-    print(i)
-    convd = fitfunc1(t,1.3)
-    tau = [[1.3, 0.1, 2.9, 0]]
-    shift = [20, -300, 300, 0]
-    convd = convd + 2
-    convdsum = convd.sum()
-    convdnoise = np.random.poisson(convd)
-
-    bg_est = tcspcfit.FluoFit.estimate_bg(convdnoise)
-
-    fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=[5, 0, 10, 0], method='ml',
-                          boundaries=[500, 1300, 'Manual', False])
-    taus = np.append(taus, fit.tau)
-
-print('tau std = ', np.std(taus))
-plt.figure()
-plt.hist(taus)
-plt.show()
+# taus = np.array([])
+# for i in range(100):
+#     print(i)
+#     convd = fitfunc1(t,1.3)
+#     tau = [[1.3, 0.1, 2.9, 0]]
+#     shift = [20, -300, 300, 0]
+#     convd = convd + 2
+#     convdsum = convd.sum()
+#     convdnoise = np.random.poisson(convd)
+#
+#     bg_est = tcspcfit.FluoFit.estimate_bg(convdnoise)
+#
+#     fit = tcspcfit.OneExp(irf, convdnoise, t, channelwidth, tau=tau, shift=shift, bg=[5, 0, 10, 0], method='ml',
+#                           boundaries=[500, 1300, 'Manual', False])
+#     taus = np.append(taus, fit.tau)
+#
+# print('tau std = ', np.std(taus))
+# plt.figure()
+# plt.hist(taus)
+# plt.show()
