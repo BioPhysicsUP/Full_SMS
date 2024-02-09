@@ -921,9 +921,9 @@ class OneExp(FluoFit):
                 paraminit = [self.tau[0], self.amp, self.shift]
         elif self.method == 'ml':
             if self.simulate_irf:
-                paramin = [self.taumin[0], self.shiftmin, self.fwhmmin, self.bgmin]
-                paramax = [self.taumax[0], self.shiftmax, self.fwhmmax, self.bgmax]
-                paraminit = [self.tau[0],  self.shift, self.fwhm, self.bgval]
+                paramin = [self.taumin[0], self.shiftmin, self.bgmin, self.fwhmmin]
+                paramax = [self.taumax[0], self.shiftmax, self.bgmax, self.fwhmmax]
+                paraminit = [self.tau[0],  self.shift, self.bgval, self.fwhm]
             else:
                 paramin = [self.taumin[0], self.shiftmin, self.bgmin]
                 paramax = [self.taumax[0], self.shiftmax, self.bgmax]
@@ -961,21 +961,24 @@ class OneExp(FluoFit):
             #logger.error("Fitting failed")
         else:
             tau = param[0]
-            amp = param[1]
-            shift = param[2]
             stds = np.sqrt(np.diag(pcov))
             avtaustd = stds[0]
+
             if self.simulate_irf:
-                fwhm = param[3]
+                fwhm = param[-1]
             else:
                 fwhm = None
 
             if self.method == 'ls':
                 bg = None
+                amp = param[1]
+                shift = param[2]
+                self.convd = self.fitfunc_ls(self.t, tau, amp, shift, fwhm)
             elif self.method == 'ml':
-                bg = param[-1]
+                shift = param[1]
+                bg = param[2]
+                self.convd = self.fitfunc_ml(self.t, tau, shift, bg, fwhm)
 
-            self.convd = self.fitfunc(self.t, tau, amp, shift, fwhm)
             self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm, bg=bg)
 
     def fitfunc_ls(self, t, tau1, a, shift, fwhm=None):
@@ -1015,7 +1018,8 @@ class TwoExp(FluoFit):
         addopt=None,
         ploton=False,
         fwhm=None,
-        normalize_amps=True
+        normalize_amps=True,
+        method='ls'
     ):
         if tau is None:
             tau = [1, 5]
@@ -1036,80 +1040,98 @@ class TwoExp(FluoFit):
             boundaries,
             ploton,
             fwhm,
+            method,
             normalize_amps,
-            numexp=2,
+            numexp=2
         )
 
-        self.ampmin = [0.49999, 2]  # amp, bg
-        self.ampmax = [0.50001, 5]  # amp, bg
-        self.amp = [0.5, 3]  # amp, bg
+        if self.method == 'ls':
+            c_f = curve_fit
+            self.fitfunc = self.fitfunc_ls
+            if self.simulate_irf:
+                paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
+                paramax = self.taumax + self.ampmax + [self.shiftmax] + [self.fwhmmax]
+                paraminit = self.tau + self.amp + [self.shift] + [self.fwhm]
+            else:
+                paramin = self.taumin + self.ampmin + [self.shiftmin]
+                paramax = self.taumax + self.ampmax + [self.shiftmax]
+                paraminit = self.tau + self.amp + [self.shift]
+        elif self.method == 'ml':
+            c_f = ml_curve_fit
+            self.fitfunc = self.fitfunc_ml
+            if self.simulate_irf:
+                paramin = self.taumin + [self.ampmin[0]] + [self.shiftmin] + [self.bgmin] + [self.fwhmmin]
+                paramax = self.taumax + [self.ampmax[0]] + [self.shiftmax] + [self.bgmax] + [self.fwhmmax]
+                paraminit = self.tau + [self.amp[0]] + [self.shift] + [self.bgval] + [self.fwhm]
+            else:
+                paramin = self.taumin + [self.ampmin[0]] + [self.shiftmin] + [self.bgmin]
+                paramax = self.taumax + [self.ampmax[0]] + [self.shiftmax] + [self.bgmax]
+                paraminit = self.tau + [self.amp[0]] + [self.shift] + [self.bgval]
 
-        if self.simulate_irf:
-            paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
-            paramax = self.taumax + self.ampmax + [self.shiftmax] + [self.fwhmmax]
-            paraminit = self.tau + self.amp + [self.shift] + [self.fwhm]
+        try:
+            if addopt is None:
+                param, pcov, *extra = c_f(
+                    self.fitfunc,
+                    self.t,  # , self.t[self.startpoint: self.endpoint],
+                    self.measured,
+                    bounds=(paramin, paramax),
+                    p0=paraminit,
+                )
+                # print(param)
+
+            else:
+                param, pcov, *extra = c_f(
+                    self.fitfunc,
+                    self.t,
+                    self.measured,
+                    bounds=(paramin, paramax),
+                    p0=paraminit,
+                    **addopt,
+                )
+        except ValueError as error:
+            raise(error)
+            #logger.error("Fitting failed")
         else:
-            paramin = self.taumin + self.ampmin + [self.shiftmin]
-            paramax = self.taumax + self.ampmax + [self.shiftmax]
-            paraminit = self.tau + self.amp + [self.shift]
 
-        if addopt is None:
-            # param, pcov, *extra = curve_fit(
-            #     self.fitfunc,
-            #     self.t,
-            #     self.measured,
-            #     bounds=(paramin, paramax),
-            #     p0=paraminit,
-            # )
-            res = ml_curve_fit(
-                self.fitfunc,
-                self.t,  # , self.t[self.startpoint: self.endpoint],
-                self.measured,
-                bounds=(paramin, paramax),
-                p0=paraminit,
+            tau = param[0:2]
+            stds = np.sqrt(np.diag(pcov))
+            # stds[3] = stds[2]  # second amplitude std is same as that of the first
+
+            if self.simulate_irf:
+                fwhm = param[5]
+            else:
+                fwhm = None
+
+            if self.method == 'ls':
+                bg = None
+                amp = param[2:4]
+                shift = param[4]
+                self.convd = self.fitfunc_ls(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
+            elif self.method == 'ml':
+                amp = [param[2], 1 - param[2]]
+                shift = param[3]
+                bg = param[4]
+                self.convd = self.fitfunc_ml(self.t, tau[0], tau[1], amp[0], shift, bg, fwhm)
+
+            avtaustd = np.sqrt(
+                (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]) ** 2)) ** 2
+                + (tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1]) ** 2)) ** 2
             )
-            param = res.x
-            print(res.message)
-            print(param)
 
-            ftol = 1e-10
-            tmp_i = np.zeros(len(res.x))
-            stds = np.zeros(len(res.x))
-        else:
-            param, pcov, *extra = curve_fit(
-                self.fitfunc,
-                self.t,
-                self.measured,
-                bounds=(paramin, paramax),
-                p0=paraminit,
-                **addopt,
-            )
+            self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm, bg=bg)
 
-        tau = param[0:2]
-        amp = param[2:4]
-        shift = param[4]
-        # stds = np.sqrt(np.diag(pcov))
-        # stds[3] = stds[2]  # second amplitude std is same as that of the first
-        avtaustd = np.sqrt(
-            (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[2] / amp[0]) ** 2)) ** 2
-            + (tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[3] / amp[1]) ** 2)) ** 2
-        )
-
-        if self.simulate_irf:
-            fwhm = param[5]
-        else:
-            fwhm = None
-
-        self.convd = self.fitfunc(self.t, tau[0], tau[1], amp[0], amp[1], shift, fwhm)
-        self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm)
-
-    def fitfunc(self, t, tau1, tau2, a1, bg, shift, fwhm=None):
+    def fitfunc_ls(self, t, tau1, tau2, a1, a2, shift, fwhm=None):
         """Double exponential model function passed to curve_fit, to be fitted to data."""
-        model = a1 * np.exp(-t / tau1) + (1-a1) * np.exp(-t / tau2)
+        model = a1 * np.exp(-t / tau1) + a2 * np.exp(-t / tau2)
         if self.normalize_amps:
-            return self.makeconvd(shift, bg, model, fwhm)# + (1 - a1 - a2)
+            return self.makeconvd(shift, model, fwhm) + (1 - a1 - a2)
         else:
             return self.makeconvd(shift, model, fwhm)
+
+    def fitfunc_ml(self, t, tau1, tau2, a1, shift, bg, fwhm=None):
+        """Double exponential model function passed to curve_fit, to be fitted to data."""
+        model = a1 * np.exp(-t / tau1) + (1-a1) * np.exp(-t / tau2)
+        return self.makeconvd(shift, model, fwhm, bg)
 
 
 class ThreeExp(FluoFit):
