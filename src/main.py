@@ -1063,13 +1063,16 @@ class MainWindow(QMainWindow, UI_Main_Window):
         else:
             self.chbEx_DF_Levels_Lifetimes.setEnabled(False)
 
-        self.chbEx_Grouped_Levels.setEnabled(all_have_individual_groups)
+        # self.chbEx_Grouped_Levels.setEnabled(all_have_individual_groups)
+        self.chbEx_Grouped_Levels.setEnabled(True)
         self.chbEx_Global_Grouped_Levels.setEnabled(all_have_global_groups)
-        self.chbEx_DF_Grouped_Levels.setEnabled(all_have_individual_groups)
-        if self.chbEx_DF_Grouped_Levels.isChecked() and all_have_individual_groups:
-            self.chbEx_DF_Grouped_Levels_Lifetimes.setEnabled(True)
-        else:
-            self.chbEx_DF_Grouped_Levels_Lifetimes.setEnabled(False)
+        # self.chbEx_DF_Grouped_Levels.setEnabled(all_have_individual_groups)
+        self.chbEx_DF_Grouped_Levels.setEnabled(True)
+        # if self.chbEx_DF_Grouped_Levels.isChecked() and all_have_individual_groups:
+        #     self.chbEx_DF_Grouped_Levels_Lifetimes.setEnabled(True)
+        # else:
+        #     self.chbEx_DF_Grouped_Levels_Lifetimes.setEnabled(False)
+        self.chbEx_DF_Grouped_Levels_Lifetimes.setEnabled(True)
         self.chbEx_DF_Global_Grouped_Levels.setEnabled(all_have_global_groups)
 
         self.chbEx_Grouping_Info.setEnabled(all_have_individual_groups)

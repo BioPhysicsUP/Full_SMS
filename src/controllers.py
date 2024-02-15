@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __docformat__ = "NumPy"
 
+import gc
 import os
 import pickle
 import random
@@ -2401,7 +2402,7 @@ class LifetimeController(QObject):
         clean_fit_param.parent = None
         clean_fit_param.fpd = None
 
-        f_process_thread = ProcessThread()
+        f_process_thread = ProcessThread(num_processes=1)
         f_process_thread.add_tasks_from_methods(
             objects=part_hists,
             method_name="fit_part_and_levels",

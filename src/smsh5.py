@@ -1841,14 +1841,17 @@ class ParticleAllHists:
         all_hists = [self.part_hist]
         all_hists.extend(self.level_hists)
         all_hists.extend(self.group_hists)
-        shift = fit_param.shift[:-1] / channelwidth
+        try:
+            shift = fit_param.shift[:-1] / channelwidth
+        except TypeError:
+            shift = [0.0, -2.0 / channelwidth, 1.0 / channelwidth]
         shiftfix = fit_param.shift[-1]
         shift = [*shift, shiftfix]
         boundaries = [start, end, fit_param.autostart, fit_param.autoend]
 
         for hist in all_hists:
-            if hist.microtimes.size > 10:
-                try:
+            try:
+                if hist.microtimes.size > 10:
                     if not hist.fit(
                         fit_param.numexp,
                         fit_param.tau,
@@ -1864,8 +1867,8 @@ class ParticleAllHists:
                         fit_param.maximum_likelihood
                     ):
                         pass  # fit unsuccessful
-                except AttributeError:
-                    logger.info("Level or trace not fitted. No decay.")
+            except AttributeError:
+                logger.info("Level or trace not fitted. No decay or decay < 10 photons.")
 
 
 class RasterScan:
