@@ -10,6 +10,7 @@ import time
 from copy import copy
 from time import sleep
 from typing import TYPE_CHECKING, Union, List, Tuple, Any
+from itertools import islice
 
 import numpy as np
 import pandas as pd
@@ -3108,16 +3109,20 @@ class SpectraController(QObject):
 
         self.main_window = main_window
 
-        self.main_window.pgSpectra_Image_View = pg.ImageView(view=pg.PlotItem())
+        self.main_window.pgSpectra_Image_View = pg.ImageView(view=pg.PlotItem(), roi=myPlotROI(size=(10, 200)))
         self.spectra_image_view = self.main_window.pgSpectra_Image_View
         self.main_window.laySpectra.addWidget(self.spectra_image_view)
         self.spectra_image_view.setPredefinedGradient("plasma")
         self.spectra_image_view.view.getAxis("left").setLabel("Wavelength (nm)")
         self.spectra_image_view.view.getAxis("bottom").setLabel("Time (s)")
         self.spectra_image_view.show()
+        self.main_window.btnRotateROI.clicked.connect(self.gui_rot_roi)
 
         self.temp_fig = None
         self.temp_ax = None
+
+        self.roi_rotated = False
+        self.main_window.pgSpectra_Image_View.roi.sigRegionChanged.connect(self.slot_plot_spectra)
 
         # self.spectra_imv = self.spectra_widget
         # self.spectra_widget.view = pg.PlotItem()
@@ -3157,6 +3162,53 @@ class SpectraController(QObject):
         """Used to subtract the background"""
 
         print("gui_sub_bkg")
+
+    def slot_plot_spectra(self, event):
+        self.plot_spectra()
+
+    def gui_rot_roi(self):
+        """Used to rotate the ROI"""
+
+        roi = self.main_window.pgSpectra_Image_View.roi
+        w, h = roi.size()
+        if self.roi_rotated:
+            # roi.rotate(-90, center=(0.5, 0.5))
+            roi.setAngle(roi.angle() - 90, centerLocal=(0.5, 0.5))
+            self.roi_rotated = False
+        else:
+            # roi.rotate(90, center=(0.5, 0.5))
+            roi.setAngle(roi.angle() + 90, centerLocal=(0.5, 0.5))
+            self.roi_rotated = True
+        roi.setSize((h, w))
+        # self.plot_spectra()
+
+    def set_roi_plot_ticks(self, wl, times):
+        roi = self.main_window.pgSpectra_Image_View.roi
+        roiplot = self.main_window.pgSpectra_Image_View.getRoiPlot()
+        pos = roi.pos()
+        w, h = roi.size()
+        t0 = int(pos[0])
+        t1 = int(pos[0] + w)
+
+        w0 = int(pos[1])
+        w1 = int(pos[1] + w)
+
+        axis = roiplot.getPlotItem().getAxis('bottom')
+        try:
+            if self.roi_rotated:
+                ticks = [(i, f"{wl[w]: .1f}") for i, w in enumerate(range(w0, w1))]
+
+                if len(ticks) > 15:
+                    step = int(len(ticks) / 15)
+                    ticks = list(islice(ticks, None, None, step))
+                ticks = [ticks]
+            else:
+                ticks = [
+                    [(i, f"{times[t]: .1f}") for i, t in enumerate(range(t0, t1))]
+                ]
+            axis.setTicks(ticks)
+        except IndexError:
+            print('index error')
 
     def plot_spectra(
         self,
@@ -3202,6 +3254,7 @@ class SpectraController(QObject):
                 ]
             ]
             self.spectra_image_view.view.getAxis("bottom").setTicks(x_ticks)
+            self.set_roi_plot_ticks(wl, t_series)
         else:
             if self.temp_fig is None:
                 self.temp_fig = plt.figure()
@@ -3242,6 +3295,14 @@ class SpectraController(QObject):
 
         if lock:
             self.main_window.lock.release()
+
+
+class myPlotROI(pg.ROI):
+    def __init__(self, size):
+        pg.ROI.__init__(self, pos=[0,0], size=size, rotateSnap=True)
+        self.addScaleHandle([1, 1], [0, 0])
+        # self.addRotateHandle([0, 0], [0.5, 0.5])
+        self.rotateSnapAngle = 90
 
 
 class MyCrosshairOverlay(pg.CrosshairROI):
