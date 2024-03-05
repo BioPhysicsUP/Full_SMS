@@ -1485,6 +1485,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if self.current_dataset and self.current_dataset.has_spectra:
             self.tabSpectra.setEnabled(True)
             self.btnSubBackground.setEnabled(new_state)
+            self.btnRotateROI.setEnabled(new_state)
         else:
             self.tabSpectra.setEnabled(False)
 
