@@ -206,10 +206,12 @@ class H5dataset:
                     if num != 0:  # Not first one
                         if num != len(raster_scans) - 1:  # Not last one
                             # Save previous raster scan with previous group indexes
+                            print(raster_scan_num)
+                            print(group_indexes)
                             self.all_raster_scans.append(
                                 RasterScan(
                                     h5dataset=self,
-                                    particle_num=num,
+                                    particle_num=num-1,
                                     h5dataset_index=raster_scan_num,
                                     particle_indexes=group_indexes,
                                 )
@@ -244,7 +246,7 @@ class H5dataset:
                                 )
                             )
                             raster_scan_counter += 1
-                    else:
+                    else:  # first one
                         raster_scan_num = 0
                         if len(raster_scans) == 1:
                             group_indexes = [0]

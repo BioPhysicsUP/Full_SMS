@@ -728,10 +728,23 @@ class IntController(QObject):
         for_levels: bool = False,
         for_groups: bool = False,
     ):
+        plot_2_trace = False
+        if self.main_window.current_particle.sec_part is not None:
+            if (
+                    self.main_window.current_particle.sec_part.tcspc_card != "None"
+                    and self.main_window.chbSecondCard.isChecked()
+            ):
+                plot_2_trace = True
         if particle is None:
             particle = self.main_window.current_particle
         try:
             int_data = particle.binnedtrace.intdata
+            if plot_2_trace:
+                int_data2 = particle.sec_part.binnedtrace.intdata
+                brush1 = (0, 255, 0, 50)
+            else:
+                int_data2 = None
+                brush1 = (0, 0, 0, 50)
         except AttributeError:
             logger.error("No trace!")
         else:
@@ -779,10 +792,27 @@ class IntController(QObject):
                     pen=plot_pen,
                     stepMode=True,
                     fillLevel=0,
-                    brush=(0, 0, 0, 50),
+                    brush=brush1,
                 )
                 int_hist.setRotation(-90)
                 plot_item.addItem(int_hist)
+
+                if plot_2_trace:
+                    bin_edges2 = np.histogram_bin_edges(np.negative(int_data2), bins=100)
+                    freq2, hist_bins2 = np.histogram(
+                        np.negative(int_data2), bins=bin_edges2, density=True
+                    )
+                    freq2 /= np.max(freq2)
+                    int_hist2 = pg.PlotCurveItem(
+                        x=hist_bins2,
+                        y=freq2,
+                        pen=plot_pen,
+                        stepMode=True,
+                        fillLevel=0,
+                        brush=(0, 0, 255, 50),
+                    )
+                    int_hist2.setRotation(-90)
+                    plot_item.addItem(int_hist2)
             elif not (for_levels or for_groups):
                 hist_ax = self.temp_ax["hist_ax"]
                 _, bins, _ = hist_ax.hist(
@@ -3116,6 +3146,8 @@ class SpectraController(QObject):
         self.spectra_image_view.view.getAxis("left").setLabel("Wavelength (nm)")
         self.spectra_image_view.view.getAxis("bottom").setLabel("Time (s)")
         self.spectra_image_view.show()
+        self.spectra_image_view.ui.menuBtn.hide()
+        self.main_window.btnSubBackground.hide()
         self.main_window.btnRotateROI.clicked.connect(self.gui_rot_roi)
 
         self.temp_fig = None
@@ -3161,7 +3193,10 @@ class SpectraController(QObject):
     def gui_sub_bkg(self):
         """Used to subtract the background"""
 
-        print("gui_sub_bkg")
+        particle = self.main_window.current_particle
+        spectra_data = particle.spectra.data[:]
+        spectra_norm = self.main_window.pgSpectra_Image_View.normalize(spectra_data)
+        self.main_window.pgSpectra_Image_View.setImage(spectra_norm)
 
     def slot_plot_spectra(self, event):
         self.plot_spectra()
@@ -3207,6 +3242,7 @@ class SpectraController(QObject):
                     [(i, f"{times[t]: .1f}") for i, t in enumerate(range(t0, t1))]
                 ]
             axis.setTicks(ticks)
+            roiplot.getPlotItem().invertX(True)
         except IndexError:
             print('index error')
 
@@ -3318,8 +3354,17 @@ class RasterScanController(QObject):
         super().__init__()
         self.main_window = main_window
 
+        self.main_window.pgRaster_Scan_Image_View = pg.ImageView(view=pg.PlotItem(), roi=myPlotROI(size=(10, 200)))
         self.raster_scan_image_view = self.main_window.pgRaster_Scan_Image_View
+        self.main_window.layRasterScan.addWidget(self.raster_scan_image_view)
+        self.raster_scan_image_view.view.getAxis("left").setLabel("Y Position (um)")
+        self.raster_scan_image_view.view.getAxis("bottom").setLabel("X Position (um)")
+        self.raster_scan_image_view.view.invertY(False)
+        self.raster_scan_image_view.view.enableAutoRange()
+        self.raster_scan_image_view.ui.menuBtn.hide()
+        self.raster_scan_image_view.ui.roiBtn.hide()
         self.raster_scan_image_view.setPredefinedGradient("plasma")
+        self.raster_scan_image_view.show()
         self.list_text = self.main_window.txtRaster_Scan_List
         self._crosshair_item = None
         self._text_item = None
@@ -3328,10 +3373,10 @@ class RasterScanController(QObject):
         self.temp_ax = None
 
     @staticmethod
-    def create_crosshair_item(pos: Tuple[int, int]) -> MyCrosshairOverlay:
+    def create_crosshair_item(pos: Tuple[int, int], pixelsize) -> MyCrosshairOverlay:
         pen = QPen(Qt.green, 0.1)
-        pen.setWidthF(0.5)
-        crosshair_item = MyCrosshairOverlay(pos=pos, size=2, pen=pen, movable=False)
+        pen.setWidthF(0.5*pixelsize)
+        crosshair_item = MyCrosshairOverlay(pos=pos, size=2*pixelsize, pen=pen, movable=False)
         return crosshair_item
 
     @staticmethod
@@ -3474,24 +3519,25 @@ class RasterScanController(QObject):
             #     self.raster_scan_image_view.getView().addItem(self._text_item)
 
         else:
-            self.raster_scan_image_view.setImage(raster_scan_data)
-
             um_per_pixel = raster_scan.range / particle.raster_scan.pixel_per_line
 
-            raw_coords = particle.raster_scan_coordinates
-            coords = (raw_coords[0] - raster_scan.x_start) / um_per_pixel, (
-                raw_coords[1] - raster_scan.y_start
-            ) / um_per_pixel
+            self.raster_scan_image_view.setImage(raster_scan_data[:], scale=(um_per_pixel, um_per_pixel), pos=(raster_scan.x_start, raster_scan.y_start))
+
+            # raw_coords = particle.raster_scan_coordinates
+            coords = particle.raster_scan_coordinates
+            # coords = (raw_coords[0] - raster_scan.x_start) / um_per_pixel, (
+            #     raw_coords[1] - raster_scan.y_start
+            # ) / um_per_pixel
 
             if self._crosshair_item is None:
-                self._crosshair_item = self.create_crosshair_item(pos=coords)
+                self._crosshair_item = self.create_crosshair_item(pos=coords, pixelsize=um_per_pixel)
                 self.raster_scan_image_view.getView().addItem(self._crosshair_item)
             else:
                 self._crosshair_item.setPos(pos=coords)
 
             # part_text = particle.name.split(' ')[1]
             # Offset text
-            text_coords = (coords[0] - 1, coords[1] + 1)
+            text_coords = (coords[0] - um_per_pixel, coords[1] + um_per_pixel)
             if self._text_item is None:
                 self._text_item = self.create_text_item(
                     text=str(particle.dataset_ind + 1), pos=text_coords
@@ -3500,6 +3546,8 @@ class RasterScanController(QObject):
             else:
                 self._text_item.setText(text=str(particle.dataset_ind + 1))
                 self._text_item.setPos(*text_coords)
+
+            self.raster_scan_image_view.view.autoRange()
 
             self.list_text.clear()
             dataset = self.main_window.current_dataset
