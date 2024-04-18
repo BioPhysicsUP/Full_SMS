@@ -281,7 +281,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>6</number>
+       <number>3</number>
       </property>
       <property name="iconSize">
        <size>
@@ -2448,7 +2448,7 @@
                <number>0</number>
               </property>
               <property name="currentIndex">
-               <number>0</number>
+               <number>2</number>
               </property>
               <property name="tabSpacing">
                <number>3</number>
@@ -2461,8 +2461,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>251</width>
-                 <height>76</height>
+                 <width>268</width>
+                 <height>143</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2644,8 +2644,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>233</width>
-                 <height>110</height>
+                 <width>268</width>
+                 <height>143</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2885,8 +2885,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>229</width>
-                 <height>110</height>
+                 <width>268</width>
+                 <height>143</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -2966,11 +2966,20 @@
                     <property name="suffix">
                      <string> ns</string>
                     </property>
+                    <property name="decimals">
+                     <number>4</number>
+                    </property>
                     <property name="minimum">
-                     <double>0.100000000000000</double>
+                     <double>0.000100000000000</double>
                     </property>
                     <property name="maximum">
                      <double>199.990000000000009</double>
+                    </property>
+                    <property name="singleStep">
+                     <double>0.100000000000000</double>
+                    </property>
+                    <property name="value">
+                     <double>0.010000000000000</double>
                     </property>
                    </widget>
                   </item>
@@ -3012,6 +3021,9 @@
                     </property>
                     <property name="maximum">
                      <double>199.990000000000009</double>
+                    </property>
+                    <property name="singleStep">
+                     <double>0.100000000000000</double>
                     </property>
                     <property name="value">
                      <double>5.000000000000000</double>
@@ -3117,8 +3129,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>190</width>
-                 <height>75</height>
+                 <width>268</width>
+                 <height>143</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3302,8 +3314,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>254</width>
-                 <height>110</height>
+                 <width>268</width>
+                 <height>143</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -3543,8 +3555,8 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>230</width>
-                 <height>110</height>
+                 <width>268</width>
+                 <height>143</height>
                 </rect>
                </property>
                <attribute name="icon">
@@ -7593,7 +7605,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1250</width>
-     <height>29</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

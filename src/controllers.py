@@ -2574,6 +2574,7 @@ class GroupingController(QObject):
         # self.groups_hist_widget.setBackground(background=None)
 
         self.bic_plot_widget = self.main_window.pgGroups_BIC_PlotWidget
+        self.bic_plot_widget.setEnabled(True)  # Not sure where this is being set to False?
         self.bic_scatter_plot = self.bic_plot_widget.getPlotItem()
         self.bic_plot_widget.setBackground(background=None)
 

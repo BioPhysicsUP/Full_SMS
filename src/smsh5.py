@@ -1308,7 +1308,7 @@ class GlobalParticle:
         self.levels = levels
         self.num_levels = len(levels)
         self.num_levels_roi = self.num_levels
-        self.dwell_time = np.sum([l.dwell_time_s for l in self.levels])
+        self.dwell_time_s = np.sum([l.dwell_time_s for l in self.levels])
         self.num_photons = np.sum([l.num_photons for l in self.levels])
 
         self.uuid = uuid1()
