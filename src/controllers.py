@@ -1446,6 +1446,7 @@ class LifetimeController(QObject):
         self.main_window.btnFit.clicked.connect(self.gui_fit_levels)
         self.main_window.btnFitSelected.clicked.connect(self.gui_fit_selected)
         self.main_window.btnFitAll.clicked.connect(self.gui_fit_all)
+        self.main_window.chbLogScale.stateChanged.connect(self.update_plot_log)
 
     def setup_plot(self, plot: pg.PlotItem, is_residuals: bool = False):
         # Set axis label bold and size
@@ -1745,6 +1746,19 @@ class LifetimeController(QObject):
 
     def plot_all(self):
         self.main_window.display_data()
+
+    def update_plot_log(self):
+
+        use_selected = (
+            False
+            if self.main_window.current_particle.level_or_group_selected is None
+            else True
+        )
+        self.plot_decay(
+            use_selected=use_selected, remove_empty=False
+        )
+        self.plot_convd(use_selected=use_selected)
+        self.plot_residuals(use_selected=use_selected)
 
     def update_results(
         self,
@@ -2068,6 +2082,17 @@ class LifetimeController(QObject):
                 t = t[:shortest]
                 decay = decay[:shortest]
 
+            # decay_positive = decay > 0.00005
+            # print(decay_positive)
+            # decay = decay[decay_positive]
+            # t = t[decay_positive]
+            if self.main_window.chbLogScale.isChecked():
+                self.life_hist_plot.setLogMode(y=True)
+                decay = decay * 1e6
+                decay = np.clip(decay, a_min=1e-8, a_max=None)
+            else:
+                self.life_hist_plot.setLogMode(y=False)
+
             if not for_export:
                 life_hist_plot = self.life_hist_plot
                 life_hist_plot.clear()
@@ -2081,6 +2106,11 @@ class LifetimeController(QObject):
                 life_hist_plot.getAxis("bottom").setLabel("Decay time", unit)
                 life_hist_plot.getViewBox().setLimits(xMin=min_t, yMin=0, xMax=max_t)
                 life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t_fitted])
+                if self.main_window.chbLogScale.isChecked():
+                    # life_hist_plot.getViewBox().autoRange(padding=0, items=[life_hist_plot])
+                    # life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t_fitted],
+                    #                                      yRange=[np.log10(decay.min()), np.log10(decay.max())], padding=0)
+                    life_hist_plot.getViewBox().setYRange(6, np.log10(decay.max()), padding=0.1)
                 self.fitparamdialog.updateplot()
             else:
                 if self.temp_fig is None:
@@ -2203,6 +2233,17 @@ class LifetimeController(QObject):
 
         # convd = convd / convd.max()
 
+        # convd_positive = convd > 0.00005
+        # print(convd_positive)
+        # convd = convd[convd_positive]
+        # t = t[convd_positive]
+        if self.main_window.chbLogScale.isChecked():
+            self.life_hist_plot.setLogMode(y=True)
+            convd = convd * 1e6
+            convd = np.clip(convd, a_min=1e-8, a_max=None)
+        else:
+            self.life_hist_plot.setLogMode(y=False)
+
         cur_tab_name = self.main_window.tabWidget.currentWidget().objectName()
         decay_ax = None
         if cur_tab_name == "tabLifetime" or for_export:
@@ -2218,6 +2259,10 @@ class LifetimeController(QObject):
                 self.life_hist_plot.getAxis("bottom").setLabel("Decay time", unit)
                 # self.life_hist_plot.getViewBox().setXRange(min=t[0], max=t[-1], padding=0)
                 # self.life_hist_plot.getViewBox().setLimits(xMin=0, yMin=0, xMax=t[-1])
+                if self.main_window.chbLogScale.isChecked():
+                    # life_hist_plot.getViewBox().autoRange(padding=0, items=[life_hist_plot])
+                    # self.life_hist_plot.getViewBox().setRange(yRange=[6, np.log10(convd.max())])
+                    self.life_hist_plot.getViewBox().setYRange(1, np.log10(convd.max()), padding=0.1)
             else:
                 decay_ax = self.temp_ax["decay_ax"]
                 decay_ax.semilogy(t, convd)

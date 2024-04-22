@@ -687,13 +687,17 @@ class FluoFit:
 
         measured = self.meas_bef_bg
         measured = measured[self.startpoint : self.endpoint]
-        # measured = measured / self.meas_sum
+        if self.method == 'ls':
+            measured = measured / self.meas_sum
 
         convd = self.convd + self.bg_n
 
-        residuals = (convd - measured) * self.meas_sum
-
-        residuals = residuals / np.sqrt(np.abs(convd * self.meas_sum))
+        if self.method == 'ls':
+            residuals = (convd - measured) * self.meas_sum
+            residuals = residuals / np.sqrt(np.abs(convd * self.meas_sum))
+        else:
+            residuals = convd - measured
+            residuals = residuals / np.sqrt(np.abs(convd))
 
         residualsnotinf = np.abs(residuals) != np.inf
         residuals = residuals[residualsnotinf]  # For some reason this is the only way I could find that works

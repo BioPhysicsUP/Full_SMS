@@ -970,6 +970,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if self.data_loaded and not irf:
             self.current_dataset = self.tree2dataset()
             self.treeViewParticles.expandAll()
+            print(self.part_index)
             self.treeViewParticles.setCurrentIndex(self.part_index[0])
             self.current_particle = self.tree2particle(0)
             any_spectra = any(
