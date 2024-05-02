@@ -31,6 +31,5 @@ The documentation is available here: https://up-biophysics-sms.readthedocs.io/en
 
 This software is to be used only if reference is made to the following paper:
 
-Kyeyune, F., Botha, J.L., Van Heerden, B., Malý, P., Van Grondelle, R., Diale, M. and Krüger, T.P., 2019. 
-Strong plasmonic fluorescence enhancement of individual plant light-harvesting complexes. Nanoscale, 11(32), pp.15139-15146.
-http://doi.org/10.1039/C9NR04558A.
+Botha, J.L., van Heerden, B., and Krüger, T.P.J., 2024. 
+Advanced analysis of single-molecule spectroscopic data, arXiv:2404.18945 [Preprint], http://arxiv.org/abs/2404.18945.
