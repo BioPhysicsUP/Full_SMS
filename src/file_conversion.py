@@ -15,11 +15,14 @@ from my_logger import setup_logger
 
 logger = setup_logger(__name__)
 
-convert_pt3_dialog_file = fm.path(name="convert_pt3_dialog.ui", file_type=fm.Type.UI)
-UI_Convert_Pt3_Dialog, _ = uic.loadUiType(convert_pt3_dialog_file)
+convert_file_dialog_file = fm.path(name="convert_file_dialog.ui", file_type=fm.Type.UI)
+UI_Convert_File_Dialog, _ = uic.loadUiType(convert_file_dialog_file)
+# convert_csv_dialog_file = fm.path(name="convert_csv_dialog.ui", file_type=fm.Type.UI)
+# UI_Convert_CSV_Dialog, _ = uic.loadUiType(convert_csv_dialog_file)
 
 
 class Pt3Reader:
+    """Class for reading .pt3 files"""
     def __init__(self, pt3_file_path):
         self._file_path = pt3_file_path
         file_size = os.stat(pt3_file_path).st_size
@@ -245,24 +248,74 @@ class Pt3Reader:
         pass
 
 
-class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
+class CSVReader():
+    """Class for reading .csv files"""
+    def __init__(self, csv_file_path):
+        self._file_path = csv_file_path
+        file_size = os.stat(csv_file_path).st_size
+        self.macro_times, self.micro_times = np.loadtxt(csv_file_path, delimiter=',', skiprows=1, unpack=True)
+
+
+class FileReader():
+    """Class for reading source files.
+
+    A relevant lower-level class (currently either Pt3Reader or CSVReader) is
+    instantiated to read the source file.
+
+    Parameters
+    ----------
+    src_format : string
+        Source file format (csv or pt3)
+    file_path : string
+        Source file path
+    channel : int
+        Photon channel number (only for pt3)
+    """
+
+    def __init__(self, src_format, file_path, channel=None):
+        self.format = src_format
+        self.file_path = file_path
+        if self.format == "csv":
+            csv_reader = CSVReader(file_path)
+            self.abs_times = csv_reader.macro_times
+            self.micro_times = csv_reader.micro_times
+            self.file_time = ""
+            self.comment_field = ""
+            self.creator_name = ""
+        elif self.format == "pt3":
+            pt3_reader = Pt3Reader(file_path)
+            self.abs_times = pt3_reader.channel_records[channel].macro_times
+            self.micro_times = pt3_reader.channel_records[channel].micro_times
+            self.file_time = pt3_reader.file_time
+            self.comment_field = pt3_reader.comment_field
+            self.creator_name = pt3_reader.creator_name
+
+
+class ConvertFileDialog(QDialog, UI_Convert_File_Dialog):
     def __init__(self, mainwindow):
         QDialog.__init__(self)
-        UI_Convert_Pt3_Dialog.__init__(self)
+        UI_Convert_File_Dialog.__init__(self)
         self.setupUi(self)
 
         self.mainwindow = mainwindow
         self.parent = mainwindow
 
+        self.cmbFileFormat.currentIndexChanged.connect(self.set_source_format)
         self.btnSourceFolder.clicked.connect(self.set_source_folder)
         self.btnExportFile.clicked.connect(self.set_export_file)
         self.btnConvert.clicked.connect(self.convert)
         self.cbxHasSpectra.stateChanged.connect(self.change_spectra_edt)
-        self.edtFileNames_pt3.textChanged.connect(self.check_ready)
+        self.edtFileNames_times.textChanged.connect(self.check_ready)
         self.edtFileNames_Spectra.textChanged.connect(self.check_ready)
+        if self.cmbFileFormat.currentText() == ".csv":
+            self.spbChannel.setEnabled(False)
 
         self._source_path = None
         self._export_path = None
+
+    def set_source_format(self):
+        # channel disabled for .csv files
+        self.spbChannel.setEnabled(not self.cmbFileFormat.currentText() == ".csv")
 
     def set_source_folder(self):
         f_dir = QFileDialog.getExistingDirectory(self)
@@ -287,7 +340,7 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
             else:
                 msg = QMessageBox(
                     QMessageBox.Warning,
-                    "Convert pt3",
+                    "Convert file",
                     "File exists!",
                     buttons=QMessageBox.Ok,
                     parent=self,
@@ -304,9 +357,9 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
     def check_ready(self):
         is_ready = False
         if self._export_path and self._source_path:
-            pt3_names = self.edtFileNames_pt3.text()
+            times_names = self.edtFileNames_times.text()
             spectra_names = self.edtFileNames_Spectra.text()
-            if pt3_names != "" and spectra_names != "":
+            if times_names != "" and spectra_names != "":
                 is_ready = True
 
         self.btnConvert.setEnabled(is_ready)
@@ -317,13 +370,14 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
             f for f in os.listdir(self._source_path) if os.path.isfile(os.path.join(self._source_path, f))
         ]
 
-        pt3_f_name = self.edtFileNames_pt3.text()
-        pt3_fs = [file for file in all_source_files if file.startswith(pt3_f_name) and file.endswith(".pt3")]
+        pt3_f_name = self.edtFileNames_times.text()
+        file_ext = self.cmbFileFormat.currentText()
+        pt3_fs = [file for file in all_source_files if file.startswith(pt3_f_name) and file.endswith(file_ext)]
         pt3_fs.sort()
         num_files = len(pt3_fs)
 
         all_okay = False
-        if all([file[-4:] == ".pt3" for file in pt3_fs]):
+        if all([file[-4:] == file_ext for file in pt3_fs]):
             pt3_nums = [file[len(pt3_f_name) : file.find(".")] for file in pt3_fs]
             if all([num.isalnum() for num in pt3_nums]):
                 pt3_nums = [int(num) for num in pt3_nums]
@@ -350,10 +404,10 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
                         all_okay = True
 
         if not all_okay:
-            message = "pt3 files and spectra files dont match, please check"
+            message = "photon time files and spectra files dont match, please check"
             msg = QMessageBox(
                 QMessageBox.Warning,
-                "Convert pt3",
+                "Convert file",
                 message,
                 buttons=QMessageBox.Ok,
                 parent=self,
@@ -367,17 +421,19 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
 
             try:
                 for num in range(num_files):
-                    pt3_reader = Pt3Reader(os.path.join(self._source_path, pt3_fs[num]))
+                    file_reader = FileReader(src_format=file_ext[1:],
+                                            file_path=os.path.join(self._source_path, pt3_fs[num]),
+                                            channel=channel)
                     part_group = h5_f.create_group("Particle " + str(num + 1))
-                    part_group.attrs.create("Date", pt3_reader.file_time)
-                    part_group.attrs.create("Discription", pt3_reader.comment_field)
+                    part_group.attrs.create("Date", file_reader.file_time)
+                    part_group.attrs.create("Discription", file_reader.comment_field)
                     part_group.attrs.create("Intensity?", 1)
                     part_group.attrs.create("RS Coord. (um)", [0, 0])
                     part_group.attrs.create("Spectra?", int(add_spec))
-                    part_group.attrs.create("User", pt3_reader.creator_name)
+                    part_group.attrs.create("User", file_reader.creator_name)
 
-                    abs_times = pt3_reader.channel_records[channel].macro_times
-                    micro_times = pt3_reader.channel_records[channel].micro_times
+                    abs_times = file_reader.abs_times
+                    micro_times = file_reader.micro_times
                     part_group.create_dataset("Absolute Times (ns)", dtype=np.uint64, data=abs_times)
                     part_group.create_dataset("Micro Times (s)", dtype=np.float64, data=micro_times)
 
@@ -402,6 +458,7 @@ class ConvertPt3Dialog(QDialog, UI_Convert_Pt3_Dialog):
             except Exception as e:
                 logger.error(e)
 
+            logger.info("Finished converting files")
             self.setEnabled(True)
 
 

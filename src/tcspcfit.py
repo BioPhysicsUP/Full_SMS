@@ -1164,7 +1164,8 @@ class ThreeExp(FluoFit):
         addopt=None,
         ploton=False,
         fwhm=None,
-        normalize_amps=True
+        normalize_amps=True,
+        method='ls'
     ):
         if tau is None:
             tau = [0.1, 1, 5]
@@ -1185,6 +1186,7 @@ class ThreeExp(FluoFit):
             boundaries,
             ploton,
             fwhm,
+            method,
             normalize_amps,
             numexp=3,
         )
