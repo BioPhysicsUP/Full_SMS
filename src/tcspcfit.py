@@ -14,6 +14,7 @@ __docformat__ = "NumPy"
 import numpy as np
 import pyqtgraph as pg
 import scipy
+import numdifftools as nd
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtGui import QPen, QColor, QDoubleValidator, QRegExpValidator
 from PyQt5.QtWidgets import QLineEdit, QCheckBox, QDialog, QComboBox, QMessageBox
@@ -168,10 +169,13 @@ def ml_curve_fit(fitfunc, t, measured, bounds, p0):
                    options={'gtol': 1e-2, 'verbose': 0})
     # res = minimize(minfunc, p0, args=(fitfunc, t, measured))#, method='L-BFGS-B',
     param = res.x
-    pcov = np.zeros((param.size, param.size))
+    H = nd.Hessian(lambda p: minfunc(p, fitfunc, t, measured))(res.x)
+    print(H)
+    pcov = np.linalg.inv(H)
+    # pcov = np.zeros((param.size, param.size))
     # print(res.message)
     # print(res.nit)
-    # print(pcov)
+    print(pcov)
     return param, pcov
 
 
@@ -981,6 +985,9 @@ class OneExp(FluoFit):
             elif self.method == 'ml':
                 shift = param[1]
                 bg = param[2]
+                shiftstd = stds[1]
+                stds[1] = stds[2]  # stds[1] becomes bg std
+                stds[2] = shiftstd  # stds[2] becomes shift std, as for least squares
                 self.convd = self.fitfunc_ml(self.t, tau, shift, bg, fwhm)
 
             self.results(tau, stds, avtaustd, shift, amp=1, fwhm=fwhm, bg=bg)
@@ -1115,6 +1122,10 @@ class TwoExp(FluoFit):
                 amp = [param[2], 1 - param[2]]
                 shift = param[3]
                 bg = param[4]
+                # TODO: make stds a dictionary or individual variables
+                shiftstd = stds[3]
+                stds[3] = stds[4]  # stds[3] becomes bg std
+                stds[4] = shiftstd  # stds[4] becomes shift std, as for least squares
                 self.convd = self.fitfunc_ml(self.t, tau[0], tau[1], amp[0], shift, bg, fwhm)
 
             avtaustd = np.sqrt(
