@@ -31,7 +31,7 @@ MANIFEST
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
-*.spec
+#*.spec
 
 # Installer logs
 pip-log.txt
@@ -127,7 +127,7 @@ dmypy.json
 .pyre/
 
 # PyInstaller .spec scripts
-*.spec
+#*.spec
 
 # NSIS Installer .nsi scripts
 *.nsi
@@ -163,8 +163,8 @@ Syncfolders_Database_db
 /.vs/
 /test_data/
 /.vscode/
-/.qt_for_python/
 /src/analysis/
 /output/
-/resources/last_opened.txt
+/src/resources/last_opened.txt
 /wip_checkpoint.md
+/.qt_for_python/

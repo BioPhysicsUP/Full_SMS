@@ -59,6 +59,7 @@ def save_analysis(
         "int_global_groups_checked": main_window.chbInt_Show_Global_Groups.isChecked(),
         "global_grouping_mode_selected": main_window.tabGroupingMode.currentWidget().objectName(),
     }
+    dataset.filter_settings = main_window.filtering_controller.filter_settings
 
     save_file_name = dataset.name[:-2] + "smsa"
 
@@ -226,6 +227,17 @@ def load_analysis(
 
     if hasattr(loaded_dataset, "settings"):
         main_window.settings_dialog.load_settings(loaded_dataset.settings)
+
+    if (
+        hasattr(loaded_dataset, "filter_settings")
+        and loaded_dataset.filter_settings is not None
+    ):
+        # main_window.filtering_controller.set_filter_settings(
+        #     loaded_dataset.filter_settings
+        # )
+        main_window.filtering_controller.filter_settings = (
+            loaded_dataset.filter_settings
+        )
 
     main_window.data_loaded = True
     if signals:

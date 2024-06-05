@@ -188,7 +188,7 @@ class H5dataset:
         file_keys = self.file.keys()
         for num, particle_name in enumerate(particle_names):
             if particle_name in file_keys:
-                particle = h5_fr.particle(particle_num=num + 1, dataset=self)
+                particle = h5_fr.particle(particle_num=num, dataset=self)
                 if h5_fr.has_raster_scan(particle=particle):
                     raster_scans.append((h5_fr.raster_scan(particle=particle), num))
 
@@ -206,10 +206,12 @@ class H5dataset:
                     if num != 0:  # Not first one
                         if num != len(raster_scans) - 1:  # Not last one
                             # Save previous raster scan with previous group indexes
+                            print(raster_scan_num)
+                            print(group_indexes)
                             self.all_raster_scans.append(
                                 RasterScan(
                                     h5dataset=self,
-                                    particle_num=num,
+                                    particle_num=num-1,
                                     h5dataset_index=raster_scan_num,
                                     particle_indexes=group_indexes,
                                 )
@@ -244,7 +246,7 @@ class H5dataset:
                                 )
                             )
                             raster_scan_counter += 1
-                    else:
+                    else:  # first one
                         raster_scan_num = 0
                         if len(raster_scans) == 1:
                             group_indexes = [0]
@@ -385,7 +387,7 @@ class Particle:
         self.uuid = uuid1()
         self.name = name
         self.dataset = dataset
-        self.dataset_ind = dataset_ind
+        self.dataset_ind: int = dataset_ind
         # self.get_file = lambda: dataset.get_file()
         self.file_version = h5_fr.file_version(dataset=dataset)
         # self.dataset_particle = self.file[self.name]
@@ -437,14 +439,14 @@ class Particle:
                 differences = np.diff(np.sort(self.microtimes[:]))
                 possible_channelwidths = np.unique(np.diff(np.unique(differences)))
                 if len(possible_channelwidths) != 1:
-                    channelwidth = 0.01220703125
+                    channelwidth = np.float64(0.01220703125)
                     logger.warning(
                         f"Channel width could not be determined. Inspect {self.name}. A default of {channelwidth} used."
                     )
                 else:
                     channelwidth = possible_channelwidths[0]
             else:
-                channelwidth = 0.01220703125
+                channelwidth = np.float64(0.01220703125)
                 logger.warning(
                     f"Channel width could not be determined. Inspect {self.name}. A default of {channelwidth} used."
                 )
@@ -672,7 +674,6 @@ class Particle:
     def ab_analysis(self, ab_analysis):
         if not self.is_secondary_part:
             self._ab_analysis = ab_analysis
-
 
     @property
     def groups(self) -> List[grouping.Group]:
@@ -934,8 +935,8 @@ class Particle:
             Intensities as a function of time for plotting.
         """
         assert self.has_levels, "ChangePointAnalysis:\tNo levels to convert to data."
-        if self.is_secondary_part:
-            return
+        # if self.is_secondary_part:
+        #     return None, None
         if use_grouped is None:
             use_grouped = self.has_groups and self.using_group_levels
 
@@ -1165,7 +1166,11 @@ class Particle:
 
     def makegrouplevelhists(self):
         """Make grouped level histograms."""
-        if not self.is_secondary_part and self.has_groups and self.ahca.selected_step.groups_have_hists:
+        if (
+            not self.is_secondary_part
+            and self.has_groups
+            and self.ahca.selected_step.groups_have_hists
+        ):
             if self.ahca.num_steps == 1:
                 self.groups[0].histogram = self.ahca.steps[0].groups[0].histogram
             else:
@@ -1622,6 +1627,9 @@ class Histogram:
         addopt,
         irf,
         fwhm=None,
+        normalize_amps=True,
+        maximum_likelihood=False
+
     ):
         """Fit a multiexponential decay to the histogram.
 
@@ -1653,11 +1661,20 @@ class Histogram:
             Full-width at half maximum of simulated irf. IRF is not simulated if fwhm is None.
         addopt : Dict = None
             Additional options for `scipy.optimize.curve_fit` (such as optimization parameters).
+        normalize_amps : bool = True
+            Whether to use normalized lifetime amplitudes.
+        maximum_likelihood : bool = False
+            Whether to use maximum likelihood fitting (otherwise use least squares).
         """
         if addopt is not None:
             addopt = ast.literal_eval(addopt)
 
         self.numexp = numexp
+        if maximum_likelihood:
+            method = 'ml'
+            decaybg = [5, 0, 50, 0]
+        else:
+            method = 'ls'
 
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
@@ -1675,6 +1692,7 @@ class Histogram:
                     boundaries,
                     addopt,
                     fwhm=fwhm,
+                    method=method
                 )
             elif numexp == 2:
                 fit = tcspcfit.TwoExp(
@@ -1690,6 +1708,8 @@ class Histogram:
                     boundaries,
                     addopt,
                     fwhm=fwhm,
+                    normalize_amps=normalize_amps,
+                    method=method
                 )
             elif numexp == 3:
                 fit = tcspcfit.ThreeExp(
@@ -1705,6 +1725,8 @@ class Histogram:
                     boundaries,
                     addopt,
                     fwhm=fwhm,
+                    normalize_amps=normalize_amps,
+                    method=method
                 )
         except Exception as e:
             trace_string = ""
@@ -1734,7 +1756,9 @@ class Histogram:
             if numexp == 1:
                 self.avtau = self.tau
             else:
-                self.avtau = sum(np.array(self.tau) * np.array(self.amp)) / sum(self.amp)
+                self.avtau = sum(np.array(self.tau) * np.array(self.amp)) / sum(
+                    self.amp
+                )
             self.decay_roi_start_ns = fit.startpoint * self._particle.channelwidth
             self.decay_roi_end_ns = fit.endpoint * self._particle.channelwidth
             self.num_photons_used = np.sum(fit.measured_not_normalized)
@@ -1838,6 +1862,8 @@ class ParticleAllHists:
                         fit_param.addopt,
                         fit_param.irf,
                         fit_param.fwhm,
+                        fit_param.normalize_amps,
+                        fit_param.maximum_likelihood
                     ):
                         pass  # fit unsuccessful
                 except AttributeError:

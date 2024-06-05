@@ -66,7 +66,7 @@ from save_and_load import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
 import smsh5_file_reader
 
-SMS_VERSION = "0.6.0"
+SMS_VERSION = "0.6.2"
 
 #  TODO: Needs to rather be reworked not to use recursion, but rather a loop of some sort
 
@@ -147,8 +147,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.raster_scan_controller = RasterScanController(main_window=self)
 
-        self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
-                                                           corr_sum_widget=self.pgAntibunching_Sum_PlotWidget)
+        self.antibunch_controller = AntibunchingController(
+            self,
+            corr_widget=self.pgAntibunching_PlotWidget,
+            corr_sum_widget=self.pgAntibunching_Sum_PlotWidget,
+        )
         # self.antibunch_controller = AntibunchingController(self, corr_widget=self.pgAntibunching_PlotWidget,
         #                                                    corr_sum_widget=None)
         a_c = self.antibunch_controller
@@ -240,9 +243,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.treeViewParticles.selectionModel().currentChanged.connect(
             self.display_data
         )
-        self.treemodel.dataChanged.connect(
-            self.selection_changed
-        )
+        self.treemodel.dataChanged.connect(self.selection_changed)
         self.treeViewParticles.clicked.connect(self.tree_view_clicked)
         # self.treeViewParticles.keyPressEvent().connect(self.tree_view_key_press)
         self._root_was_checked = False
@@ -969,6 +970,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if self.data_loaded and not irf:
             self.current_dataset = self.tree2dataset()
             self.treeViewParticles.expandAll()
+            print(self.part_index)
             self.treeViewParticles.setCurrentIndex(self.part_index[0])
             self.current_particle = self.tree2particle(0)
             any_spectra = any(
@@ -1462,7 +1464,11 @@ class MainWindow(QMainWindow, UI_Main_Window):
             self.btnGroupGlobal.setEnabled(has_levels)
             if has_levels:
                 has_groups = any(
-                    [particle.has_groups for particle in self.current_dataset.particles if not particle.is_secondary_part]
+                    [
+                        particle.has_groups
+                        for particle in self.current_dataset.particles
+                        if not particle.is_secondary_part
+                    ]
                 )
                 self.btnApplyGroupsCurrent.setEnabled(has_groups)
                 self.btnApplyGroupsSelected.setEnabled(has_groups)
@@ -1480,6 +1486,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         if self.current_dataset and self.current_dataset.has_spectra:
             self.tabSpectra.setEnabled(True)
             self.btnSubBackground.setEnabled(new_state)
+            self.btnRotateROI.setEnabled(new_state)
         else:
             self.tabSpectra.setEnabled(False)
 

@@ -6,23 +6,18 @@ name = "pypi"
 [packages]
 dill = "*"
 h5pickle = "*"
-h5py = "*"
 matplotlib = "*"
-numpy = "*"
-pandas = "*"
 pyarrow = "*"
-pyqt5-qt5 = "*"
-pyqt5-sip = "*"
 pyqt5-stubs = "*"
 pyqt5 = "*"
 statsmodels = "*"
 pyqtgraph = "*"
+importlib-metadata = "*"
 importlib-resources = "*"
-zipp = "*"
 
 [dev-packages]
-auto-py-to-exe = "*"
 pympler = "*"
+pyinstaller = "*"
 
 [requires]
 python_version = "3"
