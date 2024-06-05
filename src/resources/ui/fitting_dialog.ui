@@ -985,7 +985,7 @@
             <item row="10" column="3">
              <widget class="QCheckBox" name="check3AmpFix3">
               <property name="enabled">
-               <bool>false</bool>
+               <bool>true</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
@@ -1196,7 +1196,7 @@
             <item row="10" column="2">
              <widget class="QLineEdit" name="line3AmpMax3">
               <property name="enabled">
-               <bool>false</bool>
+               <bool>true</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
@@ -1311,7 +1311,7 @@
             <item row="10" column="1">
              <widget class="QLineEdit" name="line3AmpMin3">
               <property name="enabled">
-               <bool>false</bool>
+               <bool>true</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
@@ -1479,7 +1479,7 @@
             <item row="10" column="0">
              <widget class="QLineEdit" name="line3AmpInit3">
               <property name="enabled">
-               <bool>false</bool>
+               <bool>true</bool>
               </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
