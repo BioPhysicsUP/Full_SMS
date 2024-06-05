@@ -21,6 +21,13 @@ Investigation" and clicking "Plot". For example, an intensity-lifetime plot look
    :alt: Filtering tab in the GUI showing scatter plot
    :align: left
 
+The number of histogram bins is set automatically
+but can also be set manually under "#Bins" by first unselecting
+"Auto". If
+"Only Drift" is checked, only intensities below the regression line
+will be normalised, else all intensities are normalised. Selecting
+"All" applies the normalisation to all levels and groups instead of
+only the currently displayed data.
 This data can also be filtered, for example based on minimum and maximum lifetime values:
 
 .. image:: images/2dfilter.png

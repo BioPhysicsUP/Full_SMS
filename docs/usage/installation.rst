@@ -17,6 +17,7 @@ To install from source, Python 3 is required along with the following packages:
 | pyarrow
 | dill
 | h5pickle
+| numdifftools
 
 Python can be installed from https://www.python.org/downloads/.
 
