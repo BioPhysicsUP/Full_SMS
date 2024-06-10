@@ -4,10 +4,15 @@ How to get good fits
 There is endless literature on the topic of TCSPC decay fitting; what follows is some tips as to what works with Full SMS
 and the types of data it was designed to analyse.
 
-*   Full SMS uses a non-linear least-squares optimization as implemented in |scipy.optimize.curve_fit|_. In general, this
-    type of optimization requires good initial guess values for parameters, so it is a good idea to use the interactive tool
-    to find parameters that roughly fit the decay before running the fit.
-*   If you are using a measured IRF, make sure it is measured at high count rate so that there is no discernable noise
+*   Full SMS offes two types of fitting: non-linear least-squares and maximum likelihood. The former is highly robust
+    and computationally efficient, however it delivers incorrect results at low photon numbers, where ML is
+    preferred due to its correct accounting for Poisson noise (LS assumes Gaussian noise).
+*   A detailed comparison of the performance of our implementations of ML an LS is still in the works, however,
+    literature suggests decays with less than 20 000 photons should be fitted with ML [#]_.
+*   In general,
+    both these optimization techniques require good initial guess values for parameters, so it is a good idea to use
+    the interactive tool to find parameters that roughly fit the decay before running the fit.
+*   If you are using a measured IRF, make sure it contains enough counts so that there is no discernable noise
     in the decay. Noise in the IRF will translate to noise in the fitted decay.
 *   Start with a 1-component fit and move on to 2 and from there to 3 components if the fit is not satisfactory.
     Overfitting typically results in components with idential lifetimes or tiny amplitudes.
@@ -33,8 +38,10 @@ and the types of data it was designed to analyse.
     that are commonly found around the beginning and end of the decay. Therefore, it is usually necessary to set the
     startpoint and endpoint as described above, with a higher statistical significance for lower values.
 
+.. [#] Maus, M. et al. Anal. Chem. 73, 2078–2086 (2001) https://doi.org/10.1021/ac000877g.
 .. [#] Values above 2 indicate negative autocorrelation, which is not normally found in the residuals.
 .. [#] More precisely, the values are lower bounds on the critical values of the distribution, since the exact values
-       cannot generally be determined, see Turner 2019 for details.
+       cannot generally be determined, for details see Turner, P. Applied Economics Letters 27, 1495–1499 (2020)
+       https://doi.org/10.1080/13504851.2019.1691711.
 .. |scipy.optimize.curve_fit| replace:: ``scipy.optimize.curve_fit``
 .. _scipy.optimize.curve_fit: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html#scipy.optimize.curve_fit
