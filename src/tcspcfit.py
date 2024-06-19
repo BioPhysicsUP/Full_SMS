@@ -164,7 +164,6 @@ def minfunc(p0, fitfunc, t, measured):
 def ml_curve_fit(fitfunc, t, measured, bounds, p0):
     bounds = np.column_stack(bounds).tolist()
     bounds =[tuple(bound) for bound in bounds]
-    # print(bounds)
     res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='trust-constr',
                    options={'gtol': 1e-2, 'verbose': 0})
     # res = minimize(minfunc, p0, args=(fitfunc, t, measured))#, method='L-BFGS-B',
@@ -1183,6 +1182,7 @@ class ThreeExp(FluoFit):
         if amp is None:
             amp = [0.4, 0.3, 0.3]
 
+        print(fwhm)
         FluoFit.__init__(
             self,
             irf,
@@ -1202,17 +1202,32 @@ class ThreeExp(FluoFit):
             numexp=3,
         )
 
-        if self.simulate_irf:
-            paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
-            paramax = self.taumax + self.ampmax + [self.shiftmax] + [self.fwhmmax]
-            paraminit = self.tau + self.amp + [self.shift] + [self.fwhm]
-        else:
-            paramin = self.taumin + self.ampmin + [self.shiftmin]
-            paramax = self.taumax + self.ampmax + [self.shiftmax]
-            paraminit = self.tau + self.amp + [self.shift]
+        if self.method == 'ls':
+            c_f = curve_fit
+            self.fitfunc = self.fitfunc_ls
+            if self.simulate_irf:
+                paramin = self.taumin + self.ampmin + [self.shiftmin] + [self.fwhmmin]
+                paramax = self.taumax + self.ampmax + [self.shiftmax] + [self.fwhmmax]
+                paraminit = self.tau + self.amp + [self.shift] + [self.fwhm]
+            else:
+                paramin = self.taumin + self.ampmin + [self.shiftmin]
+                paramax = self.taumax + self.ampmax + [self.shiftmax]
+                paraminit = self.tau + self.amp + [self.shift]
+
+        elif self.method == 'ml':
+            c_f = ml_curve_fit
+            self.fitfunc = self.fitfunc_ml
+            if self.simulate_irf:
+                paramin = self.taumin + [self.ampmin[0], self.ampmin[1]] + [self.shiftmin] + [self.bgmin] + [self.fwhmmin]
+                paramax = self.taumax + [self.ampmax[0], self.ampmax[1]] + [self.shiftmax] + [self.bgmax] + [self.fwhmmax]
+                paraminit = self.tau + [self.amp[0], self.amp[1]] + [self.shift] + [self.bgval] + [self.fwhm]
+            else:
+                paramin = self.taumin + [self.ampmin[0], self.ampmin[1]] + [self.shiftmin] + [self.bgmin]
+                paramax = self.taumax + [self.ampmax[0], self.ampmax[1]] + [self.shiftmax] + [self.bgmax]
+                paraminit = self.tau + [self.amp[0], self.amp[1]] + [self.shift] + [self.bgval]
 
         if addopt is None:
-            param, pcov, *extra = curve_fit(
+            param, pcov, *extra = c_f(
                 self.fitfunc,
                 self.t,
                 self.measured,
@@ -1220,7 +1235,7 @@ class ThreeExp(FluoFit):
                 p0=paraminit,
             )
         else:
-            param, pcov, *extra = curve_fit(
+            param, pcov, *extra = c_f(
                 self.fitfunc,
                 self.t,
                 self.measured,
@@ -1229,28 +1244,37 @@ class ThreeExp(FluoFit):
                 **addopt,
             )
 
+        if self.simulate_irf:
+            fwhm = param[7]
+        else:
+            fwhm = None
+
         tau = param[0:3]
-        amp = param[3:6]
-        shift = param[6]
         stds = np.sqrt(np.diag(pcov))
-        # stds[5] = np.sqrt(
-        #     stds[3] ** 2 + stds[4] ** 2
-        # )  # third amp std is based on first two
+        if self.method == 'ls':
+            bg = None
+            amp = param[3:6]
+            shift = param[6]
+            self.convd = self.fitfunc_ls(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
+        elif self.method == 'ml':
+            amp = [param[2], 1 - param[2]]
+            shift = param[3]
+            bg = param[4]
+            # TODO: make stds a dictionary or individual variables
+            shiftstd = stds[5]
+            stds[5] = stds[6]  # stds[5] becomes bg std
+            stds[6] = shiftstd  # stds[6] becomes shift std, as for least squares
+            self.convd = self.fitfunc_ml(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, bg, fwhm)
+
         avtaustd = np.sqrt(
             (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0]) ** 2)) ** 2
             + (tau[1] * amp[1] * np.sqrt((stds[1] / tau[1]) ** 2 + (stds[4] / amp[1]) ** 2)) ** 2
             + (tau[2] * amp[2] * np.sqrt((stds[2] / tau[2]) ** 2 + (stds[5] / amp[2]) ** 2)) ** 2
         )
 
-        if self.simulate_irf:
-            fwhm = param[7]
-        else:
-            fwhm = None
+        self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm, bg=bg)
 
-        self.convd = self.fitfunc(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
-        self.results(list(tau), stds, avtaustd, shift, list(amp), fwhm)
-
-    def fitfunc(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
+    def fitfunc_ls(self, t, tau1, tau2, tau3, a1, a2, a3, shift, fwhm=None):
         """Triple exponential model function passed to curve_fit, to be fitted to data"""
         model = (
             a1 * np.exp(-t / tau1)
@@ -1261,6 +1285,15 @@ class ThreeExp(FluoFit):
             return self.makeconvd(shift, model, fwhm) + (1 - a1 - a2 - a3)
         else:
             return self.makeconvd(shift, model, fwhm)
+
+    def fitfunc_ml(self, t, tau1, tau2, tau3, a1, a2, shift, bg, fwhm=None):
+        """Triple exponential model function passed to curve_fit, to be fitted to data"""
+        model = (
+                a1 * np.exp(-t / tau1)
+                + a2 * np.exp(-t / tau2)
+                + (1-a1-a2) * np.exp(-t / tau3)
+        )
+        return self.makeconvd(shift, model, fwhm, bg)
 
 
 class FittingParameters:
