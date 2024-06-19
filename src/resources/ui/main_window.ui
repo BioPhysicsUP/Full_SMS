@@ -83,7 +83,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>235</width>
+          <width>300</width>
           <height>16777215</height>
          </size>
         </property>
@@ -191,8 +191,8 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>250</width>
-          <height>170</height>
+          <width>300</width>
+          <height>16777215</height>
          </size>
         </property>
         <property name="font">
@@ -7674,7 +7674,7 @@ Python: import pandas.read_feather)</string>
     <addaction name="menuLifetime"/>
     <addaction name="separator"/>
     <addaction name="actionReset_Analysis"/>
-    <addaction name="actionConvert_pt3"/>
+    <addaction name="actionConvert_file"/>
    </widget>
    <widget class="QMenu" name="menuAnalysis">
     <property name="title">
@@ -7814,9 +7814,9 @@ Python: import pandas.read_feather)</string>
     <string>tets</string>
    </property>
   </action>
-  <action name="actionConvert_pt3">
+  <action name="actionConvert_file">
    <property name="text">
-    <string>Convert .pt3's</string>
+    <string>Convert files</string>
    </property>
   </action>
   <action name="actionInvert_Selection">
@@ -7982,6 +7982,11 @@ Python: import pandas.read_feather)</string>
   <action name="actionClose">
    <property name="text">
     <string>Close</string>
+   </property>
+  </action>
+  <action name="actionConvert_csv">
+   <property name="text">
+    <string>Convert .csv's</string>
    </property>
   </action>
  </widget>

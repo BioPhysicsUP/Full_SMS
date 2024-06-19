@@ -60,7 +60,7 @@ from generate_sums import CPSums
 from custom_dialogs import TimedMessageBox
 import file_manager as fm
 from my_logger import setup_logger
-from convert_pt3 import ConvertPt3Dialog
+from file_conversion import ConvertFileDialog
 from exporting import ExportWorker, DATAFRAME_FORMATS
 from save_and_load import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
@@ -83,15 +83,14 @@ class MainWindow(QMainWindow, UI_Main_Window):
     """
     Class for Full SMS application that returns QMainWindow object.
 
-    This class uses a *.ui converted to a *.py script to generate g Be
-    sure to run convert_py after having made changes to main_window.
+    This class uses a *.ui that is automatically converted to a *.py script
+    upon exectution.
     """
 
     def __init__(self):
         """Initialise MainWindow object.
 
-        Creates and populates QMainWindow object as described by main_window.py
-        as well as creates MplWidget
+        Creates and populates QMainWindow object as described by main_window.ui
         """
 
         self.threadpool = QThreadPool()
@@ -178,7 +177,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.actionSwitch_All.triggered.connect(self.act_switch_all)
         self.actionSwitch_Selected.triggered.connect(self.act_switch_selected)
         self.actionSet_Startpoint.triggered.connect(self.act_set_startpoint)
-        self.actionConvert_pt3.triggered.connect(self.convert_pt3_dialog)
+        self.actionConvert_file.triggered.connect(self.convert_file_dialog)
         self.actionRange_Selection.triggered.connect(self.range_selection)
         self.actionSettings.triggered.connect(self.act_open_settings_dialog)
         self.actionFiltering_Normalization.triggered.connect(
@@ -1369,9 +1368,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
         self.threadpool.start(export_worker)
 
-    def convert_pt3_dialog(self):
-        convert_pt3 = ConvertPt3Dialog(mainwindow=self)
-        convert_pt3.exec()
+    def convert_file_dialog(self):
+        convert_file = ConvertFileDialog(mainwindow=self)
+        convert_file.exec()
 
     def range_selection(self):
         range_selection_dialog = RangeSelectionDialog(main_window=self)
