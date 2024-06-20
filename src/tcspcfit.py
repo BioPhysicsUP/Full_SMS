@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import QLineEdit, QCheckBox, QDialog, QComboBox, QMessageBo
 from matplotlib import pyplot as plt
 from scipy.fftpack import fft, ifft
 from scipy.linalg import svd
-from scipy.optimize import curve_fit, minimize
+from scipy.optimize import curve_fit, minimize, NonlinearConstraint
 from scipy.signal import convolve
 import file_manager as fm
 from PyQt5 import uic
@@ -161,20 +161,20 @@ def minfunc(p0, fitfunc, t, measured):
     # return -np.sum(measured * np.log(convd, where=convd>0) - convd)  # poisson
 
 
-def ml_curve_fit(fitfunc, t, measured, bounds, p0):
+def ml_curve_fit(fitfunc, t, measured, bounds, p0, constraints=None):
     bounds = np.column_stack(bounds).tolist()
     bounds =[tuple(bound) for bound in bounds]
     res = minimize(minfunc, p0, args=(fitfunc, t, measured), bounds=bounds, method='trust-constr',
-                   options={'gtol': 1e-2, 'verbose': 0})
+                   options={'gtol': 1e-8, 'xtol': 1e-80, 'maxiter': 10000, 'verbose': 0}, constraints=constraints)
     # res = minimize(minfunc, p0, args=(fitfunc, t, measured))#, method='L-BFGS-B',
     param = res.x
     H = nd.Hessian(lambda p: minfunc(p, fitfunc, t, measured))(res.x)
-    print(H)
+    # print(H)
     pcov = np.linalg.inv(H)
     # pcov = np.zeros((param.size, param.size))
-    # print(res.message)
+    print(res.message)
     # print(res.nit)
-    print(pcov)
+    # print(pcov)
     return param, pcov
 
 
@@ -1226,6 +1226,10 @@ class ThreeExp(FluoFit):
                 paramax = self.taumax + [self.ampmax[0], self.ampmax[1]] + [self.shiftmax] + [self.bgmax]
                 paraminit = self.tau + [self.amp[0], self.amp[1]] + [self.shift] + [self.bgval]
 
+            constraint_func = lambda param: param[3] + param[4]  # sum of first two amplitudes
+            constraints = NonlinearConstraint(constraint_func, 0, 1)  # sum less than or equal to one
+            addopt = {'constraints': constraints}
+
         if addopt is None:
             param, pcov, *extra = c_f(
                 self.fitfunc,
@@ -1257,14 +1261,14 @@ class ThreeExp(FluoFit):
             shift = param[6]
             self.convd = self.fitfunc_ls(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, fwhm)
         elif self.method == 'ml':
-            amp = [param[2], 1 - param[2]]
-            shift = param[3]
-            bg = param[4]
+            amp = [param[3], param[4], 1 - param[3] - param[4]]
+            shift = param[5]
+            bg = param[6]
             # TODO: make stds a dictionary or individual variables
             shiftstd = stds[5]
             stds[5] = stds[6]  # stds[5] becomes bg std
             stds[6] = shiftstd  # stds[6] becomes shift std, as for least squares
-            self.convd = self.fitfunc_ml(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], amp[2], shift, bg, fwhm)
+            self.convd = self.fitfunc_ml(self.t, tau[0], tau[1], tau[2], amp[0], amp[1], shift, bg, fwhm)
 
         avtaustd = np.sqrt(
             (tau[0] * amp[0] * np.sqrt((stds[0] / tau[0]) ** 2 + (stds[3] / amp[0]) ** 2)) ** 2
