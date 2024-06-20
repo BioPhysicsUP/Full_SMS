@@ -1030,6 +1030,7 @@ class Exporter:
                     ]
                 )
             except TypeError:  # no levels and/or no groups:
+                # max_exp_number = 3
                 max_exp_number = np.max([p.histogram.numexp for p in particles if p.histogram.fitted])
 
             df_levels = None
