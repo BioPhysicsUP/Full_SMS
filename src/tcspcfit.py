@@ -172,7 +172,7 @@ def ml_curve_fit(fitfunc, t, measured, bounds, p0, constraints=None):
     # print(H)
     pcov = np.linalg.inv(H)
     # pcov = np.zeros((param.size, param.size))
-    print(res.message)
+    # print(res.message)
     # print(res.nit)
     # print(pcov)
     return param, pcov
@@ -1182,7 +1182,6 @@ class ThreeExp(FluoFit):
         if amp is None:
             amp = [0.4, 0.3, 0.3]
 
-        print(fwhm)
         FluoFit.__init__(
             self,
             irf,
