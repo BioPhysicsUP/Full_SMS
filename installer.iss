@@ -2,8 +2,8 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Full SMS"
-#define MyAppVersion "0.6.3"
-#define MyVersionInfoVersion "0.0.6.3"
+#define MyAppVersion "0.7.3"
+#define MyVersionInfoVersion "0.0.7.3"
 #define MyInstallerName "Full_SMS_v" + MyAppVersion + "_Win10_64-bit"
 #define MyAppPublisher "University of Pretoria"
 #define MyAppURL "https://www.up.ac.za/"
