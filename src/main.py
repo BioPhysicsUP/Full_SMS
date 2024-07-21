@@ -1041,9 +1041,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
 
     def set_export_options(self):
         particles = self.get_checked_particles()
-        particles.append(self.current_particle)
-        # if len(particles) == 0:
-        #     particles = [self.current_particle]
+        # particles.append(self.current_particle)
+        if len(particles) == 0:
+            particles = [self.current_particle]
 
         all_have_levels = all([p.has_levels for p in particles])
         all_have_any_groups = all(

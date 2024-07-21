@@ -452,29 +452,32 @@ class Exporter:
     def export_dataframes(self, particles):
         any_has_lifetime = any([p.has_fit_a_lifetime for p in particles])
         if not any_has_lifetime:
-            if self.signals:
-                self.signals.progress.emit()
-                self.signals.progress.emit()
-                self.signals.progress.emit()
-            return
+            max_exp_num = 0
+        #     if self.signals:
+        #         self.signals.progress.emit()
+        #         self.signals.progress.emit()
+        #         self.signals.progress.emit()
+        #     return
 
-        max_exp_num = np.max(
-            [
-                *[p.histogram.numexp for p in particles if p.histogram.fitted],
-                *[
-                    l.histogram.numexp
-                    for p in particles
-                    for l in p.levels
-                    if l.histogram.fitted
-                ],
-                *[
-                    g.histogram.numexp
-                    for p in particles
-                    for g in p.groups
-                    if g.histogram.fitted
-                ],
-            ]
-        )
+        else:
+            max_exp_num = np.max(
+                [
+                    *[p.histogram.numexp for p in particles if p.histogram.fitted],
+                    *[
+                        l.histogram.numexp
+                        for p in particles
+                        for l in p.levels
+                        if l.histogram.fitted
+                    ],
+                    *[
+                        g.histogram.numexp
+                        for p in particles
+                        if p.groups is not None
+                        for g in p.groups
+                        if g.histogram.fitted
+                    ],
+                ]
+            )
         if self.options.ex_df_levels:
             all_levels = [l for p in particles for l in p.levels]
             df_levels = self.levels_to_df(
