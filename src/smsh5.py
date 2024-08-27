@@ -582,7 +582,7 @@ class Particle:
         if self.roi_region[0] == 0:
             first_ind = 0
         else:
-            where_start = np.where(self.roi_region[0] >= times)
+            where_start = np.where(self.roi_region[0] <= times)
             if len(where_start[0]):
                 first_ind = where_start[0][0]
             else:
