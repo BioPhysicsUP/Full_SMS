@@ -259,9 +259,7 @@ class ChangePoints:
         logger.info(msg=f"{self._particle.name} levels resolved")
 
     def calc_mean_std(self):  # , intensities: np.ndarray = None
-        assert (
-            self.has_levels
-        ), "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."
+        assert self.has_levels, "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."
         # num_levels = self._particle.num_levels
         # if intensities is None:
         #     intensities = np.array([level.int_p_s for level in self._particle.levels])
@@ -740,132 +738,45 @@ class ChangePointAnalysis:
 
         return cpt_found, cpt
 
-    def _next_seg_ind(
-        self,
-        prev_seg_inds: Tuple[int, int] = None,
-        side: str = None,
-        rights_cpt: int = None,
-    ) -> Tuple[int, int]:
+    def _next_seg_ind(self, prev_seg_inds: Tuple[int, int] = None, prev_change_point=None, _side=None):
         """
-        Calculates the next segments indexes.
+        Determines the next segment indices for change point detection.
 
-        Uses the indexes of the previous segment, as well as the latest change point
-        to calculate the index values of the next segment.
+        Parameters:
+        - prev_start (int, optional): Start index of the previous segment.
+        - prev_end (int, optional): End index of the previous segment.
+        - change_point (int, optional): Index of the detected change point in the previous segment.
+        - _side (str, optional): Indicates where the change point was detected ('left', 'right', or None).
+        - change_points (list, optional): List of all detected change points.
 
-        See code2flow.com for flow diagram of if statements.
-        https://code2flow.com/svLn85
-
-        Parameters
-        ----------
-        prev_seg_inds : (int, int)
-            Contains the start and end of the previous segment (start, end)
-        side: str, Optional
-            If a change point was detected in the previous segment choose left
-            or right of it. Possible values are 'left' or 'right'.
-        rights_cpt : int, Optional
-            The index of the change point for the right leg (the next_seg_start if side = 'left').
-        Returns
-        -------
-        next_seg : (int, int)
-            The next segments indexes.
+        Returns:
+        - (int, int): Start and end indices of the next segment.
         """
-
-        min_num_photons = self.settings.cpa_min_num_photons
-
-        if self.end_at_photon is not None:
-            last_photon_ind = self.end_at_photon
-        else:
-            last_photon_ind = self.num_photons - 1
 
         if prev_seg_inds is None:
-            # Data sets need to be larger than 200 photons
-            # assert self.num_photons >= 200, 'ChangePointAnalysis:\tData set needs to ' \
-            #                                 'be at least 200 photons for change point detection.'
-            if self.num_photons < 200:
-                logger.info(
-                    "ChangePointAnalysis:\tData set needs to be at least 200 photons for change point detection."
-                )
-                next_start_ind, next_end_ind = None, None
-                return next_start_ind, next_end_ind
-            if self.num_photons > 1000:
-                next_start_ind, next_end_ind = 0, 1000
-            else:
-                next_start_ind, next_end_ind = 0, last_photon_ind
+            # First call
+            start = 0
+            end = min(self.num_photons - 1, 999)
         else:
-            prev_start_ind, prev_end_ind = prev_seg_inds
-            if len(self.cpt_inds) == 0:
-                if last_photon_ind >= prev_end_ind + 800:
-                    next_start_ind, next_end_ind = (
-                        prev_end_ind - 200,
-                        prev_end_ind + 800,
-                    )
-                elif (
-                    last_photon_ind - prev_end_ind >= self.settings.cpa_min_num_photons
-                ):  # Next segment needs to be at least 10 photons large.
-                    next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
-                else:
-                    next_start_ind, next_end_ind = None, None
-                    dbg.p(
-                        f"Warning, last photon segment smaller than {self.settings.cpa_min_num_photons} photons and was not tested",
-                        "Change Point",
-                    )
-            elif side is not None:  # or prev_start_ind < self.cpts[-1] < prev_end_ind
-                if side is not None:
-                    assert side in [
-                        "left",
-                        "right",
-                    ], "ChangePointAnalysis:\tSide of change point invalid or not specified"
-                if side == "left":
-                    next_start_ind, next_end_ind = prev_start_ind, int(
-                        self.cpt_inds[-1] - 1
-                    )
-                else:
-                    assert (
-                        rights_cpt is not None
-                    ), "ChangePointAnalysis\tRight side's change point not provided."
-                    next_start_ind = rights_cpt
-                    # if len(self.cpt_inds) > 1:
-                    #     i = -1
-                    #     while self.cpt_inds[i - 1] > self.cpt_inds[i]:
-                    #         i -= 1
-                    #         if self.cpt_inds[i] == prev_end_ind + 1:
-                    #             break
-                    #         next_start_ind = self.cpt_inds[i]
-                    next_end_ind = prev_end_ind
-            elif last_photon_ind >= prev_end_ind + 800:
-                if prev_end_ind - 200 < self.cpt_inds[-1] < prev_end_ind:
-                    if last_photon_ind >= self.cpt_inds[-1] + 1000:
-                        next_start_ind, next_end_ind = (
-                            int(self.cpt_inds[-1]),
-                            int(self.cpt_inds[-1]) + 1000,
-                        )
-                    else:
-                        next_start_ind, next_end_ind = (
-                            int(self.cpt_inds[-1]),
-                            last_photon_ind,
-                        )
-                else:
-                    next_start_ind, next_end_ind = (
-                        prev_end_ind - 200,
-                        prev_end_ind + 800,
-                    )
-            elif (
-                last_photon_ind - prev_end_ind >= 10
-            ):  # Next segment needs to be at least 10 photons large.
-                if prev_end_ind - 200 < self.cpt_inds[-1] < prev_end_ind:
-                    next_start_ind, next_end_ind = (
-                        int(max(self.cpt_inds)),
-                        last_photon_ind,
-                    )
-                else:
-                    next_start_ind, next_end_ind = prev_end_ind - 200, last_photon_ind
+            prev_start, prev_end = prev_seg_inds
+            if _side == 'left':
+                # Change point detected on the left side
+                start = prev_start
+                end = prev_change_point - 1
+            elif _side == 'right':
+                # Change point detected on the right side
+                start = prev_change_point
+                end = prev_end
             else:
-                next_start_ind, next_end_ind = None, None
-                if prev_end_ind != last_photon_ind:
-                    dbg.p(
-                        "Warning, last photon segment smaller than 10 photons and was not tested",
-                        "Change Point",
-                    )
+                # No change detected, overlap by 200 data points
+                start = prev_end - 200
+                # Adjust start if there's a change point in the overlap region
+                cpts_in_overlap = [cp for cp in self.cpt_inds if start <= cp <= prev_end]
+                if len(cpts_in_overlap) > 0:
+                    start = max(cpts_in_overlap)
+                end = start + 1000
+                end = min(end, self.num_photons - 1)  # Ensure end index is within dataset bounds
+        return start, end
 
         return next_start_ind, next_end_ind
 
@@ -874,7 +785,7 @@ class ChangePointAnalysis:
         all_sums: CPSums,
         _seg_inds: Tuple[int, int] = None,
         _side: str = None,
-        _right_cpt: int = None,
+        _prev_cpt: int = None,
     ):
         """
         Find all change points in particle.
@@ -890,7 +801,7 @@ class ChangePointAnalysis:
 
         Parameters
         ----------
-        _right_cpt : int, Optional
+        _prev_cpt : int, Optional
             The index of the change point for the right leg (the next_seg_start if side = 'left').
         _seg_inds : (int, int), Optional
             The index of the segment that is to be searched. Calculated by _next_seg_ind method.
@@ -913,22 +824,18 @@ class ChangePointAnalysis:
             self._i = 0
         else:
             _seg_inds = self._next_seg_ind(
-                prev_seg_inds=_seg_inds, side=_side, rights_cpt=_right_cpt
+                prev_seg_inds=_seg_inds, prev_change_point=_prev_cpt, _side=_side
             )
         self._i += 1
 
         if _seg_inds != (None, None):
-            cpt_found, _right_cpt = self.__weighted_likelihood_ratio(
-                all_sums, _seg_inds
-            )
+            cpt_found, cpt = self.__weighted_likelihood_ratio(all_sums, _seg_inds)
 
             if cpt_found:
                 # Left side of change point
-                self._find_all_cpts(all_sums, _seg_inds, _side="left")
+                self._find_all_cpts(all_sums, _seg_inds, _side="left", _prev_cpt=cpt)
                 # Right side of change point
-                self._find_all_cpts(
-                    all_sums, _seg_inds, _side="right", _right_cpt=_right_cpt
-                )
+                self._find_all_cpts(all_sums, _seg_inds, _side="right", _prev_cpt=cpt)
                 pass  # Exits if recursive
 
             if self.end_at_photon is not None:
@@ -936,8 +843,8 @@ class ChangePointAnalysis:
             else:
                 end_ind = self.num_photons
 
-            if _seg_inds[1] <= end_ind + 9 and _side is None:
-                self._find_all_cpts(all_sums, _seg_inds)
+            if _seg_inds[1] + 9 <= end_ind and _side is None:
+                self._find_all_cpts(all_sums, _seg_inds, _prev_cpt=cpt)
 
         if is_top_level:
             self._finding = False
@@ -953,19 +860,19 @@ class ChangePointAnalysis:
                 # dt_uncertainty[i] = self.dt_uncertainty[sort_i]
 
             # TODO: Revisit necessity of duplicate removal
-            cpt_inds, unique_inds = np.unique(cpt_inds, return_inverse=True)
-            dups = np.append(
-                [False],
-                [
-                    unique_inds[i] == unique_inds[i - 1]
-                    for i in range(len(unique_inds))
-                    if i > 0
-                ],
-            )
-            dups = np.flip(np.where(dups)[0].tolist())
-            if len(dups) != 0:
-                for i in dups:
-                    del conf_regions[i]
+            # cpt_inds, unique_inds = np.unique(cpt_inds, return_inverse=True)
+            # dups = np.append(
+            #     [False],
+            #     [
+            #         unique_inds[i] == unique_inds[i - 1]
+            #         for i in range(len(unique_inds))
+            #         if i > 0
+            #     ],
+            # )
+            # dups = np.flip(np.where(dups)[0].tolist())
+            # if len(dups) != 0:
+            #     for i in dups:
+            #         del conf_regions[i]
 
             self.num_cpts = len(cpt_inds)
             self.cpt_inds = cpt_inds
