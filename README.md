@@ -31,5 +31,6 @@ The documentation is available here: https://up-biophysics-sms.readthedocs.io/en
 
 This software is to be used only if reference is made to the following paper:
 
-Botha, J.L., van Heerden, B., and Krüger, T.P.J., 2024. 
-Advanced analysis of single-molecule spectroscopic data, arXiv:2404.18945 [Preprint], http://arxiv.org/abs/2404.18945.
+Botha, J.L., van Heerden, B., and Krüger, T.P.J., 
+"Advanced analysis of single-molecule spectroscopic data", 
+Biophysical Reports 4(3), September 2024, https://doi.org/10.1016/j.bpr.2024.100173.
