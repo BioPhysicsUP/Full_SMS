@@ -267,9 +267,9 @@ class PhotonHDF5Reader():
         nanotimes_unit = file['photon_data/nanotimes_specs/tcspc_unit'][()]
         self.macro_times = timestamps * timestamp_unit * 1e9  # convert from s to ns
         self.micro_times = nanotimes * nanotimes_unit * 1e9  # convert from s to ns
-        self.file_time = file['provenance/creation_time']
-        self.comment_field = file['description']
-        self.creator_name = file['identity/author']
+        self.file_time = str(file['provenance/creation_time'])
+        self.comment_field = str(file['description'])
+        self.creator_name = str(file['identity/author'])
 
 
 class FileReader():
