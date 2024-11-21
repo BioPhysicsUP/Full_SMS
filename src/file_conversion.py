@@ -256,6 +256,22 @@ class CSVReader():
         self.macro_times, self.micro_times = np.loadtxt(csv_file_path, delimiter=',', skiprows=1, unpack=True)
 
 
+class PhotonHDF5Reader():
+    """Class for reading Photon-HDF5 files"""
+    def __init__(self, hdf5_filepath):
+        self._file_path = hdf5_filepath
+        file = h5py.File(hdf5_filepath, 'r')
+        timestamps = file['photon_data/timestamps']
+        timestamp_unit = file['photon_data/timestamps_specs/timestamps_unit'][()]
+        nanotimes = file['photon_data/nanotimes']
+        nanotimes_unit = file['photon_data/nanotimes_specs/tcspc_unit'][()]
+        self.macro_times = timestamps * timestamp_unit * 1e9  # convert from s to ns
+        self.micro_times = nanotimes * nanotimes_unit * 1e9  # convert from s to ns
+        self.file_time = file['provenance/creation_time']
+        self.comment_field = file['description']
+        self.creator_name = file['identity/author']
+
+
 class FileReader():
     """Class for reading source files.
 
@@ -275,6 +291,13 @@ class FileReader():
     def __init__(self, src_format, file_path, channel=None):
         self.format = src_format
         self.file_path = file_path
+        if self.format == "h5":
+            phdf_reader = PhotonHDF5Reader(file_path)
+            self.abs_times = phdf_reader.macro_times
+            self.micro_times = phdf_reader.micro_times
+            self.file_time = phdf_reader.file_time
+            self.comment_field = phdf_reader.comment_field
+            self.creator_name = phdf_reader.creator_name
         if self.format == "csv":
             csv_reader = CSVReader(file_path)
             self.abs_times = csv_reader.macro_times
@@ -377,7 +400,7 @@ class ConvertFileDialog(QDialog, UI_Convert_File_Dialog):
         num_files = len(pt3_fs)
 
         all_okay = False
-        if all([file[-4:] == file_ext for file in pt3_fs]):
+        if all([file[-len(file_ext):] == file_ext for file in pt3_fs]):
             pt3_nums = [file[len(pt3_f_name) : file.find(".")] for file in pt3_fs]
             if all([num.isalnum() for num in pt3_nums]):
                 pt3_nums = [int(num) for num in pt3_nums]
@@ -456,6 +479,7 @@ class ConvertFileDialog(QDialog, UI_Convert_File_Dialog):
                         spec_dataset.attrs.create("Wavelengths", dtype=np.float64, data=wavelengths)
 
             except Exception as e:
+                raise
                 logger.error(e)
 
             logger.info("Finished converting files")

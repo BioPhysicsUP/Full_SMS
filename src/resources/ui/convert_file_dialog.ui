@@ -465,6 +465,11 @@
          <string>.csv</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string>.h5</string>
+        </property>
+       </item>
       </widget>
      </item>
     </layout>
