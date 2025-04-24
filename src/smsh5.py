@@ -438,10 +438,14 @@ class Particle:
             ):
                 differences = np.diff(np.sort(self.microtimes[:]))
                 possible_channelwidths = np.unique(np.diff(np.unique(differences)))
+                print(possible_channelwidths)
+                # filter out very small values that are due to rounding errors:
+                possible_channelwidths = possible_channelwidths[possible_channelwidths>1e-4]
                 if len(possible_channelwidths) != 1:
-                    channelwidth = np.float64(0.01220703125)
+                    # channelwidth = np.float64(0.01220703125)
+                    channelwidth = possible_channelwidths[0]
                     logger.warning(
-                        f"Channel width could not be determined. Inspect {self.name}. A default of {channelwidth} used."
+                        f"Channel width might be wrong. Inspect {self.name}. Used channel width of {channelwidth} ns."
                     )
                 else:
                     channelwidth = possible_channelwidths[0]

@@ -267,8 +267,10 @@ class PhotonHDF5Reader():
         nanotimes_unit = file['photon_data/nanotimes_specs/tcspc_unit'][()]
         self.macro_times = timestamps * timestamp_unit * 1e9  # convert from s to ns
         self.micro_times = nanotimes * nanotimes_unit * 1e9  # convert from s to ns
-        self.file_time = str(file['provenance/creation_time'])
-        self.comment_field = str(file['description'])
+        self.file_time = file['provenance/creation_time'][()].decode('utf-8')
+        self.comment_field = file['description'][()].decode('utf-8')
+        print(self.file_time)
+        print(self.comment_field)
         self.creator_name = str(file['identity/author'])
 
 
@@ -328,6 +330,7 @@ class ConvertFileDialog(QDialog, UI_Convert_File_Dialog):
         self.btnExportFile.clicked.connect(self.set_export_file)
         self.btnConvert.clicked.connect(self.convert)
         self.cbxHasSpectra.stateChanged.connect(self.change_spectra_edt)
+        self.cbxBulkConvert.stateChanged.connect(self.change_bulk_edt)
         self.edtFileNames_times.textChanged.connect(self.check_ready)
         self.edtFileNames_Spectra.textChanged.connect(self.check_ready)
         if self.cmbFileFormat.currentText() == ".csv":
@@ -352,7 +355,7 @@ class ConvertFileDialog(QDialog, UI_Convert_File_Dialog):
             self.check_ready()
 
     def set_export_file(self):
-        f_dir, _ = QFileDialog.getSaveFileName(filter="HDF5 file (*.h5)")
+        f_dir, _ = QFileDialog.getSaveFileName(filter="HDF5 file (*.h5 *.hdf5)")
         if f_dir != ("", ""):
             if not os.path.exists(f_dir):
                 self._export_path = f_dir
@@ -372,10 +375,31 @@ class ConvertFileDialog(QDialog, UI_Convert_File_Dialog):
                 msg.exec_()
             self.check_ready()
 
+    def set_export_folder(self):
+        f_dir = QFileDialog.getExistingDirectory()
+        if f_dir != ("", ""):
+            self._export_path = f_dir
+            display_path = f_dir
+            if len(f_dir) > 48:
+                display_path = f_dir[:22] + "..." + f_dir[-22:]
+            self.edtExportFile.setText(display_path)
+            self.check_ready()
+
     def change_spectra_edt(self):
         has_spectra = self.cbxHasSpectra.isChecked()
         self.edtFileNames_Spectra.setEnabled(has_spectra)
         self.spbExposure.setEnabled(has_spectra)
+
+    def change_bulk_edt(self):
+        self.btnExportFile.setEnabled(not self.cbxBulkConvert.isChecked())
+        self._export_path = True
+        self.check_ready()
+        # if self.cbxBulkConvert.isChecked():
+            # self.btnExportFile.clicked.disconnect()
+            # self.btnExportFile.clicked.connect(self.set_export_folder)
+        # else:
+            # self.btnExportFile.clicked.disconnect()
+            # self.btnExportFile.clicked.connect(self.set_export_file)
 
     def check_ready(self):
         is_ready = False
@@ -389,101 +413,110 @@ class ConvertFileDialog(QDialog, UI_Convert_File_Dialog):
 
     def convert(self):
         self.setEnabled(False)
-        all_source_files = [
-            f for f in os.listdir(self._source_path) if os.path.isfile(os.path.join(self._source_path, f))
-        ]
+        for root, _, all_source_files in os.walk(self._source_path):
+            # all_source_files = [os.path.join(root, file) for file in files]
 
-        pt3_f_name = self.edtFileNames_times.text()
-        file_ext = self.cmbFileFormat.currentText()
-        pt3_fs = [file for file in all_source_files if file.startswith(pt3_f_name) and file.endswith(file_ext)]
-        pt3_fs.sort()
-        num_files = len(pt3_fs)
+        # all_source_files = [
+        #     f for f in os.listdir(self._source_path) if os.path.isfile(os.path.join(self._source_path, f))
+        # ]
 
-        all_okay = False
-        if all([file[-len(file_ext):] == file_ext for file in pt3_fs]):
-            pt3_nums = [file[len(pt3_f_name) : file.find(".")] for file in pt3_fs]
-            if all([num.isalnum() for num in pt3_nums]):
-                pt3_nums = [int(num) for num in pt3_nums]
-                pt3_nums.sort()
-                all_okay = True
+            pt3_f_name = self.edtFileNames_times.text()
+            file_ext = self.cmbFileFormat.currentText()
+            pt3_fs = [file for file in all_source_files if file.startswith(pt3_f_name) and file.endswith(file_ext)]
+            print(pt3_fs)
+            pt3_fs.sort()
+            num_files = len(pt3_fs)
+            if num_files == 0:  # no files to convert in this subdirectory
+                continue
 
-        spec_fs = None
-        add_spec = self.cbxHasSpectra.isChecked()
-        if add_spec:
             all_okay = False
-            spec_file_name = self.edtFileNames_Spectra.text()
-            spec_fs = [file for file in all_source_files if file.startswith(spec_file_name)]
-            spec_fs.sort()
-            if len(pt3_fs) == len(spec_fs):
-                spec_file_ext = spec_fs[0].find(".")
-                if spec_file_ext == -1:
-                    spec_nums = [file[len(spec_file_name) :] for file in spec_fs]
-                else:
-                    spec_nums = [file[len(spec_file_name) : file.find(".")] for file in spec_fs]
-                if all([num.isalnum() for num in spec_nums]):
-                    spec_nums = [int(num) for num in spec_nums]
-                    spec_nums.sort()
-                    if pt3_nums == spec_nums:
-                        all_okay = True
+            if all([file[-len(file_ext):] == file_ext for file in pt3_fs]):
+                pt3_nums = [file[len(pt3_f_name) : file.find(".")] for file in pt3_fs]
+                if all([num.isalnum() for num in pt3_nums]):
+                    pt3_nums = [int(num) for num in pt3_nums]
+                    pt3_nums.sort()
+                    all_okay = True
 
-        if not all_okay:
-            message = "photon time files and spectra files dont match, please check"
-            msg = QMessageBox(
-                QMessageBox.Warning,
-                "Convert file",
-                message,
-                buttons=QMessageBox.Ok,
-                parent=self,
-            )
-            msg.exec_()
-            return
+            spec_fs = None
+            add_spec = self.cbxHasSpectra.isChecked()
+            if add_spec:
+                all_okay = False
+                spec_file_name = self.edtFileNames_Spectra.text()
+                spec_fs = [file for file in all_source_files if file.startswith(spec_file_name)]
+                spec_fs.sort()
+                if len(pt3_fs) == len(spec_fs):
+                    spec_file_ext = spec_fs[0].find(".")
+                    if spec_file_ext == -1:
+                        spec_nums = [file[len(spec_file_name) :] for file in spec_fs]
+                    else:
+                        spec_nums = [file[len(spec_file_name) : file.find(".")] for file in spec_fs]
+                    if all([num.isalnum() for num in spec_nums]):
+                        spec_nums = [int(num) for num in spec_nums]
+                        spec_nums.sort()
+                        if pt3_nums == spec_nums:
+                            all_okay = True
 
-        with h5py.File(self._export_path, "w") as h5_f:
-            h5_f.attrs.create(name="# Particles", data=num_files)
-            channel = self.spbChannel.value() - 1
+            if not all_okay:
+                message = "photon time files and spectra files dont match, please check"
+                msg = QMessageBox(
+                    QMessageBox.Warning,
+                    "Convert file",
+                    message,
+                    buttons=QMessageBox.Ok,
+                    parent=self,
+                )
+                msg.exec_()
+                return
 
-            try:
-                for num in range(num_files):
-                    file_reader = FileReader(src_format=file_ext[1:],
-                                            file_path=os.path.join(self._source_path, pt3_fs[num]),
-                                            channel=channel)
-                    part_group = h5_f.create_group("Particle " + str(num + 1))
-                    part_group.attrs.create("Date", file_reader.file_time)
-                    part_group.attrs.create("Discription", file_reader.comment_field)
-                    part_group.attrs.create("Intensity?", 1)
-                    part_group.attrs.create("RS Coord. (um)", [0, 0])
-                    part_group.attrs.create("Spectra?", int(add_spec))
-                    part_group.attrs.create("User", file_reader.creator_name)
+            export_path = os.path.join(f'{root}.h5')
+            with h5py.File(export_path, "w") as h5_f:
+                h5_f.attrs.create(name="# Particles", data=num_files)
+                channel = self.spbChannel.value() - 1
 
-                    abs_times = file_reader.abs_times
-                    micro_times = file_reader.micro_times
-                    part_group.create_dataset("Absolute Times (ns)", dtype=np.uint64, data=abs_times)
-                    part_group.create_dataset("Micro Times (s)", dtype=np.float64, data=micro_times)
+                try:
+                    for num in range(num_files):
+                        file_reader = FileReader(src_format=file_ext[1:],
+                                                file_path=os.path.join(root, pt3_fs[num]),
+                                                channel=channel)
+                        part_group = h5_f.create_group("Particle " + str(num + 1))
+                        part_group.attrs.create("Date", file_reader.file_time)
+                        part_group.attrs.create("Discription", file_reader.comment_field)
+                        part_group.attrs.create("Intensity?", 1)
+                        part_group.attrs.create("RS Coord. (um)", [0, 0])
+                        part_group.attrs.create("Spectra?", int(add_spec))
+                        part_group.attrs.create("User", file_reader.creator_name)
 
-                    if add_spec:
-                        spec_data = np.loadtxt(os.path.join(self._source_path, spec_fs[num]))
-                        wavelengths = spec_data[:, 0]
-                        spec_data = np.delete(spec_data, 0, axis=1).T
-                        exposure = self.spbExposure.value()
-                        spec_t_series = np.array([(n + 1) * exposure for n in range(spec_data.shape[0])])
+                        abs_times = file_reader.abs_times
+                        micro_times = file_reader.micro_times
+                        print(micro_times)
+                        print(micro_times.dtype)
+                        part_group.create_dataset("Absolute Times (ns)", dtype=np.uint64, data=abs_times)
+                        part_group.create_dataset("Micro Times (s)", dtype=np.float64, data=micro_times)
 
-                        spec_dataset = part_group.create_dataset(
-                            "Spectra (counts\s)", dtype=np.float64, data=spec_data
-                        )
-                        spec_dataset.attrs.create("Exposure Times (s)", exposure)
-                        spec_dataset.attrs.create(
-                            "Spectra Abs. Times (s)",
-                            dtype=np.float64,
-                            data=spec_t_series,
-                        )
-                        spec_dataset.attrs.create("Wavelengths", dtype=np.float64, data=wavelengths)
+                        if add_spec:
+                            spec_data = np.loadtxt(os.path.join(self._source_path, spec_fs[num]))
+                            wavelengths = spec_data[:, 0]
+                            spec_data = np.delete(spec_data, 0, axis=1).T
+                            exposure = self.spbExposure.value()
+                            spec_t_series = np.array([(n + 1) * exposure for n in range(spec_data.shape[0])])
 
-            except Exception as e:
-                raise
-                logger.error(e)
+                            spec_dataset = part_group.create_dataset(
+                                "Spectra (counts\s)", dtype=np.float64, data=spec_data
+                            )
+                            spec_dataset.attrs.create("Exposure Times (s)", exposure)
+                            spec_dataset.attrs.create(
+                                "Spectra Abs. Times (s)",
+                                dtype=np.float64,
+                                data=spec_t_series,
+                            )
+                            spec_dataset.attrs.create("Wavelengths", dtype=np.float64, data=wavelengths)
 
-            logger.info("Finished converting files")
-            self.setEnabled(True)
+                except Exception as e:
+                    raise
+                    logger.error(e)
+
+        logger.info("Finished converting files")
+        self.setEnabled(True)
 
 
 if __name__ == "__main__":
