@@ -1411,22 +1411,32 @@ class Trace:
         data = particle.abstimes[:]
 
         binsize_ns = binsize * 1e6  # Convert ms to ns
-        try:
-            endbin = int(np.max(data) / binsize_ns)
-        except ValueError:
-            endbin = 0
+        if len(data) == 0:
+            self.intdata = np.array([])
+            self.inttimes = np.array([])
+            return
 
-        binned = np.zeros(endbin + 1, dtype=int)
-        for step in range(endbin):
-            binned[step + 1] = np.size(
-                data[((step + 1) * binsize_ns > data) * (data > step * binsize_ns)]
-            )
-            if step == 0:
-                binned[step] = binned[step + 1]
+        # Use numpy.histogram to bin the data
+        max_time = np.max(data)
+        num_bins = int(np.ceil(max_time / binsize_ns))
+        bin_edges = np.arange(0, (num_bins + 1) * binsize_ns, binsize_ns)
+        binned, _ = np.histogram(data, bins=bin_edges)
+        # try:
+        #     endbin = int(np.max(data) / binsize_ns)
+        # except ValueError:
+        #     endbin = 0
+        #
+        # binned = np.zeros(endbin + 1, dtype=int)
+        # for step in range(endbin):
+        #     binned[step + 1] = np.size(
+        #         data[((step + 1) * binsize_ns > data) * (data > step * binsize_ns)]
+        #     )
+        #     if step == 0:
+        #         binned[step] = binned[step + 1]
 
         # binned *= (1000 / 100)
         self.intdata = binned
-        self.inttimes = np.array(range(0, binsize + (endbin * binsize), binsize))
+        self.inttimes = bin_edges[:-1] / 1e6  # Convert back to ms
 
 
 class Histogram:
