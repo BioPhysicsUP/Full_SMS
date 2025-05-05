@@ -12,23 +12,22 @@ from __future__ import annotations
 
 __docformat__ = "NumPy"
 
+import math
 import os
-from typing import Tuple, Optional, TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import numpy as np
-from h5py import Dataset
 from statsmodels.stats.weightstats import DescrStatsW
 
 import dbg
 import file_manager as fm
+import smsh5_file_reader as sms_fr
 from my_logger import setup_logger
 from settings_dialog import Settings
-import sys
-import smsh5_file_reader as sms_fr
 
 if TYPE_CHECKING:
-    from smsh5 import Particle
     from generate_sums import CPSums
+    from smsh5 import Particle
 
 # replaced by settings_dialog
 # MIN_PHOTONS = 20
@@ -243,9 +242,9 @@ class ChangePoints:
             if confidence in [69, 90, 95, 99]:
                 confidence = confidence / 100
             self.confidence = confidence
-        assert (
-            self.confidence is not None
-        ), "ChangePoint\tConfidence not set, can not run cpa"
+        assert self.confidence is not None, (
+            "ChangePoint\tConfidence not set, can not run cpa"
+        )
 
         if self.cpa_has_run:
             self._cpa.reset(confidence)
@@ -259,9 +258,9 @@ class ChangePoints:
         logger.info(msg=f"{self._particle.name} levels resolved")
 
     def calc_mean_std(self):  # , intensities: np.ndarray = None
-        assert (
-            self.has_levels
-        ), "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."
+        assert self.has_levels, (
+            "ChangePoints\tNeeds to have levels to calculate mean and standard deviation."
+        )
         # num_levels = self._particle.num_levels
         # if intensities is None:
         #     intensities = np.array([level.int_p_s for level in self._particle.levels])
@@ -396,25 +395,16 @@ class Level:
         # assert abs_times is not None, "Levels:\tParameter 'abstimes' not given."
         assert level_inds is not None, "Levels:\tParameter 'level_inds' not given."
         assert type(level_inds) is tuple, (
-            "Level:\tLevel indexes argument is not a " "tuple (start, end)."
+            "Level:\tLevel indexes argument is not a tuple (start, end)."
         )
         self.particle_ind = particle_ind
         self.level_inds = level_inds  # (first_ind, last_ind)
-        self.num_photons = self.level_inds[1] - self.level_inds[0] + 1
         if len(self.abs_times) < self.level_inds[1]:
             print("oops")
         self.times_ns = (
             self.abs_times[self.level_inds[0]],
             self.abs_times[self.level_inds[1]],
         )
-        self.dwell_time_ns = self.times_ns[1] - self.times_ns[0]
-        if int_p_s is not None:
-            self.int_p_s = int_p_s
-        else:
-            try:
-                self.int_p_s = self.num_photons / self.dwell_time_s
-            except RuntimeWarning as e:
-                print("here")
         self.microtimes = ParticleMicrotimesSubset(
             particle=self._particle,
             start_ind=self.level_inds[0],
@@ -423,6 +413,19 @@ class Level:
         # self.microtimes = microtimes[self.level_inds[0]:self.level_inds[1]]
         self.group_ind = group_ind
         self.histogram = None
+
+        self.dwell_time_ns = self.times_ns[1] - self.times_ns[0]
+
+        self._num_photons = self.level_inds[1] - self.level_inds[0] + 1
+        if int_p_s is not None:
+            self._int_p_s = int_p_s
+        else:
+            self._int_p_s = self.num_photons / self.dwell_time_s
+
+        self._is_normalised = False
+        self._normalise_factor = None
+        self._norm_num_photons = None
+        self._norm_int_p_s = None
 
         # TODO: Incorporate error margins
         # conf_ind_lower = conf_regions[0]
@@ -449,10 +452,20 @@ class Level:
 
     @property
     def dwell_time_s(self):
-        if self.dwell_time_ns is not None:
-            return self.dwell_time_ns / 1e9
-        else:
-            return None
+        return self.dwell_time_ns / 1e9
+
+    @property
+    def num_photons(self) -> int:
+        return self.num_photons if not self._is_normalised else self._num_photons
+
+    @property
+    def int_p_s(self) -> float:
+        return self.int_p_s if not self._is_normalised else self._int_p_s
+
+    def normalise_with_factor(self, normalisation_factor: float) -> None:
+        self._normalise_factor = normalisation_factor
+        self._norm_int_p_s = self._int_p_s * normalisation_factor
+        self._norm_num_photons = math.floor(self._norm_int_p_s * self.dwell_time_s)
 
 
 class TauData:
@@ -471,9 +484,9 @@ class TauData:
             tau_data_path = fm.folder_path(
                 folder_name="tau_data", resource_type=fm.Type.Data
             )
-            assert os.path.isdir(
-                tau_data_path
-            ), "TauData:\tTau data directory not found."
+            assert os.path.isdir(tau_data_path), (
+                "TauData:\tTau data directory not found."
+            )
             tau_data_files = {
                 "99_a": "Ta-99.txt",
                 "99_b": "Tb-99.txt",
@@ -662,14 +675,14 @@ class ChangePointAnalysis:
         min_num_photons = self.settings.cpa_min_num_photons
         min_boundary_offset = self.settings.cpa_min_boundary_offset
 
-        assert (
-            type(seg_inds) is tuple
-        ), "ChangePointAnalysis:\tSegment index's not given."
+        assert type(seg_inds) is tuple, (
+            "ChangePointAnalysis:\tSegment index's not given."
+        )
         start_ind, end_ind = seg_inds
         n = end_ind - start_ind
-        assert (
-            n <= 1000
-        ), "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
+        assert n <= 1000, (
+            "ChangePointAnalysis:\tIndex's given result in more than a segment of more than 1000 points."
+        )
         if n < min_num_photons:
             cpt_found = False
             return cpt_found, None
@@ -814,15 +827,18 @@ class ChangePointAnalysis:
                     assert side in [
                         "left",
                         "right",
-                    ], "ChangePointAnalysis:\tSide of change point invalid or not specified"
+                    ], (
+                        "ChangePointAnalysis:\tSide of change point invalid or not specified"
+                    )
                 if side == "left":
-                    next_start_ind, next_end_ind = prev_start_ind, int(
-                        self.cpt_inds[-1] - 1
+                    next_start_ind, next_end_ind = (
+                        prev_start_ind,
+                        int(self.cpt_inds[-1] - 1),
                     )
                 else:
-                    assert (
-                        rights_cpt is not None
-                    ), "ChangePointAnalysis\tRight side's change point not provided."
+                    assert rights_cpt is not None, (
+                        "ChangePointAnalysis\tRight side's change point not provided."
+                    )
                     next_start_ind = rights_cpt
                     # if len(self.cpt_inds) > 1:
                     #     i = -1
@@ -1094,9 +1110,9 @@ class ChangePointAnalysis:
             self.confidence = confidence
             self._tau = TauData(confidence)
         else:
-            assert (
-                self.confidence is not None
-            ), "ChangePointAnalysis:\tNo confidence value provided."
+            assert self.confidence is not None, (
+                "ChangePointAnalysis:\tNo confidence value provided."
+            )
 
         if end_time_s is not None:
             if self._abstimes.size != 0:

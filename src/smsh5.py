@@ -4,6 +4,7 @@ Bertus van Heerden and Joshua Botha
 University of Pretoria
 2018
 """
+
 from __future__ import annotations
 
 __docformat__ = "NumPy"
@@ -12,25 +13,23 @@ import ast
 import os
 import re
 import traceback
-from typing import List, Union, TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, List, Tuple, Union
 from uuid import uuid1
 
 import h5pickle
-import h5py
 import numpy as np
-from pyqtgraph import ScatterPlotItem, SpotItem
 
 import dbg
 import grouping
+import smsh5_file_reader as h5_fr
 import tcspcfit
+from antibunching import AntibunchingAnalysis
 from change_point import ChangePoints
 from generate_sums import CPSums
 from grouping import AHCA, GlobalLevel
 from my_logger import setup_logger
-from processes import ProcessProgFeedback, ProcessProgress, PassSigFeedback
+from processes import PassSigFeedback, ProcessProgFeedback, ProcessProgress
 from tcspcfit import FittingParameters
-import smsh5_file_reader as h5_fr
-from antibunching import AntibunchingAnalysis
 
 if TYPE_CHECKING:
     from change_point import Level
@@ -211,7 +210,7 @@ class H5dataset:
                             self.all_raster_scans.append(
                                 RasterScan(
                                     h5dataset=self,
-                                    particle_num=num-1,
+                                    particle_num=num - 1,
                                     h5dataset_index=raster_scan_num,
                                     particle_indexes=group_indexes,
                                 )
@@ -440,7 +439,9 @@ class Particle:
                 possible_channelwidths = np.unique(np.diff(np.unique(differences)))
                 print(possible_channelwidths)
                 # filter out very small values that are due to rounding errors:
-                possible_channelwidths = possible_channelwidths[possible_channelwidths>1e-4]
+                possible_channelwidths = possible_channelwidths[
+                    possible_channelwidths > 1e-4
+                ]
                 if len(possible_channelwidths) != 1:
                     # channelwidth = np.float64(0.01220703125)
                     channelwidth = possible_channelwidths[0]
@@ -906,6 +907,20 @@ class Particle:
                 )
             )
 
+    def normalise_to_max_int(
+        self, normalised_max_level_intensity=float, min_level_dwelltime_s=0.1
+    ) -> None:
+        current_max_int = max(
+            [
+                level.int_p_s
+                for level in self.cpts.levels
+                if level.dwell_time_s >= min_level_dwelltime_s
+            ]
+        )
+        normalisation_factor = current_max_int / normalised_max_level_intensity
+        for level in self.cpts.levels:
+            level.normalise_with_factor(normalisation_factor=normalisation_factor)
+
     def remove_and_reset_grouping(self):
         """Re-initialize grouping and remove current data."""
         if not self.is_secondary_part:
@@ -999,9 +1014,9 @@ class Particle:
         lifetimes, times : Tuple[np.ndarray, np.ndarray]
             Lifetime as a function of time for plotting.
         """
-        assert (
-            self.has_fit_a_lifetime
-        ), "ChangePointAnalysis:\tNo levels to convert to data."
+        assert self.has_fit_a_lifetime, (
+            "ChangePointAnalysis:\tNo levels to convert to data."
+        )
         if use_grouped is None:
             use_grouped = self.has_groups and self.using_group_levels
 
@@ -1593,7 +1608,7 @@ class Histogram:
             self.decay = np.delete(self.decay, where_neg)
 
             assert len(self.t) == len(self.decay), (
-                "Time series must be same length as decay " "histogram"
+                "Time series must be same length as decay histogram"
             )
             if start_point is None and trim_start:
                 try:
@@ -1602,9 +1617,10 @@ class Histogram:
                     pass
                 else:
                     if level is not None:
-                        self.decay, self.t = start_at_value(
-                            self.decay, self.t, neg_t=False, decaystart=self.decaystart
-                        )
+                        # self.decay, self.t = start_at_value(
+                        #     self.decay, self.t, neg_t=False, decaystart=self.decaystart
+                        # )
+                        pass
             else:
                 self.decaystart = 0
 
@@ -1642,8 +1658,7 @@ class Histogram:
         irf,
         fwhm=None,
         normalize_amps=True,
-        maximum_likelihood=False
-
+        maximum_likelihood=False,
     ):
         """Fit a multiexponential decay to the histogram.
 
@@ -1685,10 +1700,10 @@ class Histogram:
 
         self.numexp = numexp
         if maximum_likelihood:
-            method = 'ml'
+            method = "ml"
             decaybg = [5, 0, 50, 0]
         else:
-            method = 'ls'
+            method = "ls"
 
         # TODO: debug option that would keep the fit object (not done normally to conserve memory)
         try:
@@ -1706,7 +1721,7 @@ class Histogram:
                     boundaries,
                     addopt,
                     fwhm=fwhm,
-                    method=method
+                    method=method,
                 )
             elif numexp == 2:
                 fit = tcspcfit.TwoExp(
@@ -1723,7 +1738,7 @@ class Histogram:
                     addopt,
                     fwhm=fwhm,
                     normalize_amps=normalize_amps,
-                    method=method
+                    method=method,
                 )
             elif numexp == 3:
                 fit = tcspcfit.ThreeExp(
@@ -1740,7 +1755,7 @@ class Histogram:
                     addopt,
                     fwhm=fwhm,
                     normalize_amps=normalize_amps,
-                    method=method
+                    method=method,
                 )
         except Exception as e:
             trace_string = ""
@@ -1877,7 +1892,7 @@ class ParticleAllHists:
                         fit_param.irf,
                         fit_param.fwhm,
                         fit_param.normalize_amps,
-                        fit_param.maximum_likelihood
+                        fit_param.maximum_likelihood,
                     ):
                         pass  # fit unsuccessful
                 except AttributeError:

@@ -3,8 +3,6 @@ from __future__ import annotations
 __docformat__ = "NumPy"
 
 import os
-import pickle
-import random
 import tempfile
 import time
 from copy import copy
@@ -19,12 +17,11 @@ import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import QObject, Qt
 from PyQt5.QtGui import QPalette, QFont, QBrush, QPen, QColor
-from PyQt5.QtWidgets import QWidget, QFrame, QFileDialog, QTextBrowser, QCheckBox
+from PyQt5.QtWidgets import QFileDialog, QCheckBox
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from pyqtgraph.exporters import ImageExporter
 
-import grouping
 import smsh5
 from threads import ProcessThread, ProcessTaskResult
 from dataclasses import dataclass
@@ -355,7 +352,7 @@ class IntController(QObject):
         """Changes the bin size of the data of the current particle and then displays the new trace."""
         try:
             self.main_window.current_particle.binints(self.get_bin())
-        except Exception as err:
+        except Exception:
             logger.error("Error Occured:")
         else:
             self.main_window.display_data()
@@ -414,7 +411,7 @@ class IntController(QObject):
             for part in dataset.particles:
                 part.binints(bin_size)
                 mw.update_progress()
-        except Exception as err:
+        except Exception:
             mw.status_message("An error has occurred...")
             mw.end_progress()
             logger.error("Error Occured:")
@@ -731,8 +728,8 @@ class IntController(QObject):
         plot_2_trace = False
         if self.main_window.current_particle.sec_part is not None:
             if (
-                    self.main_window.current_particle.sec_part.tcspc_card != "None"
-                    and self.main_window.chbSecondCard.isChecked()
+                self.main_window.current_particle.sec_part.tcspc_card != "None"
+                and self.main_window.chbSecondCard.isChecked()
             ):
                 plot_2_trace = True
         if particle is None:
@@ -798,7 +795,9 @@ class IntController(QObject):
                 plot_item.addItem(int_hist)
 
                 if plot_2_trace:
-                    bin_edges2 = np.histogram_bin_edges(np.negative(int_data2), bins=100)
+                    bin_edges2 = np.histogram_bin_edges(
+                        np.negative(int_data2), bins=100
+                    )
                     freq2, hist_bins2 = np.histogram(
                         np.negative(int_data2), bins=bin_edges2, density=True
                     )
@@ -1386,6 +1385,18 @@ class IntController(QObject):
     def error(self, e):
         logger.error(e)
 
+    def normalise_selected_particles(self, min_level_dwelltime_s: float = 0.1):
+        max_int = max(
+            [
+                level.int_p_s
+                for particle in self.main_window.get_checked_particles()
+                for level in particle.cpts.levels
+                if level.dwell_time_s >= min_level_dwelltime_s
+            ]
+        )
+        for particle in self.main_window.get_checked_particles():
+            particle.normalise_to_max_int(normalised_max_level_intensity=max_int)
+
 
 class LifetimeController(QObject):
     def __init__(self, main_window: MainWindow):
@@ -1636,7 +1647,7 @@ class LifetimeController(QObject):
                 irf=f_p.irf,
                 fwhm=f_p.fwhm,
                 normalize_amps=f_p.normalize_amps,
-                maximum_likelihood=f_p.maximum_likelihood
+                maximum_likelihood=f_p.maximum_likelihood,
             ):
                 return  # fit unsuccessful
             else:
@@ -1748,15 +1759,12 @@ class LifetimeController(QObject):
         self.main_window.display_data()
 
     def update_plot_log(self):
-
         use_selected = (
             False
             if self.main_window.current_particle.level_or_group_selected is None
             else True
         )
-        self.plot_decay(
-            use_selected=use_selected, remove_empty=False
-        )
+        self.plot_decay(use_selected=use_selected, remove_empty=False)
         self.plot_convd(use_selected=use_selected)
         self.plot_residuals(use_selected=use_selected)
 
@@ -1851,7 +1859,7 @@ class LifetimeController(QObject):
 
         info = info + f"\nChi-Sq = {histogram.chisq: .3g}"
         if not for_export:
-            info = info + f"\n(0.8 <- 1 -> 1.3)"
+            info = info + "\n(0.8 <- 1 -> 1.3)"
         info = info + f"\nDurbin-Watson = {histogram.dw: .3g}"
         if not for_export:
             info = info + f"\n(DW (5%) > {histogram.dw_bound[0]: .4g})"
@@ -2110,7 +2118,9 @@ class LifetimeController(QObject):
                     # life_hist_plot.getViewBox().autoRange(padding=0, items=[life_hist_plot])
                     # life_hist_plot.getViewBox().setRange(xRange=[min_t, max_t_fitted],
                     #                                      yRange=[np.log10(decay.min()), np.log10(decay.max())], padding=0)
-                    life_hist_plot.getViewBox().setYRange(6, np.log10(decay.max()), padding=0.1)
+                    life_hist_plot.getViewBox().setYRange(
+                        6, np.log10(decay.max()), padding=0.1
+                    )
                 self.fitparamdialog.updateplot()
             else:
                 if self.temp_fig is None:
@@ -2262,7 +2272,9 @@ class LifetimeController(QObject):
                 if self.main_window.chbLogScale.isChecked():
                     # life_hist_plot.getViewBox().autoRange(padding=0, items=[life_hist_plot])
                     # self.life_hist_plot.getViewBox().setRange(yRange=[6, np.log10(convd.max())])
-                    self.life_hist_plot.getViewBox().setYRange(1, np.log10(convd.max()), padding=0.1)
+                    self.life_hist_plot.getViewBox().setYRange(
+                        1, np.log10(convd.max()), padding=0.1
+                    )
             else:
                 decay_ax = self.temp_ax["decay_ax"]
                 decay_ax.semilogy(t, convd)
@@ -3185,7 +3197,9 @@ class SpectraController(QObject):
 
         self.main_window = main_window
 
-        self.main_window.pgSpectra_Image_View = pg.ImageView(view=pg.PlotItem(), roi=myPlotROI(size=(10, 200)))
+        self.main_window.pgSpectra_Image_View = pg.ImageView(
+            view=pg.PlotItem(), roi=myPlotROI(size=(10, 200))
+        )
         self.spectra_image_view = self.main_window.pgSpectra_Image_View
         self.main_window.laySpectra.addWidget(self.spectra_image_view)
         self.spectra_image_view.setPredefinedGradient("plasma")
@@ -3200,7 +3214,9 @@ class SpectraController(QObject):
         self.temp_ax = None
 
         self.roi_rotated = False
-        self.main_window.pgSpectra_Image_View.roi.sigRegionChanged.connect(self.slot_plot_spectra)
+        self.main_window.pgSpectra_Image_View.roi.sigRegionChanged.connect(
+            self.slot_plot_spectra
+        )
 
         # self.spectra_imv = self.spectra_widget
         # self.spectra_widget.view = pg.PlotItem()
@@ -3274,7 +3290,7 @@ class SpectraController(QObject):
         w0 = int(pos[1])
         w1 = int(pos[1] + w)
 
-        axis = roiplot.getPlotItem().getAxis('bottom')
+        axis = roiplot.getPlotItem().getAxis("bottom")
         try:
             if self.roi_rotated:
                 ticks = [(i, f"{wl[w]: .1f}") for i, w in enumerate(range(w0, w1))]
@@ -3284,13 +3300,11 @@ class SpectraController(QObject):
                     ticks = list(islice(ticks, None, None, step))
                 ticks = [ticks]
             else:
-                ticks = [
-                    [(i, f"{times[t]: .1f}") for i, t in enumerate(range(t0, t1))]
-                ]
+                ticks = [[(i, f"{times[t]: .1f}") for i, t in enumerate(range(t0, t1))]]
             axis.setTicks(ticks)
             roiplot.getPlotItem().invertX(True)
         except IndexError:
-            print('index error')
+            print("index error")
 
     def plot_spectra(
         self,
@@ -3381,7 +3395,7 @@ class SpectraController(QObject):
 
 class myPlotROI(pg.ROI):
     def __init__(self, size):
-        pg.ROI.__init__(self, pos=[0,0], size=size, rotateSnap=True)
+        pg.ROI.__init__(self, pos=[0, 0], size=size, rotateSnap=True)
         self.addScaleHandle([1, 1], [0, 0])
         # self.addRotateHandle([0, 0], [0.5, 0.5])
         self.rotateSnapAngle = 90
@@ -3400,7 +3414,9 @@ class RasterScanController(QObject):
         super().__init__()
         self.main_window = main_window
 
-        self.main_window.pgRaster_Scan_Image_View = pg.ImageView(view=pg.PlotItem(), roi=myPlotROI(size=(10, 200)))
+        self.main_window.pgRaster_Scan_Image_View = pg.ImageView(
+            view=pg.PlotItem(), roi=myPlotROI(size=(10, 200))
+        )
         self.raster_scan_image_view = self.main_window.pgRaster_Scan_Image_View
         self.main_window.layRasterScan.addWidget(self.raster_scan_image_view)
         self.raster_scan_image_view.view.getAxis("left").setLabel("Y Position (um)")
@@ -3421,8 +3437,10 @@ class RasterScanController(QObject):
     @staticmethod
     def create_crosshair_item(pos: Tuple[int, int], pixelsize) -> MyCrosshairOverlay:
         pen = QPen(Qt.green, 0.1)
-        pen.setWidthF(0.5*pixelsize)
-        crosshair_item = MyCrosshairOverlay(pos=pos, size=2*pixelsize, pen=pen, movable=False)
+        pen.setWidthF(0.5 * pixelsize)
+        crosshair_item = MyCrosshairOverlay(
+            pos=pos, size=2 * pixelsize, pen=pen, movable=False
+        )
         return crosshair_item
 
     @staticmethod
@@ -3567,7 +3585,11 @@ class RasterScanController(QObject):
         else:
             um_per_pixel = raster_scan.range / particle.raster_scan.pixel_per_line
 
-            self.raster_scan_image_view.setImage(raster_scan_data[:], scale=(um_per_pixel, um_per_pixel), pos=(raster_scan.x_start, raster_scan.y_start))
+            self.raster_scan_image_view.setImage(
+                raster_scan_data[:],
+                scale=(um_per_pixel, um_per_pixel),
+                pos=(raster_scan.x_start, raster_scan.y_start),
+            )
 
             # raw_coords = particle.raster_scan_coordinates
             coords = particle.raster_scan_coordinates
@@ -3576,7 +3598,9 @@ class RasterScanController(QObject):
             # ) / um_per_pixel
 
             if self._crosshair_item is None:
-                self._crosshair_item = self.create_crosshair_item(pos=coords, pixelsize=um_per_pixel)
+                self._crosshair_item = self.create_crosshair_item(
+                    pos=coords, pixelsize=um_per_pixel
+                )
                 self.raster_scan_image_view.getView().addItem(self._crosshair_item)
             else:
                 self._crosshair_item.setPos(pos=coords)
@@ -3750,7 +3774,7 @@ class AntibunchingController(QObject):
             corr_ax.spines["right"].set_visible(False)
             corr_ax.semilogy(bins, corr)
 
-            corr_ax.set(xlabel=f"Delay time (ns)", ylabel="Correlation (counts/bin)")
+            corr_ax.set(xlabel="Delay time (ns)", ylabel="Correlation (counts/bin)")
 
         if for_export and export_path is not None:
             if not (os.path.exists(export_path) and os.path.isdir(export_path)):

@@ -14,10 +14,9 @@ import os
 import sys
 from platform import system
 import ctypes
-import importlib
 
-from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot, QRegExp
-from PyQt5.QtGui import QIcon, QRegExpValidator  # , QResizeEvent
+from PyQt5.QtCore import Qt, QThreadPool, pyqtSlot
+from PyQt5.QtGui import QIcon  # , QResizeEvent
 from PyQt5.QtWidgets import (
     QMainWindow,
     QProgressBar,
@@ -48,7 +47,7 @@ from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
 
 # import save_analysis
-from settings_dialog import SettingsDialog, Settings
+from settings_dialog import SettingsDialog
 
 # try:
 #     import pkg_resources.py2_warn
@@ -64,7 +63,6 @@ from file_conversion import ConvertFileDialog
 from exporting import ExportWorker, DATAFRAME_FORMATS
 from save_and_load import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
-import smsh5_file_reader
 
 SMS_VERSION = "0.7.4"
 
@@ -510,7 +508,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             msg = QMessageBox(self)
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Save Error")
-            msg.setText("Can" "t add particles to currently opened file.")
+            msg.setText("Cant add particles to currently opened file.")
             msg.setStandardButtons(QMessageBox.Ok)
             msg.exec()
             return
@@ -584,9 +582,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
     def add_all_nodes(self, all_nodes):
         for node, num in all_nodes:
             if num == -1:
-                assert (
-                    type(node.dataobj) is smsh5.H5dataset
-                ), "First node must be for H5Dataset"
+                assert type(node.dataobj) is smsh5.H5dataset, (
+                    "First node must be for H5Dataset"
+                )
                 self.add_dataset(node)
                 self.treeViewParticles.expand(self.dataset_index)
             # index = self.treemodel.addChild(node, self.datasetindex)  # , progress_sig)
@@ -863,9 +861,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
         """
 
         if max_num:
-            assert (
-                type(max_num) is int
-            ), "MainWindow:\tThe type of the 'max_num' parameter is not int."
+            assert type(max_num) is int, (
+                "MainWindow:\tThe type of the 'max_num' parameter is not int."
+            )
             self.progress.setMaximum(max_num)
             # print(max_num)
         self.progress.setValue(0)
@@ -888,9 +886,9 @@ class MainWindow(QMainWindow, UI_Main_Window):
             The number of iterations or steps that the complete process is made up of.
         """
 
-        assert (
-            type(progress_value) is int
-        ), "MainWindow:\tThe type of the 'max_num' parameter is not int."
+        assert type(progress_value) is int, (
+            "MainWindow:\tThe type of the 'max_num' parameter is not int."
+        )
         self.progress.setValue(progress_value)
 
         self.progress.repaint()
@@ -1279,7 +1277,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if all_selected == "all":
                 data = self.treemodel.data(self.treemodel.index(0, 0), Qt.UserRole)
                 # assert data.
-        except Exception as exc:
+        except Exception:
             logger.info("Switching frequency analysis failed: ")
         else:
             pass
@@ -1300,7 +1298,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
                 checked_nums.append(ind + 1)
         return checked_nums
 
-    def get_checked_particles(self):
+    def get_checked_particles(self) -> list[smsh5.Particle]:
         checked_particles = list()
         for ind in range(self.treemodel.rowCount(self.dataset_index)):
             if self.part_nodes[ind].checked():
@@ -1553,7 +1551,7 @@ if __name__ == "__main__":
                 input_file="version.yml",
                 version=SMS_VERSION,
             )
-        except ImportError as e:
+        except ImportError:
             pass
 
     if "--debug" not in sys.argv:
