@@ -7,7 +7,7 @@
   },
   {
    "optionDest": "filenames",
-   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/src/main.py"
+   "value": "C:/Users/bertu/PycharmProjects/Full_SMS/src/main.py"
   },
   {
    "optionDest": "onefile",
@@ -19,15 +19,11 @@
   },
   {
    "optionDest": "icon_file",
-   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/resources/icons/Full-SMS.ico"
+   "value": "C:/Users/bertu/PycharmProjects/Full_SMS/src/resources/icons/Full-SMS.ico"
   },
   {
    "optionDest": "name",
    "value": "Full_SMS"
-  },
-  {
-   "optionDest": "ascii",
-   "value": false
   },
   {
    "optionDest": "clean_build",
@@ -47,11 +43,7 @@
   },
   {
    "optionDest": "version_file",
-   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/versionfile.txt"
-  },
-  {
-   "optionDest": "embed_manifest",
-   "value": true
+   "value": "C:/Users/bertu/PycharmProjects/Full_SMS/versionfile.txt"
   },
   {
    "optionDest": "uac_admin",
@@ -62,11 +54,7 @@
    "value": false
   },
   {
-   "optionDest": "win_private_assemblies",
-   "value": false
-  },
-  {
-   "optionDest": "win_no_prefer_redirects",
+   "optionDest": "argv_emulation",
    "value": false
   },
   {
@@ -74,12 +62,8 @@
    "value": false
   },
   {
-   "optionDest": "argv_emulation",
-   "value": false
-  },
-  {
    "optionDest": "datas",
-   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/resources;resources/"
+   "value": "C:/Users/bertu/PycharmProjects/Full_SMS/src/resources;resources/"
   },
   {
    "optionDest": "hiddenimports",
@@ -119,7 +103,7 @@
   },
   {
    "optionDest": "datas",
-   "value": "C:/Users/JoshuaB/GDrive/Current_Projects/Full_SMS/settings.json;."
+   "value": "C:/Users/bertu/PycharmProjects/Full_SMS/settings.json;."
   }
  ],
  "nonPyinstallerOptions": {
