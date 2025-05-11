@@ -205,6 +205,12 @@ class IntController(QObject):
             self.exp_trace_chb_changed
         )
         self.main_window.chbSecondCard.stateChanged.connect(self.plot_all)
+        self.main_window.actionNormOverallMaxAll.triggered.connect(
+            self.gui_normalise_intensity_overall_max_all
+        )
+        self.main_window.actionNormOverallMaxSelected.triggered.connect(
+            self.gui_normalise_intensity_overall_max_selected
+        )
 
     def setup_plot(
         self,
@@ -469,6 +475,27 @@ class IntController(QObject):
         """Resolves the levels of the all the particles and then displays the levels of the current particle."""
 
         self.start_resolve_thread(mode="all")  # , end_time_s=end_time_s)
+
+    def gui_normalise_intensity_overall_max_selected(self):
+        selected_particles = self.main_window.get_checked_particles()
+        self.normalise_intensity_overall_max(particles=selected_particles)
+
+    def gui_normalise_intensity_overall_max_all(self):
+        all_particles = self.main_window.current_dataset.particles
+        self.normalise_intensity_overall_max(particles=all_particles)
+
+    def normalise_intensity_overall_max(self, particles: list[Particle], min_level_dwelltime_s: float = 0.1):
+        overall_max_intensity = max(
+            [
+                level.int_p_s
+                for particle in particles
+                for level in particle.cpts.levels
+                if level.dwell_time_s >= min_level_dwelltime_s
+            ]
+        )
+        for particle in particles:
+            particle.normalise_to_max_int(normalised_max_level_intensity=overall_max_intensity)
+        self.main_window.display_data()
 
     def plot_trace(
         self,

@@ -42,6 +42,7 @@ from controllers import (
     AntibunchingController,
     FilteringController,
 )
+from smsh5 import Particle
 from thread_tasks import OpenFile
 from threads import ProcessThread
 from tree_model import DatasetTreeNode, DatasetTreeModel
@@ -63,6 +64,10 @@ from file_conversion import ConvertFileDialog
 from exporting import ExportWorker, DATAFRAME_FORMATS
 from save_and_load import SaveAnalysisWorker, LoadAnalysisWorker
 from selection import RangeSelectionDialog
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from smsh5 import H5dataset
 
 SMS_VERSION = "0.7.4"
 
@@ -275,8 +280,8 @@ class MainWindow(QMainWindow, UI_Main_Window):
         self.tabGroupingMode.currentChanged.connect(self.tab_change)
         # self.tabGroupingMode.currentChanged.connect(lambda: self.grouping_controller.plot_group_bic())
 
-        self.current_dataset = None
-        self.current_particle = None
+        self.current_dataset: "H5dataset" = None
+        self.current_particle: "Particle" = None
 
         self.reset_gui()
         self.repaint()

@@ -420,7 +420,7 @@ class Level:
         if int_p_s is not None:
             self._int_p_s = int_p_s
         else:
-            self._int_p_s = self.num_photons / self.dwell_time_s
+            self._int_p_s = self._num_photons / self.dwell_time_s
 
         self._is_normalised = False
         self._normalise_factor = None
@@ -456,16 +456,17 @@ class Level:
 
     @property
     def num_photons(self) -> int:
-        return self.num_photons if not self._is_normalised else self._num_photons
+        return self._num_photons if not self._is_normalised else self._norm_num_photons
 
     @property
     def int_p_s(self) -> float:
-        return self.int_p_s if not self._is_normalised else self._int_p_s
+        return self._int_p_s if not self._is_normalised else self._norm_int_p_s
 
     def normalise_with_factor(self, normalisation_factor: float) -> None:
         self._normalise_factor = normalisation_factor
         self._norm_int_p_s = self._int_p_s * normalisation_factor
         self._norm_num_photons = math.floor(self._norm_int_p_s * self.dwell_time_s)
+        self._is_normalised = True
 
 
 class TauData:

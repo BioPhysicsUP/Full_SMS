@@ -281,7 +281,7 @@
        <enum>QTabWidget::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <property name="iconSize">
        <size>
@@ -315,7 +315,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../icons.qrc">
+        <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
          <normaloff>:/icons/icons/intensity.png</normaloff>:/icons/icons/intensity.png</iconset>
        </attribute>
        <attribute name="title">
@@ -351,7 +351,7 @@
              <string>Resolve All</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/resolve-all.png</normaloff>:/icons/icons/resolve-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -413,7 +413,7 @@
              <string>Apply Bin Size</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/apply-one.png</normaloff>:/icons/icons/apply-one.png</iconset>
             </property>
             <property name="iconSize">
@@ -442,7 +442,7 @@
              <string>Apply To All</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/apply-all.png</normaloff>:/icons/icons/apply-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -512,7 +512,7 @@
              <string>Resolve</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/resolve-current.png</normaloff>:/icons/icons/resolve-current.png</iconset>
             </property>
             <property name="iconSize">
@@ -577,7 +577,7 @@
              <string>Resolve Selected</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/resolve-selected.png</normaloff>:/icons/icons/resolve-selected.png</iconset>
             </property>
             <property name="iconSize">
@@ -616,7 +616,7 @@
              <string>Quick ROI</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/quick-roi.png</normaloff>:/icons/icons/quick-roi.png</iconset>
             </property>
             <property name="iconSize">
@@ -1219,7 +1219,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../icons.qrc">
+        <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
          <normaloff>:/icons/icons/lifetime.png</normaloff>:/icons/icons/lifetime.png</iconset>
        </attribute>
        <attribute name="title">
@@ -1339,7 +1339,7 @@
              <string>Fitting Parameters</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/fitting-parameters.png</normaloff>:/icons/icons/fitting-parameters.png</iconset>
             </property>
             <property name="iconSize">
@@ -1384,7 +1384,7 @@
              <string>Fit Hist</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/fit-current-level.png</normaloff>:/icons/icons/fit-current-level.png</iconset>
             </property>
             <property name="iconSize">
@@ -1429,7 +1429,7 @@
              <string>Fit Current</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/fit-particle.png</normaloff>:/icons/icons/fit-particle.png</iconset>
             </property>
             <property name="iconSize">
@@ -1458,7 +1458,7 @@
              <string>Fit Selected</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/fit-selected.png</normaloff>:/icons/icons/fit-selected.png</iconset>
             </property>
             <property name="iconSize">
@@ -1487,7 +1487,7 @@
              <string>Fit All</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/fit-all.png</normaloff>:/icons/icons/fit-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -1526,7 +1526,7 @@
              <string/>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/arrow-left.png</normaloff>:/icons/icons/arrow-left.png</iconset>
             </property>
             <property name="iconSize">
@@ -1583,7 +1583,7 @@
              <string/>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/arrow-right.png</normaloff>:/icons/icons/arrow-right.png</iconset>
             </property>
             <property name="iconSize">
@@ -1993,7 +1993,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../icons.qrc">
+        <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
          <normaloff>:/icons/icons/filtering.png</normaloff>:/icons/icons/filtering.png</iconset>
        </attribute>
        <attribute name="title">
@@ -2468,12 +2468,12 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>251</width>
-                 <height>76</height>
+                 <width>268</width>
+                 <height>143</height>
                 </rect>
                </property>
                <attribute name="icon">
-                <iconset resource="../icons.qrc">
+                <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                  <normaloff>:/icons/icons/not-used.png</normaloff>:/icons/icons/not-used.png</iconset>
                </attribute>
                <attribute name="label">
@@ -2651,12 +2651,12 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>233</width>
-                 <height>110</height>
+                 <width>205</width>
+                 <height>91</height>
                 </rect>
                </property>
                <attribute name="icon">
-                <iconset resource="../icons.qrc">
+                <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                  <normaloff>:/icons/icons/not-used.png</normaloff>:/icons/icons/not-used.png</iconset>
                </attribute>
                <attribute name="label">
@@ -2892,12 +2892,12 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>229</width>
-                 <height>110</height>
+                 <width>199</width>
+                 <height>91</height>
                 </rect>
                </property>
                <attribute name="icon">
-                <iconset resource="../icons.qrc">
+                <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                  <normaloff>:/icons/icons/not-used.png</normaloff>:/icons/icons/not-used.png</iconset>
                </attribute>
                <attribute name="label">
@@ -3124,12 +3124,12 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>190</width>
-                 <height>75</height>
+                 <width>164</width>
+                 <height>65</height>
                 </rect>
                </property>
                <attribute name="icon">
-                <iconset resource="../icons.qrc">
+                <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                  <normaloff>:/icons/icons/not-used.png</normaloff>:/icons/icons/not-used.png</iconset>
                </attribute>
                <attribute name="label">
@@ -3309,12 +3309,12 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>254</width>
-                 <height>110</height>
+                 <width>221</width>
+                 <height>91</height>
                 </rect>
                </property>
                <attribute name="icon">
-                <iconset resource="../icons.qrc">
+                <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                  <normaloff>:/icons/icons/not-used.png</normaloff>:/icons/icons/not-used.png</iconset>
                </attribute>
                <attribute name="label">
@@ -3550,12 +3550,12 @@
                 <rect>
                  <x>0</x>
                  <y>0</y>
-                 <width>230</width>
-                 <height>110</height>
+                 <width>204</width>
+                 <height>91</height>
                 </rect>
                </property>
                <attribute name="icon">
-                <iconset resource="../icons.qrc">
+                <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                  <normaloff>:/icons/icons/not-used.png</normaloff>:/icons/icons/not-used.png</iconset>
                </attribute>
                <attribute name="label">
@@ -4298,7 +4298,7 @@
                   <string>Fit</string>
                  </property>
                  <property name="icon">
-                  <iconset resource="../icons.qrc">
+                  <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                    <normaloff>:/icons/icons/resolve-current.png</normaloff>:/icons/icons/resolve-current.png</iconset>
                  </property>
                  <property name="iconSize">
@@ -4622,7 +4622,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../icons.qrc">
+        <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
          <normaloff>:/icons/icons/grouping.png</normaloff>:/icons/icons/grouping.png</iconset>
        </attribute>
        <attribute name="title">
@@ -4906,7 +4906,7 @@
                    <string>Group Current</string>
                   </property>
                   <property name="icon">
-                   <iconset resource="../icons.qrc">
+                   <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                     <normaloff>:/icons/icons/group-current.png</normaloff>:/icons/icons/group-current.png</iconset>
                   </property>
                   <property name="iconSize">
@@ -4938,7 +4938,7 @@
                    <string>Group Selected</string>
                   </property>
                   <property name="icon">
-                   <iconset resource="../icons.qrc">
+                   <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                     <normaloff>:/icons/icons/group-selected.png</normaloff>:/icons/icons/group-selected.png</iconset>
                   </property>
                   <property name="iconSize">
@@ -4970,7 +4970,7 @@
                    <string>Group All</string>
                   </property>
                   <property name="icon">
-                   <iconset resource="../icons.qrc">
+                   <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                     <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
                   </property>
                   <property name="iconSize">
@@ -5091,7 +5091,7 @@
                    <string>Apply Current</string>
                   </property>
                   <property name="icon">
-                   <iconset resource="../icons.qrc">
+                   <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                     <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
                   </property>
                   <property name="iconSize">
@@ -5123,7 +5123,7 @@
                    <string>Apply Selected</string>
                   </property>
                   <property name="icon">
-                   <iconset resource="../icons.qrc">
+                   <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                     <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
                   </property>
                   <property name="iconSize">
@@ -5155,7 +5155,7 @@
                    <string>Apply All</string>
                   </property>
                   <property name="icon">
-                   <iconset resource="../icons.qrc">
+                   <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                     <normaloff>:/icons/icons/group-all.png</normaloff>:/icons/icons/group-all.png</iconset>
                   </property>
                   <property name="iconSize">
@@ -5240,7 +5240,7 @@
                    <string>Global Group</string>
                   </property>
                   <property name="icon">
-                   <iconset resource="../icons.qrc">
+                   <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                     <normaloff>:/icons/icons/group-global.png</normaloff>:/icons/icons/group-global.png</iconset>
                   </property>
                   <property name="iconSize">
@@ -5282,7 +5282,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../icons.qrc">
+        <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
          <normaloff>:/icons/icons/antibunching.png</normaloff>:/icons/icons/antibunching.png</iconset>
        </attribute>
        <attribute name="title">
@@ -5438,7 +5438,7 @@
              <string>Correlate current</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/correlate-current.png</normaloff>:/icons/icons/correlate-current.png</iconset>
             </property>
             <property name="iconSize">
@@ -5461,7 +5461,7 @@
              <string>Correlate selected</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/correlate-selected.png</normaloff>:/icons/icons/correlate-selected.png</iconset>
             </property>
             <property name="iconSize">
@@ -5484,7 +5484,7 @@
              <string>Correlate all</string>
             </property>
             <property name="icon">
-             <iconset resource="../icons.qrc">
+             <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
               <normaloff>:/icons/icons/correlate-all.png</normaloff>:/icons/icons/correlate-all.png</iconset>
             </property>
             <property name="iconSize">
@@ -5504,7 +5504,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../icons.qrc">
+        <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
          <normaloff>:/icons/icons/spectra.png</normaloff>:/icons/icons/spectra.png</iconset>
        </attribute>
        <attribute name="title">
@@ -5548,7 +5548,7 @@
             </property>
             <property name="icon">
              <iconset>
-              <normaloff>../../../Users/Joshua/.designer/backup/icons/018-subtracting-button-new.png</normaloff>../../../Users/Joshua/.designer/backup/icons/018-subtracting-button-new.png</iconset>
+              <normaloff>D:/Drives/Google Drive/Current_Projects/Full_SMS/Users/Joshua/.designer/backup/icons/018-subtracting-button-new.png</normaloff>D:/Drives/Google Drive/Current_Projects/Full_SMS/Users/Joshua/.designer/backup/icons/018-subtracting-button-new.png</iconset>
             </property>
             <property name="iconSize">
              <size>
@@ -5679,7 +5679,7 @@
         <bool>true</bool>
        </property>
        <attribute name="icon">
-        <iconset resource="../icons.qrc">
+        <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
          <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
        </attribute>
        <attribute name="title">
@@ -7486,7 +7486,7 @@ Python: import pandas.read_feather)</string>
                <string>Export Current</string>
               </property>
               <property name="icon">
-               <iconset resource="../icons.qrc">
+               <iconset resource="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc">
                 <normaloff>:/icons/icons/export.png</normaloff>:/icons/icons/export.png</iconset>
               </property>
               <property name="iconSize">
@@ -7600,7 +7600,7 @@ Python: import pandas.read_feather)</string>
      <x>0</x>
      <y>0</y>
      <width>1250</width>
-     <height>29</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -7620,7 +7620,7 @@ Python: import pandas.read_feather)</string>
     </property>
     <widget class="QMenu" name="menuIntensity">
      <property name="enabled">
-      <bool>false</bool>
+      <bool>true</bool>
      </property>
      <property name="title">
       <string>Intensity</string>
@@ -7659,7 +7659,27 @@ Python: import pandas.read_feather)</string>
       <addaction name="menuRemove"/>
       <addaction name="menuRestore"/>
      </widget>
+     <widget class="QMenu" name="menuNormalise">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="title">
+       <string>Normalise</string>
+      </property>
+      <widget class="QMenu" name="menu_to_Overall_Max_Level">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="title">
+        <string>To Max Level</string>
+       </property>
+       <addaction name="actionNormOverallMaxSelected"/>
+       <addaction name="actionNormOverallMaxAll"/>
+      </widget>
+      <addaction name="menu_to_Overall_Max_Level"/>
+     </widget>
      <addaction name="menuPhoton_Bursts"/>
+     <addaction name="menuNormalise"/>
     </widget>
     <widget class="QMenu" name="menuLifetime">
      <property name="enabled">
@@ -7714,7 +7734,7 @@ Python: import pandas.read_feather)</string>
   <action name="actionOpen_h5">
    <property name="icon">
     <iconset>
-     <normaloff>../../../Users/Joshua/.designer/backup/icons/001-new-file-new.png</normaloff>../../../Users/Joshua/.designer/backup/icons/001-new-file-new.png</iconset>
+     <normaloff>D:/Drives/Google Drive/Current_Projects/Full_SMS/Users/Joshua/.designer/backup/icons/001-new-file-new.png</normaloff>D:/Drives/Google Drive/Current_Projects/Full_SMS/Users/Joshua/.designer/backup/icons/001-new-file-new.png</iconset>
    </property>
    <property name="text">
     <string>Open HDF5 (*.h5)</string>
@@ -7723,7 +7743,7 @@ Python: import pandas.read_feather)</string>
   <action name="actionOpen_pt3">
    <property name="icon">
     <iconset>
-     <normaloff>../../../Users/Joshua/.designer/backup/icons/004-open-archive-new.png</normaloff>../../../Users/Joshua/.designer/backup/icons/004-open-archive-new.png</iconset>
+     <normaloff>D:/Drives/Google Drive/Current_Projects/Full_SMS/Users/Joshua/.designer/backup/icons/004-open-archive-new.png</normaloff>D:/Drives/Google Drive/Current_Projects/Full_SMS/Users/Joshua/.designer/backup/icons/004-open-archive-new.png</iconset>
    </property>
    <property name="text">
     <string>PT3 Folder (*.pt3)</string>
@@ -7735,7 +7755,7 @@ Python: import pandas.read_feather)</string>
    </property>
    <property name="icon">
     <iconset>
-     <normaloff>../../../Users/Joshua/.designer/backup/icons/020-cutting-with-a-scissor-on-broken-line-new.png</normaloff>../../../Users/Joshua/.designer/backup/icons/020-cutting-with-a-scissor-on-broken-line-new.png</iconset>
+     <normaloff>D:/Drives/Google Drive/Current_Projects/Full_SMS/Users/Joshua/.designer/backup/icons/020-cutting-with-a-scissor-on-broken-line-new.png</normaloff>D:/Drives/Google Drive/Current_Projects/Full_SMS/Users/Joshua/.designer/backup/icons/020-cutting-with-a-scissor-on-broken-line-new.png</iconset>
    </property>
    <property name="text">
     <string>Trim Dead Traces</string>
@@ -7989,6 +8009,16 @@ Python: import pandas.read_feather)</string>
     <string>Convert .csv's</string>
    </property>
   </action>
+  <action name="actionNormOverallMaxSelected">
+   <property name="text">
+    <string>Selected</string>
+   </property>
+  </action>
+  <action name="actionNormOverallMaxAll">
+   <property name="text">
+    <string>All</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="9"/>
  <customwidgets>
@@ -8016,7 +8046,7 @@ Python: import pandas.read_feather)</string>
   <tabstop>btnNextLevel</tabstop>
  </tabstops>
  <resources>
-  <include location="../icons.qrc"/>
+  <include location="D:/Drives/Google Drive/Current_Projects/Full_SMS/src/resources/icons.qrc"/>
  </resources>
  <connections/>
 </ui>

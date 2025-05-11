@@ -86,7 +86,7 @@ class H5dataset:
         else:
             self.has_raster_scans = False
 
-        self.particles = []
+        self.particles: "list[Particle]" = []
         self.num_parts = 0
         for num, particle_name in enumerate(natural_p_names):
             if map_particle_indexes is not None:
@@ -908,7 +908,7 @@ class Particle:
             )
 
     def normalise_to_max_int(
-        self, normalised_max_level_intensity=float, min_level_dwelltime_s=0.1
+        self, normalised_max_level_intensity: float, min_level_dwelltime_s=0.1
     ) -> None:
         current_max_int = max(
             [
@@ -917,9 +917,10 @@ class Particle:
                 if level.dwell_time_s >= min_level_dwelltime_s
             ]
         )
-        normalisation_factor = current_max_int / normalised_max_level_intensity
+        normalisation_factor = normalised_max_level_intensity / current_max_int
         for level in self.cpts.levels:
             level.normalise_with_factor(normalisation_factor=normalisation_factor)
+        self.int_trace
 
     def remove_and_reset_grouping(self):
         """Re-initialize grouping and remove current data."""
