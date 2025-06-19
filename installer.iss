@@ -2,13 +2,13 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Full SMS"
-#define MyAppVersion "0.7.3"
-#define MyVersionInfoVersion "0.0.7.3"
+#define MyAppVersion "0.7.4"
+#define MyVersionInfoVersion "0.0.7.4"
 #define MyInstallerName "Full_SMS_v" + MyAppVersion + "_Win10_64-bit"
 #define MyAppPublisher "University of Pretoria"
 #define MyAppURL "https://www.up.ac.za/"
 #define MyAppExeName "Full_SMS.exe"
-#define MyRootFolder "C:\Users\bvh\PycharmProjects\Full_SMS"
+#define MyRootFolder "C:\Users\bertu\PycharmProjects\Full_SMS"
 #define MyIconFile MyRootFolder + "\src\resources\icons\Full-SMS.ico"
 #define MyOutputFolder MyRootFolder + "\output"
 #define MyLicenseFile MyRootFolder + "\license.txt"
