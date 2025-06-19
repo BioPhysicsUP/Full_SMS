@@ -978,7 +978,7 @@ class MainWindow(QMainWindow, UI_Main_Window):
             if any_spectra:
                 self.current_dataset.has_spectra = True
 
-            if not any([p.has_levels for p in self.current_dataset.particles]):
+            if not any([p.has_levels for p in self.current_dataset.particles]) and self.settings.auto_resolve_levels:
                 msgbx = TimedMessageBox(30, parent=self)
                 msgbx.setIcon(QMessageBox.Question)
                 msgbx.setText("Would you like to resolve levels now?")

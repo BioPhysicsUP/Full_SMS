@@ -714,8 +714,8 @@ class ChangePointAnalysis:
             )  # Just before eq. 7, and note errata
             w_k = (1 / 2) * np.log((4 * k * (n - k)) / n**2)  # Just after eq. 6
 
-            wlr.itemset(
-                k, l0_minus_expec_l0 / sigma_k + w_k
+            wlr[k] = (
+                l0_minus_expec_l0 / sigma_k + w_k
             )  # Eq. 6 and just after eq. 6
 
         max_ind_local = int(wlr.argmax())

@@ -40,6 +40,7 @@ class Settings:
         self.lt_end_percent = None
         self.lt_minimum_decay_window = None
         self.lt_bg_percent = None
+        self.auto_resolve_levels = None
 
         self.default_settings_dict = {
             "change_point_analysis": {"min_num_photons": 20, "min_boundary_offset": 7},
@@ -58,6 +59,7 @@ class Settings:
                 "minimum_decay_window": 0.5,
                 "bg_percent": 5,
             },
+            "auto_resolve_levels": True,
         }
 
         if load_file_or_path:
@@ -91,6 +93,7 @@ class Settings:
         self.lt_end_percent = settings_dict["lifetimes"]["end_percent"]
         self.lt_minimum_decay_window = settings_dict["lifetimes"]["minimum_decay_window"]
         self.lt_bg_percent = settings_dict["lifetimes"]["bg_percent"]
+        self.auto_resolve_levels = settings_dict["auto_resolve_levels"]
 
     def get_all_dict(self) -> dict:
         settings_dict = {
@@ -113,6 +116,7 @@ class Settings:
                 "minimum_decay_window": self.lt_minimum_decay_window,
                 "bg_percent": self.lt_bg_percent,
             },
+            "auto_resolve_levels": self.auto_resolve_levels,
         }
         return settings_dict
 
@@ -221,6 +225,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
         lt_end_percent = self.spb_end_percent.value()
         lt_minimum_decay_window = self.dsb_minimum_decay_window.value()
         lt_bg_percent = self.spb_bg_percent.value()
+        auto_resolve_levels = self.chbAutoResolveLevels.isChecked()
 
         new_settings_dict = {
             "change_point_analysis": {
@@ -242,6 +247,7 @@ class SettingsDialog(QDialog, UI_Settings_Dialog):
                 "minimum_decay_window": lt_minimum_decay_window,
                 "bg_percent": lt_bg_percent,
             },
+            "auto_resolve_levels": auto_resolve_levels,
         }
         self.settings.set_all_dict(new_settings_dict)
 

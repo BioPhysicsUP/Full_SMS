@@ -2425,7 +2425,7 @@ class LifetimeController(QObject):
 
     def start_fitting_thread(self, mode: str = "current") -> None:
         """
-        Creates a worker to resolve levels.ckibacxxx
+        For now, doesn't actually use threads. This is due to high memory consumption.
 
         Depending on the ``current_selected_all`` parameter the worker will be
         given the necessary parameter to fit the current, selected or all particles.
@@ -2477,24 +2477,11 @@ class LifetimeController(QObject):
         clean_fit_param.parent = None
         clean_fit_param.fpd = None
 
-        f_process_thread = ProcessThread()
-        f_process_thread.add_tasks_from_methods(
-            objects=part_hists,
-            method_name="fit_part_and_levels",
-            args=(channelwidth, start, end, clean_fit_param),
-        )
-        f_process_thread.signals.start_progress.connect(mw.start_progress)
-        f_process_thread.signals.status_update.connect(mw.status_message)
-        f_process_thread.signals.step_progress.connect(mw.update_progress)
-        f_process_thread.signals.end_progress.connect(mw.end_progress)
-        f_process_thread.signals.error.connect(self.error)
-        f_process_thread.signals.results.connect(self.gather_replace_results)
-        f_process_thread.signals.finished.connect(self.fitting_thread_complete)
-        f_process_thread.worker_signals.reset_gui.connect(mw.reset_gui)
-        f_process_thread.status_message = status_message
-
-        mw.threadpool.start(f_process_thread)
-        mw.active_threads.append(f_process_thread)
+        mw.status_message('Fitting Levels for Particles...')
+        mw.repaint()
+        for part_hist in part_hists:
+            part_hist.fit_part_and_levels(channelwidth, start, end, clean_fit_param)
+        mw.status_message('Done')
 
     def gather_replace_results(
         self, results: Union[List[ProcessTaskResult], ProcessTaskResult]
