@@ -31,6 +31,8 @@ from my_logger import setup_logger
 from processes import PassSigFeedback, ProcessProgFeedback, ProcessProgress
 from tcspcfit import FittingParameters
 
+NORMALISE_MIN_DWELLTIME_S = 1
+
 if TYPE_CHECKING:
     from change_point import Level
     from grouping import GlobalLevel
@@ -908,7 +910,7 @@ class Particle:
             )
 
     def normalise_to_max_int(
-        self, normalised_max_level_intensity: float, min_level_dwelltime_s=0.1
+        self, normalised_max_level_intensity: float, min_level_dwelltime_s=NORMALISE_MIN_DWELLTIME_S
     ) -> None:
         current_max_int = max(
             [
