@@ -167,11 +167,11 @@ class PassSigFeedback:
         self.fbq.put(ProcessSigPassTask(sig_pass_type=WorkerSigPassType.data_loaded))
         self.fbq.task_done()
 
-    def add_irf(self, decay: ndarray, time_series: ndarray, dataset: H5dataset):
+    def add_irf(self, decay: ndarray, time_series: ndarray):#, dataset: H5dataset):
         self.fbq.put(
             ProcessSigPassTask(
                 sig_pass_type=WorkerSigPassType.add_irf,
-                sig_args=(decay, time_series, dataset),
+                sig_args=(decay, time_series),# dataset),
             )
         )
         self.fbq.task_done()

@@ -1546,7 +1546,7 @@ class LifetimeController(QObject):
         """Allow the user to load a IRF instead of the IRF that has already been loaded."""
 
         file_path = QFileDialog.getOpenFileName(
-            self.main_window, "Open HDF5 file", "", "HDF5 files (*.h5)"
+            self.main_window, "Open HDF5 file", "", "HDF5 files (*.h5);;PHU files (*.phu)"
         )
         if file_path != ("", ""):  # fname will equal ('', '') if the user canceled.
             mw = self.main_window
@@ -1574,12 +1574,13 @@ class LifetimeController(QObject):
             mw.threadpool.start(of_process_thread)
             mw.active_threads.append(of_process_thread)
 
-    def add_irf(self, decay, t, irfdata):
+    def add_irf(self, decay, t):
         self.fitparam.irf = decay
         self.fitparam.irft = t
         # self.fitparam.irfdata = irfdata
         self.irf_loaded = True
-        self.main_window.set_startpoint(irf_data=irfdata)
+        # if irfdata is not None:
+        #     self.main_window.set_startpoint(irf_data=irfdata)
         self.main_window.dataset_node.dataobj.irf = decay
         self.main_window.dataset_node.dataobj.irf_t = t
         self.main_window.dataset_node.dataobj.has_irf = True

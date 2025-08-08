@@ -40,7 +40,7 @@ class WorkerSignals(QObject):
     data_loaded = pyqtSignal()
     bin_size = pyqtSignal(int)
 
-    add_irf = pyqtSignal(np.ndarray, np.ndarray, object)  # H5dataset)
+    add_irf = pyqtSignal(np.ndarray, np.ndarray)#, object)  # H5dataset)
 
     level_resolved = pyqtSignal()
     reset_gui = pyqtSignal()

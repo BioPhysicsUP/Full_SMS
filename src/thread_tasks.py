@@ -18,6 +18,7 @@ import multiprocessing as mp
 import smsh5
 from my_logger import setup_logger
 from tree_model import DatasetTreeNode
+import phconvert as phc
 
 # if TYPE_CHECKING:
 
@@ -188,22 +189,31 @@ class OpenFile:
             sig_fb = PassSigFeedback(feedback_queue=feedback_queue)
             prog_fb = ProcessProgFeedback(feedback_queue=feedback_queue)
 
-            dataset = self.load_data(fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb)
+            if self.file_path[1] == "PHU files (*.phu)":
+                hist, bin_size, meta = phc.pqreader.load_phu(self.file_path[0])
+                hist = hist[0]
+                hist = np.trim_zeros(hist, 'b')
+                t = np.arange(len(hist)) * bin_size[0] * 1e9  # convert to ns
+                # print(t)
+                sig_fb.add_irf(hist, t)
+            else:
+                dataset = self.load_data(fname=self.file_path, sig_fb=sig_fb, prog_fb=prog_fb)
 
-            for particle in dataset.particles:
-                particle.tmin = self.tmin
-                # particle.tmin = np.min(particle.histogram.microtimes)
+                for particle in dataset.particles:
+                    particle.tmin = self.tmin
+                    # particle.tmin = np.min(particle.histogram.microtimes)
 
-            irfhist = dataset.particles[0].histogram
-            irfhist._particle = None
-            # irfhist.t -= irfhist.t.min()
-            sig_fb.add_irf(irfhist.decay, irfhist.t, dataset)
+                irfhist = dataset.particles[0].histogram
+                irfhist._particle = None
+                # irfhist.t -= irfhist.t.min()
+                sig_fb.add_irf(irfhist.decay, irfhist.t)#, dataset)
             prog_fb.set_status(status="Done")
 
             # start_progress_sig.emit(100)
             # status_sig.emit("Done")
         except Exception as err:
-            self.signals.error.emit(err)
+            logger.error(err, exc_info=True)
+            # raise(err)
 
     def load_data(self, fname: str, sig_fb: PassSigFeedback, prog_fb: ProcessProgFeedback):
         dataset = smsh5.H5dataset(fname[0], sig_fb=sig_fb, prog_fb=prog_fb)
