@@ -6,6 +6,7 @@ User's guide
     :maxdepth: 2
 
     basic_overview
+    data_conversion
     level_resolution
     roi
     lifetime_userguide
