@@ -2482,7 +2482,12 @@ class LifetimeController(QObject):
         mw.repaint()
         for part_hist in part_hists:
             part_hist.fit_part_and_levels(channelwidth, start, end, clean_fit_param)
+        for part in particles:
+            part.has_fit_a_lifetime = True
+        mw.current_dataset.has_lifetimes = True
         mw.status_message('Done')
+        mw.repaint()
+        logger.info("Fitting levels complete")
 
     def gather_replace_results(
         self, results: Union[List[ProcessTaskResult], ProcessTaskResult]
@@ -2953,22 +2958,23 @@ class GroupingController(QObject):
                         ]:
                             if hasattr(step, group_attr_name):
                                 group_attr = getattr(step, group_attr_name)
-                                for group in group_attr:
-                                    lvls = new_part
-                                    if group_attr_name == "group_levels":
-                                        lvls = group_attr
-                                    else:
-                                        if hasattr(group, "lvls"):
-                                            lvls = group.lvls
-                                    if lvls is not None:
-                                        for ahc_lvl in lvls:
-                                            if hasattr(ahc_lvl, "_particle"):
-                                                ahc_lvl._particle = new_part
-                                            if hasattr(ahc_lvl.microtimes, "_particle"):
-                                                ahc_lvl.microtimes._particle = new_part
-                                            ahc_hist = ahc_lvl.histogram
-                                            if hasattr(ahc_hist, "_particle"):
-                                                ahc_hist._particle = new_part
+                                if group_attr is not None:
+                                    for group in group_attr:
+                                        lvls = new_part
+                                        if group_attr_name == "group_levels":
+                                            lvls = group_attr
+                                        else:
+                                            if hasattr(group, "lvls"):
+                                                lvls = group.lvls
+                                        if lvls is not None:
+                                            for ahc_lvl in lvls:
+                                                if hasattr(ahc_lvl, "_particle"):
+                                                    ahc_lvl._particle = new_part
+                                                if hasattr(ahc_lvl.microtimes, "_particle"):
+                                                    ahc_lvl.microtimes._particle = new_part
+                                                ahc_hist = ahc_lvl.histogram
+                                                if hasattr(ahc_hist, "_particle"):
+                                                    ahc_hist._particle = new_part
                 new_part.ahca = result_ahca
 
                 if hasattr(new_part, "has_groups") and new_part.has_groups:
@@ -4442,7 +4448,7 @@ class FilteringController(QObject):
                 for histogram in histograms
             ]
             feature_data = [
-                histogram.avtau if is_used else np.NaN
+                histogram.avtau if is_used else np.nan
                 for histogram, is_used in zip(histograms, are_used_flags)
             ]
             feature_data = np.array(

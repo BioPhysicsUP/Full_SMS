@@ -463,32 +463,33 @@ class SingleProcess(mp.Process):
                                 ]:
                                     if hasattr(step, group_attr_name):
                                         group_attr = getattr(step, group_attr_name)
-                                        for group in group_attr:
-                                            lvls = None
-                                            if group_attr_name == "group_levels":
-                                                lvls = group_attr
-                                            else:
-                                                if hasattr(group, "lvls"):
-                                                    lvls = group.lvls
-                                            if lvls is not None:
-                                                for ahc_lvl in lvls:
-                                                    if hasattr(ahc_lvl, "_particle"):
-                                                        ahc_lvl._particle = None
-                                                    if hasattr(ahc_lvl, "particle"):
-                                                        ahc_lvl.particle = None
-                                                    if not is_global:
-                                                        if hasattr(
-                                                            ahc_lvl.microtimes,
-                                                            "_particle",
-                                                        ):
-                                                            ahc_lvl.microtimes._particle = (
-                                                                None
-                                                            )
-                                                        ahc_hist = ahc_lvl.histogram
-                                                        if hasattr(
-                                                            ahc_hist, "_particle"
-                                                        ):
-                                                            ahc_hist._particle = None
+                                        if group_attr is not None:
+                                            for group in group_attr:
+                                                lvls = None
+                                                if group_attr_name == "group_levels":
+                                                    lvls = group_attr
+                                                else:
+                                                    if hasattr(group, "lvls"):
+                                                        lvls = group.lvls
+                                                if lvls is not None:
+                                                    for ahc_lvl in lvls:
+                                                        if hasattr(ahc_lvl, "_particle"):
+                                                            ahc_lvl._particle = None
+                                                        if hasattr(ahc_lvl, "particle"):
+                                                            ahc_lvl.particle = None
+                                                        if not is_global:
+                                                            if hasattr(
+                                                                ahc_lvl.microtimes,
+                                                                "_particle",
+                                                            ):
+                                                                ahc_lvl.microtimes._particle = (
+                                                                    None
+                                                                )
+                                                            ahc_hist = ahc_lvl.histogram
+                                                            if hasattr(
+                                                                ahc_hist, "_particle"
+                                                            ):
+                                                                ahc_hist._particle = None
                         task.obj._particle = None
 
                         # assert self._temp_dir is not None, "temp_folder has not been set"
