@@ -4365,7 +4365,7 @@ class FilteringController(QObject):
             )
             feature_data = np.array(
                 [
-                    value if passed_filter else np.NaN
+                    value if passed_filter else np.nan
                     for value, passed_filter in zip(feature_data, are_used_flags)
                 ]
             )
@@ -4376,7 +4376,7 @@ class FilteringController(QObject):
             )
             feature_data = np.array(
                 [
-                    value if passed_filter else np.NaN
+                    value if passed_filter else np.nan
                     for value, passed_filter in zip(feature_data, are_used_flags)
                 ]
             )

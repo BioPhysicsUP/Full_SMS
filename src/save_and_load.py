@@ -162,14 +162,17 @@ def load_analysis(
         if not hasattr(particle, "roi_region"):
             particle.roi_region = (0, particle.abstimes[-1] / 1e9)
         if not particle.is_secondary_part:
-            if not hasattr(particle, "use_roi_for_grouping"):
-                particle.ahca.use_roi_for_grouping = False
-            if not hasattr(particle, "grouped_with_roi"):
-                particle.ahca.grouped_with_roi = False
-            if not hasattr(particle.ahca, "backup"):
-                particle.ahca.backup = None
-            if not hasattr(particle.ahca, "plots_need_to_be_updated"):
-                particle.ahca.plots_need_to_be_updated = None
+            try:
+                if not hasattr(particle, "use_roi_for_grouping"):
+                    particle.ahca.use_roi_for_grouping = False
+                if not hasattr(particle, "grouped_with_roi"):
+                    particle.ahca.grouped_with_roi = False
+                if not hasattr(particle.ahca, "backup"):
+                    particle.ahca.backup = None
+                if not hasattr(particle.ahca, "plots_need_to_be_updated"):
+                    particle.ahca.plots_need_to_be_updated = None
+            except:
+                pass
 
     dataset_node = DatasetTreeNode(
         analysis_file[analysis_file.rfind("/") + 1 : -3], loaded_dataset, "dataset"
