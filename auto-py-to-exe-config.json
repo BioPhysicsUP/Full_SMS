@@ -104,6 +104,10 @@
   {
    "optionDest": "datas",
    "value": "C:/Users/bertu/PycharmProjects/Full_SMS/settings.json;."
+  },
+  {
+   "optionDest": "hiddenimports",
+   "value": "phconvert"
   }
  ],
  "nonPyinstallerOptions": {
