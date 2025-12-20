@@ -2726,6 +2726,7 @@ class GroupingController(QObject):
             if particle.ahca.plots_need_to_be_updated:
                 self.all_bic_plots[dataset_ind] = None
                 self.all_last_solutions[dataset_ind] = None
+                particle.ahca.plots_need_to_be_updated = False
             scat_plot_item = self.all_bic_plots[dataset_ind]
             if scat_plot_item is None:
                 spot_other_pen = pg.mkPen(width=1, color="k")
@@ -2758,8 +2759,8 @@ class GroupingController(QObject):
                 scat_plot_item.addPoints(bic_spots)
 
                 self.all_bic_plots[dataset_ind] = scat_plot_item
-                best_solution = scat_plot_item.points()[best_grouping_ind]
-                self.all_last_solutions[dataset_ind] = best_solution
+                selected_solution = scat_plot_item.points()[grouping_selected_ind]
+                self.all_last_solutions[dataset_ind] = selected_solution
                 scat_plot_item.sigClicked.connect(self.solution_clicked)
 
             if not for_export:
