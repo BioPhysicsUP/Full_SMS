@@ -120,7 +120,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 2.3: Create session state model `[NEXT]`
+### Task 2.3: Create session state model `[DONE]` (2026-01-05)
 **Objective**: Define the application state container
 
 **Actions**:
@@ -141,7 +141,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 3: File I/O
 
-### Task 3.1: Implement HDF5 file reader `[TODO]`
+### Task 3.1: Implement HDF5 file reader `[NEXT]`
 **Objective**: Load HDF5 files into the new data model
 
 **Actions**:
@@ -698,7 +698,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | Phase | Tasks | Completed | Remaining |
 |-------|-------|-----------|-----------|
 | 1. Setup | 3 | 3 | 0 |
-| 2. Data Models | 3 | 2 | 1 |
+| 2. Data Models | 3 | 3 | 0 |
 | 3. File I/O | 2 | 0 | 2 |
 | 4. Analysis Core | 6 | 0 | 6 |
 | 5. Workers | 2 | 0 | 2 |
@@ -709,7 +709,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **41** | **5** | **36** |
+| **Total** | **41** | **6** | **35** |
 
 ---
 
