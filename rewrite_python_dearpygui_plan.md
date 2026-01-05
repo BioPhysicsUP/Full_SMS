@@ -55,7 +55,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 1.3: Create project structure `[NEXT]`
+### Task 1.3: Create project structure `[DONE]` (2025-01-05)
 **Objective**: Set up the new source tree
 
 **Actions**:
@@ -88,7 +88,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 2: Data Models
 
-### Task 2.1: Create core data models `[TODO]`
+### Task 2.1: Create core data models `[NEXT]`
 **Objective**: Define immutable data structures for particles and channels
 
 **Actions**:
@@ -697,7 +697,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 | Phase | Tasks | Completed | Remaining |
 |-------|-------|-----------|-----------|
-| 1. Setup | 3 | 2 | 1 |
+| 1. Setup | 3 | 3 | 0 |
 | 2. Data Models | 3 | 0 | 3 |
 | 3. File I/O | 2 | 0 | 2 |
 | 4. Analysis Core | 6 | 0 | 6 |
@@ -709,7 +709,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **41** | **2** | **39** |
+| **Total** | **41** | **3** | **38** |
 
 ---
 
@@ -724,4 +724,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2025-01-05*
+*Last Updated: 2026-01-05*
