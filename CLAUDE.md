@@ -2,13 +2,63 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Active Rewrite
 
-Full SMS is a PyQt5-based GUI application for single-molecule spectroscopy (SMS) data analysis, developed by the Biophysics Group at the University of Pretoria. It analyzes fluorescence measurements from HDF5 files, performing change point analysis, hierarchical clustering, lifetime fitting, and correlation functions.
+**Full SMS is being rewritten from PyQt5 to DearPyGui.**
 
-## Build and Run Commands
+The rewrite plan is tracked in `rewrite_python_dearpygui_plan.md`. When asked to continue the rewrite:
+
+1. Read `rewrite_python_dearpygui_plan.md`
+2. Find the task marked `[NEXT]`
+3. Complete that task
+4. Update the plan document:
+   - Change `[NEXT]` to `[DONE]` with today's date
+   - Change the following `[TODO]` to `[NEXT]`
+   - Update the Progress Summary table
+5. Commit your changes with a message referencing the task
+
+### Directory Structure
+
+- `old/` - Original PyQt5 implementation (reference only, do not modify)
+- `src/full_sms/` - New DearPyGui implementation
+- `tests/` - Test suite for new implementation
+- `rewrite_options/` - Architecture decision documents
+
+### Tooling
+
+- **mise** - Tool version management (`.mise.toml`)
+- **uv** - Python package management (`pyproject.toml`, `uv.lock`)
+
+### Commands
 
 ```bash
+# Install dependencies
+uv sync
+
+# Run the application
+uv run python -m full_sms.app
+
+# Run tests
+uv run pytest
+
+# Build distributable
+uv run pyinstaller build.spec
+```
+
+---
+
+## Legacy Project Overview (Reference)
+
+The original Full SMS is a PyQt5-based GUI application for single-molecule spectroscopy (SMS) data analysis, developed by the Biophysics Group at the University of Pretoria. It analyzes fluorescence measurements from HDF5 files, performing change point analysis, hierarchical clustering, lifetime fitting, and correlation functions.
+
+The legacy code is preserved in `old/` for reference during the rewrite.
+
+## Legacy Build Commands (old/ directory)
+
+```bash
+# These commands are for the OLD PyQt5 implementation in old/
+cd old
+
 # Install dependencies with pipenv
 pipenv install
 
@@ -22,7 +72,9 @@ pipenv run python src/main.py --debug
 pipenv run pyinstaller --noconfirm --clean build.spec
 ```
 
-## Architecture
+## Legacy Architecture (Reference for Rewrite)
+
+The following documents the OLD PyQt5 implementation in `old/`. Use as reference for understanding the algorithms and data flow, but the new implementation may differ.
 
 ### Core Data Flow
 
