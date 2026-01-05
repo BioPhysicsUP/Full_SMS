@@ -173,7 +173,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 4: Analysis Core
 
-### Task 4.1: Port histogram utilities `[NEXT]`
+### Task 4.1: Port histogram utilities `[DONE]` (2026-01-05)
 **Objective**: Implement binning and histogram functions
 
 **Actions**:
@@ -187,7 +187,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 4.2: Port change point analysis `[TODO]`
+### Task 4.2: Port change point analysis `[NEXT]`
 **Objective**: Implement the Watkins & Yang CPA algorithm
 
 **Actions**:
@@ -700,7 +700,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 1. Setup | 3 | 3 | 0 |
 | 2. Data Models | 3 | 3 | 0 |
 | 3. File I/O | 2 | 2 | 0 |
-| 4. Analysis Core | 6 | 0 | 6 |
+| 4. Analysis Core | 6 | 1 | 5 |
 | 5. Workers | 2 | 0 | 2 |
 | 6. UI Foundation | 4 | 0 | 4 |
 | 7. Intensity Tab | 4 | 0 | 4 |
@@ -709,7 +709,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **41** | **8** | **33** |
+| **Total** | **41** | **9** | **32** |
 
 ---
 
