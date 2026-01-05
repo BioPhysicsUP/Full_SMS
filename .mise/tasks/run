@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run the Full SMS application"
+set -euo pipefail
+
+uv run python -m full_sms.app "$@"

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#MISE description="Initialize the project after cloning"
+set -euo pipefail
+
+echo "==> Installing mise tools (Python, uv)..."
+mise install
+
+echo "==> Installing Python dependencies..."
+uv sync
+
+echo "==> Project initialized successfully!"
+echo ""
+echo "You can now run the application with:"
+echo "  uv run python -m full_sms.app"
+echo ""
+echo "Or run tests with:"
+echo "  uv run pytest"

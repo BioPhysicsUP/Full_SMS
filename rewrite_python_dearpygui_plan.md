@@ -41,7 +41,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 1.2: Initialize project with mise and uv `[NEXT]`
+### Task 1.2: Initialize project with mise and uv `[DONE]` (2025-01-05)
 **Objective**: Set up modern Python tooling
 
 **Actions**:
@@ -55,7 +55,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 1.3: Create project structure `[TODO]`
+### Task 1.3: Create project structure `[NEXT]`
 **Objective**: Set up the new source tree
 
 **Actions**:
@@ -697,7 +697,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 | Phase | Tasks | Completed | Remaining |
 |-------|-------|-----------|-----------|
-| 1. Setup | 3 | 1 | 2 |
+| 1. Setup | 3 | 2 | 1 |
 | 2. Data Models | 3 | 0 | 3 |
 | 3. File I/O | 2 | 0 | 2 |
 | 4. Analysis Core | 6 | 0 | 6 |
@@ -709,7 +709,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **41** | **1** | **40** |
+| **Total** | **41** | **2** | **39** |
 
 ---
 
