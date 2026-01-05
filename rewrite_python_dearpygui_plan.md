@@ -103,7 +103,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 2.2: Create analysis result models `[NEXT]`
+### Task 2.2: Create analysis result models `[DONE]` (2026-01-05)
 **Objective**: Define structures for analysis outputs
 
 **Actions**:
@@ -120,7 +120,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 2.3: Create session state model `[TODO]`
+### Task 2.3: Create session state model `[NEXT]`
 **Objective**: Define the application state container
 
 **Actions**:
@@ -698,7 +698,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | Phase | Tasks | Completed | Remaining |
 |-------|-------|-----------|-----------|
 | 1. Setup | 3 | 3 | 0 |
-| 2. Data Models | 3 | 1 | 2 |
+| 2. Data Models | 3 | 2 | 1 |
 | 3. File I/O | 2 | 0 | 2 |
 | 4. Analysis Core | 6 | 0 | 6 |
 | 5. Workers | 2 | 0 | 2 |
@@ -709,7 +709,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **41** | **4** | **37** |
+| **Total** | **41** | **5** | **36** |
 
 ---
 
