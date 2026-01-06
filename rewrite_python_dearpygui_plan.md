@@ -233,7 +233,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 4.4: Port lifetime fitting - single exponential `[NEXT]`
+### Task 4.4: Port lifetime fitting - single exponential `[DONE]` (2026-01-06)
 **Objective**: Implement single-exponential decay fitting
 
 **Actions**:
@@ -249,7 +249,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 4.5: Port lifetime fitting - multi-exponential `[TODO]`
+### Task 4.5: Port lifetime fitting - multi-exponential `[NEXT]`
 **Objective**: Extend fitting to 2 and 3 exponential components
 
 **Actions**:
@@ -715,7 +715,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 1. Setup | 3 | 3 | 0 |
 | 2. Data Models | 3 | 3 | 0 |
 | 3. File I/O | 2 | 2 | 0 |
-| 4. Analysis Core | 7 | 4 | 3 |
+| 4. Analysis Core | 7 | 5 | 2 |
 | 5. Workers | 2 | 0 | 2 |
 | 6. UI Foundation | 4 | 0 | 4 |
 | 7. Intensity Tab | 4 | 0 | 4 |
@@ -724,7 +724,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **12** | **30** |
+| **Total** | **42** | **13** | **29** |
 
 ---
 
