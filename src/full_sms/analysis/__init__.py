@@ -1,10 +1,15 @@
-"""Analysis algorithms: change point detection, clustering, lifetime fitting."""
+"""Analysis algorithms: change point detection, clustering, lifetime fitting, correlation."""
 
 from full_sms.analysis.change_point import (
     CPAParams,
     ChangePointResult,
     ConfidenceLevel,
     find_change_points,
+)
+from full_sms.analysis.correlation import (
+    CorrelationResult,
+    calculate_g2,
+    rebin_correlation,
 )
 from full_sms.analysis.histograms import (
     bin_photons,
@@ -31,6 +36,10 @@ __all__ = [
     "ChangePointResult",
     "ConfidenceLevel",
     "CPAParams",
+    # Correlation (g2)
+    "calculate_g2",
+    "CorrelationResult",
+    "rebin_correlation",
     # Histograms
     "bin_photons",
     "build_decay_histogram",

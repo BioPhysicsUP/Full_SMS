@@ -263,7 +263,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 4.6: Port correlation analysis `[NEXT]`
+### Task 4.6: Port correlation analysis `[DONE]` (2026-01-06)
 **Objective**: Implement second-order photon correlation (antibunching)
 
 **Actions**:
@@ -278,7 +278,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 5: Worker Infrastructure
 
-### Task 5.1: Implement ProcessPoolExecutor wrapper `[TODO]`
+### Task 5.1: Implement ProcessPoolExecutor wrapper `[NEXT]`
 **Objective**: Create reusable parallel processing infrastructure
 
 **Actions**:
@@ -715,7 +715,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 1. Setup | 3 | 3 | 0 |
 | 2. Data Models | 3 | 3 | 0 |
 | 3. File I/O | 2 | 2 | 0 |
-| 4. Analysis Core | 7 | 6 | 1 |
+| 4. Analysis Core | 7 | 7 | 0 |
 | 5. Workers | 2 | 0 | 2 |
 | 6. UI Foundation | 4 | 0 | 4 |
 | 7. Intensity Tab | 4 | 0 | 4 |
@@ -724,7 +724,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **14** | **28** |
+| **Total** | **42** | **15** | **27** |
 
 ---
 
