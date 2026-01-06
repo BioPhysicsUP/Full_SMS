@@ -336,7 +336,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 6.2: Create main layout with sidebar and tabs `[NEXT]`
+### Task 6.2: Create main layout with sidebar and tabs `[DONE]` (2026-01-06)
 **Objective**: Implement the two-column layout with tab navigation
 
 **Actions**:
@@ -351,7 +351,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 6.3: Create particle tree component `[TODO]`
+### Task 6.3: Create particle tree component `[NEXT]`
 **Objective**: Implement hierarchical particle/channel selection
 
 **Actions**:
@@ -727,14 +727,14 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 3. File I/O | 2 | 2 | 0 |
 | 4. Analysis Core | 7 | 7 | 0 |
 | 5. Workers | 2 | 2 | 0 |
-| 6. UI Foundation | 4 | 1 | 3 |
+| 6. UI Foundation | 4 | 2 | 2 |
 | 7. Intensity Tab | 4 | 0 | 4 |
 | 8. Lifetime Tab | 4 | 0 | 4 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **18** | **24** |
+| **Total** | **42** | **19** | **23** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-06 (Task 6.1 completed - main application window with menu bar and theme)*
+*Last Updated: 2026-01-06 (Task 6.2 completed - main layout with sidebar and tabs)*

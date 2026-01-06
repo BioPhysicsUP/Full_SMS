@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 import dearpygui.dearpygui as dpg
 
+from full_sms.models.session import ActiveTab, SessionState
+from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
 
 if TYPE_CHECKING:
@@ -26,9 +28,6 @@ logger = logging.getLogger(__name__)
 # Tag constants for UI elements
 TAGS = {
     "primary_window": "primary_window",
-    "status_bar": "status_bar",
-    "status_text": "status_text",
-    "content_area": "content_area",
 }
 
 
@@ -40,6 +39,8 @@ class Application:
         self._running = False
         self._theme: int | None = None
         self._plot_theme: int | None = None
+        self._layout: MainLayout | None = None
+        self._session = SessionState()
 
     def setup(self) -> None:
         """Set up the DearPyGui context, viewport, and UI."""
@@ -76,19 +77,12 @@ class Application:
             # Menu bar
             self._create_menu_bar()
 
-            # Main content area (placeholder for now)
-            with dpg.child_window(tag=TAGS["content_area"], border=False):
-                dpg.add_text("Full SMS - Single Molecule Spectroscopy Analysis")
-                dpg.add_separator()
-                dpg.add_text(
-                    "Welcome to Full SMS. Use File > Open H5 to load a data file.",
-                    color=(180, 180, 180),
-                )
-                dpg.add_spacer(height=20)
-                dpg.add_text(f"Version: {APP_VERSION}", color=(128, 128, 128))
+            # Main layout with sidebar, tabs, and status bar
+            self._layout = MainLayout(parent=TAGS["primary_window"])
+            self._layout.build()
 
-            # Status bar at the bottom
-            self._create_status_bar()
+            # Set up tab change callback
+            self._layout.set_on_tab_change(self._on_tab_changed)
 
         # Set as primary window (fills viewport)
         dpg.set_primary_window(TAGS["primary_window"], True)
@@ -210,20 +204,23 @@ class Application:
                     callback=self._on_about,
                 )
 
-    def _create_status_bar(self) -> None:
-        """Create the status bar at the bottom of the window."""
-        dpg.add_separator()
-        with dpg.group(horizontal=True, tag=TAGS["status_bar"]):
-            dpg.add_text("Ready", tag=TAGS["status_text"])
-
     def set_status(self, message: str) -> None:
         """Update the status bar message.
 
         Args:
             message: The status message to display.
         """
-        if dpg.does_item_exist(TAGS["status_text"]):
-            dpg.set_value(TAGS["status_text"], message)
+        if self._layout:
+            self._layout.set_status(message)
+
+    def _on_tab_changed(self, tab: ActiveTab) -> None:
+        """Handle tab change events.
+
+        Args:
+            tab: The newly selected tab.
+        """
+        self._session.ui_state.active_tab = tab
+        logger.debug(f"Tab changed to: {tab.value}")
 
     # Menu callbacks - File menu
 
