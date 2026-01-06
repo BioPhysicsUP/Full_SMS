@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from conftest import make_clustering_result
 from full_sms.models import ChannelData, ClusteringResult, FitResult, GroupData, LevelData, ParticleData
 from full_sms.models.session import (
     ActiveTab,
@@ -402,20 +403,7 @@ class TestSessionState:
 
     def test_set_and_get_clustering(self, sample_particle: ParticleData) -> None:
         """Can store and retrieve clustering results."""
-        group = GroupData(
-            group_id=0,
-            level_indices=(0, 1),
-            total_photons=100,
-            total_dwell_time_s=1.0,
-            intensity_cps=100.0,
-        )
-        result = ClusteringResult(
-            groups=(group,),
-            all_bic_values=(100.0,),
-            optimal_step_index=0,
-            selected_step_index=0,
-            num_original_levels=2,
-        )
+        result = make_clustering_result(num_steps=1, num_original_levels=2)
         state = SessionState()
         state.particles = [sample_particle]
 
@@ -426,20 +414,7 @@ class TestSessionState:
 
     def test_get_current_clustering(self, sample_particle: ParticleData) -> None:
         """get_current_clustering returns result for current selection."""
-        group = GroupData(
-            group_id=0,
-            level_indices=(0,),
-            total_photons=100,
-            total_dwell_time_s=1.0,
-            intensity_cps=100.0,
-        )
-        result = ClusteringResult(
-            groups=(group,),
-            all_bic_values=(100.0,),
-            optimal_step_index=0,
-            selected_step_index=0,
-            num_original_levels=1,
-        )
+        result = make_clustering_result(num_steps=1, num_original_levels=1)
         state = SessionState()
         state.particles = [sample_particle]
         state.set_clustering(1, 1, result)
@@ -453,20 +428,7 @@ class TestSessionState:
 
     def test_get_groups(self, sample_particle: ParticleData) -> None:
         """get_groups returns groups from clustering result."""
-        group = GroupData(
-            group_id=0,
-            level_indices=(0,),
-            total_photons=100,
-            total_dwell_time_s=1.0,
-            intensity_cps=100.0,
-        )
-        result = ClusteringResult(
-            groups=(group,),
-            all_bic_values=(100.0,),
-            optimal_step_index=0,
-            selected_step_index=0,
-            num_original_levels=1,
-        )
+        result = make_clustering_result(num_steps=1, num_original_levels=1)
         state = SessionState()
         state.particles = [sample_particle]
         state.set_clustering(1, 1, result)
@@ -475,7 +437,7 @@ class TestSessionState:
 
         assert groups is not None
         assert len(groups) == 1
-        assert groups[0] is group
+        assert groups[0] is result.groups[0]
 
     def test_get_groups_no_clustering(self, sample_particle: ParticleData) -> None:
         """get_groups returns None if no clustering."""
@@ -486,20 +448,7 @@ class TestSessionState:
 
     def test_get_current_groups(self, sample_particle: ParticleData) -> None:
         """get_current_groups returns groups for current selection."""
-        group = GroupData(
-            group_id=0,
-            level_indices=(0,),
-            total_photons=100,
-            total_dwell_time_s=1.0,
-            intensity_cps=100.0,
-        )
-        result = ClusteringResult(
-            groups=(group,),
-            all_bic_values=(100.0,),
-            optimal_step_index=0,
-            selected_step_index=0,
-            num_original_levels=1,
-        )
+        result = make_clustering_result(num_steps=1, num_original_levels=1)
         state = SessionState()
         state.particles = [sample_particle]
         state.set_clustering(1, 1, result)

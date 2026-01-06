@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from full_sms.models.fit import FitResult
-from full_sms.models.group import ClusteringResult, GroupData
+from full_sms.models.group import ClusteringResult, ClusteringStep, GroupData
 from full_sms.models.level import LevelData
 from full_sms.models.session import (
     ActiveTab,
@@ -99,11 +99,30 @@ def _dict_to_group(data: Dict[str, Any]) -> GroupData:
     )
 
 
+def _step_to_dict(step: ClusteringStep) -> Dict[str, Any]:
+    """Convert a ClusteringStep to a serializable dict."""
+    return {
+        "groups": [_group_to_dict(g) for g in step.groups],
+        "level_group_assignments": list(step.level_group_assignments),
+        "bic": step.bic,
+        "num_groups": step.num_groups,
+    }
+
+
+def _dict_to_step(data: Dict[str, Any]) -> ClusteringStep:
+    """Convert a dict back to a ClusteringStep."""
+    return ClusteringStep(
+        groups=tuple(_dict_to_group(g) for g in data["groups"]),
+        level_group_assignments=tuple(data["level_group_assignments"]),
+        bic=data["bic"],
+        num_groups=data["num_groups"],
+    )
+
+
 def _clustering_to_dict(result: ClusteringResult) -> Dict[str, Any]:
     """Convert a ClusteringResult to a serializable dict."""
     return {
-        "groups": [_group_to_dict(g) for g in result.groups],
-        "all_bic_values": list(result.all_bic_values),
+        "steps": [_step_to_dict(s) for s in result.steps],
         "optimal_step_index": result.optimal_step_index,
         "selected_step_index": result.selected_step_index,
         "num_original_levels": result.num_original_levels,
@@ -113,8 +132,7 @@ def _clustering_to_dict(result: ClusteringResult) -> Dict[str, Any]:
 def _dict_to_clustering(data: Dict[str, Any]) -> ClusteringResult:
     """Convert a dict back to a ClusteringResult."""
     return ClusteringResult(
-        groups=tuple(_dict_to_group(g) for g in data["groups"]),
-        all_bic_values=tuple(data["all_bic_values"]),
+        steps=tuple(_dict_to_step(s) for s in data["steps"]),
         optimal_step_index=data["optimal_step_index"],
         selected_step_index=data["selected_step_index"],
         num_original_levels=data["num_original_levels"],

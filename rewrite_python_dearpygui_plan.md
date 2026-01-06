@@ -203,18 +203,33 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 4.3: Port AHCA clustering `[NEXT]`
-**Objective**: Implement agglomerative hierarchical clustering with BIC
+### Task 4.3: Port AHCA clustering `[DONE]` (2026-01-06)
+**Objective**: Implement agglomerative hierarchical clustering with BIC, optimized with Numba JIT
 
 **Actions**:
+- Add `numba` dependency to pyproject.toml
 - Create `analysis/clustering.py`:
   - `cluster_levels(levels, use_lifetime) -> ClusteringResult`
   - `ClusteringResult` contains steps, BIC values, optimal grouping
   - Implement Gaussian-based distance metric
   - Track BIC at each merge step
+  - Use Numba `@jit(nopython=True)` for merge merit calculation (O(n²) inner loop)
 - Reference `old/src/grouping.py`
 
 **Verification**: Produces expected number of groups, BIC curve is sensible
+
+---
+
+### Task 4.3.1: JIT-optimize change point analysis `[NEXT]`
+**Objective**: Apply Numba JIT to CPA computational hotspots
+
+**Actions**:
+- Refactor `_weighted_likelihood_ratio()` inner loop as Numba-compiled function
+- Vectorize `_compute_sums()` using cumulative operations (or JIT compile)
+- Benchmark before/after optimization
+- Ensure all CPA tests still pass
+
+**Verification**: Analysis completes faster, tests pass, results unchanged
 
 ---
 
@@ -700,7 +715,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 1. Setup | 3 | 3 | 0 |
 | 2. Data Models | 3 | 3 | 0 |
 | 3. File I/O | 2 | 2 | 0 |
-| 4. Analysis Core | 6 | 2 | 4 |
+| 4. Analysis Core | 7 | 3 | 4 |
 | 5. Workers | 2 | 0 | 2 |
 | 6. UI Foundation | 4 | 0 | 4 |
 | 7. Intensity Tab | 4 | 0 | 4 |
@@ -709,7 +724,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **41** | **10** | **31** |
+| **Total** | **42** | **11** | **31** |
 
 ---
 
@@ -724,4 +739,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-05*
+*Last Updated: 2026-01-06*

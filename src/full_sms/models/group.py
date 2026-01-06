@@ -88,6 +88,34 @@ class GroupData:
 
 
 @dataclass(frozen=True)
+class ClusteringStep:
+    """A single step in the hierarchical clustering process.
+
+    Each step represents a grouping with a specific number of groups.
+
+    Attributes:
+        groups: Groups at this step.
+        level_group_assignments: For each original level index, the group index it belongs to.
+        bic: BIC value at this step.
+        num_groups: Number of groups at this step.
+    """
+
+    groups: Tuple["GroupData", ...]
+    level_group_assignments: Tuple[int, ...]
+    bic: float
+    num_groups: int
+
+    def __post_init__(self) -> None:
+        """Validate step data."""
+        if not self.groups:
+            raise ValueError("groups cannot be empty")
+        if self.num_groups != len(self.groups):
+            raise ValueError(
+                f"num_groups ({self.num_groups}) doesn't match len(groups) ({len(self.groups)})"
+            )
+
+
+@dataclass(frozen=True)
 class ClusteringResult:
     """Complete result of hierarchical clustering analysis.
 
@@ -95,59 +123,101 @@ class ClusteringResult:
     BIC values for selecting the optimal number of groups.
 
     Attributes:
-        groups: List of groups at the selected (optimal) step.
-        all_bic_values: BIC values for each clustering step.
+        steps: All clustering steps, from N-1 groups down to 1 group.
         optimal_step_index: Index of the step with maximum BIC (optimal grouping).
         selected_step_index: Currently selected step (may differ from optimal).
         num_original_levels: Number of levels before clustering.
     """
 
-    groups: Tuple["GroupData", ...]
-    all_bic_values: Tuple[float, ...]
+    steps: Tuple["ClusteringStep", ...]
     optimal_step_index: int
     selected_step_index: int
     num_original_levels: int
 
     @property
+    def groups(self) -> Tuple["GroupData", ...]:
+        """Groups at the selected step."""
+        return self.steps[self.selected_step_index].groups
+
+    @property
+    def all_bic_values(self) -> Tuple[float, ...]:
+        """BIC values for all steps."""
+        return tuple(step.bic for step in self.steps)
+
+    @property
     def num_groups(self) -> int:
         """Number of groups at the selected step."""
-        return len(self.groups)
+        return self.steps[self.selected_step_index].num_groups
 
     @property
     def num_steps(self) -> int:
         """Total number of clustering steps."""
-        return len(self.all_bic_values)
+        return len(self.steps)
 
     @property
     def optimal_bic(self) -> float:
         """BIC value at the optimal step."""
-        return self.all_bic_values[self.optimal_step_index]
+        return self.steps[self.optimal_step_index].bic
 
     @property
     def selected_bic(self) -> float:
         """BIC value at the selected step."""
-        return self.all_bic_values[self.selected_step_index]
+        return self.steps[self.selected_step_index].bic
 
     @property
     def is_optimal_selected(self) -> bool:
         """Whether the currently selected step is the optimal one."""
         return self.selected_step_index == self.optimal_step_index
 
+    @property
+    def level_group_assignments(self) -> Tuple[int, ...]:
+        """For each level, the group it's assigned to at the selected step."""
+        return self.steps[self.selected_step_index].level_group_assignments
+
+    def get_groups_at_step(self, step_index: int) -> Tuple["GroupData", ...]:
+        """Get groups at a specific step.
+
+        Args:
+            step_index: Index of the step (0 = N-1 groups, last = 1 group).
+
+        Returns:
+            Groups at the specified step.
+        """
+        if not 0 <= step_index < len(self.steps):
+            raise IndexError(f"step_index {step_index} out of range [0, {len(self.steps)})")
+        return self.steps[step_index].groups
+
+    def with_selected_step(self, step_index: int) -> "ClusteringResult":
+        """Create a new result with a different selected step.
+
+        Args:
+            step_index: The new selected step index.
+
+        Returns:
+            A new ClusteringResult with the updated selection.
+        """
+        if not 0 <= step_index < len(self.steps):
+            raise IndexError(f"step_index {step_index} out of range [0, {len(self.steps)})")
+        return ClusteringResult(
+            steps=self.steps,
+            optimal_step_index=self.optimal_step_index,
+            selected_step_index=step_index,
+            num_original_levels=self.num_original_levels,
+        )
+
     def __post_init__(self) -> None:
         """Validate clustering result."""
-        if not self.groups:
-            raise ValueError("groups cannot be empty")
-        if not self.all_bic_values:
-            raise ValueError("all_bic_values cannot be empty")
-        if not 0 <= self.optimal_step_index < len(self.all_bic_values):
+        if not self.steps:
+            raise ValueError("steps cannot be empty")
+        if not 0 <= self.optimal_step_index < len(self.steps):
             raise ValueError(
                 f"optimal_step_index ({self.optimal_step_index}) out of range "
-                f"[0, {len(self.all_bic_values)})"
+                f"[0, {len(self.steps)})"
             )
-        if not 0 <= self.selected_step_index < len(self.all_bic_values):
+        if not 0 <= self.selected_step_index < len(self.steps):
             raise ValueError(
                 f"selected_step_index ({self.selected_step_index}) out of range "
-                f"[0, {len(self.all_bic_values)})"
+                f"[0, {len(self.steps)})"
             )
         if self.num_original_levels < 1:
             raise ValueError(

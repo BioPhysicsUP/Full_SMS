@@ -27,7 +27,8 @@ from full_sms.io.session import (
     load_session,
     save_session,
 )
-from full_sms.models import ChannelData, ClusteringResult, FitResult, GroupData, LevelData, ParticleData
+from conftest import make_clustering_result
+from full_sms.models import ChannelData, ClusteringResult, ClusteringStep, FitResult, GroupData, LevelData, ParticleData
 from full_sms.models.session import (
     ActiveTab,
     ChannelSelection,
@@ -149,37 +150,22 @@ class TestClusteringResultSerialization:
     @pytest.fixture
     def sample_clustering(self) -> ClusteringResult:
         """Create a sample clustering result."""
-        group1 = GroupData(
-            group_id=0,
-            level_indices=(0, 1),
-            total_photons=200,
-            total_dwell_time_s=1.0,
-            intensity_cps=200.0,
-        )
-        group2 = GroupData(
-            group_id=1,
-            level_indices=(2,),
-            total_photons=100,
-            total_dwell_time_s=0.5,
-            intensity_cps=200.0,
-        )
-        return ClusteringResult(
-            groups=(group1, group2),
-            all_bic_values=(100.0, 120.0, 110.0),
-            optimal_step_index=1,
-            selected_step_index=1,
-            num_original_levels=3,
+        return make_clustering_result(
+            num_steps=3, num_original_levels=3, optimal_step_index=1, selected_step_index=1
         )
 
     def test_clustering_to_dict(self, sample_clustering: ClusteringResult) -> None:
         """ClusteringResult converts to dict correctly."""
         d = _clustering_to_dict(sample_clustering)
 
-        assert len(d["groups"]) == 2
-        assert d["all_bic_values"] == [100.0, 120.0, 110.0]
+        assert len(d["steps"]) == 3
         assert d["optimal_step_index"] == 1
         assert d["selected_step_index"] == 1
         assert d["num_original_levels"] == 3
+        # Check that each step has expected structure
+        assert "groups" in d["steps"][0]
+        assert "bic" in d["steps"][0]
+        assert "level_group_assignments" in d["steps"][0]
 
     def test_dict_to_clustering(self, sample_clustering: ClusteringResult) -> None:
         """Dict converts back to ClusteringResult correctly."""
@@ -189,7 +175,7 @@ class TestClusteringResultSerialization:
         assert restored.num_groups == sample_clustering.num_groups
         assert restored.all_bic_values == sample_clustering.all_bic_values
         assert restored.optimal_step_index == sample_clustering.optimal_step_index
-        assert restored.groups[0] == sample_clustering.groups[0]
+        assert restored.num_steps == sample_clustering.num_steps
 
 
 class TestFitResultSerialization:
@@ -365,20 +351,7 @@ class TestSaveSession:
         state.set_levels(1, 1, [level])
 
         # Add clustering
-        group = GroupData(
-            group_id=0,
-            level_indices=(0,),
-            total_photons=3,
-            total_dwell_time_s=0.2,
-            intensity_cps=15.0,
-        )
-        clustering = ClusteringResult(
-            groups=(group,),
-            all_bic_values=(100.0,),
-            optimal_step_index=0,
-            selected_step_index=0,
-            num_original_levels=1,
-        )
+        clustering = make_clustering_result(num_steps=1, num_original_levels=1)
         state.set_clustering(1, 1, clustering)
 
         # Modify UI state
@@ -655,26 +628,8 @@ class TestRoundTrip:
         state.set_levels(2, 2, [level1])
 
         # Add clustering for particle 1
-        group1 = GroupData(
-            group_id=0,
-            level_indices=(0,),
-            total_photons=2,
-            total_dwell_time_s=0.1,
-            intensity_cps=20.0,
-        )
-        group2 = GroupData(
-            group_id=1,
-            level_indices=(1,),
-            total_photons=2,
-            total_dwell_time_s=0.1,
-            intensity_cps=20.0,
-        )
-        clustering = ClusteringResult(
-            groups=(group1, group2),
-            all_bic_values=(90.0, 100.0),
-            optimal_step_index=1,
-            selected_step_index=1,
-            num_original_levels=2,
+        clustering = make_clustering_result(
+            num_steps=2, num_original_levels=2, optimal_step_index=1, selected_step_index=1
         )
         state.set_clustering(1, 1, clustering)
 
