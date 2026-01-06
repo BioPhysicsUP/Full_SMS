@@ -320,7 +320,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 6: UI Foundation
 
-### Task 6.1: Create main application window `[NEXT]`
+### Task 6.1: Create main application window `[DONE]` (2026-01-06)
 **Objective**: Set up the core DearPyGui application structure
 
 **Actions**:
@@ -336,7 +336,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 6.2: Create main layout with sidebar and tabs `[TODO]`
+### Task 6.2: Create main layout with sidebar and tabs `[NEXT]`
 **Objective**: Implement the two-column layout with tab navigation
 
 **Actions**:
@@ -727,14 +727,14 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 3. File I/O | 2 | 2 | 0 |
 | 4. Analysis Core | 7 | 7 | 0 |
 | 5. Workers | 2 | 2 | 0 |
-| 6. UI Foundation | 4 | 0 | 4 |
+| 6. UI Foundation | 4 | 1 | 3 |
 | 7. Intensity Tab | 4 | 0 | 4 |
 | 8. Lifetime Tab | 4 | 0 | 4 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **17** | **25** |
+| **Total** | **42** | **18** | **24** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-06 (Task 5.2 completed - picklable analysis task functions)*
+*Last Updated: 2026-01-06 (Task 6.1 completed - main application window with menu bar and theme)*
