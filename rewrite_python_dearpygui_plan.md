@@ -278,22 +278,32 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 5: Worker Infrastructure
 
-### Task 5.1: Implement ProcessPoolExecutor wrapper `[NEXT]`
-**Objective**: Create reusable parallel processing infrastructure
+### Task 5.1: Implement parallel processing infrastructure `[DONE]` (2026-01-06)
+**Objective**: Create reusable parallel processing infrastructure with modern Python
 
 **Actions**:
+- **Upgrade Python version**:
+  - Update `.mise.toml` and `pyproject.toml` to the latest Python version supported by all dependencies (3.14 if Numba, DearPyGui, NumPy, SciPy, h5py all support it)
+  - Run `uv sync` to verify all dependencies resolve
+  - Run tests to confirm nothing breaks
+- **Evaluate parallelism approach** - consider trade-offs:
+  - **Multiprocessing** (ProcessPoolExecutor): Proven, stable, works well for CPU-bound scientific computing. May actually be faster for some workloads due to memory isolation.
+  - **Free-threading** (no-GIL build): True thread parallelism, lower overhead than processes, but experimental. Numba's free-threading support is still experimental.
+  - **Multiple interpreters** (`concurrent.interpreters`): New in 3.14, actor-model concurrency, less overhead than multiprocessing.
+  - Document the decision rationale in code comments or a brief note
+- **If free-threading is chosen**: Start with the standard Python 3.14 build first, not the free-threaded build. Get the infrastructure working, then optionally test with free-threaded build later.
 - Create `workers/pool.py`:
   - `AnalysisPool` class with persistent executor
   - `submit()` for single tasks
   - `map_with_progress()` for batch tasks with callback
   - Proper cleanup on shutdown
-- Use `multiprocessing.get_context('spawn')` for GUI compatibility
+- Use `multiprocessing.get_context('spawn')` for GUI compatibility (if using multiprocessing)
 
-**Verification**: Can run a simple parallel task
+**Verification**: Python version upgraded, dependencies work, can run a simple parallel task
 
 ---
 
-### Task 5.2: Implement analysis task functions `[TODO]`
+### Task 5.2: Implement analysis task functions `[NEXT]`
 **Objective**: Create picklable task functions for workers
 
 **Actions**:
@@ -716,7 +726,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 2. Data Models | 3 | 3 | 0 |
 | 3. File I/O | 2 | 2 | 0 |
 | 4. Analysis Core | 7 | 7 | 0 |
-| 5. Workers | 2 | 0 | 2 |
+| 5. Workers | 2 | 1 | 1 |
 | 6. UI Foundation | 4 | 0 | 4 |
 | 7. Intensity Tab | 4 | 0 | 4 |
 | 8. Lifetime Tab | 4 | 0 | 4 |
@@ -724,7 +734,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **15** | **27** |
+| **Total** | **42** | **16** | **26** |
 
 ---
 
@@ -739,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-06*
+*Last Updated: 2026-01-06 (Task 5.1 completed - Python 3.14, AnalysisPool with ProcessPoolExecutor)*

@@ -3,7 +3,7 @@ name = "full-sms"
 version = "0.1.0"
 description = "Single-molecule spectroscopy data analysis application"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = { text = "MIT" }
 authors = [
     { name = "Biophysics Group, University of Pretoria" }
