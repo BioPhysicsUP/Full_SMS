@@ -1,8 +1,8 @@
 """Fluorescence lifetime fitting module.
 
 This module implements fluorescence decay fitting using IRF convolution
-and least-squares optimization. It supports single-exponential models
-(with multi-exponential support planned for future tasks).
+and least-squares optimization. It supports single, double, and triple
+exponential models.
 
 Based on the FluoFit implementation from the original Full SMS codebase,
 with reference to MATLAB code by Jörg Enderlein:
@@ -428,6 +428,8 @@ def fit_decay(
     num_exponentials: int = 1,
     tau_init: Optional[float | list[float]] = None,
     tau_bounds: Optional[Tuple[float, float]] = None,
+    amp_init: Optional[list[float]] = None,
+    amp_bounds: Optional[Tuple[float, float]] = None,
     shift_init: float = 0.0,
     shift_bounds: Optional[Tuple[float, float]] = None,
     start: Optional[int] = None,
@@ -441,16 +443,20 @@ def fit_decay(
     """Fit fluorescence decay data with exponential models.
 
     Performs least-squares fitting of decay data using IRF convolution.
-    Currently supports single-exponential models.
+    Supports single, double, and triple exponential models.
 
     Args:
         t: Time axis in nanoseconds.
         counts: Photon counts per channel.
         channelwidth: TCSPC channel width in nanoseconds.
         irf: Instrument response function. If None, a delta function is used.
-        num_exponentials: Number of exponential components (only 1 supported currently).
-        tau_init: Initial guess for lifetime(s) in nanoseconds.
-        tau_bounds: Bounds for tau as (min, max) in nanoseconds.
+        num_exponentials: Number of exponential components (1, 2, or 3).
+        tau_init: Initial guess for lifetime(s) in nanoseconds. For multi-exponential
+            fits, provide a list with one value per component.
+        tau_bounds: Bounds for tau as (min, max) in nanoseconds. Applies to all components.
+        amp_init: Initial guess for amplitudes. Only used for multi-exponential fits.
+            Amplitudes are normalized so they sum to 1.
+        amp_bounds: Bounds for individual amplitudes as (min, max). Default is (0, 1).
         shift_init: Initial guess for IRF shift in channels.
         shift_bounds: Bounds for shift as (min, max) in channels.
         start: Manual start point (channel index).
@@ -467,8 +473,8 @@ def fit_decay(
     Raises:
         ValueError: If fitting fails or invalid parameters provided.
     """
-    if num_exponentials != 1:
-        raise ValueError(f"Only single exponential fitting is currently supported, got {num_exponentials}")
+    if num_exponentials not in (1, 2, 3):
+        raise ValueError(f"num_exponentials must be 1, 2, or 3, got {num_exponentials}")
 
     if settings is None:
         settings = DEFAULT_SETTINGS
@@ -514,12 +520,42 @@ def fit_decay(
     measured_norm = measured_bounded / meas_sum
     bg_norm = background / meas_sum
 
-    # Set default parameter values
+    # Set default parameter values based on number of exponentials
     if tau_init is None:
-        tau_init = 5.0
+        if num_exponentials == 1:
+            tau_init_list = [5.0]
+        elif num_exponentials == 2:
+            tau_init_list = [1.0, 5.0]
+        else:  # 3 exponentials
+            tau_init_list = [0.1, 1.0, 5.0]
+    elif isinstance(tau_init, (int, float)):
+        tau_init_list = [float(tau_init)] * num_exponentials
+    else:
+        tau_init_list = list(tau_init)
+        if len(tau_init_list) != num_exponentials:
+            raise ValueError(
+                f"tau_init has {len(tau_init_list)} values but num_exponentials is {num_exponentials}"
+            )
+
+    if amp_init is None:
+        if num_exponentials == 1:
+            amp_init_list = [1.0]
+        elif num_exponentials == 2:
+            amp_init_list = [0.5, 0.5]
+        else:  # 3 exponentials
+            amp_init_list = [0.4, 0.3, 0.3]
+    else:
+        amp_init_list = list(amp_init)
+        if len(amp_init_list) != num_exponentials:
+            raise ValueError(
+                f"amp_init has {len(amp_init_list)} values but num_exponentials is {num_exponentials}"
+            )
 
     if tau_bounds is None:
         tau_bounds = (0.01, 100.0)
+
+    if amp_bounds is None:
+        amp_bounds = (0.0, 1.0)
 
     if shift_bounds is None:
         shift_bounds = (-2000.0, 2000.0)
@@ -527,9 +563,15 @@ def fit_decay(
     # Build fit function using closure
     n_channels = len(t)
 
-    def make_convd(shift: float, tau: float, amplitude: float = 1.0) -> NDArray[np.float64]:
-        """Convolve exponential model with shifted IRF."""
-        model = amplitude * np.exp(-t / tau)
+    def make_convd_multi(
+        shift: float, taus: list[float], amps: list[float]
+    ) -> NDArray[np.float64]:
+        """Convolve multi-exponential model with shifted IRF."""
+        # Build multi-exponential model
+        model = np.zeros_like(t, dtype=np.float64)
+        for tau_val, amp_val in zip(taus, amps):
+            model += amp_val * np.exp(-t / tau_val)
+
         irf_shifted = colorshift(irf_processed, shift)
         # Use full convolution and take first n_channels elements
         convd = convolve(irf_shifted, model, mode="full")[:n_channels]
@@ -540,14 +582,99 @@ def fit_decay(
             convd = convd / convd_sum
         return convd
 
-    def fitfunc(t_fit: NDArray, tau1: float, amp: float, shift: float) -> NDArray[np.float64]:
-        """Single exponential fit function."""
-        return make_convd(shift, tau1, amp)
+    # Define fit functions for each number of exponentials
+    if num_exponentials == 1:
 
-    # Setup parameter bounds
-    paramin = [tau_bounds[0], 0.0, shift_bounds[0]]
-    paramax = [tau_bounds[1], 100.0, shift_bounds[1]]
-    paraminit = [tau_init, 1.0, shift_init]
+        def fitfunc(
+            t_fit: NDArray, tau1: float, amp1: float, shift: float
+        ) -> NDArray[np.float64]:
+            """Single exponential fit function."""
+            return make_convd_multi(shift, [tau1], [amp1])
+
+        # Setup parameter bounds: [tau1, amp1, shift]
+        paramin = [tau_bounds[0], amp_bounds[0], shift_bounds[0]]
+        paramax = [tau_bounds[1], amp_bounds[1], shift_bounds[1]]
+        paraminit = [tau_init_list[0], amp_init_list[0], shift_init]
+
+    elif num_exponentials == 2:
+
+        def fitfunc(
+            t_fit: NDArray,
+            tau1: float,
+            tau2: float,
+            amp1: float,
+            amp2: float,
+            shift: float,
+        ) -> NDArray[np.float64]:
+            """Double exponential fit function."""
+            return make_convd_multi(shift, [tau1, tau2], [amp1, amp2])
+
+        # Setup parameter bounds: [tau1, tau2, amp1, amp2, shift]
+        paramin = [
+            tau_bounds[0],
+            tau_bounds[0],
+            amp_bounds[0],
+            amp_bounds[0],
+            shift_bounds[0],
+        ]
+        paramax = [
+            tau_bounds[1],
+            tau_bounds[1],
+            amp_bounds[1],
+            amp_bounds[1],
+            shift_bounds[1],
+        ]
+        paraminit = [
+            tau_init_list[0],
+            tau_init_list[1],
+            amp_init_list[0],
+            amp_init_list[1],
+            shift_init,
+        ]
+
+    else:  # num_exponentials == 3
+
+        def fitfunc(
+            t_fit: NDArray,
+            tau1: float,
+            tau2: float,
+            tau3: float,
+            amp1: float,
+            amp2: float,
+            amp3: float,
+            shift: float,
+        ) -> NDArray[np.float64]:
+            """Triple exponential fit function."""
+            return make_convd_multi(shift, [tau1, tau2, tau3], [amp1, amp2, amp3])
+
+        # Setup parameter bounds: [tau1, tau2, tau3, amp1, amp2, amp3, shift]
+        paramin = [
+            tau_bounds[0],
+            tau_bounds[0],
+            tau_bounds[0],
+            amp_bounds[0],
+            amp_bounds[0],
+            amp_bounds[0],
+            shift_bounds[0],
+        ]
+        paramax = [
+            tau_bounds[1],
+            tau_bounds[1],
+            tau_bounds[1],
+            amp_bounds[1],
+            amp_bounds[1],
+            amp_bounds[1],
+            shift_bounds[1],
+        ]
+        paraminit = [
+            tau_init_list[0],
+            tau_init_list[1],
+            tau_init_list[2],
+            amp_init_list[0],
+            amp_init_list[1],
+            amp_init_list[2],
+            shift_init,
+        ]
 
     # Perform fit
     try:
@@ -562,19 +689,44 @@ def fit_decay(
     except RuntimeError as e:
         raise ValueError(f"Fitting failed to converge: {e}")
 
-    # Extract results
-    tau = param[0]
-    amplitude = param[1]
-    shift = param[2]
-
-    # Standard errors from covariance
+    # Extract results based on number of exponentials
     stds = np.sqrt(np.diag(pcov))
-    tau_std = stds[0]
-    amp_std = stds[1]
-    shift_std = stds[2]
 
-    # Generate fitted curve
-    convd = fitfunc(t[startpoint:endpoint], tau, amplitude, shift)
+    if num_exponentials == 1:
+        tau_list = [param[0]]
+        tau_std_list = [stds[0]]
+        amp_list = [param[1]]
+        amp_std_list = [stds[1]]
+        shift = param[2]
+        shift_std = stds[2]
+    elif num_exponentials == 2:
+        tau_list = [param[0], param[1]]
+        tau_std_list = [stds[0], stds[1]]
+        amp_list = [param[2], param[3]]
+        amp_std_list = [stds[2], stds[3]]
+        shift = param[4]
+        shift_std = stds[4]
+    else:  # num_exponentials == 3
+        tau_list = [param[0], param[1], param[2]]
+        tau_std_list = [stds[0], stds[1], stds[2]]
+        amp_list = [param[3], param[4], param[5]]
+        amp_std_list = [stds[3], stds[4], stds[5]]
+        shift = param[6]
+        shift_std = stds[6]
+
+    # Normalize amplitudes so they sum to 1
+    amp_sum = sum(amp_list)
+    if amp_sum > 0:
+        amp_normalized = [a / amp_sum for a in amp_list]
+        # Propagate uncertainties for normalized amplitudes
+        # Using error propagation: σ(a_i/sum) ≈ σ(a_i)/sum for small errors
+        amp_std_normalized = [s / amp_sum for s in amp_std_list]
+    else:
+        amp_normalized = amp_list
+        amp_std_normalized = amp_std_list
+
+    # Generate fitted curve using the fitted parameters
+    convd = make_convd_multi(shift, tau_list, amp_list)
 
     # Calculate residuals
     measured_for_resid = measured[startpoint:endpoint]
@@ -589,7 +741,8 @@ def fit_decay(
     valid_residuals = residuals[np.isfinite(residuals)]
 
     # Chi-squared (reduced)
-    num_params = 3  # tau, amplitude, shift
+    # Number of parameters: num_exp taus + num_exp amps + 1 shift
+    num_params = 2 * num_exponentials + 1
     dof = len(valid_residuals) - num_params - 1
     if dof <= 0:
         dof = 1
@@ -602,17 +755,17 @@ def fit_decay(
         dw = 2.0  # Ideal value if not enough data
 
     # Durbin-Watson bounds
-    dw_bounds = durbin_watson_bounds(len(valid_residuals), num_params)
+    dw_bounds_result = durbin_watson_bounds(len(valid_residuals), num_params)
 
     # Convert shift to nanoseconds
     shift_ns = shift * channelwidth
 
     # Create FitResult
     return FitResult.from_fit_parameters(
-        tau=[tau],
-        tau_std=[tau_std],
-        amplitude=[1.0],  # Normalized amplitude for single exp
-        amplitude_std=[amp_std],
+        tau=tau_list,
+        tau_std=tau_std_list,
+        amplitude=amp_normalized,
+        amplitude_std=amp_std_normalized,
         shift=shift_ns,
         shift_std=shift_std * channelwidth,
         chi_squared=chi_squared,
@@ -622,7 +775,7 @@ def fit_decay(
         fit_start_index=startpoint,
         fit_end_index=endpoint,
         background=background,
-        dw_bounds=(dw_bounds[0], dw_bounds[1]),  # Use 5% and 1% bounds
+        dw_bounds=(dw_bounds_result[0], dw_bounds_result[1]),
     )
 
 

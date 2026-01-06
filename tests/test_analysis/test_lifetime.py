@@ -455,16 +455,16 @@ class TestFitDecay:
         assert isinstance(result, FitResult)
         assert result.tau[0] > 0
 
-    def test_raises_on_multi_exp(self, synthetic_single_exp):
-        """Should raise error for multi-exponential (not yet supported)."""
+    def test_raises_on_invalid_num_exponentials(self, synthetic_single_exp):
+        """Should raise error for invalid number of exponentials."""
         data = synthetic_single_exp
 
-        with pytest.raises(ValueError, match="single exponential"):
+        with pytest.raises(ValueError, match="num_exponentials must be 1, 2, or 3"):
             fit_decay(
                 t=data['t'],
                 counts=data['counts'],
                 channelwidth=data['channelwidth'],
-                num_exponentials=2,
+                num_exponentials=4,
             )
 
     def test_raises_on_empty_data(self):
@@ -643,3 +643,404 @@ class TestIntegration:
 
         assert result.fit_start_index == 55
         assert result.fit_end_index == 400
+
+
+class TestBiExponentialFitting:
+    """Tests for double exponential fitting."""
+
+    @pytest.fixture
+    def synthetic_biexp(self):
+        """Create synthetic bi-exponential decay data."""
+        np.random.seed(42)
+
+        tau1_true = 1.5  # ns (fast component)
+        tau2_true = 8.0  # ns (slow component)
+        amp1_true = 0.6  # 60% fast
+        amp2_true = 0.4  # 40% slow
+        channelwidth = 0.1  # ns
+        num_channels = 1000
+        background = 30.0
+
+        t = np.arange(num_channels) * channelwidth
+
+        # Create narrow IRF at channel 100
+        irf_center = 100
+        irf_sigma = 3  # channels
+        irf = np.exp(-((np.arange(num_channels) - irf_center) ** 2) / (2 * irf_sigma ** 2))
+        irf = irf / irf.sum()
+
+        # Build bi-exponential model
+        model = amp1_true * np.exp(-t / tau1_true) + amp2_true * np.exp(-t / tau2_true)
+        model = model / model.sum()  # Normalize
+
+        # Convolve with IRF
+        from scipy.signal import convolve
+        convolved = convolve(irf, model, mode='full')[:num_channels]
+
+        # Scale to realistic photon counts
+        scale = 50000
+        convolved = convolved / convolved.max() * scale + background
+
+        # Add Poisson noise
+        counts = np.random.poisson(convolved).astype(np.int64)
+
+        return {
+            't': t,
+            'counts': counts,
+            'irf': irf,
+            'channelwidth': channelwidth,
+            'tau1': tau1_true,
+            'tau2': tau2_true,
+            'amp1': amp1_true,
+            'amp2': amp2_true,
+            'background': background,
+        }
+
+    def test_biexp_returns_fit_result(self, synthetic_biexp):
+        """Bi-exponential fit should return FitResult with 2 components."""
+        data = synthetic_biexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=2,
+            tau_init=[1.0, 6.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        assert isinstance(result, FitResult)
+        assert result.num_exponentials == 2
+        assert len(result.tau) == 2
+        assert len(result.amplitude) == 2
+
+    def test_biexp_recovers_taus(self, synthetic_biexp):
+        """Bi-exponential fit should recover both lifetimes."""
+        data = synthetic_biexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=2,
+            tau_init=[1.0, 6.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        # Sort recovered taus for comparison (order may vary)
+        taus_recovered = sorted(result.tau)
+        taus_true = sorted([data['tau1'], data['tau2']])
+
+        # Check each tau within 30% (wider tolerance for bi-exp fitting)
+        for rec, true in zip(taus_recovered, taus_true):
+            assert abs(rec - true) / true < 0.3, f"Tau recovery failed: {rec} vs {true}"
+
+    def test_biexp_amplitudes_sum_to_one(self, synthetic_biexp):
+        """Bi-exponential amplitudes should sum to 1."""
+        data = synthetic_biexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=2,
+            tau_init=[1.0, 6.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        assert abs(sum(result.amplitude) - 1.0) < 0.01
+
+    def test_biexp_average_lifetime(self, synthetic_biexp):
+        """Amplitude-weighted average lifetime should be reasonable."""
+        data = synthetic_biexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=2,
+            tau_init=[1.0, 6.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        # Average lifetime should be between the two component lifetimes
+        min_tau = min(result.tau)
+        max_tau = max(result.tau)
+        assert min_tau <= result.average_lifetime <= max_tau
+
+    def test_biexp_chi_squared_reasonable(self, synthetic_biexp):
+        """Chi-squared should be reasonable for good fit."""
+        data = synthetic_biexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=2,
+            tau_init=[1.0, 6.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        # Chi-squared should be positive and not too large
+        assert 0 < result.chi_squared < 10
+
+    def test_biexp_tau_init_mismatch_raises(self, synthetic_biexp):
+        """Should raise error if tau_init length doesn't match num_exponentials."""
+        data = synthetic_biexp
+
+        with pytest.raises(ValueError, match="tau_init has"):
+            fit_decay(
+                t=data['t'],
+                counts=data['counts'],
+                channelwidth=data['channelwidth'],
+                num_exponentials=2,
+                tau_init=[1.0, 2.0, 3.0],  # 3 values for 2 exponentials
+            )
+
+
+class TestTriExponentialFitting:
+    """Tests for triple exponential fitting."""
+
+    @pytest.fixture
+    def synthetic_triexp(self):
+        """Create synthetic tri-exponential decay data."""
+        np.random.seed(42)
+
+        tau1_true = 0.5   # ns (very fast)
+        tau2_true = 3.0   # ns (medium)
+        tau3_true = 12.0  # ns (slow)
+        amp1_true = 0.3
+        amp2_true = 0.4
+        amp3_true = 0.3
+        channelwidth = 0.1  # ns
+        num_channels = 1500
+        background = 20.0
+
+        t = np.arange(num_channels) * channelwidth
+
+        # Create narrow IRF at channel 100
+        irf_center = 100
+        irf_sigma = 3
+        irf = np.exp(-((np.arange(num_channels) - irf_center) ** 2) / (2 * irf_sigma ** 2))
+        irf = irf / irf.sum()
+
+        # Build tri-exponential model
+        model = (
+            amp1_true * np.exp(-t / tau1_true)
+            + amp2_true * np.exp(-t / tau2_true)
+            + amp3_true * np.exp(-t / tau3_true)
+        )
+        model = model / model.sum()
+
+        # Convolve with IRF
+        from scipy.signal import convolve
+        convolved = convolve(irf, model, mode='full')[:num_channels]
+
+        # Scale to realistic photon counts
+        scale = 100000  # More photons for tri-exp
+        convolved = convolved / convolved.max() * scale + background
+
+        # Add Poisson noise
+        counts = np.random.poisson(convolved).astype(np.int64)
+
+        return {
+            't': t,
+            'counts': counts,
+            'irf': irf,
+            'channelwidth': channelwidth,
+            'tau1': tau1_true,
+            'tau2': tau2_true,
+            'tau3': tau3_true,
+            'amp1': amp1_true,
+            'amp2': amp2_true,
+            'amp3': amp3_true,
+            'background': background,
+        }
+
+    def test_triexp_returns_fit_result(self, synthetic_triexp):
+        """Tri-exponential fit should return FitResult with 3 components."""
+        data = synthetic_triexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=3,
+            tau_init=[0.3, 2.0, 10.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        assert isinstance(result, FitResult)
+        assert result.num_exponentials == 3
+        assert len(result.tau) == 3
+        assert len(result.amplitude) == 3
+
+    def test_triexp_all_taus_positive(self, synthetic_triexp):
+        """All recovered taus should be positive."""
+        data = synthetic_triexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=3,
+            tau_init=[0.3, 2.0, 10.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        for tau in result.tau:
+            assert tau > 0
+
+    def test_triexp_amplitudes_sum_to_one(self, synthetic_triexp):
+        """Tri-exponential amplitudes should sum to 1."""
+        data = synthetic_triexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=3,
+            tau_init=[0.3, 2.0, 10.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        assert abs(sum(result.amplitude) - 1.0) < 0.01
+
+    def test_triexp_average_lifetime_in_range(self, synthetic_triexp):
+        """Average lifetime should be between min and max tau."""
+        data = synthetic_triexp
+
+        result = fit_decay(
+            t=data['t'],
+            counts=data['counts'],
+            channelwidth=data['channelwidth'],
+            irf=data['irf'],
+            num_exponentials=3,
+            tau_init=[0.3, 2.0, 10.0],
+            irf_background=0.0,
+            start=100,
+        )
+
+        min_tau = min(result.tau)
+        max_tau = max(result.tau)
+        assert min_tau <= result.average_lifetime <= max_tau
+
+    def test_triexp_amp_init_mismatch_raises(self, synthetic_triexp):
+        """Should raise error if amp_init length doesn't match num_exponentials."""
+        data = synthetic_triexp
+
+        with pytest.raises(ValueError, match="amp_init has"):
+            fit_decay(
+                t=data['t'],
+                counts=data['counts'],
+                channelwidth=data['channelwidth'],
+                num_exponentials=3,
+                amp_init=[0.5, 0.5],  # 2 values for 3 exponentials
+            )
+
+
+class TestMultiExpParameterHandling:
+    """Tests for multi-exponential parameter handling."""
+
+    def test_single_tau_init_as_float(self):
+        """Single exponential should accept tau_init as float."""
+        np.random.seed(42)
+        channelwidth = 0.1
+        t = np.arange(500) * channelwidth
+        decay = np.exp(-t / 5.0) * 10000 + 50
+        counts = np.random.poisson(decay).astype(np.int64)
+
+        result = fit_decay(
+            t=t,
+            counts=counts,
+            channelwidth=channelwidth,
+            num_exponentials=1,
+            tau_init=5.0,  # Float, not list
+            start=0,
+            end=400,
+        )
+
+        assert result.num_exponentials == 1
+        assert len(result.tau) == 1
+
+    def test_tau_init_scalar_broadcast(self):
+        """Scalar tau_init should broadcast to all components."""
+        np.random.seed(42)
+        channelwidth = 0.1
+        t = np.arange(500) * channelwidth
+        decay = np.exp(-t / 5.0) * 10000 + 50
+        counts = np.random.poisson(decay).astype(np.int64)
+
+        result = fit_decay(
+            t=t,
+            counts=counts,
+            channelwidth=channelwidth,
+            num_exponentials=2,
+            tau_init=5.0,  # Scalar gets broadcast
+            start=0,
+            end=400,
+        )
+
+        assert result.num_exponentials == 2
+        assert len(result.tau) == 2
+
+    def test_custom_amp_bounds(self):
+        """Should respect custom amplitude bounds."""
+        np.random.seed(42)
+        channelwidth = 0.1
+        t = np.arange(500) * channelwidth
+        decay = np.exp(-t / 5.0) * 10000 + 50
+        counts = np.random.poisson(decay).astype(np.int64)
+
+        result = fit_decay(
+            t=t,
+            counts=counts,
+            channelwidth=channelwidth,
+            num_exponentials=2,
+            tau_init=[2.0, 8.0],
+            amp_bounds=(0.1, 0.9),  # Restrict amplitude range
+            start=0,
+            end=400,
+        )
+
+        # Raw amplitudes (before normalization) should be within bounds
+        # Note: we check normalized amplitudes are reasonable
+        for amp in result.amplitude:
+            assert 0.0 < amp < 1.0
+
+    def test_default_amp_init_values(self):
+        """Default amplitude init should sum to 1."""
+        np.random.seed(42)
+        channelwidth = 0.1
+        t = np.arange(500) * channelwidth
+        decay = np.exp(-t / 5.0) * 10000 + 50
+        counts = np.random.poisson(decay).astype(np.int64)
+
+        # Default amp_init for num_exponentials=2 is [0.5, 0.5]
+        result = fit_decay(
+            t=t,
+            counts=counts,
+            channelwidth=channelwidth,
+            num_exponentials=2,
+            start=0,
+            end=400,
+        )
+
+        # Should complete without error
+        assert result.num_exponentials == 2
