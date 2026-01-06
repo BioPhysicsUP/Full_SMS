@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Tuple
 
 import numpy as np
+from numba import jit
 from numpy.typing import NDArray
 
 from full_sms.models import LevelData
@@ -210,6 +211,84 @@ def _get_sig_e(sums: dict, n: int) -> float:
     return sums["sums_sig_e"][n - n_min - 1]
 
 
+@jit(nopython=True, cache=True)
+def _compute_wlr_array(
+    time_data: np.ndarray,
+    sums_u_k: np.ndarray,
+    sums_u_n_k: np.ndarray,
+    sums_v2_k: np.ndarray,
+    sums_v2_n_k: np.ndarray,
+    sig_e: float,
+    n: int,
+    col: int,
+) -> np.ndarray:
+    """JIT-compiled weighted likelihood ratio computation.
+
+    Computes WLR for each potential change point k from 2 to n-2.
+    Based on equations 4-7 of Watkins & Yang 2005.
+
+    Args:
+        time_data: Segment time data (normalized: 0 to period).
+        sums_u_k: Precomputed u_k sum array.
+        sums_u_n_k: Precomputed u_n_k sum array.
+        sums_v2_k: Precomputed v2_k sum array.
+        sums_v2_n_k: Precomputed v2_n_k sum array.
+        sig_e: Precomputed sig_e value for this n.
+        n: Number of points in segment.
+        col: Column index into sum arrays (n - n_min - 1).
+
+    Returns:
+        Array of WLR values for each k.
+    """
+    wlr = np.zeros(n, dtype=np.float64)
+    ini_time = time_data[0]
+    period = time_data[-1] - ini_time
+
+    if period == 0:
+        return wlr
+
+    for k in range(2, n - 1):
+        row = k - 1
+
+        # V_k: normalized time position (eq. 4)
+        cap_v_k = (time_data[k] - ini_time) / period
+
+        # Avoid log(0) or log(1)
+        if cap_v_k <= 0 or cap_v_k >= 1:
+            continue
+
+        u_k = sums_u_k[row, col]
+        u_n_k = sums_u_n_k[row, col]
+        v2_k = sums_v2_k[row, col]
+        v2_n_k = sums_v2_n_k[row, col]
+
+        # Log-likelihood ratio minus expected value (eq. 6)
+        l0_minus_expec_l0 = (
+            -2 * k * np.log(cap_v_k)
+            + 2 * k * u_k
+            - 2 * (n - k) * np.log(1 - cap_v_k)
+            + 2 * (n - k) * u_n_k
+        )
+
+        # Standard deviation (eq. 7, with errata correction)
+        sigma_k_sq = (
+            4 * (k**2) * v2_k
+            + 4 * ((n - k) ** 2) * v2_n_k
+            - 8 * k * (n - k) * sig_e
+        )
+        if sigma_k_sq <= 0:
+            continue
+        sigma_k = np.sqrt(sigma_k_sq)
+
+        # Weight factor (after eq. 6)
+        w_k = 0.5 * np.log((4 * k * (n - k)) / (n**2))
+
+        # Weighted likelihood ratio (eq. 6)
+        wlr[k] = l0_minus_expec_l0 / sigma_k + w_k
+
+    return wlr
+
+
 def _weighted_likelihood_ratio(
     abstimes: NDArray[np.float64],
     seg_start: int,
@@ -245,54 +324,25 @@ def _weighted_likelihood_ratio(
 
     # Get time data for this segment
     time_data = abstimes[seg_start:seg_end]
-    ini_time = time_data[0]
-    period = time_data[-1] - ini_time
 
-    if period == 0:
+    if time_data[-1] == time_data[0]:
         return False, None, None
 
-    # Calculate weighted likelihood ratio for each potential change point
-    wlr = np.zeros(n, dtype=np.float64)
+    # Calculate weighted likelihood ratio using JIT-compiled function
+    n_min = sums["n_min"]
+    col = n - n_min - 1
     sig_e = _get_sig_e(sums, n)
 
-    for k in range(2, n - 1):  # k from 2 to n-2
-        sum_set = _get_sums_set(sums, n, k)
-
-        # V_k: normalized time position (eq. 4)
-        cap_v_k = (time_data[k] - ini_time) / period
-
-        # Avoid log(0) or log(1)
-        if cap_v_k <= 0 or cap_v_k >= 1:
-            continue
-
-        u_k = sum_set["u_k"]
-        u_n_k = sum_set["u_n_k"]
-        v2_k = sum_set["v2_k"]
-        v2_n_k = sum_set["v2_n_k"]
-
-        # Log-likelihood ratio minus expected value (eq. 6)
-        l0_minus_expec_l0 = (
-            -2 * k * np.log(cap_v_k)
-            + 2 * k * u_k
-            - 2 * (n - k) * np.log(1 - cap_v_k)
-            + 2 * (n - k) * u_n_k
-        )
-
-        # Standard deviation (eq. 7, with errata correction)
-        sigma_k_sq = (
-            4 * (k**2) * v2_k
-            + 4 * ((n - k) ** 2) * v2_n_k
-            - 8 * k * (n - k) * sig_e
-        )
-        if sigma_k_sq <= 0:
-            continue
-        sigma_k = np.sqrt(sigma_k_sq)
-
-        # Weight factor (after eq. 6)
-        w_k = 0.5 * np.log((4 * k * (n - k)) / (n**2))
-
-        # Weighted likelihood ratio (eq. 6)
-        wlr[k] = l0_minus_expec_l0 / sigma_k + w_k
+    wlr = _compute_wlr_array(
+        time_data,
+        sums["sums_u_k"],
+        sums["sums_u_n_k"],
+        sums["sums_v2_k"],
+        sums["sums_v2_n_k"],
+        sig_e,
+        n,
+        col,
+    )
 
     # Find maximum WLR
     max_ind_local = int(np.argmax(wlr))
