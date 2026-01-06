@@ -303,7 +303,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 5.2: Implement analysis task functions `[NEXT]`
+### Task 5.2: Implement analysis task functions `[DONE]` (2026-01-06)
 **Objective**: Create picklable task functions for workers
 
 **Actions**:
@@ -320,7 +320,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 6: UI Foundation
 
-### Task 6.1: Create main application window `[TODO]`
+### Task 6.1: Create main application window `[NEXT]`
 **Objective**: Set up the core DearPyGui application structure
 
 **Actions**:
@@ -726,7 +726,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 2. Data Models | 3 | 3 | 0 |
 | 3. File I/O | 2 | 2 | 0 |
 | 4. Analysis Core | 7 | 7 | 0 |
-| 5. Workers | 2 | 1 | 1 |
+| 5. Workers | 2 | 2 | 0 |
 | 6. UI Foundation | 4 | 0 | 4 |
 | 7. Intensity Tab | 4 | 0 | 4 |
 | 8. Lifetime Tab | 4 | 0 | 4 |
@@ -734,7 +734,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **16** | **26** |
+| **Total** | **42** | **17** | **25** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-06 (Task 5.1 completed - Python 3.14, AnalysisPool with ProcessPoolExecutor)*
+*Last Updated: 2026-01-06 (Task 5.2 completed - picklable analysis task functions)*
