@@ -383,7 +383,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 7: Intensity Tab
 
-### Task 7.1: Implement intensity trace plot `[NEXT]`
+### Task 7.1: Implement intensity trace plot `[DONE]` (2026-01-07)
 **Objective**: Render binned photon counts over time with ImPlot
 
 **Actions**:
@@ -401,7 +401,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 7.2: Implement level overlay rendering `[TODO]`
+### Task 7.2: Implement level overlay rendering `[NEXT]`
 **Objective**: Display detected levels as colored regions on intensity plot
 
 **Actions**:
@@ -728,13 +728,13 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 4. Analysis Core | 7 | 7 | 0 |
 | 5. Workers | 2 | 2 | 0 |
 | 6. UI Foundation | 4 | 4 | 0 |
-| 7. Intensity Tab | 4 | 0 | 4 |
+| 7. Intensity Tab | 4 | 1 | 3 |
 | 8. Lifetime Tab | 4 | 0 | 4 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **21** | **21** |
+| **Total** | **42** | **22** | **20** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 6.4 completed - status bar and progress indicator)*
+*Last Updated: 2026-01-07 (Task 7.1 completed - intensity trace plot)*

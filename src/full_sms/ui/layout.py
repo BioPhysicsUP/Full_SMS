@@ -13,6 +13,7 @@ import dearpygui.dearpygui as dpg
 
 from full_sms.models.particle import ParticleData
 from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState
+from full_sms.ui.views.intensity_tab import IntensityTab
 from full_sms.ui.widgets.particle_tree import ParticleTree
 from full_sms.ui.widgets.status_bar import StatusBar
 
@@ -89,6 +90,7 @@ class MainLayout:
         self._on_batch_change: Callable[[list[ChannelSelection]], None] | None = None
         self._particle_tree: ParticleTree | None = None
         self._status_bar: StatusBar | None = None
+        self._intensity_tab: IntensityTab | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -181,7 +183,11 @@ class MainLayout:
                         autosize_x=True,
                         autosize_y=True,
                     ):
-                        self._build_placeholder_tab("Intensity", ActiveTab.INTENSITY)
+                        # Build the actual intensity tab view
+                        self._intensity_tab = IntensityTab(
+                            parent=LAYOUT_TAGS.tab_intensity,
+                        )
+                        self._intensity_tab.build()
 
                 # Lifetime tab
                 with dpg.tab(label="Lifetime", tag="tab_button_lifetime"):
@@ -540,3 +546,33 @@ class MainLayout:
     def particle_tree(self) -> ParticleTree | None:
         """Get the particle tree widget instance."""
         return self._particle_tree
+
+    # Intensity tab methods
+
+    @property
+    def intensity_tab(self) -> IntensityTab | None:
+        """Get the intensity tab widget instance."""
+        return self._intensity_tab
+
+    def set_intensity_data(self, abstimes) -> None:
+        """Set intensity trace data for the current particle.
+
+        Args:
+            abstimes: Absolute photon arrival times in nanoseconds.
+        """
+        if self._intensity_tab:
+            self._intensity_tab.set_data(abstimes)
+
+    def clear_intensity_data(self) -> None:
+        """Clear the intensity tab data."""
+        if self._intensity_tab:
+            self._intensity_tab.clear()
+
+    def set_intensity_bin_size(self, bin_size_ms: float) -> None:
+        """Set the intensity plot bin size.
+
+        Args:
+            bin_size_ms: Bin size in milliseconds.
+        """
+        if self._intensity_tab:
+            self._intensity_tab.set_bin_size(bin_size_ms)
