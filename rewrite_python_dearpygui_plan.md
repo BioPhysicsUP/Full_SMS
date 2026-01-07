@@ -543,7 +543,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 9.3: Implement grouping controls `[NEXT]`
+### Task 9.3: Implement grouping controls `[DONE]` (2026-01-07)
 **Objective**: Trigger clustering and adjust group count
 
 **Actions**:
@@ -560,7 +560,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 10: Additional Tabs
 
-### Task 10.1: Implement spectra tab `[TODO]`
+### Task 10.1: Implement spectra tab `[NEXT]`
 **Objective**: Display spectral data if present in file
 
 **Actions**:
@@ -730,11 +730,11 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 6. UI Foundation | 4 | 4 | 0 |
 | 7. Intensity Tab | 4 | 4 | 0 |
 | 8. Lifetime Tab | 4 | 4 | 0 |
-| 9. Grouping Tab | 3 | 2 | 1 |
+| 9. Grouping Tab | 3 | 3 | 0 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **31** | **11** |
+| **Total** | **42** | **32** | **10** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 9.2 completed - Group visualization with selectable table and plot highlighting)*
+*Last Updated: 2026-01-07 (Task 9.3 completed - Grouping controls with Group Current/Selected/All buttons, use lifetime toggle, group count slider, and global grouping mode)*

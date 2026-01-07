@@ -25,7 +25,7 @@ from full_sms.ui.dialogs import FittingDialog, FittingParameters
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
 from full_sms.workers.pool import AnalysisPool, TaskResult
-from full_sms.workers.tasks import run_cpa_task, run_fit_task
+from full_sms.workers.tasks import run_clustering_task, run_cpa_task, run_fit_task
 
 if TYPE_CHECKING:
     from full_sms.models.particle import ParticleData
@@ -60,6 +60,7 @@ class Application:
         # Pending futures for async operations
         self._pending_futures: list[Future] = []
         self._resolve_mode: str | None = None  # Track current resolve operation
+        self._grouping_mode: str | None = None  # Track current grouping operation
 
         # Fitting dialog and parameters
         self._fitting_dialog: FittingDialog | None = None
@@ -121,6 +122,12 @@ class Application:
             if self._layout.lifetime_tab:
                 self._layout.lifetime_tab.set_on_fit_requested(
                     self._on_fit_requested_from_tab
+                )
+
+            # Set up grouping tab callback
+            if self._layout.grouping_tab:
+                self._layout.grouping_tab.set_on_grouping_requested(
+                    self._on_grouping_from_tab
                 )
 
             # Create fitting dialog (must be after DearPyGui context is created)
@@ -365,6 +372,151 @@ class Application:
     def _on_group(self, mode: str) -> None:
         """Handle Group menu action."""
         logger.info(f"Group {mode} triggered")
+        self._on_grouping_from_tab(mode)
+
+    def _on_grouping_from_tab(self, mode: str) -> None:
+        """Handle grouping request from the grouping tab.
+
+        Args:
+            mode: The grouping mode ("current", "selected", or "all").
+        """
+        logger.info(f"Grouping from tab: mode={mode}")
+
+        # Check if already processing
+        if self._session.processing.is_busy:
+            logger.warning("Already processing, ignoring grouping request")
+            return
+
+        # Get grouping options from the tab
+        use_lifetime = False
+        global_grouping = False
+        if self._layout and self._layout.grouping_tab:
+            use_lifetime = self._layout.grouping_tab.use_lifetime
+            global_grouping = self._layout.grouping_tab.global_grouping
+
+        # Determine which particles to group
+        targets: list[ChannelSelection] = []
+
+        if mode == "current":
+            if self._session.current_selection:
+                targets = [self._session.current_selection]
+        elif mode == "selected":
+            targets = list(self._session.selected)
+        elif mode == "all":
+            # Create selections for all particles that have levels
+            for particle in self._session.particles:
+                # Channel 1
+                if self._session.get_levels(particle.id, 1):
+                    targets.append(ChannelSelection(particle.id, 1))
+                # Channel 2 if dual channel and has levels
+                if particle.channel2 is not None and self._session.get_levels(particle.id, 2):
+                    targets.append(ChannelSelection(particle.id, 2))
+
+        # Filter to only targets with levels
+        targets = [
+            t for t in targets
+            if self._session.get_levels(t.particle_id, t.channel) is not None
+        ]
+
+        if not targets:
+            logger.warning("No particles with levels to group")
+            if self._layout:
+                self._layout.set_status("No particles with levels to group")
+            return
+
+        # Start processing
+        self._grouping_mode = mode
+        self._session.processing.start(
+            "Clustering",
+            f"Grouping {len(targets)} particle(s)...",
+        )
+
+        # Disable group buttons
+        if self._layout and self._layout.grouping_tab:
+            self._layout.grouping_tab.set_grouping(True)
+
+        # Submit tasks
+        self._submit_clustering_tasks(targets, use_lifetime, global_grouping)
+
+    def _submit_clustering_tasks(
+        self,
+        targets: list[ChannelSelection],
+        use_lifetime: bool,
+        global_grouping: bool,
+    ) -> None:
+        """Submit clustering tasks to the worker pool.
+
+        Args:
+            targets: List of particle/channel selections to analyze.
+            use_lifetime: Whether to use lifetime in clustering.
+            global_grouping: Whether to group all particles together.
+        """
+        if not self._pool:
+            logger.error("Worker pool not initialized")
+            return
+
+        if global_grouping:
+            # Combine all levels from all targets into a single clustering task
+            all_levels: list[dict] = []
+            for selection in targets:
+                levels = self._session.get_levels(selection.particle_id, selection.channel)
+                if levels:
+                    for level in levels:
+                        all_levels.append({
+                            "start_index": level.start_index,
+                            "end_index": level.end_index,
+                            "start_time_ns": level.start_time_ns,
+                            "end_time_ns": level.end_time_ns,
+                            "num_photons": level.num_photons,
+                            "dwell_time_s": level.dwell_time_s,
+                            "intensity_cps": level.intensity_cps,
+                            "group_id": level.group_id,
+                        })
+
+            if all_levels:
+                params = {
+                    "levels": all_levels,
+                    "use_lifetime": use_lifetime,
+                    "particle_id": "global",  # Special marker for global grouping
+                    "channel_id": 0,
+                }
+                future = self._pool.submit(run_clustering_task, params)
+                self._pending_futures.append(future)
+
+            logger.info(f"Submitted 1 global clustering task with {len(all_levels)} levels")
+        else:
+            # Submit individual clustering tasks for each target
+            for selection in targets:
+                levels = self._session.get_levels(selection.particle_id, selection.channel)
+                if not levels:
+                    continue
+
+                # Convert levels to dicts
+                level_dicts = [
+                    {
+                        "start_index": level.start_index,
+                        "end_index": level.end_index,
+                        "start_time_ns": level.start_time_ns,
+                        "end_time_ns": level.end_time_ns,
+                        "num_photons": level.num_photons,
+                        "dwell_time_s": level.dwell_time_s,
+                        "intensity_cps": level.intensity_cps,
+                        "group_id": level.group_id,
+                    }
+                    for level in levels
+                ]
+
+                params = {
+                    "levels": level_dicts,
+                    "use_lifetime": use_lifetime,
+                    "particle_id": selection.particle_id,
+                    "channel_id": selection.channel,
+                }
+
+                future = self._pool.submit(run_clustering_task, params)
+                self._pending_futures.append(future)
+
+            logger.info(f"Submitted {len(self._pending_futures)} clustering tasks")
 
     def _on_fit(self, mode: str) -> None:
         """Handle Fit menu action."""
@@ -595,7 +747,13 @@ class Application:
 
         # If all futures completed, finish processing
         if not self._pending_futures and self._session.processing.is_busy:
-            self._finish_resolve()
+            if self._resolve_mode is not None:
+                self._finish_resolve()
+            elif self._grouping_mode is not None:
+                self._finish_grouping()
+            else:
+                # Unknown operation type, just finish
+                self._session.processing.finish("Complete")
 
     def _handle_future_result(self, result: TaskResult) -> None:
         """Handle a completed task result.
@@ -614,9 +772,12 @@ class Application:
         particle_id = data.get("particle_id")
         channel_id = data.get("channel_id", 1)
 
-        # Check if this is a CPA result (has "levels" key)
-        if "levels" in data:
+        # Check if this is a CPA result (has "levels" key but not "steps")
+        if "levels" in data and "steps" not in data:
             self._handle_cpa_result(particle_id, channel_id, data)
+        # Check if this is a clustering result (has "steps" key)
+        elif "steps" in data:
+            self._handle_clustering_result(particle_id, channel_id, data)
         # Check if this is a fit result (has "tau" key)
         elif "tau" in data:
             self._handle_fit_result(particle_id, channel_id, data)
@@ -664,6 +825,73 @@ class Application:
             self._session.processing.update(
                 completed / total,
                 f"Resolved {completed}/{total} particles...",
+            )
+
+    def _handle_clustering_result(
+        self, particle_id: int | str, channel_id: int, data: dict
+    ) -> None:
+        """Handle completed clustering result.
+
+        Args:
+            particle_id: The particle ID (or "global" for global grouping).
+            channel_id: The channel ID.
+            data: The result data containing clustering steps.
+        """
+        from full_sms.models.group import ClusteringResult, ClusteringStep, GroupData
+
+        # Check for null result (not enough levels to cluster)
+        if data.get("result") is None and "steps" not in data:
+            logger.warning(f"Clustering returned null for {particle_id}, {channel_id}")
+            return
+
+        # Convert step dicts back to ClusteringStep objects
+        steps = []
+        for step_dict in data["steps"]:
+            groups = tuple(
+                GroupData(
+                    group_id=g["group_id"],
+                    level_indices=tuple(g["level_indices"]),
+                    total_photons=g["total_photons"],
+                    total_dwell_time_s=g["total_dwell_time_s"],
+                    intensity_cps=g["intensity_cps"],
+                )
+                for g in step_dict["groups"]
+            )
+            step = ClusteringStep(
+                groups=groups,
+                level_group_assignments=tuple(step_dict["level_group_assignments"]),
+                bic=step_dict["bic"],
+            )
+            steps.append(step)
+
+        # Create ClusteringResult
+        result = ClusteringResult(
+            steps=tuple(steps),
+            optimal_step_index=data["optimal_step_index"],
+            selected_step_index=data["selected_step_index"],
+            num_original_levels=data["num_original_levels"],
+        )
+
+        # Store in session state (if not global grouping)
+        if particle_id != "global":
+            self._session.set_clustering(particle_id, channel_id, result)
+
+        logger.info(
+            f"Clustering complete for particle {particle_id}, channel {channel_id}: "
+            f"{result.num_groups} groups (optimal), {len(steps)} steps"
+        )
+
+        # Update progress
+        completed = sum(
+            1
+            for key in self._session.clustering_results
+            if self._session.clustering_results[key] is not None
+        )
+        total = len(self._pending_futures) + completed
+        if total > 0:
+            self._session.processing.update(
+                completed / total,
+                f"Grouped {completed}/{total} particles...",
             )
 
     def _handle_fit_result(
@@ -734,6 +962,9 @@ class Application:
         # Update display with levels for current selection
         self._update_intensity_display()
 
+        # Update group buttons state (now that levels exist)
+        self._update_group_buttons_state()
+
         if self._layout:
             num_levels = 0
             if self._session.current_selection:
@@ -742,6 +973,109 @@ class Application:
             self._layout.show_success(
                 f"Change point analysis complete ({num_levels} levels detected)"
             )
+
+    def _finish_grouping(self) -> None:
+        """Finish the grouping operation and update the UI."""
+        self._session.processing.finish("Clustering complete")
+        self._grouping_mode = None
+
+        # Re-enable group buttons
+        if self._layout and self._layout.grouping_tab:
+            self._layout.grouping_tab.set_grouping(False)
+            self._update_group_buttons_state()
+
+        # Update display with clustering results for current selection
+        self._update_grouping_display()
+
+        if self._layout:
+            num_groups = 0
+            if self._session.current_selection:
+                clustering = self._session.get_current_clustering()
+                num_groups = clustering.num_groups if clustering else 0
+            self._layout.show_success(
+                f"Clustering complete ({num_groups} groups)"
+            )
+
+    def _update_grouping_display(self) -> None:
+        """Update the grouping tab display with current data."""
+        if not self._layout or not self._layout.grouping_tab:
+            return
+
+        if not self._session.current_selection:
+            return
+
+        # Get clustering result for current selection
+        clustering = self._session.get_current_clustering()
+        if clustering:
+            self._layout.grouping_tab.set_clustering_result(clustering)
+
+            # Also update the intensity tab's level display to show group colors
+            levels = self._session.get_current_levels()
+            if levels and self._layout.intensity_tab:
+                # Update levels with group assignments from clustering
+                updated_levels = self._apply_group_assignments_to_levels(
+                    levels, clustering
+                )
+                self._layout.intensity_tab.set_levels(updated_levels, color_by_group=True)
+
+    def _apply_group_assignments_to_levels(
+        self, levels: list[LevelData], clustering
+    ) -> list[LevelData]:
+        """Apply group assignments from clustering result to levels.
+
+        Args:
+            levels: The original levels.
+            clustering: The ClusteringResult with group assignments.
+
+        Returns:
+            New list of LevelData with group_id set.
+        """
+        assignments = clustering.selected_assignments
+        updated_levels = []
+        for i, level in enumerate(levels):
+            group_id = assignments[i] if i < len(assignments) else None
+            updated_levels.append(
+                LevelData(
+                    start_index=level.start_index,
+                    end_index=level.end_index,
+                    start_time_ns=level.start_time_ns,
+                    end_time_ns=level.end_time_ns,
+                    num_photons=level.num_photons,
+                    intensity_cps=level.intensity_cps,
+                    group_id=group_id,
+                )
+            )
+        return updated_levels
+
+    def _update_group_buttons_state(self) -> None:
+        """Update group button states based on current selections."""
+        if not self._layout or not self._layout.grouping_tab:
+            return
+
+        # Check if current selection has levels
+        has_current = False
+        if self._session.current_selection:
+            levels = self._session.get_current_levels()
+            has_current = levels is not None and len(levels) > 0
+
+        # Check if any selected particles have levels
+        has_selected = any(
+            self._session.get_levels(s.particle_id, s.channel) is not None
+            for s in self._session.selected
+        )
+
+        # Check if any particles have levels
+        has_any = any(
+            self._session.get_levels(p.id, 1) is not None
+            or (p.channel2 is not None and self._session.get_levels(p.id, 2) is not None)
+            for p in self._session.particles
+        )
+
+        self._layout.grouping_tab.set_group_buttons_state(
+            has_current=has_current,
+            has_selected=has_selected,
+            has_any=has_any,
+        )
 
     def _on_resolve_from_tab(self, mode: str, confidence: ConfidenceLevel) -> None:
         """Handle resolve request from the intensity tab.

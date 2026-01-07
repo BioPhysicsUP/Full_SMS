@@ -24,13 +24,21 @@ class GroupingTabTags:
 
     container: str = "grouping_tab_view_container"
     controls_group: str = "grouping_tab_controls"
+    controls_row2: str = "grouping_tab_controls_row2"
     group_button: str = "grouping_tab_group_button"
+    group_selected_button: str = "grouping_tab_group_selected_button"
+    group_all_button: str = "grouping_tab_group_all_button"
     reset_button: str = "grouping_tab_reset_button"
     fit_view_button: str = "grouping_tab_fit_view"
     info_text: str = "grouping_tab_info"
     plot_container: str = "grouping_tab_plot_container"
     plot_area: str = "grouping_tab_plot_area"
     no_data_text: str = "grouping_tab_no_data"
+    # Grouping options
+    use_lifetime_checkbox: str = "grouping_tab_use_lifetime"
+    global_grouping_checkbox: str = "grouping_tab_global_grouping"
+    group_count_slider: str = "grouping_tab_group_count"
+    group_count_label: str = "grouping_tab_group_count_label"
     # Results display
     results_group: str = "grouping_tab_results_group"
     results_header: str = "grouping_tab_results_header"
@@ -75,8 +83,12 @@ class GroupingTab:
 
         # Callbacks
         self._on_group_count_changed: Callable[[int], None] | None = None
-        self._on_grouping_requested: Callable[[], None] | None = None
+        self._on_grouping_requested: Callable[[str], None] | None = None
         self._on_group_selected: Callable[[int | None], None] | None = None
+
+        # Grouping options
+        self._use_lifetime: bool = False
+        self._global_grouping: bool = False
 
         # UI components
         self._bic_plot: BICPlot | None = None
@@ -85,13 +97,20 @@ class GroupingTab:
         self._tags = GroupingTabTags(
             container=f"{tag_prefix}grouping_tab_view_container",
             controls_group=f"{tag_prefix}grouping_tab_controls",
+            controls_row2=f"{tag_prefix}grouping_tab_controls_row2",
             group_button=f"{tag_prefix}grouping_tab_group_button",
+            group_selected_button=f"{tag_prefix}grouping_tab_group_selected_button",
+            group_all_button=f"{tag_prefix}grouping_tab_group_all_button",
             reset_button=f"{tag_prefix}grouping_tab_reset_button",
             fit_view_button=f"{tag_prefix}grouping_tab_fit_view",
             info_text=f"{tag_prefix}grouping_tab_info",
             plot_container=f"{tag_prefix}grouping_tab_plot_container",
             plot_area=f"{tag_prefix}grouping_tab_plot_area",
             no_data_text=f"{tag_prefix}grouping_tab_no_data",
+            use_lifetime_checkbox=f"{tag_prefix}grouping_tab_use_lifetime",
+            global_grouping_checkbox=f"{tag_prefix}grouping_tab_global_grouping",
+            group_count_slider=f"{tag_prefix}grouping_tab_group_count",
+            group_count_label=f"{tag_prefix}grouping_tab_group_count_label",
             results_group=f"{tag_prefix}grouping_tab_results_group",
             results_header=f"{tag_prefix}grouping_tab_results_header",
             groups_text=f"{tag_prefix}grouping_tab_groups_text",
@@ -131,6 +150,16 @@ class GroupingTab:
     def selected_group_id(self) -> int | None:
         """Get the currently selected group ID (for highlighting)."""
         return self._selected_group_id
+
+    @property
+    def use_lifetime(self) -> bool:
+        """Whether to include lifetime in clustering."""
+        return self._use_lifetime
+
+    @property
+    def global_grouping(self) -> bool:
+        """Whether global grouping mode is enabled."""
+        return self._global_grouping
 
     def build(self) -> None:
         """Build the tab UI structure."""
@@ -189,18 +218,69 @@ class GroupingTab:
 
     def _build_controls(self) -> None:
         """Build the controls bar at the top of the tab."""
+        # First row: Group buttons and options
         with dpg.group(horizontal=True, tag=self._tags.controls_group):
-            # Group button (opens grouping dialog or runs grouping)
+            # Group buttons
             dpg.add_button(
                 label="Group Current",
                 tag=self._tags.group_button,
-                callback=self._on_group_button_clicked,
+                callback=lambda: self._on_group_button_clicked("current"),
+                enabled=False,
+            )
+
+            dpg.add_spacer(width=5)
+
+            dpg.add_button(
+                label="Group Selected",
+                tag=self._tags.group_selected_button,
+                callback=lambda: self._on_group_button_clicked("selected"),
+                enabled=False,
+            )
+
+            dpg.add_spacer(width=5)
+
+            dpg.add_button(
+                label="Group All",
+                tag=self._tags.group_all_button,
+                callback=lambda: self._on_group_button_clicked("all"),
                 enabled=False,
             )
 
             # Spacer
+            dpg.add_spacer(width=20)
+
+            # Use lifetime checkbox
+            dpg.add_checkbox(
+                label="Use Lifetime",
+                tag=self._tags.use_lifetime_checkbox,
+                default_value=False,
+                callback=self._on_use_lifetime_changed,
+            )
+
             dpg.add_spacer(width=15)
 
+            # Global grouping checkbox
+            dpg.add_checkbox(
+                label="Global Grouping",
+                tag=self._tags.global_grouping_checkbox,
+                default_value=False,
+                callback=self._on_global_grouping_changed,
+            )
+            with dpg.tooltip(dpg.last_item()):
+                dpg.add_text("Group all selected particles together\nas a single dataset")
+
+            # Spacer
+            dpg.add_spacer(width=30)
+
+            # Info text
+            dpg.add_text(
+                "",
+                tag=self._tags.info_text,
+                color=(128, 128, 128),
+            )
+
+        # Second row: Post-clustering controls
+        with dpg.group(horizontal=True, tag=self._tags.controls_row2):
             # Reset to optimal button
             dpg.add_button(
                 label="Reset to Optimal",
@@ -209,7 +289,6 @@ class GroupingTab:
                 enabled=False,
             )
 
-            # Spacer
             dpg.add_spacer(width=15)
 
             # Fit view button
@@ -220,14 +299,23 @@ class GroupingTab:
                 enabled=False,
             )
 
-            # Spacer
             dpg.add_spacer(width=30)
 
-            # Info text
+            # Manual group count override
+            dpg.add_text("Groups:")
+            dpg.add_slider_int(
+                tag=self._tags.group_count_slider,
+                default_value=1,
+                min_value=1,
+                max_value=100,
+                width=150,
+                callback=self._on_group_count_slider_changed,
+                enabled=False,
+            )
             dpg.add_text(
-                "",
-                tag=self._tags.info_text,
-                color=(128, 128, 128),
+                "1",
+                tag=self._tags.group_count_label,
+                color=(180, 180, 180),
             )
 
     def _build_results_display(self) -> None:
@@ -380,6 +468,22 @@ class GroupingTab:
         # Update group table
         self._update_group_table(result.groups)
 
+        # Update group count slider range and value
+        if dpg.does_item_exist(self._tags.group_count_slider):
+            # Get the range of possible group counts from the steps
+            min_groups = min(step.num_groups for step in result.steps)
+            max_groups = max(step.num_groups for step in result.steps)
+            dpg.configure_item(
+                self._tags.group_count_slider,
+                min_value=min_groups,
+                max_value=max_groups,
+            )
+            dpg.set_value(self._tags.group_count_slider, result.num_groups)
+
+        # Update group count label
+        if dpg.does_item_exist(self._tags.group_count_label):
+            dpg.set_value(self._tags.group_count_label, str(result.num_groups))
+
         # Show the plot area, hide placeholder
         self._show_plot(True)
 
@@ -451,6 +555,7 @@ class GroupingTab:
         for tag in [
             self._tags.reset_button,
             self._tags.fit_view_button,
+            self._tags.group_count_slider,
         ]:
             if dpg.does_item_exist(tag):
                 dpg.configure_item(tag, enabled=enable)
@@ -516,11 +621,70 @@ class GroupingTab:
                 logger.debug(f"User selected {num_groups} groups")
                 break
 
-    def _on_group_button_clicked(self) -> None:
-        """Handle group button click."""
+    def _on_group_button_clicked(self, mode: str) -> None:
+        """Handle group button click.
+
+        Args:
+            mode: The grouping mode ("current", "selected", or "all").
+        """
         if self._on_grouping_requested:
-            self._on_grouping_requested()
-        logger.debug("Group button clicked")
+            self._on_grouping_requested(mode)
+        logger.debug(f"Group button clicked: mode={mode}")
+
+    def _on_use_lifetime_changed(self, sender: int, app_data: bool) -> None:
+        """Handle use lifetime checkbox change.
+
+        Args:
+            sender: The checkbox widget.
+            app_data: Whether to use lifetime in clustering.
+        """
+        self._use_lifetime = app_data
+        logger.debug(f"Use lifetime changed to {app_data}")
+
+    def _on_global_grouping_changed(self, sender: int, app_data: bool) -> None:
+        """Handle global grouping checkbox change.
+
+        Args:
+            sender: The checkbox widget.
+            app_data: Whether to use global grouping mode.
+        """
+        self._global_grouping = app_data
+        logger.debug(f"Global grouping changed to {app_data}")
+
+    def _on_group_count_slider_changed(self, sender: int, app_data: int) -> None:
+        """Handle group count slider change.
+
+        Args:
+            sender: The slider widget.
+            app_data: The new group count value.
+        """
+        if self._clustering_result is None:
+            return
+
+        # Update the label
+        if dpg.does_item_exist(self._tags.group_count_label):
+            dpg.set_value(self._tags.group_count_label, str(app_data))
+
+        # Find the step with this group count
+        for i, step in enumerate(self._clustering_result.steps):
+            if step.num_groups == app_data:
+                self._clustering_result = self._clustering_result.with_selected_step(i)
+                self._selected_num_groups = app_data
+
+                # Update BIC plot selection
+                if self._bic_plot:
+                    self._bic_plot.set_selected_num_groups(app_data)
+
+                # Update displays
+                self._update_group_table(self._clustering_result.groups)
+                self._update_results_text()
+
+                # Call callback
+                if self._on_group_count_changed:
+                    self._on_group_count_changed(app_data)
+
+                logger.debug(f"Group count slider set to {app_data}")
+                break
 
     def _on_reset_button_clicked(self) -> None:
         """Handle reset to optimal button click."""
@@ -565,12 +729,13 @@ class GroupingTab:
         self._on_group_count_changed = callback
 
     def set_on_grouping_requested(
-        self, callback: Callable[[], None]
+        self, callback: Callable[[str], None]
     ) -> None:
         """Set callback for when grouping button is clicked.
 
         Args:
-            callback: Function called when user clicks the Group button.
+            callback: Function called when user clicks a Group button.
+                Receives the mode ("current", "selected", or "all").
         """
         self._on_grouping_requested = callback
 
@@ -607,13 +772,48 @@ class GroupingTab:
         self.set_selected_group(None)
 
     def enable_group_button(self, enabled: bool = True) -> None:
-        """Enable or disable the Group button.
+        """Enable or disable the Group Current button.
 
         Args:
             enabled: Whether to enable the button.
         """
         if dpg.does_item_exist(self._tags.group_button):
             dpg.configure_item(self._tags.group_button, enabled=enabled)
+
+    def set_group_buttons_state(
+        self,
+        has_current: bool = False,
+        has_selected: bool = False,
+        has_any: bool = False,
+    ) -> None:
+        """Enable/disable group buttons based on application state.
+
+        Args:
+            has_current: Whether there is a currently viewed particle with levels.
+            has_selected: Whether there are batch-selected particles with levels.
+            has_any: Whether there are any particles with levels loaded.
+        """
+        if dpg.does_item_exist(self._tags.group_button):
+            dpg.configure_item(self._tags.group_button, enabled=has_current)
+        if dpg.does_item_exist(self._tags.group_selected_button):
+            dpg.configure_item(self._tags.group_selected_button, enabled=has_selected)
+        if dpg.does_item_exist(self._tags.group_all_button):
+            dpg.configure_item(self._tags.group_all_button, enabled=has_any)
+
+    def set_grouping(self, is_grouping: bool) -> None:
+        """Set the grouping state, disabling buttons while analysis is running.
+
+        Args:
+            is_grouping: Whether clustering analysis is currently running.
+        """
+        # Disable all group buttons during analysis
+        for tag in [
+            self._tags.group_button,
+            self._tags.group_selected_button,
+            self._tags.group_all_button,
+        ]:
+            if dpg.does_item_exist(tag):
+                dpg.configure_item(tag, enabled=not is_grouping)
 
     def set_selected_groups(self, num_groups: int) -> None:
         """Programmatically set the selected number of groups.
