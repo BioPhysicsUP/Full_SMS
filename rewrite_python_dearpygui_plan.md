@@ -606,7 +606,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 11: Export
 
-### Task 11.1: Implement data export `[NEXT]`
+### Task 11.1: Implement data export `[DONE]` (2026-01-07)
 **Objective**: Export analysis results to files
 
 **Actions**:
@@ -626,7 +626,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 11.2: Implement plot export `[TODO]`
+### Task 11.2: Implement plot export `[NEXT]`
 **Objective**: Export plots as images
 
 **Actions**:
@@ -732,9 +732,9 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 8. Lifetime Tab | 4 | 4 | 0 |
 | 9. Grouping Tab | 3 | 3 | 0 |
 | 10. Additional Tabs | 3 | 3 | 0 |
-| 11. Export | 2 | 0 | 2 |
+| 11. Export | 2 | 1 | 1 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **35** | **7** |
+| **Total** | **42** | **36** | **6** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 10.3 completed - Correlation tab with g2 vs tau plot, window/bin size controls, channel offset correction, dual-channel detection, and correlation worker integration)*
+*Last Updated: 2026-01-07 (Task 11.1 completed - Data export with CSV/Parquet/Excel/JSON formats, export tab UI with checkboxes for intensity/levels/groups/fits, format selection, directory picker, and batch export support)*

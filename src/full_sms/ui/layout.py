@@ -14,8 +14,9 @@ import dearpygui.dearpygui as dpg
 from full_sms.analysis.correlation import CorrelationResult
 from full_sms.models.group import ClusteringResult
 from full_sms.models.particle import ParticleData, RasterScanData, SpectraData
-from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState
+from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState, SessionState
 from full_sms.ui.views.correlation_tab import CorrelationTab
+from full_sms.ui.views.export_tab import ExportTab
 from full_sms.ui.views.grouping_tab import GroupingTab
 from full_sms.ui.views.intensity_tab import IntensityTab
 from full_sms.ui.views.lifetime_tab import LifetimeTab
@@ -103,6 +104,7 @@ class MainLayout:
         self._spectra_tab: SpectraTab | None = None
         self._raster_tab: RasterTab | None = None
         self._correlation_tab: CorrelationTab | None = None
+        self._export_tab: ExportTab | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -284,7 +286,11 @@ class MainLayout:
                         autosize_x=True,
                         autosize_y=True,
                     ):
-                        self._build_placeholder_tab("Export", ActiveTab.EXPORT)
+                        # Build the actual export tab view
+                        self._export_tab = ExportTab(
+                            parent=LAYOUT_TAGS.tab_export,
+                        )
+                        self._export_tab.build()
 
     def _build_placeholder_tab(self, name: str, tab_type: ActiveTab) -> None:
         """Build a placeholder tab content.
@@ -831,3 +837,70 @@ class MainLayout:
         """
         if self._correlation_tab:
             self._correlation_tab.set_on_correlate(callback)
+
+    # Export tab methods
+
+    @property
+    def export_tab(self) -> ExportTab | None:
+        """Get the export tab widget instance."""
+        return self._export_tab
+
+    def set_export_session_state(self, state: SessionState) -> None:
+        """Set the session state for the export tab.
+
+        Args:
+            state: The current session state.
+        """
+        if self._export_tab:
+            self._export_tab.set_session_state(state)
+
+    def set_export_current_selection(self, selection: ChannelSelection | None) -> None:
+        """Set the current selection for the export tab.
+
+        Args:
+            selection: The current particle/channel selection.
+        """
+        if self._export_tab:
+            self._export_tab.set_current_selection(selection)
+
+    def set_export_batch_selection(self, selections: list[ChannelSelection]) -> None:
+        """Set the batch selection for the export tab.
+
+        Args:
+            selections: List of selected particle/channels.
+        """
+        if self._export_tab:
+            self._export_tab.set_batch_selection(selections)
+
+    def clear_export_data(self) -> None:
+        """Clear the export tab data."""
+        if self._export_tab:
+            self._export_tab.clear()
+
+    def set_on_export(self, callback) -> None:
+        """Set callback for export operations.
+
+        Args:
+            callback: Function called with (selections, output_dir, format, options).
+        """
+        if self._export_tab:
+            self._export_tab.set_on_export(callback)
+
+    def show_export_success(self, num_files: int, output_dir) -> None:
+        """Show export success message.
+
+        Args:
+            num_files: Number of files exported.
+            output_dir: Directory files were exported to.
+        """
+        if self._export_tab:
+            self._export_tab.show_export_success(num_files, output_dir)
+
+    def show_export_error(self, error: str) -> None:
+        """Show export error message.
+
+        Args:
+            error: Error message to display.
+        """
+        if self._export_tab:
+            self._export_tab.show_export_error(error)
