@@ -476,7 +476,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 8.3: Implement residuals plot `[NEXT]`
+### Task 8.3: Implement residuals plot `[DONE]` (2026-01-07)
 **Objective**: Show weighted residuals below decay plot
 
 **Actions**:
@@ -490,7 +490,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 8.4: Implement fitting dialog and controls `[TODO]`
+### Task 8.4: Implement fitting dialog and controls `[NEXT]`
 **Objective**: Configure and trigger lifetime fitting
 
 **Actions**:
@@ -729,12 +729,12 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 5. Workers | 2 | 2 | 0 |
 | 6. UI Foundation | 4 | 4 | 0 |
 | 7. Intensity Tab | 4 | 4 | 0 |
-| 8. Lifetime Tab | 4 | 2 | 2 |
+| 8. Lifetime Tab | 4 | 3 | 1 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **27** | **15** |
+| **Total** | **42** | **28** | **14** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 8.2 completed - fit curve overlay with results display)*
+*Last Updated: 2026-01-07 (Task 8.3 completed - residuals plot below decay plot)*
