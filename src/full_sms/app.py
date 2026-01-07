@@ -21,7 +21,8 @@ from full_sms.models.session import (
     ConfidenceLevel,
     SessionState,
 )
-from full_sms.ui.dialogs import FittingDialog, FittingParameters
+from full_sms.config import Settings, get_settings, save_settings
+from full_sms.ui.dialogs import FittingDialog, FittingParameters, SettingsDialog
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
 from full_sms.workers.pool import AnalysisPool, TaskResult
@@ -71,6 +72,9 @@ class Application:
         # Fitting dialog and parameters
         self._fitting_dialog: FittingDialog | None = None
         self._fitting_params = FittingParameters()
+
+        # Settings dialog
+        self._settings_dialog: SettingsDialog | None = None
 
     def setup(self) -> None:
         """Set up the DearPyGui context, viewport, and UI."""
@@ -146,6 +150,11 @@ class Application:
             self._fitting_dialog = FittingDialog()
             self._fitting_dialog.build()
             self._fitting_dialog.set_on_fit(self._on_fit_dialog_accepted)
+
+            # Create settings dialog
+            self._settings_dialog = SettingsDialog()
+            self._settings_dialog.build()
+            self._settings_dialog.set_on_save(self._on_settings_saved)
 
         # Set as primary window (fills viewport)
         dpg.set_primary_window(TAGS["primary_window"], True)
@@ -374,6 +383,24 @@ class Application:
     def _on_settings(self) -> None:
         """Handle Settings menu action."""
         logger.info("Settings triggered")
+        if self._settings_dialog:
+            self._settings_dialog.show()
+
+    def _on_settings_saved(self, settings: Settings) -> None:
+        """Handle settings dialog save.
+
+        Args:
+            settings: The updated settings.
+        """
+        logger.info("Settings saved")
+
+        # Update UI state with new default bin size
+        if self._layout and self._layout.intensity_tab:
+            # Only update if no data is loaded (don't override user's current choice)
+            if not self._session.has_file:
+                self._session.ui_state.bin_size_ms = settings.display.default_bin_size_ms
+
+        self.set_status("Settings saved")
 
     # Menu callbacks - Analysis menu
 

@@ -5,9 +5,15 @@ from full_sms.ui.dialogs.fitting_dialog import (
     FittingDialogTags,
     FittingParameters,
 )
+from full_sms.ui.dialogs.settings_dialog import (
+    SettingsDialog,
+    SettingsDialogTags,
+)
 
 __all__ = [
     "FittingDialog",
     "FittingDialogTags",
     "FittingParameters",
+    "SettingsDialog",
+    "SettingsDialogTags",
 ]
