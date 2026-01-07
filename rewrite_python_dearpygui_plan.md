@@ -490,7 +490,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 8.4: Implement fitting dialog and controls `[NEXT]`
+### Task 8.4: Implement fitting dialog and controls `[DONE]` (2026-01-07)
 **Objective**: Configure and trigger lifetime fitting
 
 **Actions**:
@@ -510,7 +510,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 9: Grouping Tab
 
-### Task 9.1: Implement BIC plot `[TODO]`
+### Task 9.1: Implement BIC plot `[NEXT]`
 **Objective**: Display BIC optimization curve for clustering
 
 **Actions**:
@@ -729,12 +729,12 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 5. Workers | 2 | 2 | 0 |
 | 6. UI Foundation | 4 | 4 | 0 |
 | 7. Intensity Tab | 4 | 4 | 0 |
-| 8. Lifetime Tab | 4 | 3 | 1 |
+| 8. Lifetime Tab | 4 | 4 | 0 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **28** | **14** |
+| **Total** | **42** | **29** | **13** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 8.3 completed - residuals plot below decay plot)*
+*Last Updated: 2026-01-07 (Task 8.4 completed - fitting dialog and controls)*

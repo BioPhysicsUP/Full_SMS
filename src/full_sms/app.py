@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import dearpygui.dearpygui as dpg
 import numpy as np
 
+from full_sms.models.fit import FitResult
 from full_sms.models.level import LevelData
 from full_sms.models.session import (
     ActiveTab,
@@ -20,10 +21,11 @@ from full_sms.models.session import (
     ConfidenceLevel,
     SessionState,
 )
+from full_sms.ui.dialogs import FittingDialog, FittingParameters
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
 from full_sms.workers.pool import AnalysisPool, TaskResult
-from full_sms.workers.tasks import run_cpa_task
+from full_sms.workers.tasks import run_cpa_task, run_fit_task
 
 if TYPE_CHECKING:
     from full_sms.models.particle import ParticleData
@@ -58,6 +60,10 @@ class Application:
         # Pending futures for async operations
         self._pending_futures: list[Future] = []
         self._resolve_mode: str | None = None  # Track current resolve operation
+
+        # Fitting dialog and parameters
+        self._fitting_dialog: FittingDialog | None = None
+        self._fitting_params = FittingParameters()
 
     def setup(self) -> None:
         """Set up the DearPyGui context, viewport, and UI."""
@@ -110,6 +116,17 @@ class Application:
             # Set up intensity tab resolve callback
             if self._layout.intensity_tab:
                 self._layout.intensity_tab.set_on_resolve(self._on_resolve_from_tab)
+
+            # Set up lifetime tab fit callback
+            if self._layout.lifetime_tab:
+                self._layout.lifetime_tab.set_on_fit_requested(
+                    self._on_fit_requested_from_tab
+                )
+
+            # Create fitting dialog (must be after DearPyGui context is created)
+            self._fitting_dialog = FittingDialog()
+            self._fitting_dialog.build()
+            self._fitting_dialog.set_on_fit(self._on_fit_dialog_accepted)
 
         # Set as primary window (fills viewport)
         dpg.set_primary_window(TAGS["primary_window"], True)
@@ -352,6 +369,127 @@ class Application:
     def _on_fit(self, mode: str) -> None:
         """Handle Fit menu action."""
         logger.info(f"Fit {mode} triggered")
+        # For now, just show the fitting dialog for current selection
+        self._on_fit_requested_from_tab()
+
+    def _on_fit_requested_from_tab(self) -> None:
+        """Handle fit request from lifetime tab's Fit button."""
+        logger.info("Fit requested from tab")
+
+        # Check if we have data
+        if not self._session.current_selection:
+            logger.warning("No particle selected for fitting")
+            if self._layout:
+                self._layout.set_status("Select a particle to fit")
+            return
+
+        # Show the fitting dialog
+        if self._fitting_dialog:
+            self._fitting_dialog.show(self._fitting_params)
+
+    def _on_fit_dialog_accepted(self, params: FittingParameters) -> None:
+        """Handle fit dialog acceptance - run the fit.
+
+        Args:
+            params: The fitting parameters from the dialog.
+        """
+        logger.info(
+            f"Fit dialog accepted: {params.num_exponentials} exp, "
+            f"tau_init={params.tau_init}"
+        )
+
+        # Store parameters for next time
+        self._fitting_params = params
+
+        # Check if we have data
+        if not self._session.current_selection:
+            logger.warning("No particle selected for fitting")
+            return
+
+        # Get the current particle and channel data
+        selection = self._session.current_selection
+        particle = self._session.get_particle(selection.particle_id)
+        if particle is None:
+            logger.warning(f"Particle {selection.particle_id} not found")
+            return
+
+        channel_data = (
+            particle.channel1 if selection.channel == 1 else particle.channel2
+        )
+        if channel_data is None:
+            logger.warning(f"No channel {selection.channel} data")
+            return
+
+        # Run the fit
+        self._run_fit_task(particle, channel_data, selection, params)
+
+    def _run_fit_task(
+        self,
+        particle,
+        channel_data,
+        selection: ChannelSelection,
+        params: FittingParameters,
+    ) -> None:
+        """Submit a lifetime fitting task.
+
+        Args:
+            particle: The particle data.
+            channel_data: The channel data with microtimes.
+            selection: The current selection.
+            params: Fitting parameters.
+        """
+        if not self._pool:
+            logger.error("Worker pool not initialized")
+            return
+
+        # Build decay histogram
+        from full_sms.analysis.histograms import build_decay_histogram
+
+        t, counts = build_decay_histogram(
+            channel_data.microtimes, particle.channelwidth
+        )
+
+        # Prepare task parameters
+        task_params = {
+            "t": t,
+            "counts": counts,
+            "channelwidth": particle.channelwidth,
+            "num_exponentials": params.num_exponentials,
+            "tau_init": params.get_tau_init_for_fit(),
+            "tau_bounds": (params.tau_min, params.tau_max),
+            "shift_init": params.shift_init,
+            "shift_bounds": (params.shift_min, params.shift_max),
+            "autostart": params.start_mode.value,
+            "autoend": params.auto_end,
+            "particle_id": selection.particle_id,
+            "channel_id": selection.channel,
+        }
+
+        # Add manual start/end if provided
+        if params.start_channel is not None:
+            task_params["start"] = params.start_channel
+        if params.end_channel is not None:
+            task_params["end"] = params.end_channel
+
+        # Add background if manual
+        if not params.background_auto:
+            task_params["background"] = params.background_value
+
+        # Add IRF if using it (not simulated for now)
+        if params.use_irf and not params.use_simulated_irf:
+            # TODO: Get IRF from file metadata
+            pass
+
+        # Start processing
+        self._session.processing.start("Lifetime fit", "Fitting decay curve...")
+        if self._layout:
+            self._layout.set_status("Fitting...")
+
+        # Submit task
+        future = self._pool.submit(run_fit_task, task_params)
+        self._pending_futures.append(future)
+
+        logger.info(f"Submitted fit task for particle {selection.particle_id}")
 
     # Menu callbacks - Help menu
 
@@ -479,6 +617,9 @@ class Application:
         # Check if this is a CPA result (has "levels" key)
         if "levels" in data:
             self._handle_cpa_result(particle_id, channel_id, data)
+        # Check if this is a fit result (has "tau" key)
+        elif "tau" in data:
+            self._handle_fit_result(particle_id, channel_id, data)
 
     def _handle_cpa_result(
         self, particle_id: int, channel_id: int, data: dict
@@ -523,6 +664,61 @@ class Application:
             self._session.processing.update(
                 completed / total,
                 f"Resolved {completed}/{total} particles...",
+            )
+
+    def _handle_fit_result(
+        self, particle_id: int, channel_id: int, data: dict
+    ) -> None:
+        """Handle completed fit result.
+
+        Args:
+            particle_id: The particle ID.
+            channel_id: The channel ID.
+            data: The result data containing fit parameters.
+        """
+        # Check for error
+        if data.get("error"):
+            logger.error(f"Fit failed: {data['error']}")
+            self._session.processing.finish(f"Fit error: {data['error']}")
+            if self._layout:
+                self._layout.show_error(f"Fit failed: {data['error']}")
+            return
+
+        # Convert to FitResult
+        fit_result = FitResult.from_fit_parameters(
+            tau=data["tau"],
+            tau_std=data["tau_std"],
+            amplitude=data["amplitude"],
+            amplitude_std=data["amplitude_std"],
+            shift=data["shift"],
+            shift_std=data["shift_std"],
+            chi_squared=data["chi_squared"],
+            durbin_watson=data["durbin_watson"],
+            residuals=np.array(data["residuals"]),
+            fitted_curve=np.array(data["fitted_curve"]),
+            fit_start_index=data["fit_start_index"],
+            fit_end_index=data["fit_end_index"],
+            background=data["background"],
+            dw_bounds=data.get("dw_bounds"),
+        )
+
+        logger.info(
+            f"Fit complete for particle {particle_id}, channel {channel_id}: "
+            f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}"
+        )
+
+        # Update the lifetime tab display
+        if self._layout and self._layout.lifetime_tab:
+            self._layout.lifetime_tab.set_fit(fit_result)
+
+        # Finish processing
+        self._session.processing.finish("Fit complete")
+
+        # Show success message
+        if self._layout:
+            tau_str = ", ".join(f"{t:.2f}" for t in fit_result.tau)
+            self._layout.show_success(
+                f"Fit complete: tau = {tau_str} ns, chi2 = {fit_result.chi_squared:.3f}"
             )
 
     def _finish_resolve(self) -> None:

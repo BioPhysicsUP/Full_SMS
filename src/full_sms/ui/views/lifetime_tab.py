@@ -36,6 +36,7 @@ class LifetimeTabTags:
     show_irf_checkbox: str = "lifetime_tab_show_irf"
     show_residuals_checkbox: str = "lifetime_tab_show_residuals"
     fit_view_button: str = "lifetime_tab_fit_view"
+    fit_button: str = "lifetime_tab_fit_button"
     info_text: str = "lifetime_tab_info"
     plot_container: str = "lifetime_tab_plot_container"
     plot_area: str = "lifetime_tab_plot_area"
@@ -88,6 +89,7 @@ class LifetimeTab:
 
         # Callbacks
         self._on_log_scale_changed: Callable[[bool], None] | None = None
+        self._on_fit_requested: Callable[[], None] | None = None
 
         # UI components
         self._decay_plot: DecayPlot | None = None
@@ -102,6 +104,7 @@ class LifetimeTab:
             show_irf_checkbox=f"{tag_prefix}lifetime_tab_show_irf",
             show_residuals_checkbox=f"{tag_prefix}lifetime_tab_show_residuals",
             fit_view_button=f"{tag_prefix}lifetime_tab_fit_view",
+            fit_button=f"{tag_prefix}lifetime_tab_fit_button",
             info_text=f"{tag_prefix}lifetime_tab_info",
             plot_container=f"{tag_prefix}lifetime_tab_plot_container",
             plot_area=f"{tag_prefix}lifetime_tab_plot_area",
@@ -260,6 +263,17 @@ class LifetimeTab:
             )
 
             # Spacer
+            dpg.add_spacer(width=15)
+
+            # Fit button (opens fitting dialog)
+            dpg.add_button(
+                label="Fit...",
+                tag=self._tags.fit_button,
+                callback=self._on_fit_button_clicked,
+                enabled=False,
+            )
+
+            # Spacer
             dpg.add_spacer(width=30)
 
             # Info text (shows photon count, time range)
@@ -397,6 +411,20 @@ class LifetimeTab:
         if self._decay_plot:
             self._decay_plot.fit_view()
 
+    def _on_fit_button_clicked(self) -> None:
+        """Handle fit button click - opens fitting dialog."""
+        if self._on_fit_requested:
+            self._on_fit_requested()
+        logger.debug("Fit button clicked")
+
+    def set_on_fit_requested(self, callback: Callable[[], None]) -> None:
+        """Set callback for when Fit button is clicked.
+
+        Args:
+            callback: Function called when user clicks Fit button.
+        """
+        self._on_fit_requested = callback
+
     def set_data(
         self,
         microtimes: NDArray[np.float64],
@@ -429,6 +457,9 @@ class LifetimeTab:
         if dpg.does_item_exist(self._tags.log_scale_checkbox):
             dpg.configure_item(self._tags.log_scale_checkbox, enabled=True)
 
+        if dpg.does_item_exist(self._tags.fit_button):
+            dpg.configure_item(self._tags.fit_button, enabled=True)
+
         # Update info text
         self._update_info_text()
 
@@ -451,6 +482,9 @@ class LifetimeTab:
         # Disable controls
         if dpg.does_item_exist(self._tags.fit_view_button):
             dpg.configure_item(self._tags.fit_view_button, enabled=False)
+
+        if dpg.does_item_exist(self._tags.fit_button):
+            dpg.configure_item(self._tags.fit_button, enabled=False)
 
         if dpg.does_item_exist(self._tags.log_scale_checkbox):
             dpg.configure_item(self._tags.log_scale_checkbox, enabled=False)
