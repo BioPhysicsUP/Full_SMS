@@ -573,7 +573,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 10.2: Implement raster scan tab `[NEXT]`
+### Task 10.2: Implement raster scan tab `[DONE]` (2026-01-07)
 **Objective**: Display 2D raster scan image if present
 
 **Actions**:
@@ -587,7 +587,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 10.3: Implement correlation tab `[TODO]`
+### Task 10.3: Implement correlation tab `[NEXT]`
 **Objective**: Display antibunching / g2 correlation
 
 **Actions**:
@@ -731,10 +731,10 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 7. Intensity Tab | 4 | 4 | 0 |
 | 8. Lifetime Tab | 4 | 4 | 0 |
 | 9. Grouping Tab | 3 | 3 | 0 |
-| 10. Additional Tabs | 3 | 1 | 2 |
+| 10. Additional Tabs | 3 | 2 | 1 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **33** | **9** |
+| **Total** | **42** | **34** | **8** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 10.1 completed - Spectra tab with 2D heatmap display showing time vs wavelength with intensity as color, colormap selection, and graceful fallback when spectra not present)*
+*Last Updated: 2026-01-07 (Task 10.2 completed - Raster scan tab with 2D heatmap display showing X/Y position in micrometers with intensity as color, colormap selection, and graceful fallback when raster data not present)*

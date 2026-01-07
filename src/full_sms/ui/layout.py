@@ -12,11 +12,12 @@ from typing import Callable
 import dearpygui.dearpygui as dpg
 
 from full_sms.models.group import ClusteringResult
-from full_sms.models.particle import ParticleData, SpectraData
+from full_sms.models.particle import ParticleData, RasterScanData, SpectraData
 from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState
 from full_sms.ui.views.grouping_tab import GroupingTab
 from full_sms.ui.views.intensity_tab import IntensityTab
 from full_sms.ui.views.lifetime_tab import LifetimeTab
+from full_sms.ui.views.raster_tab import RasterTab
 from full_sms.ui.views.spectra_tab import SpectraTab
 from full_sms.ui.widgets.particle_tree import ParticleTree
 from full_sms.ui.widgets.status_bar import StatusBar
@@ -98,6 +99,7 @@ class MainLayout:
         self._lifetime_tab: LifetimeTab | None = None
         self._grouping_tab: GroupingTab | None = None
         self._spectra_tab: SpectraTab | None = None
+        self._raster_tab: RasterTab | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -251,7 +253,11 @@ class MainLayout:
                         autosize_x=True,
                         autosize_y=True,
                     ):
-                        self._build_placeholder_tab("Raster", ActiveTab.RASTER)
+                        # Build the actual raster tab view
+                        self._raster_tab = RasterTab(
+                            parent=LAYOUT_TAGS.tab_raster,
+                        )
+                        self._raster_tab.build()
 
                 # Correlation tab
                 with dpg.tab(label="Correlation", tag="tab_button_correlation"):
@@ -728,3 +734,38 @@ class MainLayout:
         """
         if self._spectra_tab:
             self._spectra_tab.set_file_has_spectra(has_spectra)
+
+    # Raster tab methods
+
+    @property
+    def raster_tab(self) -> RasterTab | None:
+        """Get the raster tab widget instance."""
+        return self._raster_tab
+
+    def set_raster_data(self, raster: RasterScanData) -> None:
+        """Set raster scan data for the current particle.
+
+        Args:
+            raster: The RasterScanData object containing the 2D scan image.
+        """
+        if self._raster_tab:
+            self._raster_tab.set_data(raster)
+
+    def set_raster_unavailable(self) -> None:
+        """Indicate that the current particle has no raster scan data."""
+        if self._raster_tab:
+            self._raster_tab.set_no_raster()
+
+    def clear_raster_data(self) -> None:
+        """Clear the raster tab data."""
+        if self._raster_tab:
+            self._raster_tab.clear()
+
+    def set_file_has_raster(self, has_raster: bool) -> None:
+        """Set whether the loaded file has any raster scan data.
+
+        Args:
+            has_raster: Whether any particles in the file have raster scans.
+        """
+        if self._raster_tab:
+            self._raster_tab.set_file_has_raster(has_raster)

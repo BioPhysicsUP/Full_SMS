@@ -85,6 +85,78 @@ class SpectraData:
 
 
 @dataclass(frozen=True)
+class RasterScanData:
+    """Raster scan image data.
+
+    A raster scan is a 2D intensity scan used to visualize particles
+    before measurement. The scan produces a 2D image where each pixel
+    represents photon counts at that position.
+
+    Attributes:
+        data: 2D array of intensity values (pixels_y × pixels_x).
+        x_start: Starting X position in micrometers.
+        y_start: Starting Y position in micrometers.
+        scan_range: Scan range in micrometers (assumes square scan).
+        pixels_per_line: Number of pixels per line.
+        integration_time: Integration time per pixel in ms/um.
+    """
+
+    data: NDArray[np.float64]
+    x_start: float
+    y_start: float
+    scan_range: float
+    pixels_per_line: int
+    integration_time: float
+
+    @property
+    def num_pixels_x(self) -> int:
+        """Number of pixels in X direction."""
+        return self.data.shape[1] if self.data.ndim == 2 else 0
+
+    @property
+    def num_pixels_y(self) -> int:
+        """Number of pixels in Y direction."""
+        return self.data.shape[0] if self.data.ndim == 2 else 0
+
+    @property
+    def x_min(self) -> float:
+        """Minimum X position in micrometers."""
+        return self.x_start
+
+    @property
+    def x_max(self) -> float:
+        """Maximum X position in micrometers."""
+        return self.x_start + self.scan_range
+
+    @property
+    def y_min(self) -> float:
+        """Minimum Y position in micrometers."""
+        return self.y_start
+
+    @property
+    def y_max(self) -> float:
+        """Maximum Y position in micrometers."""
+        return self.y_start + self.scan_range
+
+    @property
+    def pixel_size(self) -> float:
+        """Size of each pixel in micrometers."""
+        if self.pixels_per_line == 0:
+            return 0.0
+        return self.scan_range / self.pixels_per_line
+
+    @property
+    def intensity_min(self) -> float:
+        """Minimum intensity value."""
+        return float(np.min(self.data)) if self.data.size > 0 else 0.0
+
+    @property
+    def intensity_max(self) -> float:
+        """Maximum intensity value."""
+        return float(np.max(self.data)) if self.data.size > 0 else 0.0
+
+
+@dataclass(frozen=True)
 class ChannelData:
     """Photon timing data from a single TCSPC channel.
 
@@ -143,6 +215,7 @@ class ParticleData:
     channel2: Optional[ChannelData] = None
     description: str = ""
     spectra: Optional[SpectraData] = None
+    raster_scan: Optional[RasterScanData] = None
 
     @property
     def num_photons(self) -> int:
@@ -176,3 +249,8 @@ class ParticleData:
     def has_spectra(self) -> bool:
         """Whether this particle has spectral data."""
         return self.spectra is not None
+
+    @property
+    def has_raster_scan(self) -> bool:
+        """Whether this particle has raster scan data."""
+        return self.raster_scan is not None

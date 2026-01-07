@@ -14,7 +14,7 @@ import h5py
 import numpy as np
 from numpy.typing import NDArray
 
-from full_sms.models.particle import ChannelData, ParticleData, SpectraData
+from full_sms.models.particle import ChannelData, ParticleData, RasterScanData, SpectraData
 from full_sms.models.session import FileMetadata
 
 
@@ -206,6 +206,47 @@ def _has_raster_scan(particle_group: h5py.Group) -> bool:
     return "Raster Scan" in particle_group
 
 
+def _read_raster_scan_data(particle_group: h5py.Group) -> Optional[RasterScanData]:
+    """Read raster scan data from a particle group if present.
+
+    Args:
+        particle_group: The HDF5 group for the particle.
+
+    Returns:
+        RasterScanData if raster scan is present, None otherwise.
+    """
+    if "Raster Scan" not in particle_group:
+        return None
+
+    try:
+        rs_dataset = particle_group["Raster Scan"]
+
+        # Read the raster scan image data
+        data = np.array(rs_dataset, dtype=np.float64)
+
+        # Read attributes
+        integration_time = float(rs_dataset.attrs.get("Int. Time (ms/um)", 0.0))
+        pixels_per_line = int(rs_dataset.attrs.get("Pixels per Line", 0))
+        scan_range = float(rs_dataset.attrs.get("Range (um)", 0.0))
+        x_start = float(rs_dataset.attrs.get("XStart (um)", 0.0))
+        y_start = float(rs_dataset.attrs.get("YStart (um)", 0.0))
+
+        # Validate data
+        if data.size == 0:
+            return None
+
+        return RasterScanData(
+            data=data,
+            x_start=x_start,
+            y_start=y_start,
+            scan_range=scan_range,
+            pixels_per_line=pixels_per_line,
+            integration_time=integration_time,
+        )
+    except (KeyError, ValueError, TypeError):
+        return None
+
+
 def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
     """Load an HDF5 file and return metadata and particle data.
 
@@ -275,8 +316,11 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
             if _has_spectra(particle_group):
                 has_spectra = True
                 spectra_data = _read_spectra_data(particle_group)
+
+            raster_scan_data = None
             if _has_raster_scan(particle_group):
                 has_raster = True
+                raster_scan_data = _read_raster_scan_data(particle_group)
 
             particle = ParticleData(
                 id=idx + 1,  # 1-based particle IDs
@@ -287,6 +331,7 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
                 channel2=channel2,
                 description=description,
                 spectra=spectra_data,
+                raster_scan=raster_scan_data,
             )
             particles.append(particle)
 
