@@ -71,10 +71,12 @@ class GroupingTab:
         # Data state
         self._clustering_result: Optional[ClusteringResult] = None
         self._selected_num_groups: int = 0
+        self._selected_group_id: int | None = None  # Currently selected group for highlighting
 
         # Callbacks
         self._on_group_count_changed: Callable[[int], None] | None = None
         self._on_grouping_requested: Callable[[], None] | None = None
+        self._on_group_selected: Callable[[int | None], None] | None = None
 
         # UI components
         self._bic_plot: BICPlot | None = None
@@ -124,6 +126,11 @@ class GroupingTab:
     def selected_num_groups(self) -> int:
         """Get the currently selected number of groups."""
         return self._selected_num_groups
+
+    @property
+    def selected_group_id(self) -> int | None:
+        """Get the currently selected group ID (for highlighting)."""
+        return self._selected_group_id
 
     def build(self) -> None:
         """Build the tab UI structure."""
@@ -312,13 +319,50 @@ class GroupingTab:
             for child in children:
                 dpg.delete_item(child)
 
-        # Add rows for each group
+        # Create rows with clickable selectables in the ID column
         for group in groups:
+            is_selected = group.group_id == self._selected_group_id
+
             with dpg.table_row(parent=self._tags.group_table):
-                dpg.add_text(str(group.group_id + 1))  # 1-indexed for display
+                # First column - ID with selectable for clicking
+                dpg.add_selectable(
+                    label=str(group.group_id + 1),  # 1-indexed for display
+                    default_value=is_selected,
+                    callback=self._on_group_row_clicked,
+                    user_data=group.group_id,
+                )
+                # Data columns
                 dpg.add_text(str(group.num_levels))
                 dpg.add_text(f"{group.intensity_cps:,.0f}")
                 dpg.add_text(f"{group.total_dwell_time_s:.3f}")
+
+    def _on_group_row_clicked(self, sender: int, app_data: bool, user_data: int) -> None:
+        """Handle group row click.
+
+        Args:
+            sender: The selectable widget.
+            app_data: Whether the selectable is now selected.
+            user_data: The group_id.
+        """
+        group_id = user_data
+
+        if app_data:
+            # Select this group
+            self._selected_group_id = group_id
+        else:
+            # Deselect if clicking the same row again
+            if self._selected_group_id == group_id:
+                self._selected_group_id = None
+
+        # Update the table to reflect selection state
+        if self._clustering_result:
+            self._update_group_table(self._clustering_result.groups)
+
+        # Notify callback
+        if self._on_group_selected:
+            self._on_group_selected(self._selected_group_id)
+
+        logger.debug(f"Group selection changed to {self._selected_group_id}")
 
     def set_clustering_result(self, result: ClusteringResult) -> None:
         """Set the clustering result and update displays.
@@ -358,6 +402,7 @@ class GroupingTab:
         """Clear the tab data."""
         self._clustering_result = None
         self._selected_num_groups = 0
+        self._selected_group_id = None
 
         if self._bic_plot:
             self._bic_plot.clear()
@@ -528,6 +573,38 @@ class GroupingTab:
             callback: Function called when user clicks the Group button.
         """
         self._on_grouping_requested = callback
+
+    def set_on_group_selected(
+        self, callback: Callable[[int | None], None]
+    ) -> None:
+        """Set callback for when a group is selected/deselected in the table.
+
+        Args:
+            callback: Function called when group selection changes.
+                Receives the group_id (0-indexed) or None if deselected.
+        """
+        self._on_group_selected = callback
+
+    def set_selected_group(self, group_id: int | None) -> None:
+        """Programmatically set the selected group for highlighting.
+
+        Args:
+            group_id: The group ID to select (0-indexed), or None to clear.
+        """
+        if self._selected_group_id == group_id:
+            return
+
+        self._selected_group_id = group_id
+
+        # Update the table display
+        if self._clustering_result:
+            self._update_group_table(self._clustering_result.groups)
+
+        logger.debug(f"Selected group set to {group_id}")
+
+    def clear_selected_group(self) -> None:
+        """Clear the currently selected group."""
+        self.set_selected_group(None)
 
     def enable_group_button(self, enabled: bool = True) -> None:
         """Enable or disable the Group button.

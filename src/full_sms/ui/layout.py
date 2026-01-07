@@ -222,6 +222,11 @@ class MainLayout:
                         )
                         self._grouping_tab.build()
 
+                        # Wire up group selection to highlight on intensity plot
+                        self._grouping_tab.set_on_group_selected(
+                            self._on_group_selected_in_grouping_tab
+                        )
+
                 # Spectra tab
                 with dpg.tab(label="Spectra", tag="tab_button_spectra"):
                     with dpg.child_window(
@@ -650,3 +655,35 @@ class MainLayout:
         """
         if self._grouping_tab:
             self._grouping_tab.enable_group_button(enabled)
+
+    def _on_group_selected_in_grouping_tab(self, group_id: int | None) -> None:
+        """Handle group selection in the grouping tab.
+
+        Updates the intensity plot to highlight the selected group.
+
+        Args:
+            group_id: The selected group ID (0-indexed), or None if deselected.
+        """
+        if self._intensity_tab:
+            self._intensity_tab.set_highlighted_group(group_id)
+
+    def set_highlighted_group(self, group_id: int | None) -> None:
+        """Set the highlighted group on the intensity plot.
+
+        Args:
+            group_id: The group ID to highlight (0-indexed), or None to clear.
+        """
+        if self._intensity_tab:
+            self._intensity_tab.set_highlighted_group(group_id)
+
+        # Also update the grouping tab selection
+        if self._grouping_tab:
+            self._grouping_tab.set_selected_group(group_id)
+
+    def clear_highlighted_group(self) -> None:
+        """Clear any group highlighting on the intensity plot."""
+        if self._intensity_tab:
+            self._intensity_tab.clear_highlighted_group()
+
+        if self._grouping_tab:
+            self._grouping_tab.clear_selected_group()

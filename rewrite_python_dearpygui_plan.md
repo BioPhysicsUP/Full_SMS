@@ -526,7 +526,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 9.2: Implement group visualization `[NEXT]`
+### Task 9.2: Implement group visualization `[DONE]` (2026-01-07)
 **Objective**: Show groups on intensity plot and in list
 
 **Actions**:
@@ -543,7 +543,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 9.3: Implement grouping controls `[TODO]`
+### Task 9.3: Implement grouping controls `[NEXT]`
 **Objective**: Trigger clustering and adjust group count
 
 **Actions**:
@@ -730,11 +730,11 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 6. UI Foundation | 4 | 4 | 0 |
 | 7. Intensity Tab | 4 | 4 | 0 |
 | 8. Lifetime Tab | 4 | 4 | 0 |
-| 9. Grouping Tab | 3 | 1 | 2 |
+| 9. Grouping Tab | 3 | 2 | 1 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **30** | **12** |
+| **Total** | **42** | **31** | **11** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 9.1 completed - BIC plot and grouping tab)*
+*Last Updated: 2026-01-07 (Task 9.2 completed - Group visualization with selectable table and plot highlighting)*

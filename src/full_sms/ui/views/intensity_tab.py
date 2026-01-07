@@ -782,3 +782,38 @@ class IntensityTab:
         # Update checkbox
         if dpg.does_item_exist(self._tags.show_histogram_checkbox):
             dpg.set_value(self._tags.show_histogram_checkbox, visible)
+
+    # -------------------------------------------------------------------------
+    # Group Highlighting Methods
+    # -------------------------------------------------------------------------
+
+    def set_highlighted_group(self, group_id: int | None) -> None:
+        """Highlight a specific group on the intensity plot.
+
+        When a group is highlighted:
+        - The highlighted group's levels are shown with brighter colors
+        - All other groups' levels are dimmed
+
+        This requires color_by_group to be enabled to have any visual effect.
+
+        Args:
+            group_id: The group ID to highlight (0-indexed), or None to clear.
+        """
+        if self._intensity_plot:
+            self._intensity_plot.set_highlighted_group(group_id)
+
+        # If highlighting is enabled, ensure color_by_group is also enabled
+        if group_id is not None:
+            self.set_color_by_group(True)
+
+    def clear_highlighted_group(self) -> None:
+        """Clear any group highlighting."""
+        if self._intensity_plot:
+            self._intensity_plot.clear_highlighted_group()
+
+    @property
+    def highlighted_group_id(self) -> int | None:
+        """Get the currently highlighted group ID."""
+        if self._intensity_plot:
+            return self._intensity_plot.highlighted_group_id
+        return None

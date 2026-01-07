@@ -36,6 +36,34 @@ LEVEL_COLORS = [
     (200, 180, 150, 100),  # Tan
 ]
 
+# Highlighted versions (higher alpha, brighter)
+LEVEL_COLORS_HIGHLIGHTED = [
+    (100, 180, 255, 180),  # Blue
+    (255, 150, 100, 180),  # Orange
+    (100, 220, 150, 180),  # Green
+    (255, 100, 150, 180),  # Pink
+    (180, 150, 255, 180),  # Purple
+    (255, 220, 100, 180),  # Yellow
+    (100, 220, 220, 180),  # Cyan
+    (220, 150, 180, 180),  # Rose
+    (150, 200, 100, 180),  # Lime
+    (200, 180, 150, 180),  # Tan
+]
+
+# Dimmed versions (lower alpha for non-highlighted groups)
+LEVEL_COLORS_DIMMED = [
+    (100, 180, 255, 40),  # Blue
+    (255, 150, 100, 40),  # Orange
+    (100, 220, 150, 40),  # Green
+    (255, 100, 150, 40),  # Pink
+    (180, 150, 255, 40),  # Purple
+    (255, 220, 100, 40),  # Yellow
+    (100, 220, 220, 40),  # Cyan
+    (220, 150, 180, 40),  # Rose
+    (150, 200, 100, 40),  # Lime
+    (200, 180, 150, 40),  # Tan
+]
+
 # Maximum number of individual level overlays before batching
 MAX_INDIVIDUAL_LEVELS = 100
 
@@ -88,6 +116,7 @@ class IntensityPlot:
         self._level_series_tags: list[str] = []
         self._levels_visible: bool = True
         self._color_by_group: bool = False
+        self._highlighted_group_id: int | None = None  # Group ID to highlight
 
         # Generate unique tags
         self._tags = IntensityPlotTags(
@@ -389,12 +418,22 @@ class IntensityPlot:
             level: The level data.
             index: The index of this level (for coloring).
         """
-        # Determine color
+        # Determine color index
         if self._color_by_group and level.group_id is not None:
             color_idx = level.group_id % len(LEVEL_COLORS)
         else:
             color_idx = index % len(LEVEL_COLORS)
-        color = LEVEL_COLORS[color_idx]
+
+        # Determine color palette based on highlighting
+        if self._highlighted_group_id is not None and self._color_by_group:
+            # Highlighting is active - use highlighted or dimmed colors
+            if level.group_id == self._highlighted_group_id:
+                color = LEVEL_COLORS_HIGHLIGHTED[color_idx]
+            else:
+                color = LEVEL_COLORS_DIMMED[color_idx]
+        else:
+            # No highlighting - use normal colors
+            color = LEVEL_COLORS[color_idx]
 
         # Convert times from nanoseconds to milliseconds
         start_ms = level.start_time_ns / 1e6
@@ -485,3 +524,35 @@ class IntensityPlot:
                 return level
 
         return None
+
+    @property
+    def highlighted_group_id(self) -> int | None:
+        """Get the currently highlighted group ID, or None if no highlighting."""
+        return self._highlighted_group_id
+
+    def set_highlighted_group(self, group_id: int | None) -> None:
+        """Highlight a specific group, dimming all others.
+
+        When a group is highlighted:
+        - The highlighted group's levels are shown with brighter colors
+        - All other groups' levels are dimmed
+        - Only works when color_by_group is True
+
+        Args:
+            group_id: The group ID to highlight, or None to clear highlighting.
+        """
+        if self._highlighted_group_id == group_id:
+            return
+
+        self._highlighted_group_id = group_id
+
+        # Re-render levels with new highlighting
+        if self._levels:
+            self._remove_level_series()
+            self._render_level_overlays()
+
+        logger.debug(f"Highlighted group set to {group_id}")
+
+    def clear_highlighted_group(self) -> None:
+        """Clear any group highlighting."""
+        self.set_highlighted_group(None)
