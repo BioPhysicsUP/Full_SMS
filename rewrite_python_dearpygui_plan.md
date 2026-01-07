@@ -626,7 +626,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 11.2: Implement plot export `[NEXT]`
+### Task 11.2: Implement plot export `[DONE]` (2026-01-07)
 **Objective**: Export plots as images
 
 **Actions**:
@@ -642,7 +642,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 12: Polish & Packaging
 
-### Task 12.1: Implement settings dialog `[TODO]`
+### Task 12.1: Implement settings dialog `[NEXT]`
 **Objective**: Configure application preferences
 
 **Actions**:
@@ -732,9 +732,9 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 8. Lifetime Tab | 4 | 4 | 0 |
 | 9. Grouping Tab | 3 | 3 | 0 |
 | 10. Additional Tabs | 3 | 3 | 0 |
-| 11. Export | 2 | 1 | 1 |
+| 11. Export | 2 | 2 | 0 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **36** | **6** |
+| **Total** | **42** | **37** | **5** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 11.1 completed - Data export with CSV/Parquet/Excel/JSON formats, export tab UI with checkboxes for intensity/levels/groups/fits, format selection, directory picker, and batch export support)*
+*Last Updated: 2026-01-07 (Task 11.2 completed - Plot export with matplotlib for publication-quality figures: intensity plot with level overlays, decay plot with fit curve and residuals, BIC plot with optimal/selected markers, correlation plot. Export tab updated with plot export checkboxes and format/DPI settings)*

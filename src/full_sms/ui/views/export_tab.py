@@ -17,6 +17,7 @@ from typing import Callable
 import dearpygui.dearpygui as dpg
 
 from full_sms.io.exporters import ExportFormat
+from full_sms.io.plot_exporters import PlotFormat
 from full_sms.models.session import ChannelSelection, SessionState
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,14 @@ FORMAT_OPTIONS = {
 }
 DEFAULT_FORMAT = "CSV"
 
+# Plot format options
+PLOT_FORMAT_OPTIONS = {
+    "PNG": PlotFormat.PNG,
+    "PDF": PlotFormat.PDF,
+    "SVG": PlotFormat.SVG,
+}
+DEFAULT_PLOT_FORMAT = "PNG"
+
 
 @dataclass
 class ExportTabTags:
@@ -39,14 +48,22 @@ class ExportTabTags:
     container: str = "export_tab_view_container"
     controls_group: str = "export_tab_controls"
 
-    # What to export checkboxes
+    # What to export checkboxes - Data
     export_intensity: str = "export_tab_intensity_cb"
     export_levels: str = "export_tab_levels_cb"
     export_groups: str = "export_tab_groups_cb"
     export_fits: str = "export_tab_fits_cb"
 
+    # What to export checkboxes - Plots
+    export_intensity_plot: str = "export_tab_intensity_plot_cb"
+    export_decay_plot: str = "export_tab_decay_plot_cb"
+    export_bic_plot: str = "export_tab_bic_plot_cb"
+    export_correlation_plot: str = "export_tab_correlation_plot_cb"
+
     # Format selection
     format_combo: str = "export_tab_format"
+    plot_format_combo: str = "export_tab_plot_format"
+    plot_dpi_input: str = "export_tab_plot_dpi"
 
     # Output directory
     output_dir_input: str = "export_tab_output_dir"
@@ -111,7 +128,13 @@ class ExportTab:
             export_levels=f"{tag_prefix}export_tab_levels_cb",
             export_groups=f"{tag_prefix}export_tab_groups_cb",
             export_fits=f"{tag_prefix}export_tab_fits_cb",
+            export_intensity_plot=f"{tag_prefix}export_tab_intensity_plot_cb",
+            export_decay_plot=f"{tag_prefix}export_tab_decay_plot_cb",
+            export_bic_plot=f"{tag_prefix}export_tab_bic_plot_cb",
+            export_correlation_plot=f"{tag_prefix}export_tab_correlation_plot_cb",
             format_combo=f"{tag_prefix}export_tab_format",
+            plot_format_combo=f"{tag_prefix}export_tab_plot_format",
+            plot_dpi_input=f"{tag_prefix}export_tab_plot_dpi",
             output_dir_input=f"{tag_prefix}export_tab_output_dir",
             browse_button=f"{tag_prefix}export_tab_browse",
             bin_size_input=f"{tag_prefix}export_tab_bin_size",
@@ -182,71 +205,105 @@ class ExportTab:
 
     def _build_export_options(self) -> None:
         """Build the export options section."""
-        dpg.add_text("What to Export", color=(180, 180, 180))
+        # Data export section
+        dpg.add_text("Data Export", color=(180, 180, 180))
         dpg.add_separator()
-        dpg.add_spacer(height=10)
+        dpg.add_spacer(height=5)
 
-        # Checkboxes for what to export
+        # Checkboxes for data export
         dpg.add_checkbox(
             label="Intensity Trace",
             default_value=True,
             tag=self._tags.export_intensity,
         )
-        dpg.add_text(
-            "  Binned photon counts over time",
-            color=(128, 128, 128),
-        )
-        dpg.add_spacer(height=5)
-
         dpg.add_checkbox(
             label="Levels (Change Points)",
             default_value=True,
             tag=self._tags.export_levels,
         )
-        dpg.add_text(
-            "  Detected intensity states from CPA",
-            color=(128, 128, 128),
-        )
-        dpg.add_spacer(height=5)
-
         dpg.add_checkbox(
             label="Groups (Clusters)",
             default_value=True,
             tag=self._tags.export_groups,
         )
-        dpg.add_text(
-            "  Clustered intensity states from AHCA",
-            color=(128, 128, 128),
-        )
-        dpg.add_spacer(height=5)
-
         dpg.add_checkbox(
             label="Fit Results",
             default_value=True,
             tag=self._tags.export_fits,
         )
-        dpg.add_text(
-            "  Lifetime fitting parameters",
-            color=(128, 128, 128),
+
+        dpg.add_spacer(height=15)
+
+        # Plot export section
+        dpg.add_text("Plot Export", color=(180, 180, 180))
+        dpg.add_separator()
+        dpg.add_spacer(height=5)
+
+        # Checkboxes for plot export
+        dpg.add_checkbox(
+            label="Intensity Plot",
+            default_value=True,
+            tag=self._tags.export_intensity_plot,
+        )
+        dpg.add_checkbox(
+            label="Decay Plot",
+            default_value=True,
+            tag=self._tags.export_decay_plot,
+        )
+        dpg.add_checkbox(
+            label="BIC Plot",
+            default_value=True,
+            tag=self._tags.export_bic_plot,
+        )
+        dpg.add_checkbox(
+            label="Correlation Plot",
+            default_value=False,
+            tag=self._tags.export_correlation_plot,
         )
 
     def _build_output_settings(self) -> None:
         """Build the output settings section."""
         dpg.add_text("Output Settings", color=(180, 180, 180))
         dpg.add_separator()
-        dpg.add_spacer(height=10)
+        dpg.add_spacer(height=5)
 
-        # Format selection
+        # Data format selection
         with dpg.group(horizontal=True):
-            dpg.add_text("Format:")
+            dpg.add_text("Data Format:")
             dpg.add_combo(
                 items=list(FORMAT_OPTIONS.keys()),
                 default_value=DEFAULT_FORMAT,
                 tag=self._tags.format_combo,
-                width=150,
+                width=120,
             )
 
-        dpg.add_spacer(height=10)
+        dpg.add_spacer(height=5)
+
+        # Plot format selection
+        with dpg.group(horizontal=True):
+            dpg.add_text("Plot Format:")
+            dpg.add_combo(
+                items=list(PLOT_FORMAT_OPTIONS.keys()),
+                default_value=DEFAULT_PLOT_FORMAT,
+                tag=self._tags.plot_format_combo,
+                width=120,
+            )
+
+        dpg.add_spacer(height=5)
+
+        # Plot DPI
+        with dpg.group(horizontal=True):
+            dpg.add_text("Plot DPI:")
+            dpg.add_input_int(
+                default_value=150,
+                min_value=72,
+                max_value=600,
+                step=50,
+                tag=self._tags.plot_dpi_input,
+                width=80,
+            )
+
+        dpg.add_spacer(height=5)
 
         # Bin size for intensity export
         with dpg.group(horizontal=True):
@@ -257,14 +314,14 @@ class ExportTab:
                 max_value=1000.0,
                 step=1.0,
                 tag=self._tags.bin_size_input,
-                width=100,
+                width=80,
             )
 
-        dpg.add_spacer(height=15)
+        dpg.add_spacer(height=10)
 
         # Output directory
         dpg.add_text("Output Directory:")
-        dpg.add_spacer(height=5)
+        dpg.add_spacer(height=3)
 
         with dpg.group(horizontal=True):
             dpg.add_input_text(
@@ -278,27 +335,6 @@ class ExportTab:
                 tag=self._tags.browse_button,
                 callback=self._on_browse_clicked,
             )
-
-        dpg.add_spacer(height=15)
-
-        # Format notes
-        dpg.add_text("Format Notes:", color=(180, 180, 180))
-        dpg.add_text(
-            "  CSV - Universal, human-readable",
-            color=(128, 128, 128),
-        )
-        dpg.add_text(
-            "  Parquet - Fast, compact (needs pyarrow)",
-            color=(128, 128, 128),
-        )
-        dpg.add_text(
-            "  Excel - Spreadsheet (needs openpyxl)",
-            color=(128, 128, 128),
-        )
-        dpg.add_text(
-            "  JSON - Structured with metadata",
-            color=(128, 128, 128),
-        )
 
     def _build_export_buttons(self) -> None:
         """Build the export action buttons."""
@@ -384,12 +420,27 @@ class ExportTab:
     def _get_export_options(self) -> dict:
         """Get current export options from UI."""
         return {
+            # Data export options
             "export_intensity": dpg.get_value(self._tags.export_intensity) if dpg.does_item_exist(self._tags.export_intensity) else True,
             "export_levels": dpg.get_value(self._tags.export_levels) if dpg.does_item_exist(self._tags.export_levels) else True,
             "export_groups": dpg.get_value(self._tags.export_groups) if dpg.does_item_exist(self._tags.export_groups) else True,
             "export_fits": dpg.get_value(self._tags.export_fits) if dpg.does_item_exist(self._tags.export_fits) else True,
+            # Plot export options
+            "export_intensity_plot": dpg.get_value(self._tags.export_intensity_plot) if dpg.does_item_exist(self._tags.export_intensity_plot) else True,
+            "export_decay_plot": dpg.get_value(self._tags.export_decay_plot) if dpg.does_item_exist(self._tags.export_decay_plot) else True,
+            "export_bic_plot": dpg.get_value(self._tags.export_bic_plot) if dpg.does_item_exist(self._tags.export_bic_plot) else True,
+            "export_correlation_plot": dpg.get_value(self._tags.export_correlation_plot) if dpg.does_item_exist(self._tags.export_correlation_plot) else False,
+            # Common options
             "bin_size_ms": dpg.get_value(self._tags.bin_size_input) if dpg.does_item_exist(self._tags.bin_size_input) else 10.0,
+            "plot_dpi": dpg.get_value(self._tags.plot_dpi_input) if dpg.does_item_exist(self._tags.plot_dpi_input) else 150,
         }
+
+    def _get_selected_plot_format(self) -> PlotFormat:
+        """Get the currently selected plot export format."""
+        if dpg.does_item_exist(self._tags.plot_format_combo):
+            format_name = dpg.get_value(self._tags.plot_format_combo)
+            return PLOT_FORMAT_OPTIONS.get(format_name, PlotFormat.PNG)
+        return PlotFormat.PNG
 
     def _get_selected_format(self) -> ExportFormat:
         """Get the currently selected export format."""
@@ -437,6 +488,7 @@ class ExportTab:
             selections: List of (particle_id, channel) tuples to export.
         """
         fmt = self._get_selected_format()
+        plot_fmt = self._get_selected_plot_format()
         options = self._get_export_options()
 
         self._set_status(f"Exporting {len(selections)} particle(s)...")
@@ -445,19 +497,21 @@ class ExportTab:
             self._on_export(selections, self._output_dir, fmt, options)
         else:
             # No callback set - do export directly
-            self._do_export_sync(selections, fmt, options)
+            self._do_export_sync(selections, fmt, plot_fmt, options)
 
     def _do_export_sync(
         self,
         selections: list[tuple[int, int]],
         fmt: ExportFormat,
+        plot_fmt: PlotFormat,
         options: dict,
     ) -> None:
         """Perform synchronous export (fallback when no callback is set).
 
         Args:
             selections: List of (particle_id, channel) tuples.
-            fmt: Export format.
+            fmt: Export format for data.
+            plot_fmt: Export format for plots.
             options: Export options dict.
         """
         if self._session_state is None:
@@ -465,21 +519,68 @@ class ExportTab:
             return
 
         from full_sms.io.exporters import export_batch
+        from full_sms.io.plot_exporters import export_all_plots
+
+        all_files: list[Path] = []
 
         try:
-            files = export_batch(
-                state=self._session_state,
-                selections=selections,
-                output_dir=self._output_dir,
-                fmt=fmt,
-                export_intensity=options.get("export_intensity", True),
-                export_levels=options.get("export_levels", True),
-                export_groups=options.get("export_groups", True),
-                export_fits=options.get("export_fits", True),
-                bin_size_ms=options.get("bin_size_ms", 10.0),
-            )
+            # Export data files
+            any_data_export = any([
+                options.get("export_intensity", True),
+                options.get("export_levels", True),
+                options.get("export_groups", True),
+                options.get("export_fits", True),
+            ])
 
-            self._set_status(f"Export complete: {len(files)} files", success=True)
+            if any_data_export:
+                files = export_batch(
+                    state=self._session_state,
+                    selections=selections,
+                    output_dir=self._output_dir,
+                    fmt=fmt,
+                    export_intensity=options.get("export_intensity", True),
+                    export_levels=options.get("export_levels", True),
+                    export_groups=options.get("export_groups", True),
+                    export_fits=options.get("export_fits", True),
+                    bin_size_ms=options.get("bin_size_ms", 10.0),
+                )
+                all_files.extend(files)
+
+            # Export plot files
+            any_plot_export = any([
+                options.get("export_intensity_plot", True),
+                options.get("export_decay_plot", True),
+                options.get("export_bic_plot", True),
+                options.get("export_correlation_plot", False),
+            ])
+
+            if any_plot_export:
+                for particle_id, channel in selections:
+                    particle = self._session_state.get_particle(particle_id)
+                    if particle is None:
+                        continue
+
+                    levels = self._session_state.get_levels(particle_id, channel)
+                    clustering = self._session_state.get_clustering(particle_id, channel)
+
+                    # Get fit result for the whole particle (level_or_group_id = -1 for particle-level fit)
+                    fit_result = self._session_state.get_fit_result(particle_id, channel, -1)
+
+                    # Build list of plots to export based on options
+                    plot_files = export_all_plots(
+                        particle=particle,
+                        channel=channel,
+                        output_dir=self._output_dir,
+                        levels=levels if options.get("export_intensity_plot", True) else None,
+                        clustering_result=clustering if options.get("export_bic_plot", True) else None,
+                        fit_result=fit_result if options.get("export_decay_plot", True) else None,
+                        bin_size_ms=options.get("bin_size_ms", 10.0),
+                        fmt=plot_fmt,
+                        dpi=options.get("plot_dpi", 150),
+                    )
+                    all_files.extend(plot_files)
+
+            self._set_status(f"Export complete: {len(all_files)} files", success=True)
             self._set_results(f"Files exported to: {self._output_dir}")
 
         except Exception as e:
