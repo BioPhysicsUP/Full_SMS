@@ -1,0 +1,572 @@
+"""Grouping analysis tab view.
+
+Provides the BIC optimization curve visualization and group count selection
+for hierarchical clustering results.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from typing import Callable, Optional
+
+import dearpygui.dearpygui as dpg
+
+from full_sms.models.group import ClusteringResult, GroupData
+from full_sms.ui.plots.bic_plot import BICPlot
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class GroupingTabTags:
+    """Tags for grouping tab elements."""
+
+    container: str = "grouping_tab_view_container"
+    controls_group: str = "grouping_tab_controls"
+    group_button: str = "grouping_tab_group_button"
+    reset_button: str = "grouping_tab_reset_button"
+    fit_view_button: str = "grouping_tab_fit_view"
+    info_text: str = "grouping_tab_info"
+    plot_container: str = "grouping_tab_plot_container"
+    plot_area: str = "grouping_tab_plot_area"
+    no_data_text: str = "grouping_tab_no_data"
+    # Results display
+    results_group: str = "grouping_tab_results_group"
+    results_header: str = "grouping_tab_results_header"
+    groups_text: str = "grouping_tab_groups_text"
+    bic_text: str = "grouping_tab_bic_text"
+    optimal_text: str = "grouping_tab_optimal_text"
+    # Group list
+    group_list_group: str = "grouping_tab_group_list_group"
+    group_list_header: str = "grouping_tab_group_list_header"
+    group_table: str = "grouping_tab_group_table"
+
+
+GROUPING_TAB_TAGS = GroupingTabTags()
+
+
+class GroupingTab:
+    """Grouping analysis tab view.
+
+    Contains the BIC optimization plot and controls for viewing clustering results
+    and selecting the number of groups.
+    """
+
+    def __init__(
+        self,
+        parent: int | str,
+        tag_prefix: str = "",
+    ) -> None:
+        """Initialize the grouping tab.
+
+        Args:
+            parent: The parent container to build the tab in.
+            tag_prefix: Optional prefix for tags to allow multiple instances.
+        """
+        self._parent = parent
+        self._tag_prefix = tag_prefix
+        self._is_built = False
+
+        # Data state
+        self._clustering_result: Optional[ClusteringResult] = None
+        self._selected_num_groups: int = 0
+
+        # Callbacks
+        self._on_group_count_changed: Callable[[int], None] | None = None
+        self._on_grouping_requested: Callable[[], None] | None = None
+
+        # UI components
+        self._bic_plot: BICPlot | None = None
+
+        # Generate unique tags
+        self._tags = GroupingTabTags(
+            container=f"{tag_prefix}grouping_tab_view_container",
+            controls_group=f"{tag_prefix}grouping_tab_controls",
+            group_button=f"{tag_prefix}grouping_tab_group_button",
+            reset_button=f"{tag_prefix}grouping_tab_reset_button",
+            fit_view_button=f"{tag_prefix}grouping_tab_fit_view",
+            info_text=f"{tag_prefix}grouping_tab_info",
+            plot_container=f"{tag_prefix}grouping_tab_plot_container",
+            plot_area=f"{tag_prefix}grouping_tab_plot_area",
+            no_data_text=f"{tag_prefix}grouping_tab_no_data",
+            results_group=f"{tag_prefix}grouping_tab_results_group",
+            results_header=f"{tag_prefix}grouping_tab_results_header",
+            groups_text=f"{tag_prefix}grouping_tab_groups_text",
+            bic_text=f"{tag_prefix}grouping_tab_bic_text",
+            optimal_text=f"{tag_prefix}grouping_tab_optimal_text",
+            group_list_group=f"{tag_prefix}grouping_tab_group_list_group",
+            group_list_header=f"{tag_prefix}grouping_tab_group_list_header",
+            group_table=f"{tag_prefix}grouping_tab_group_table",
+        )
+
+    @property
+    def tags(self) -> GroupingTabTags:
+        """Get the tags for this tab instance."""
+        return self._tags
+
+    @property
+    def bic_plot(self) -> BICPlot | None:
+        """Get the BIC plot widget."""
+        return self._bic_plot
+
+    @property
+    def has_data(self) -> bool:
+        """Whether the tab has clustering data loaded."""
+        return self._clustering_result is not None
+
+    @property
+    def clustering_result(self) -> Optional[ClusteringResult]:
+        """Get the current clustering result."""
+        return self._clustering_result
+
+    @property
+    def selected_num_groups(self) -> int:
+        """Get the currently selected number of groups."""
+        return self._selected_num_groups
+
+    def build(self) -> None:
+        """Build the tab UI structure."""
+        if self._is_built:
+            return
+
+        # Main container
+        with dpg.group(parent=self._parent, tag=self._tags.container):
+            # Controls bar at top
+            self._build_controls()
+
+            # Results display (hidden until clustering is done)
+            self._build_results_display()
+
+            # Separator
+            dpg.add_separator()
+
+            # Main content area with plot and group list side by side
+            with dpg.child_window(
+                tag=self._tags.plot_container,
+                border=False,
+                autosize_x=True,
+                autosize_y=True,
+            ):
+                # No data placeholder (shown when no clustering done)
+                dpg.add_text(
+                    "Run change point analysis and grouping to view BIC optimization curve.",
+                    tag=self._tags.no_data_text,
+                    color=(128, 128, 128),
+                )
+
+                # Plot area (hidden until data loaded)
+                with dpg.group(
+                    tag=self._tags.plot_area,
+                    horizontal=True,
+                    show=False,
+                ):
+                    # Left side: BIC plot
+                    with dpg.child_window(
+                        border=False,
+                        width=-250,  # Leave room for group list
+                        autosize_y=True,
+                    ):
+                        self._bic_plot = BICPlot(
+                            parent=dpg.last_item(),
+                            tag_prefix=f"{self._tag_prefix}main_",
+                        )
+                        self._bic_plot.build()
+                        self._bic_plot.set_on_group_selected(self._on_bic_point_selected)
+
+                    # Right side: Group list
+                    self._build_group_list()
+
+        self._is_built = True
+        logger.debug("Grouping tab built")
+
+    def _build_controls(self) -> None:
+        """Build the controls bar at the top of the tab."""
+        with dpg.group(horizontal=True, tag=self._tags.controls_group):
+            # Group button (opens grouping dialog or runs grouping)
+            dpg.add_button(
+                label="Group Current",
+                tag=self._tags.group_button,
+                callback=self._on_group_button_clicked,
+                enabled=False,
+            )
+
+            # Spacer
+            dpg.add_spacer(width=15)
+
+            # Reset to optimal button
+            dpg.add_button(
+                label="Reset to Optimal",
+                tag=self._tags.reset_button,
+                callback=self._on_reset_button_clicked,
+                enabled=False,
+            )
+
+            # Spacer
+            dpg.add_spacer(width=15)
+
+            # Fit view button
+            dpg.add_button(
+                label="Fit View",
+                tag=self._tags.fit_view_button,
+                callback=self._on_fit_view_clicked,
+                enabled=False,
+            )
+
+            # Spacer
+            dpg.add_spacer(width=30)
+
+            # Info text
+            dpg.add_text(
+                "",
+                tag=self._tags.info_text,
+                color=(128, 128, 128),
+            )
+
+    def _build_results_display(self) -> None:
+        """Build the results display section."""
+        # Results group (hidden until clustering is done)
+        with dpg.group(
+            tag=self._tags.results_group,
+            horizontal=True,
+            show=False,
+        ):
+            # Results header
+            dpg.add_text(
+                "Clustering:",
+                tag=self._tags.results_header,
+                color=(180, 180, 180),
+            )
+
+            dpg.add_spacer(width=15)
+
+            # Number of groups
+            dpg.add_text(
+                "",
+                tag=self._tags.groups_text,
+                color=(100, 180, 255),  # Blue
+            )
+
+            dpg.add_spacer(width=20)
+
+            # BIC value
+            dpg.add_text(
+                "",
+                tag=self._tags.bic_text,
+                color=(100, 220, 150),  # Green
+            )
+
+            dpg.add_spacer(width=20)
+
+            # Optimal indicator
+            dpg.add_text(
+                "",
+                tag=self._tags.optimal_text,
+                color=(255, 220, 100),  # Yellow
+            )
+
+    def _build_group_list(self) -> None:
+        """Build the group list panel."""
+        with dpg.child_window(
+            tag=self._tags.group_list_group,
+            width=240,
+            border=True,
+            autosize_y=True,
+        ):
+            # Header
+            dpg.add_text(
+                "Groups",
+                tag=self._tags.group_list_header,
+                color=(180, 180, 180),
+            )
+            dpg.add_separator()
+
+            # Group table
+            with dpg.table(
+                tag=self._tags.group_table,
+                header_row=True,
+                borders_innerH=True,
+                borders_outerH=True,
+                borders_innerV=True,
+                borders_outerV=True,
+                row_background=True,
+                resizable=True,
+            ):
+                dpg.add_table_column(label="ID", width_fixed=True, init_width_or_weight=30)
+                dpg.add_table_column(label="Levels")
+                dpg.add_table_column(label="Intensity (cps)")
+                dpg.add_table_column(label="Dwell (s)")
+
+    def _update_group_table(self, groups: tuple[GroupData, ...]) -> None:
+        """Update the group table with current groups.
+
+        Args:
+            groups: Tuple of GroupData objects to display.
+        """
+        if not dpg.does_item_exist(self._tags.group_table):
+            return
+
+        # Clear existing rows (keep header columns)
+        children = dpg.get_item_children(self._tags.group_table, 1)
+        if children:
+            for child in children:
+                dpg.delete_item(child)
+
+        # Add rows for each group
+        for group in groups:
+            with dpg.table_row(parent=self._tags.group_table):
+                dpg.add_text(str(group.group_id + 1))  # 1-indexed for display
+                dpg.add_text(str(group.num_levels))
+                dpg.add_text(f"{group.intensity_cps:,.0f}")
+                dpg.add_text(f"{group.total_dwell_time_s:.3f}")
+
+    def set_clustering_result(self, result: ClusteringResult) -> None:
+        """Set the clustering result and update displays.
+
+        Args:
+            result: The ClusteringResult from hierarchical clustering.
+        """
+        self._clustering_result = result
+        self._selected_num_groups = result.num_groups
+
+        # Update BIC plot
+        if self._bic_plot:
+            self._bic_plot.set_clustering_result(result)
+
+        # Update group table
+        self._update_group_table(result.groups)
+
+        # Show the plot area, hide placeholder
+        self._show_plot(True)
+
+        # Enable controls
+        self._enable_controls(True)
+
+        # Update results display
+        self._update_results_text()
+
+        # Show results section
+        if dpg.does_item_exist(self._tags.results_group):
+            dpg.configure_item(self._tags.results_group, show=True)
+
+        logger.debug(
+            f"Grouping tab updated: {result.num_steps} steps, "
+            f"{result.num_groups} groups selected"
+        )
+
+    def clear(self) -> None:
+        """Clear the tab data."""
+        self._clustering_result = None
+        self._selected_num_groups = 0
+
+        if self._bic_plot:
+            self._bic_plot.clear()
+
+        # Clear the group table
+        if dpg.does_item_exist(self._tags.group_table):
+            children = dpg.get_item_children(self._tags.group_table, 1)
+            if children:
+                for child in children:
+                    dpg.delete_item(child)
+
+        # Hide plot, show placeholder
+        self._show_plot(False)
+
+        # Disable controls
+        self._enable_controls(False)
+
+        # Hide results section
+        if dpg.does_item_exist(self._tags.results_group):
+            dpg.configure_item(self._tags.results_group, show=False)
+
+        # Clear info text
+        if dpg.does_item_exist(self._tags.info_text):
+            dpg.set_value(self._tags.info_text, "")
+
+        logger.debug("Grouping tab cleared")
+
+    def _show_plot(self, show: bool) -> None:
+        """Show or hide the plot area.
+
+        Args:
+            show: Whether to show the plot area (True) or placeholder (False).
+        """
+        if dpg.does_item_exist(self._tags.plot_area):
+            dpg.configure_item(self._tags.plot_area, show=show)
+
+        if dpg.does_item_exist(self._tags.no_data_text):
+            dpg.configure_item(self._tags.no_data_text, show=not show)
+
+    def _enable_controls(self, enable: bool) -> None:
+        """Enable or disable control buttons.
+
+        Args:
+            enable: Whether to enable the controls.
+        """
+        for tag in [
+            self._tags.reset_button,
+            self._tags.fit_view_button,
+        ]:
+            if dpg.does_item_exist(tag):
+                dpg.configure_item(tag, enabled=enable)
+
+    def _update_results_text(self) -> None:
+        """Update the results display text."""
+        if self._clustering_result is None:
+            return
+
+        result = self._clustering_result
+
+        # Number of groups
+        if dpg.does_item_exist(self._tags.groups_text):
+            dpg.set_value(
+                self._tags.groups_text,
+                f"{result.num_groups} groups"
+            )
+
+        # BIC value
+        if dpg.does_item_exist(self._tags.bic_text):
+            dpg.set_value(
+                self._tags.bic_text,
+                f"BIC = {result.selected_bic:.2f}"
+            )
+
+        # Optimal indicator
+        if dpg.does_item_exist(self._tags.optimal_text):
+            if result.is_optimal_selected:
+                dpg.set_value(self._tags.optimal_text, "(optimal)")
+                dpg.configure_item(self._tags.optimal_text, color=(100, 220, 150, 255))
+            else:
+                optimal_groups = result.steps[result.optimal_step_index].num_groups
+                dpg.set_value(
+                    self._tags.optimal_text,
+                    f"(optimal: {optimal_groups} groups)"
+                )
+                dpg.configure_item(self._tags.optimal_text, color=(255, 220, 100, 255))
+
+    def _on_bic_point_selected(self, num_groups: int) -> None:
+        """Handle BIC plot click to select group count.
+
+        Args:
+            num_groups: The number of groups selected.
+        """
+        if self._clustering_result is None:
+            return
+
+        # Find the step with this group count
+        for i, step in enumerate(self._clustering_result.steps):
+            if step.num_groups == num_groups:
+                # Update the clustering result with new selection
+                self._clustering_result = self._clustering_result.with_selected_step(i)
+                self._selected_num_groups = num_groups
+
+                # Update displays
+                self._update_group_table(self._clustering_result.groups)
+                self._update_results_text()
+
+                # Call callback if set
+                if self._on_group_count_changed:
+                    self._on_group_count_changed(num_groups)
+
+                logger.debug(f"User selected {num_groups} groups")
+                break
+
+    def _on_group_button_clicked(self) -> None:
+        """Handle group button click."""
+        if self._on_grouping_requested:
+            self._on_grouping_requested()
+        logger.debug("Group button clicked")
+
+    def _on_reset_button_clicked(self) -> None:
+        """Handle reset to optimal button click."""
+        if self._clustering_result is None:
+            return
+
+        # Reset to optimal step
+        optimal_index = self._clustering_result.optimal_step_index
+        optimal_groups = self._clustering_result.steps[optimal_index].num_groups
+
+        self._clustering_result = self._clustering_result.with_selected_step(optimal_index)
+        self._selected_num_groups = optimal_groups
+
+        # Update BIC plot selection
+        if self._bic_plot:
+            self._bic_plot.set_selected_num_groups(optimal_groups)
+
+        # Update displays
+        self._update_group_table(self._clustering_result.groups)
+        self._update_results_text()
+
+        # Call callback
+        if self._on_group_count_changed:
+            self._on_group_count_changed(optimal_groups)
+
+        logger.debug(f"Reset to optimal: {optimal_groups} groups")
+
+    def _on_fit_view_clicked(self) -> None:
+        """Handle fit view button click."""
+        if self._bic_plot:
+            self._bic_plot.fit_view()
+
+    def set_on_group_count_changed(
+        self, callback: Callable[[int], None]
+    ) -> None:
+        """Set callback for when group count changes.
+
+        Args:
+            callback: Function called when user selects different group count.
+                Receives the new number of groups.
+        """
+        self._on_group_count_changed = callback
+
+    def set_on_grouping_requested(
+        self, callback: Callable[[], None]
+    ) -> None:
+        """Set callback for when grouping button is clicked.
+
+        Args:
+            callback: Function called when user clicks the Group button.
+        """
+        self._on_grouping_requested = callback
+
+    def enable_group_button(self, enabled: bool = True) -> None:
+        """Enable or disable the Group button.
+
+        Args:
+            enabled: Whether to enable the button.
+        """
+        if dpg.does_item_exist(self._tags.group_button):
+            dpg.configure_item(self._tags.group_button, enabled=enabled)
+
+    def set_selected_groups(self, num_groups: int) -> None:
+        """Programmatically set the selected number of groups.
+
+        Args:
+            num_groups: Number of groups to select.
+        """
+        if self._clustering_result is None:
+            return
+
+        # Find the step with this group count
+        for i, step in enumerate(self._clustering_result.steps):
+            if step.num_groups == num_groups:
+                self._clustering_result = self._clustering_result.with_selected_step(i)
+                self._selected_num_groups = num_groups
+
+                # Update BIC plot
+                if self._bic_plot:
+                    self._bic_plot.set_selected_num_groups(num_groups)
+
+                # Update displays
+                self._update_group_table(self._clustering_result.groups)
+                self._update_results_text()
+                break
+
+    def update_info(self, text: str) -> None:
+        """Update the info text display.
+
+        Args:
+            text: Text to display in the info area.
+        """
+        if dpg.does_item_exist(self._tags.info_text):
+            dpg.set_value(self._tags.info_text, text)

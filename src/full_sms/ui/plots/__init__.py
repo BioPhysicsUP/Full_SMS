@@ -1,5 +1,9 @@
 """ImPlot wrappers for data visualization."""
 
+from full_sms.ui.plots.bic_plot import (
+    BICPlot,
+    BIC_COLORS,
+)
 from full_sms.ui.plots.decay_plot import (
     DecayPlot,
     DECAY_PLOT_TAGS,
@@ -15,6 +19,8 @@ from full_sms.ui.plots.intensity_plot import (
 )
 
 __all__ = [
+    "BICPlot",
+    "BIC_COLORS",
     "DecayPlot",
     "DECAY_PLOT_TAGS",
     "IntensityHistogram",

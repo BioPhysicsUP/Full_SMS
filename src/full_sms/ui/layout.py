@@ -11,8 +11,10 @@ from typing import Callable
 
 import dearpygui.dearpygui as dpg
 
+from full_sms.models.group import ClusteringResult
 from full_sms.models.particle import ParticleData
 from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState
+from full_sms.ui.views.grouping_tab import GroupingTab
 from full_sms.ui.views.intensity_tab import IntensityTab
 from full_sms.ui.views.lifetime_tab import LifetimeTab
 from full_sms.ui.widgets.particle_tree import ParticleTree
@@ -93,6 +95,7 @@ class MainLayout:
         self._status_bar: StatusBar | None = None
         self._intensity_tab: IntensityTab | None = None
         self._lifetime_tab: LifetimeTab | None = None
+        self._grouping_tab: GroupingTab | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -213,7 +216,11 @@ class MainLayout:
                         autosize_x=True,
                         autosize_y=True,
                     ):
-                        self._build_placeholder_tab("Grouping", ActiveTab.GROUPING)
+                        # Build the actual grouping tab view
+                        self._grouping_tab = GroupingTab(
+                            parent=LAYOUT_TAGS.tab_grouping,
+                        )
+                        self._grouping_tab.build()
 
                 # Spectra tab
                 with dpg.tab(label="Spectra", tag="tab_button_spectra"):
@@ -613,3 +620,33 @@ class MainLayout:
         """
         if self._lifetime_tab:
             self._lifetime_tab.set_log_scale(log_scale)
+
+    # Grouping tab methods
+
+    @property
+    def grouping_tab(self) -> GroupingTab | None:
+        """Get the grouping tab widget instance."""
+        return self._grouping_tab
+
+    def set_clustering_result(self, result: ClusteringResult) -> None:
+        """Set clustering result for the grouping tab.
+
+        Args:
+            result: The ClusteringResult from hierarchical clustering.
+        """
+        if self._grouping_tab:
+            self._grouping_tab.set_clustering_result(result)
+
+    def clear_grouping_data(self) -> None:
+        """Clear the grouping tab data."""
+        if self._grouping_tab:
+            self._grouping_tab.clear()
+
+    def enable_grouping_button(self, enabled: bool = True) -> None:
+        """Enable or disable the Group button in the grouping tab.
+
+        Args:
+            enabled: Whether to enable the button.
+        """
+        if self._grouping_tab:
+            self._grouping_tab.enable_group_button(enabled)
