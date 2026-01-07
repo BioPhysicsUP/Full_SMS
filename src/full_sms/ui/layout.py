@@ -11,9 +11,11 @@ from typing import Callable
 
 import dearpygui.dearpygui as dpg
 
+from full_sms.analysis.correlation import CorrelationResult
 from full_sms.models.group import ClusteringResult
 from full_sms.models.particle import ParticleData, RasterScanData, SpectraData
 from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState
+from full_sms.ui.views.correlation_tab import CorrelationTab
 from full_sms.ui.views.grouping_tab import GroupingTab
 from full_sms.ui.views.intensity_tab import IntensityTab
 from full_sms.ui.views.lifetime_tab import LifetimeTab
@@ -100,6 +102,7 @@ class MainLayout:
         self._grouping_tab: GroupingTab | None = None
         self._spectra_tab: SpectraTab | None = None
         self._raster_tab: RasterTab | None = None
+        self._correlation_tab: CorrelationTab | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -267,7 +270,11 @@ class MainLayout:
                         autosize_x=True,
                         autosize_y=True,
                     ):
-                        self._build_placeholder_tab("Correlation", ActiveTab.CORRELATION)
+                        # Build the actual correlation tab view
+                        self._correlation_tab = CorrelationTab(
+                            parent=LAYOUT_TAGS.tab_correlation,
+                        )
+                        self._correlation_tab.build()
 
                 # Export tab
                 with dpg.tab(label="Export", tag="tab_button_export"):
@@ -769,3 +776,58 @@ class MainLayout:
         """
         if self._raster_tab:
             self._raster_tab.set_file_has_raster(has_raster)
+
+    # Correlation tab methods
+
+    @property
+    def correlation_tab(self) -> CorrelationTab | None:
+        """Get the correlation tab widget instance."""
+        return self._correlation_tab
+
+    def set_correlation_data(
+        self,
+        abstimes1,
+        abstimes2,
+        microtimes1,
+        microtimes2,
+    ) -> None:
+        """Set dual-channel data for correlation analysis.
+
+        Args:
+            abstimes1: Absolute times for channel 1 in nanoseconds.
+            abstimes2: Absolute times for channel 2 in nanoseconds.
+            microtimes1: Micro times for channel 1 in nanoseconds.
+            microtimes2: Micro times for channel 2 in nanoseconds.
+        """
+        if self._correlation_tab:
+            self._correlation_tab.set_dual_channel_data(
+                abstimes1, abstimes2, microtimes1, microtimes2
+            )
+
+    def set_correlation_single_channel(self) -> None:
+        """Indicate that the current particle has only one TCSPC channel."""
+        if self._correlation_tab:
+            self._correlation_tab.set_single_channel()
+
+    def set_correlation_result(self, result: CorrelationResult) -> None:
+        """Set the correlation analysis result.
+
+        Args:
+            result: The CorrelationResult from calculate_g2.
+        """
+        if self._correlation_tab:
+            self._correlation_tab.set_correlation_result(result)
+
+    def clear_correlation_data(self) -> None:
+        """Clear the correlation tab data."""
+        if self._correlation_tab:
+            self._correlation_tab.clear()
+
+    def set_on_correlate(self, callback) -> None:
+        """Set callback for the correlate button.
+
+        Args:
+            callback: Function called with (window_ns, binsize_ns, difftime_ns).
+        """
+        if self._correlation_tab:
+            self._correlation_tab.set_on_correlate(callback)

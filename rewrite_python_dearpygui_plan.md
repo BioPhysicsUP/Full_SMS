@@ -587,7 +587,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 10.3: Implement correlation tab `[NEXT]`
+### Task 10.3: Implement correlation tab `[DONE]` (2026-01-07)
 **Objective**: Display antibunching / g2 correlation
 
 **Actions**:
@@ -606,7 +606,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 11: Export
 
-### Task 11.1: Implement data export `[TODO]`
+### Task 11.1: Implement data export `[NEXT]`
 **Objective**: Export analysis results to files
 
 **Actions**:
@@ -731,10 +731,10 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 7. Intensity Tab | 4 | 4 | 0 |
 | 8. Lifetime Tab | 4 | 4 | 0 |
 | 9. Grouping Tab | 3 | 3 | 0 |
-| 10. Additional Tabs | 3 | 2 | 1 |
+| 10. Additional Tabs | 3 | 3 | 0 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **34** | **8** |
+| **Total** | **42** | **35** | **7** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 10.2 completed - Raster scan tab with 2D heatmap display showing X/Y position in micrometers with intensity as color, colormap selection, and graceful fallback when raster data not present)*
+*Last Updated: 2026-01-07 (Task 10.3 completed - Correlation tab with g2 vs tau plot, window/bin size controls, channel offset correction, dual-channel detection, and correlation worker integration)*

@@ -25,7 +25,12 @@ from full_sms.ui.dialogs import FittingDialog, FittingParameters
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
 from full_sms.workers.pool import AnalysisPool, TaskResult
-from full_sms.workers.tasks import run_clustering_task, run_cpa_task, run_fit_task
+from full_sms.workers.tasks import (
+    run_clustering_task,
+    run_correlation_task,
+    run_cpa_task,
+    run_fit_task,
+)
 
 if TYPE_CHECKING:
     from full_sms.models.particle import ParticleData
@@ -61,6 +66,7 @@ class Application:
         self._pending_futures: list[Future] = []
         self._resolve_mode: str | None = None  # Track current resolve operation
         self._grouping_mode: str | None = None  # Track current grouping operation
+        self._correlation_pending: bool = False  # Track correlation operation
 
         # Fitting dialog and parameters
         self._fitting_dialog: FittingDialog | None = None
@@ -128,6 +134,12 @@ class Application:
             if self._layout.grouping_tab:
                 self._layout.grouping_tab.set_on_grouping_requested(
                     self._on_grouping_from_tab
+                )
+
+            # Set up correlation tab callback
+            if self._layout.correlation_tab:
+                self._layout.correlation_tab.set_on_correlate(
+                    self._on_correlate_from_tab
                 )
 
             # Create fitting dialog (must be after DearPyGui context is created)
@@ -291,6 +303,9 @@ class Application:
 
             # Update intensity display with levels if they exist
             self._update_intensity_display()
+
+            # Update correlation tab for dual-channel particles
+            self._update_correlation_display()
         else:
             logger.debug("Selection cleared")
 
@@ -751,6 +766,8 @@ class Application:
                 self._finish_resolve()
             elif self._grouping_mode is not None:
                 self._finish_grouping()
+            elif self._correlation_pending:
+                self._finish_correlation()
             else:
                 # Unknown operation type, just finish
                 self._session.processing.finish("Complete")
@@ -778,9 +795,12 @@ class Application:
         # Check if this is a clustering result (has "steps" key)
         elif "steps" in data:
             self._handle_clustering_result(particle_id, channel_id, data)
-        # Check if this is a fit result (has "tau" key)
-        elif "tau" in data:
+        # Check if this is a fit result (has "tau" key but not "g2")
+        elif "tau" in data and "g2" not in data:
             self._handle_fit_result(particle_id, channel_id, data)
+        # Check if this is a correlation result (has "g2" key)
+        elif "g2" in data:
+            self._handle_correlation_result(particle_id, data)
 
     def _handle_cpa_result(
         self, particle_id: int, channel_id: int, data: dict
@@ -948,6 +968,141 @@ class Application:
             self._layout.show_success(
                 f"Fit complete: tau = {tau_str} ns, chi2 = {fit_result.chi_squared:.3f}"
             )
+
+    def _handle_correlation_result(self, particle_id: int, data: dict) -> None:
+        """Handle completed correlation result.
+
+        Args:
+            particle_id: The particle ID.
+            data: The result data containing g2 correlation values.
+        """
+        from full_sms.analysis.correlation import CorrelationResult
+
+        # Create CorrelationResult from the data
+        result = CorrelationResult(
+            tau=np.array(data["tau"]),
+            g2=np.array(data["g2"]),
+            events=np.array(data["events"]),
+            window_ns=data["window_ns"],
+            binsize_ns=data["binsize_ns"],
+            num_photons_ch1=data["num_photons_ch1"],
+            num_photons_ch2=data["num_photons_ch2"],
+        )
+
+        logger.info(
+            f"Correlation complete for particle {particle_id}: "
+            f"{result.num_events} events, window={result.window_ns}ns"
+        )
+
+        # Update the correlation tab display
+        if self._layout:
+            self._layout.set_correlation_result(result)
+
+        # Finish processing
+        self._correlation_pending = False
+        self._session.processing.finish("Correlation complete")
+
+        # Show success message
+        if self._layout:
+            g2_zero = result.g2[len(result.g2) // 2] if len(result.g2) > 0 else 0
+            self._layout.show_success(
+                f"Correlation complete: {result.num_events:,} events, g2(0)={g2_zero}"
+            )
+
+    def _on_correlate_from_tab(
+        self, window_ns: float, binsize_ns: float, difftime_ns: float
+    ) -> None:
+        """Handle correlate request from the correlation tab.
+
+        Args:
+            window_ns: Correlation window in nanoseconds.
+            binsize_ns: Histogram bin size in nanoseconds.
+            difftime_ns: Channel time offset in nanoseconds.
+        """
+        logger.info(
+            f"Correlate from tab: window={window_ns}ns, binsize={binsize_ns}ns, "
+            f"offset={difftime_ns}ns"
+        )
+
+        # Check if already processing
+        if self._session.processing.is_busy:
+            logger.warning("Already processing, ignoring correlation request")
+            return
+
+        # Check if we have a current selection
+        if not self._session.current_selection:
+            logger.warning("No particle selected for correlation")
+            if self._layout:
+                self._layout.set_status("Select a particle for correlation")
+            return
+
+        selection = self._session.current_selection
+        particle = self._session.get_particle(selection.particle_id)
+        if particle is None:
+            logger.warning(f"Particle {selection.particle_id} not found")
+            return
+
+        # Check for dual channel
+        if not particle.has_dual_channel:
+            logger.warning("Particle does not have dual channels")
+            if self._layout:
+                self._layout.set_status("Correlation requires dual-channel data")
+            return
+
+        # Start processing
+        self._correlation_pending = True
+        self._session.processing.start("Correlation", "Calculating g2...")
+
+        # Disable correlate button
+        if self._layout and self._layout.correlation_tab:
+            self._layout.correlation_tab.enable_correlate_button(False)
+
+        # Submit correlation task
+        self._submit_correlation_task(particle, window_ns, binsize_ns, difftime_ns)
+
+    def _submit_correlation_task(
+        self,
+        particle,
+        window_ns: float,
+        binsize_ns: float,
+        difftime_ns: float,
+    ) -> None:
+        """Submit a correlation task to the worker pool.
+
+        Args:
+            particle: The particle with dual-channel data.
+            window_ns: Correlation window in nanoseconds.
+            binsize_ns: Histogram bin size in nanoseconds.
+            difftime_ns: Channel time offset in nanoseconds.
+        """
+        if not self._pool:
+            logger.error("Worker pool not initialized")
+            return
+
+        params = {
+            "abstimes1": particle.channel1.abstimes.astype(np.float64),
+            "abstimes2": particle.channel2.abstimes.astype(np.float64),
+            "microtimes1": particle.channel1.microtimes,
+            "microtimes2": particle.channel2.microtimes,
+            "window_ns": window_ns,
+            "binsize_ns": binsize_ns,
+            "difftime_ns": difftime_ns,
+            "particle_id": particle.id,
+        }
+
+        future = self._pool.submit(run_correlation_task, params)
+        self._pending_futures.append(future)
+
+        logger.info(f"Submitted correlation task for particle {particle.id}")
+
+    def _finish_correlation(self) -> None:
+        """Finish the correlation operation and update the UI."""
+        self._correlation_pending = False
+        self._session.processing.finish("Correlation complete")
+
+        # Re-enable correlate button
+        if self._layout and self._layout.correlation_tab:
+            self._layout.correlation_tab.enable_correlate_button(True)
 
     def _finish_resolve(self) -> None:
         """Finish the resolve operation and update the UI."""
@@ -1190,6 +1345,36 @@ class Application:
         levels = self._session.get_current_levels()
         if levels:
             self._layout.intensity_tab.set_levels(levels)
+
+    def _update_correlation_display(self) -> None:
+        """Update the correlation tab display for the current selection."""
+        if not self._layout or not self._layout.correlation_tab:
+            return
+
+        if not self._session.current_selection:
+            self._layout.clear_correlation_data()
+            return
+
+        # Get the current particle
+        particle = self._session.get_particle(
+            self._session.current_selection.particle_id
+        )
+        if particle is None:
+            self._layout.clear_correlation_data()
+            return
+
+        # Check if this particle has dual channels
+        if particle.has_dual_channel and particle.channel2 is not None:
+            # Set dual-channel data
+            self._layout.set_correlation_data(
+                particle.channel1.abstimes,
+                particle.channel2.abstimes,
+                particle.channel1.microtimes,
+                particle.channel2.microtimes,
+            )
+        else:
+            # Single channel - show message
+            self._layout.set_correlation_single_channel()
 
     def _update_resolve_buttons_state(self) -> None:
         """Update resolve button states based on current selections."""
