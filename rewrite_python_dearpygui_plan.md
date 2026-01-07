@@ -657,7 +657,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 12.2: Implement keyboard shortcuts `[NEXT]`
+### Task 12.2: Implement keyboard shortcuts `[DONE]` (2026-01-07)
 **Objective**: Add productivity shortcuts
 
 **Actions**:
@@ -673,7 +673,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 12.3: Implement file dialogs `[TODO]`
+### Task 12.3: Implement file dialogs `[NEXT]`
 **Objective**: Native file open/save dialogs
 
 **Actions**:
@@ -733,8 +733,8 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 9. Grouping Tab | 3 | 3 | 0 |
 | 10. Additional Tabs | 3 | 3 | 0 |
 | 11. Export | 2 | 2 | 0 |
-| 12. Polish | 5 | 1 | 4 |
-| **Total** | **42** | **38** | **4** |
+| 12. Polish | 5 | 2 | 3 |
+| **Total** | **42** | **39** | **3** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 12.1 completed - Settings dialog with config.py for persistent JSON settings, three tabs for CPA/lifetime/display settings, integrated into app menu)*
+*Last Updated: 2026-01-07 (Task 12.2 completed - Keyboard shortcuts with Cmd/Ctrl+O/S/E/R and Ctrl+Tab navigation)*

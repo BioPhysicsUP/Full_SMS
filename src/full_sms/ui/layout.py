@@ -372,6 +372,22 @@ class MainLayout:
         if tab in tab_button_map and dpg.does_item_exist(tab_button_map[tab]):
             dpg.set_value(LAYOUT_TAGS.tab_bar, tab_button_map[tab])
             self._active_tab = tab
+            if self._on_tab_change:
+                self._on_tab_change(tab)
+
+    def next_tab(self) -> None:
+        """Switch to the next tab (wraps around)."""
+        tabs = list(ActiveTab)
+        current_index = tabs.index(self._active_tab)
+        next_index = (current_index + 1) % len(tabs)
+        self.set_active_tab(tabs[next_index])
+
+    def prev_tab(self) -> None:
+        """Switch to the previous tab (wraps around)."""
+        tabs = list(ActiveTab)
+        current_index = tabs.index(self._active_tab)
+        prev_index = (current_index - 1) % len(tabs)
+        self.set_active_tab(tabs[prev_index])
 
     # Status bar methods
 

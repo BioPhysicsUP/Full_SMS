@@ -23,6 +23,7 @@ from full_sms.models.session import (
 )
 from full_sms.config import Settings, get_settings, save_settings
 from full_sms.ui.dialogs import FittingDialog, FittingParameters, SettingsDialog
+from full_sms.ui.keyboard import KeyboardShortcuts, ShortcutHandler
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
 from full_sms.workers.pool import AnalysisPool, TaskResult
@@ -76,6 +77,9 @@ class Application:
         # Settings dialog
         self._settings_dialog: SettingsDialog | None = None
 
+        # Keyboard shortcuts
+        self._keyboard: KeyboardShortcuts | None = None
+
     def setup(self) -> None:
         """Set up the DearPyGui context, viewport, and UI."""
         logger.info("Initializing Full SMS application")
@@ -103,6 +107,9 @@ class Application:
 
         # Create the main UI
         self._create_main_window()
+
+        # Set up keyboard shortcuts
+        self._setup_keyboard_shortcuts()
 
         # Set up DearPyGui
         dpg.setup_dearpygui()
@@ -275,6 +282,46 @@ class Application:
                     label="About Full SMS",
                     callback=self._on_about,
                 )
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        """Set up global keyboard shortcuts."""
+        handlers = ShortcutHandler(
+            on_open=self._on_open_h5,
+            on_save=self._on_save_session,
+            on_export=self._on_export_shortcut,
+            on_resolve=self._on_resolve_current_shortcut,
+            on_next_tab=self._on_next_tab,
+            on_prev_tab=self._on_prev_tab,
+            on_select_all=self._on_select_all,
+            on_quit=self._on_exit,
+        )
+        self._keyboard = KeyboardShortcuts(handlers)
+        self._keyboard.build()
+
+    def _on_export_shortcut(self) -> None:
+        """Handle Cmd/Ctrl+E shortcut to switch to export tab."""
+        logger.info("Export shortcut triggered")
+        if self._layout:
+            from full_sms.models.session import ActiveTab
+            self._layout.set_active_tab(ActiveTab.EXPORT)
+
+    def _on_resolve_current_shortcut(self) -> None:
+        """Handle Cmd/Ctrl+R shortcut to resolve current particle."""
+        logger.info("Resolve current shortcut triggered")
+        if self._session.current_selection:
+            self._on_resolve("current")
+        else:
+            self.set_status("Select a particle to resolve")
+
+    def _on_next_tab(self) -> None:
+        """Handle Ctrl+Tab shortcut to navigate to next tab."""
+        if self._layout:
+            self._layout.next_tab()
+
+    def _on_prev_tab(self) -> None:
+        """Handle Ctrl+Shift+Tab shortcut to navigate to previous tab."""
+        if self._layout:
+            self._layout.prev_tab()
 
     def set_status(self, message: str) -> None:
         """Update the status bar message.
@@ -1426,6 +1473,10 @@ class Application:
         if self._pool:
             self._pool.shutdown(wait=False, cancel_futures=True)
             logger.info("Worker pool shutdown")
+
+        # Clean up keyboard shortcuts
+        if self._keyboard:
+            self._keyboard.destroy()
 
         dpg.destroy_context()
         logger.info("Application shutdown complete")
