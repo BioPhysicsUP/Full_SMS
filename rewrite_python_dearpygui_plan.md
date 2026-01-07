@@ -560,7 +560,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 10: Additional Tabs
 
-### Task 10.1: Implement spectra tab `[NEXT]`
+### Task 10.1: Implement spectra tab `[DONE]` (2026-01-07)
 **Objective**: Display spectral data if present in file
 
 **Actions**:
@@ -573,7 +573,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 10.2: Implement raster scan tab `[TODO]`
+### Task 10.2: Implement raster scan tab `[NEXT]`
 **Objective**: Display 2D raster scan image if present
 
 **Actions**:
@@ -731,10 +731,10 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 7. Intensity Tab | 4 | 4 | 0 |
 | 8. Lifetime Tab | 4 | 4 | 0 |
 | 9. Grouping Tab | 3 | 3 | 0 |
-| 10. Additional Tabs | 3 | 0 | 3 |
+| 10. Additional Tabs | 3 | 1 | 2 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **32** | **10** |
+| **Total** | **42** | **33** | **9** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 9.3 completed - Grouping controls with Group Current/Selected/All buttons, use lifetime toggle, group count slider, and global grouping mode)*
+*Last Updated: 2026-01-07 (Task 10.1 completed - Spectra tab with 2D heatmap display showing time vs wavelength with intensity as color, colormap selection, and graceful fallback when spectra not present)*

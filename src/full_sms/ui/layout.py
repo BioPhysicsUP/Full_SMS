@@ -12,11 +12,12 @@ from typing import Callable
 import dearpygui.dearpygui as dpg
 
 from full_sms.models.group import ClusteringResult
-from full_sms.models.particle import ParticleData
+from full_sms.models.particle import ParticleData, SpectraData
 from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState
 from full_sms.ui.views.grouping_tab import GroupingTab
 from full_sms.ui.views.intensity_tab import IntensityTab
 from full_sms.ui.views.lifetime_tab import LifetimeTab
+from full_sms.ui.views.spectra_tab import SpectraTab
 from full_sms.ui.widgets.particle_tree import ParticleTree
 from full_sms.ui.widgets.status_bar import StatusBar
 
@@ -96,6 +97,7 @@ class MainLayout:
         self._intensity_tab: IntensityTab | None = None
         self._lifetime_tab: LifetimeTab | None = None
         self._grouping_tab: GroupingTab | None = None
+        self._spectra_tab: SpectraTab | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -235,7 +237,11 @@ class MainLayout:
                         autosize_x=True,
                         autosize_y=True,
                     ):
-                        self._build_placeholder_tab("Spectra", ActiveTab.SPECTRA)
+                        # Build the actual spectra tab view
+                        self._spectra_tab = SpectraTab(
+                            parent=LAYOUT_TAGS.tab_spectra,
+                        )
+                        self._spectra_tab.build()
 
                 # Raster tab
                 with dpg.tab(label="Raster", tag="tab_button_raster"):
@@ -687,3 +693,38 @@ class MainLayout:
 
         if self._grouping_tab:
             self._grouping_tab.clear_selected_group()
+
+    # Spectra tab methods
+
+    @property
+    def spectra_tab(self) -> SpectraTab | None:
+        """Get the spectra tab widget instance."""
+        return self._spectra_tab
+
+    def set_spectra_data(self, spectra: SpectraData) -> None:
+        """Set spectra data for the current particle.
+
+        Args:
+            spectra: The SpectraData object containing the spectral time series.
+        """
+        if self._spectra_tab:
+            self._spectra_tab.set_data(spectra)
+
+    def set_spectra_unavailable(self) -> None:
+        """Indicate that the current particle has no spectra data."""
+        if self._spectra_tab:
+            self._spectra_tab.set_no_spectra()
+
+    def clear_spectra_data(self) -> None:
+        """Clear the spectra tab data."""
+        if self._spectra_tab:
+            self._spectra_tab.clear()
+
+    def set_file_has_spectra(self, has_spectra: bool) -> None:
+        """Set whether the loaded file has any spectra data.
+
+        Args:
+            has_spectra: Whether any particles in the file have spectra.
+        """
+        if self._spectra_tab:
+            self._spectra_tab.set_file_has_spectra(has_spectra)

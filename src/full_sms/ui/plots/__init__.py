@@ -17,6 +17,10 @@ from full_sms.ui.plots.intensity_plot import (
     INTENSITY_PLOT_TAGS,
     LEVEL_COLORS,
 )
+from full_sms.ui.plots.spectra_plot import (
+    SpectraPlot,
+    SPECTRA_PLOT_TAGS,
+)
 
 __all__ = [
     "BICPlot",
@@ -28,4 +32,6 @@ __all__ = [
     "IntensityPlot",
     "INTENSITY_PLOT_TAGS",
     "LEVEL_COLORS",
+    "SpectraPlot",
+    "SPECTRA_PLOT_TAGS",
 ]

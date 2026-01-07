@@ -14,7 +14,7 @@ import h5py
 import numpy as np
 from numpy.typing import NDArray
 
-from full_sms.models.particle import ChannelData, ParticleData
+from full_sms.models.particle import ChannelData, ParticleData, SpectraData
 from full_sms.models.session import FileMetadata
 
 
@@ -161,6 +161,46 @@ def _has_spectra(particle_group: h5py.Group) -> bool:
     return "Spectra (counts\\s)" in particle_group
 
 
+def _read_spectra_data(particle_group: h5py.Group) -> Optional[SpectraData]:
+    """Read spectral data from a particle group if present.
+
+    Args:
+        particle_group: The HDF5 group for the particle.
+
+    Returns:
+        SpectraData if spectra is present, None otherwise.
+    """
+    dataset_name = "Spectra (counts\\s)"
+    if dataset_name not in particle_group:
+        return None
+
+    try:
+        spectra_dataset = particle_group[dataset_name]
+
+        # Read the spectra data array
+        data = np.array(spectra_dataset, dtype=np.float64)
+
+        # Read attributes
+        wavelengths = np.array(spectra_dataset.attrs.get("Wavelengths", []), dtype=np.float64)
+        series_times = np.array(
+            spectra_dataset.attrs.get("Spectra Abs. Times (s)", []), dtype=np.float64
+        )
+        exposure_time = float(spectra_dataset.attrs.get("Exposure Times (s)", 0.0))
+
+        # Validate data
+        if data.size == 0 or len(wavelengths) == 0:
+            return None
+
+        return SpectraData(
+            data=data,
+            wavelengths=wavelengths,
+            series_times=series_times,
+            exposure_time=exposure_time,
+        )
+    except (KeyError, ValueError, TypeError):
+        return None
+
+
 def _has_raster_scan(particle_group: h5py.Group) -> bool:
     """Check if particle has raster scan data."""
     return "Raster Scan" in particle_group
@@ -230,9 +270,11 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
             tcspc_card = _get_tcspc_card(particle_group, version)
             channelwidth = _determine_channelwidth(channel1.microtimes)
 
-            # Track file-level features
+            # Track file-level features and load optional data
+            spectra_data = None
             if _has_spectra(particle_group):
                 has_spectra = True
+                spectra_data = _read_spectra_data(particle_group)
             if _has_raster_scan(particle_group):
                 has_raster = True
 
@@ -244,6 +286,7 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
                 channel1=channel1,
                 channel2=channel2,
                 description=description,
+                spectra=spectra_data,
             )
             particles.append(particle)
 
