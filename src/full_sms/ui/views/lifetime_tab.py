@@ -1,0 +1,334 @@
+"""Lifetime analysis tab view.
+
+Provides the fluorescence decay histogram visualization with:
+- Decay plot showing TCSPC histogram
+- Log/linear scale toggle
+- Basic plot controls
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from typing import Callable
+
+import dearpygui.dearpygui as dpg
+import numpy as np
+from numpy.typing import NDArray
+
+from full_sms.ui.plots.decay_plot import DecayPlot
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LifetimeTabTags:
+    """Tags for lifetime tab elements."""
+
+    container: str = "lifetime_tab_view_container"
+    controls_group: str = "lifetime_tab_controls"
+    log_scale_checkbox: str = "lifetime_tab_log_scale"
+    fit_view_button: str = "lifetime_tab_fit_view"
+    info_text: str = "lifetime_tab_info"
+    plot_container: str = "lifetime_tab_plot_container"
+    plot_area: str = "lifetime_tab_plot_area"
+    no_data_text: str = "lifetime_tab_no_data"
+
+
+LIFETIME_TAB_TAGS = LifetimeTabTags()
+
+
+class LifetimeTab:
+    """Lifetime analysis tab view.
+
+    Contains the decay histogram plot and controls for scale adjustment.
+    """
+
+    def __init__(
+        self,
+        parent: int | str,
+        tag_prefix: str = "",
+    ) -> None:
+        """Initialize the lifetime tab.
+
+        Args:
+            parent: The parent container to build the tab in.
+            tag_prefix: Optional prefix for tags to allow multiple instances.
+        """
+        self._parent = parent
+        self._tag_prefix = tag_prefix
+        self._is_built = False
+
+        # Data state
+        self._microtimes: NDArray[np.float64] | None = None
+        self._channelwidth: float = 0.1  # Default 100ps
+        self._log_scale: bool = True
+
+        # Callbacks
+        self._on_log_scale_changed: Callable[[bool], None] | None = None
+
+        # UI components
+        self._decay_plot: DecayPlot | None = None
+
+        # Generate unique tags
+        self._tags = LifetimeTabTags(
+            container=f"{tag_prefix}lifetime_tab_view_container",
+            controls_group=f"{tag_prefix}lifetime_tab_controls",
+            log_scale_checkbox=f"{tag_prefix}lifetime_tab_log_scale",
+            fit_view_button=f"{tag_prefix}lifetime_tab_fit_view",
+            info_text=f"{tag_prefix}lifetime_tab_info",
+            plot_container=f"{tag_prefix}lifetime_tab_plot_container",
+            plot_area=f"{tag_prefix}lifetime_tab_plot_area",
+            no_data_text=f"{tag_prefix}lifetime_tab_no_data",
+        )
+
+    @property
+    def tags(self) -> LifetimeTabTags:
+        """Get the tags for this tab instance."""
+        return self._tags
+
+    @property
+    def log_scale(self) -> bool:
+        """Get the current log scale setting."""
+        return self._log_scale
+
+    @property
+    def decay_plot(self) -> DecayPlot | None:
+        """Get the decay plot widget."""
+        return self._decay_plot
+
+    def build(self) -> None:
+        """Build the tab UI structure."""
+        if self._is_built:
+            return
+
+        # Main container
+        with dpg.group(parent=self._parent, tag=self._tags.container):
+            # Controls bar at top
+            self._build_controls()
+
+            # Separator
+            dpg.add_separator()
+
+            # Plot area (takes remaining space)
+            with dpg.child_window(
+                tag=self._tags.plot_container,
+                border=False,
+                autosize_x=True,
+                autosize_y=True,
+            ):
+                # No data placeholder (shown when no data loaded)
+                dpg.add_text(
+                    "Load an HDF5 file and select a particle to view decay histogram.",
+                    tag=self._tags.no_data_text,
+                    color=(128, 128, 128),
+                )
+
+                # Plot area
+                with dpg.group(
+                    tag=self._tags.plot_area,
+                    show=False,  # Hidden until data loaded
+                ):
+                    # Main decay plot
+                    self._decay_plot = DecayPlot(
+                        parent=self._tags.plot_area,
+                        tag_prefix=f"{self._tag_prefix}main_",
+                    )
+                    self._decay_plot.build()
+
+        self._is_built = True
+        logger.debug("Lifetime tab built")
+
+    def _build_controls(self) -> None:
+        """Build the controls bar at the top of the tab."""
+        with dpg.group(horizontal=True, tag=self._tags.controls_group):
+            # Log scale toggle
+            dpg.add_checkbox(
+                label="Log Scale",
+                tag=self._tags.log_scale_checkbox,
+                default_value=self._log_scale,
+                callback=self._on_log_scale_checkbox_changed,
+                enabled=False,
+            )
+
+            # Spacer
+            dpg.add_spacer(width=20)
+
+            # Fit view button
+            dpg.add_button(
+                label="Fit View",
+                tag=self._tags.fit_view_button,
+                callback=self._on_fit_view_clicked,
+                enabled=False,
+            )
+
+            # Spacer
+            dpg.add_spacer(width=30)
+
+            # Info text (shows photon count, time range)
+            dpg.add_text(
+                "",
+                tag=self._tags.info_text,
+                color=(128, 128, 128),
+            )
+
+    def _on_log_scale_checkbox_changed(
+        self, sender: int, app_data: bool
+    ) -> None:
+        """Handle log scale checkbox changes.
+
+        Args:
+            sender: The checkbox widget.
+            app_data: The new checkbox value.
+        """
+        self._log_scale = app_data
+
+        # Update the plot
+        if self._decay_plot:
+            self._decay_plot.set_log_scale(app_data)
+
+        # Call callback if set
+        if self._on_log_scale_changed:
+            self._on_log_scale_changed(app_data)
+
+        logger.debug(f"Log scale changed to {app_data}")
+
+    def _on_fit_view_clicked(self) -> None:
+        """Handle fit view button click."""
+        if self._decay_plot:
+            self._decay_plot.fit_view()
+
+    def set_data(
+        self,
+        microtimes: NDArray[np.float64],
+        channelwidth: float,
+    ) -> None:
+        """Set the microtime data.
+
+        Args:
+            microtimes: TCSPC microtime values in nanoseconds.
+            channelwidth: TCSPC channel width in nanoseconds.
+        """
+        self._microtimes = microtimes
+        self._channelwidth = channelwidth
+
+        if len(microtimes) == 0:
+            self.clear()
+            return
+
+        # Update plot
+        if self._decay_plot:
+            self._decay_plot.set_data(microtimes, channelwidth)
+
+        # Show plot, hide placeholder
+        self._show_plot(True)
+
+        # Enable controls
+        if dpg.does_item_exist(self._tags.fit_view_button):
+            dpg.configure_item(self._tags.fit_view_button, enabled=True)
+
+        if dpg.does_item_exist(self._tags.log_scale_checkbox):
+            dpg.configure_item(self._tags.log_scale_checkbox, enabled=True)
+
+        # Update info text
+        self._update_info_text()
+
+        logger.debug(f"Lifetime tab data set: {len(microtimes)} photons")
+
+    def clear(self) -> None:
+        """Clear the tab data."""
+        self._microtimes = None
+
+        if self._decay_plot:
+            self._decay_plot.clear()
+
+        # Hide plot, show placeholder
+        self._show_plot(False)
+
+        # Disable controls
+        if dpg.does_item_exist(self._tags.fit_view_button):
+            dpg.configure_item(self._tags.fit_view_button, enabled=False)
+
+        if dpg.does_item_exist(self._tags.log_scale_checkbox):
+            dpg.configure_item(self._tags.log_scale_checkbox, enabled=False)
+
+        # Clear info text
+        if dpg.does_item_exist(self._tags.info_text):
+            dpg.set_value(self._tags.info_text, "")
+
+        logger.debug("Lifetime tab cleared")
+
+    def _show_plot(self, show: bool) -> None:
+        """Show or hide the plot area.
+
+        Args:
+            show: Whether to show the plot area (True) or placeholder (False).
+        """
+        # Show/hide the plot area
+        if dpg.does_item_exist(self._tags.plot_area):
+            dpg.configure_item(self._tags.plot_area, show=show)
+
+        # Show/hide the no data placeholder
+        if dpg.does_item_exist(self._tags.no_data_text):
+            dpg.configure_item(self._tags.no_data_text, show=not show)
+
+    def _update_info_text(self) -> None:
+        """Update the info text with current data stats."""
+        if not dpg.does_item_exist(self._tags.info_text):
+            return
+
+        if self._microtimes is None or len(self._microtimes) == 0:
+            dpg.set_value(self._tags.info_text, "")
+            return
+
+        # Calculate stats
+        num_photons = len(self._microtimes)
+        time_range = self._decay_plot.get_time_range() if self._decay_plot else None
+        max_counts = self._decay_plot.get_max_counts() if self._decay_plot else None
+
+        if time_range and max_counts:
+            duration_ns = time_range[1] - time_range[0]
+            info = (
+                f"{num_photons:,} photons | "
+                f"{duration_ns:.1f} ns range | "
+                f"Max: {max_counts:,} counts | "
+                f"Channel: {self._channelwidth:.3f} ns"
+            )
+        else:
+            info = f"{num_photons:,} photons | Channel: {self._channelwidth:.3f} ns"
+
+        dpg.set_value(self._tags.info_text, info)
+
+    def set_on_log_scale_changed(self, callback: Callable[[bool], None]) -> None:
+        """Set callback for log scale changes.
+
+        Args:
+            callback: Function called when log scale changes, receives new value.
+        """
+        self._on_log_scale_changed = callback
+
+    def set_log_scale(self, log_scale: bool) -> None:
+        """Programmatically set the log scale.
+
+        Args:
+            log_scale: Whether to use log scale.
+        """
+        self._log_scale = log_scale
+
+        # Update checkbox
+        if dpg.does_item_exist(self._tags.log_scale_checkbox):
+            dpg.set_value(self._tags.log_scale_checkbox, log_scale)
+
+        # Update plot
+        if self._decay_plot:
+            self._decay_plot.set_log_scale(log_scale)
+
+    @property
+    def has_data(self) -> bool:
+        """Whether the tab has data loaded."""
+        return self._microtimes is not None and len(self._microtimes) > 0
+
+    @property
+    def channelwidth(self) -> float:
+        """Get the current channel width in nanoseconds."""
+        return self._channelwidth

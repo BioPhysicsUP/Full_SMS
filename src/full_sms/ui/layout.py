@@ -14,6 +14,7 @@ import dearpygui.dearpygui as dpg
 from full_sms.models.particle import ParticleData
 from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState
 from full_sms.ui.views.intensity_tab import IntensityTab
+from full_sms.ui.views.lifetime_tab import LifetimeTab
 from full_sms.ui.widgets.particle_tree import ParticleTree
 from full_sms.ui.widgets.status_bar import StatusBar
 
@@ -91,6 +92,7 @@ class MainLayout:
         self._particle_tree: ParticleTree | None = None
         self._status_bar: StatusBar | None = None
         self._intensity_tab: IntensityTab | None = None
+        self._lifetime_tab: LifetimeTab | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -197,7 +199,11 @@ class MainLayout:
                         autosize_x=True,
                         autosize_y=True,
                     ):
-                        self._build_placeholder_tab("Lifetime", ActiveTab.LIFETIME)
+                        # Build the actual lifetime tab view
+                        self._lifetime_tab = LifetimeTab(
+                            parent=LAYOUT_TAGS.tab_lifetime,
+                        )
+                        self._lifetime_tab.build()
 
                 # Grouping tab
                 with dpg.tab(label="Grouping", tag="tab_button_grouping"):
@@ -576,3 +582,34 @@ class MainLayout:
         """
         if self._intensity_tab:
             self._intensity_tab.set_bin_size(bin_size_ms)
+
+    # Lifetime tab methods
+
+    @property
+    def lifetime_tab(self) -> LifetimeTab | None:
+        """Get the lifetime tab widget instance."""
+        return self._lifetime_tab
+
+    def set_lifetime_data(self, microtimes, channelwidth: float) -> None:
+        """Set decay histogram data for the current particle.
+
+        Args:
+            microtimes: TCSPC microtime values in nanoseconds.
+            channelwidth: TCSPC channel width in nanoseconds.
+        """
+        if self._lifetime_tab:
+            self._lifetime_tab.set_data(microtimes, channelwidth)
+
+    def clear_lifetime_data(self) -> None:
+        """Clear the lifetime tab data."""
+        if self._lifetime_tab:
+            self._lifetime_tab.clear()
+
+    def set_lifetime_log_scale(self, log_scale: bool) -> None:
+        """Set the lifetime plot log scale.
+
+        Args:
+            log_scale: Whether to use log scale.
+        """
+        if self._lifetime_tab:
+            self._lifetime_tab.set_log_scale(log_scale)
