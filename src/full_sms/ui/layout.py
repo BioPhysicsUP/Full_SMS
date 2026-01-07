@@ -11,7 +11,9 @@ from typing import Callable
 
 import dearpygui.dearpygui as dpg
 
-from full_sms.models.session import ActiveTab
+from full_sms.models.particle import ParticleData
+from full_sms.models.session import ActiveTab, ChannelSelection
+from full_sms.ui.widgets.particle_tree import ParticleTree
 
 
 # Layout configuration
@@ -82,6 +84,9 @@ class MainLayout:
         self._parent = parent
         self._active_tab: ActiveTab = ActiveTab.INTENSITY
         self._on_tab_change: Callable[[ActiveTab], None] | None = None
+        self._on_selection_change: Callable[[ChannelSelection | None], None] | None = None
+        self._on_batch_change: Callable[[list[ChannelSelection]], None] | None = None
+        self._particle_tree: ParticleTree | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -102,7 +107,7 @@ class MainLayout:
         self._is_built = True
 
     def _build_sidebar(self) -> None:
-        """Build the left sidebar with particle tree placeholder."""
+        """Build the left sidebar with particle tree."""
         with dpg.child_window(
             tag=LAYOUT_TAGS.sidebar,
             width=SIDEBAR_WIDTH,
@@ -113,21 +118,20 @@ class MainLayout:
             dpg.add_text("Particles", color=(180, 180, 180))
             dpg.add_separator()
 
-            # Placeholder for particle tree (will be replaced in Task 6.3)
+            # Particle tree container
             with dpg.child_window(
                 tag=LAYOUT_TAGS.particle_tree_placeholder,
                 autosize_x=True,
                 height=-60,  # Leave room for controls at bottom
                 border=False,
             ):
-                dpg.add_text(
-                    "No file loaded",
-                    color=(128, 128, 128),
+                # Build the particle tree widget
+                self._particle_tree = ParticleTree(
+                    parent=LAYOUT_TAGS.particle_tree_placeholder,
+                    on_selection_changed=self._on_particle_selection_changed,
+                    on_batch_changed=self._on_particle_batch_changed,
                 )
-                dpg.add_text(
-                    "Use File > Open H5 to load data",
-                    color=(100, 100, 100),
-                )
+                self._particle_tree.build()
 
             # Bottom controls
             dpg.add_separator()
@@ -138,12 +142,14 @@ class MainLayout:
                         width=85,
                         enabled=False,
                         tag="sidebar_select_all",
+                        callback=self._on_select_all_clicked,
                     )
                     dpg.add_button(
                         label="Clear",
                         width=85,
                         enabled=False,
                         tag="sidebar_clear_selection",
+                        callback=self._on_clear_selection_clicked,
                     )
                 # Selection info
                 dpg.add_text(
@@ -387,16 +393,16 @@ class MainLayout:
         if dpg.does_item_exist(LAYOUT_TAGS.progress_bar):
             dpg.configure_item(LAYOUT_TAGS.progress_bar, show=False)
 
-    # Sidebar methods (placeholders for Task 6.3)
+    # Sidebar methods
 
     def update_selection_info(self, count: int) -> None:
         """Update the selection info text.
 
         Args:
-            count: Number of selected particles.
+            count: Number of selected items (particle/channel combinations).
         """
         if dpg.does_item_exist("sidebar_selection_info"):
-            text = f"{count} particle{'s' if count != 1 else ''} selected"
+            text = f"{count} item{'s' if count != 1 else ''} selected"
             dpg.set_value("sidebar_selection_info", text)
 
     def enable_sidebar_controls(self, enabled: bool = True) -> None:
@@ -421,3 +427,108 @@ class MainLayout:
             The tag of the tab's content container.
         """
         return TAB_TAG_MAP.get(tab, LAYOUT_TAGS.tab_intensity)
+
+    # Particle tree methods
+
+    def set_particles(self, particles: list[ParticleData]) -> None:
+        """Set particles to display in the tree.
+
+        Args:
+            particles: List of particles to display.
+        """
+        if self._particle_tree:
+            self._particle_tree.set_particles(particles)
+            # Enable controls if there are particles
+            self.enable_sidebar_controls(len(particles) > 0)
+
+    def set_on_selection_change(
+        self, callback: Callable[[ChannelSelection | None], None]
+    ) -> None:
+        """Set callback for current selection changes.
+
+        Args:
+            callback: Function called when current selection changes.
+        """
+        self._on_selection_change = callback
+
+    def set_on_batch_change(
+        self, callback: Callable[[list[ChannelSelection]], None]
+    ) -> None:
+        """Set callback for batch selection changes.
+
+        Args:
+            callback: Function called when batch selection changes.
+        """
+        self._on_batch_change = callback
+
+    def _on_particle_selection_changed(
+        self, selection: ChannelSelection | None
+    ) -> None:
+        """Internal callback for particle tree selection changes.
+
+        Args:
+            selection: The new current selection, or None.
+        """
+        if self._on_selection_change:
+            self._on_selection_change(selection)
+
+    def _on_particle_batch_changed(
+        self, selections: list[ChannelSelection]
+    ) -> None:
+        """Internal callback for particle tree batch selection changes.
+
+        Args:
+            selections: List of all selected items.
+        """
+        self.update_selection_info(len(selections))
+        if self._on_batch_change:
+            self._on_batch_change(selections)
+
+    def _on_select_all_clicked(self) -> None:
+        """Handle Select All button click."""
+        if self._particle_tree:
+            self._particle_tree.select_all()
+
+    def _on_clear_selection_clicked(self) -> None:
+        """Handle Clear button click."""
+        if self._particle_tree:
+            self._particle_tree.clear_selection()
+
+    def select_particle(self, particle_id: int, channel: int = 1) -> None:
+        """Programmatically select a particle/channel.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (default 1).
+        """
+        if self._particle_tree:
+            self._particle_tree.select(particle_id, channel)
+
+    def clear_selection(self) -> None:
+        """Clear all particle selections."""
+        if self._particle_tree:
+            self._particle_tree.clear_selection()
+
+    def select_all(self) -> None:
+        """Select all particles for batch operations."""
+        if self._particle_tree:
+            self._particle_tree.select_all()
+
+    @property
+    def current_selection(self) -> ChannelSelection | None:
+        """Get the current selection."""
+        if self._particle_tree:
+            return self._particle_tree.current_selection
+        return None
+
+    @property
+    def batch_selection(self) -> list[ChannelSelection]:
+        """Get all selected items for batch operations."""
+        if self._particle_tree:
+            return self._particle_tree.batch_selection
+        return []
+
+    @property
+    def particle_tree(self) -> ParticleTree | None:
+        """Get the particle tree widget instance."""
+        return self._particle_tree

@@ -11,12 +11,12 @@ from typing import TYPE_CHECKING
 
 import dearpygui.dearpygui as dpg
 
-from full_sms.models.session import ActiveTab, SessionState
+from full_sms.models.session import ActiveTab, ChannelSelection, SessionState
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
 
 if TYPE_CHECKING:
-    pass
+    from full_sms.models.particle import ParticleData
 
 # Configure logging
 logging.basicConfig(
@@ -81,8 +81,10 @@ class Application:
             self._layout = MainLayout(parent=TAGS["primary_window"])
             self._layout.build()
 
-            # Set up tab change callback
+            # Set up callbacks
             self._layout.set_on_tab_change(self._on_tab_changed)
+            self._layout.set_on_selection_change(self._on_selection_changed)
+            self._layout.set_on_batch_change(self._on_batch_changed)
 
         # Set as primary window (fills viewport)
         dpg.set_primary_window(TAGS["primary_window"], True)
@@ -222,6 +224,33 @@ class Application:
         self._session.ui_state.active_tab = tab
         logger.debug(f"Tab changed to: {tab.value}")
 
+    def _on_selection_changed(self, selection: ChannelSelection | None) -> None:
+        """Handle current selection change from particle tree.
+
+        Args:
+            selection: The new current selection, or None if cleared.
+        """
+        self._session.current_selection = selection
+        if selection:
+            # Add to batch selection if not already there
+            if selection not in self._session.selected:
+                self._session.selected.append(selection)
+            logger.debug(
+                f"Selection changed: Particle {selection.particle_id}, "
+                f"Channel {selection.channel}"
+            )
+        else:
+            logger.debug("Selection cleared")
+
+    def _on_batch_changed(self, selections: list[ChannelSelection]) -> None:
+        """Handle batch selection change from particle tree.
+
+        Args:
+            selections: List of all selected items.
+        """
+        self._session.selected = selections
+        logger.debug(f"Batch selection changed: {len(selections)} items")
+
     # Menu callbacks - File menu
 
     def _on_open_h5(self) -> None:
@@ -255,14 +284,19 @@ class Application:
     def _on_select_all(self) -> None:
         """Handle Select All menu action."""
         logger.info("Select All triggered")
+        if self._layout:
+            self._layout.select_all()
 
     def _on_deselect_all(self) -> None:
         """Handle Deselect All menu action."""
         logger.info("Deselect All triggered")
+        if self._layout:
+            self._layout.clear_selection()
 
     def _on_invert_selection(self) -> None:
         """Handle Invert Selection menu action."""
         logger.info("Invert Selection triggered")
+        # Will be implemented when needed
 
     def _on_settings(self) -> None:
         """Handle Settings menu action."""
