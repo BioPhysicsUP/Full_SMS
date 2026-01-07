@@ -367,7 +367,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 6.4: Create status bar and progress indicator `[NEXT]`
+### Task 6.4: Create status bar and progress indicator `[DONE]` (2026-01-07)
 **Objective**: Show status messages and analysis progress
 
 **Actions**:
@@ -383,7 +383,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 7: Intensity Tab
 
-### Task 7.1: Implement intensity trace plot `[TODO]`
+### Task 7.1: Implement intensity trace plot `[NEXT]`
 **Objective**: Render binned photon counts over time with ImPlot
 
 **Actions**:
@@ -727,14 +727,14 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 3. File I/O | 2 | 2 | 0 |
 | 4. Analysis Core | 7 | 7 | 0 |
 | 5. Workers | 2 | 2 | 0 |
-| 6. UI Foundation | 4 | 3 | 1 |
+| 6. UI Foundation | 4 | 4 | 0 |
 | 7. Intensity Tab | 4 | 0 | 4 |
 | 8. Lifetime Tab | 4 | 0 | 4 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **20** | **22** |
+| **Total** | **42** | **21** | **21** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 6.3 completed - particle tree component)*
+*Last Updated: 2026-01-07 (Task 6.4 completed - status bar and progress indicator)*

@@ -12,8 +12,9 @@ from typing import Callable
 import dearpygui.dearpygui as dpg
 
 from full_sms.models.particle import ParticleData
-from full_sms.models.session import ActiveTab, ChannelSelection
+from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState
 from full_sms.ui.widgets.particle_tree import ParticleTree
+from full_sms.ui.widgets.status_bar import StatusBar
 
 
 # Layout configuration
@@ -87,6 +88,7 @@ class MainLayout:
         self._on_selection_change: Callable[[ChannelSelection | None], None] | None = None
         self._on_batch_change: Callable[[list[ChannelSelection]], None] | None = None
         self._particle_tree: ParticleTree | None = None
+        self._status_bar: StatusBar | None = None
         self._is_built = False
 
     def build(self) -> None:
@@ -262,36 +264,9 @@ class MainLayout:
         )
 
     def _build_status_bar(self) -> None:
-        """Build the status bar at the bottom."""
-        dpg.add_separator(parent=self._parent)
-        with dpg.group(
-            parent=self._parent,
-            horizontal=True,
-            tag=LAYOUT_TAGS.status_bar,
-        ):
-            # Status message
-            dpg.add_text(
-                "Ready",
-                tag=LAYOUT_TAGS.status_text,
-            )
-
-            # Spacer to push file info to the right
-            dpg.add_spacer(width=-1)
-
-            # Progress bar (initially hidden via width=0)
-            dpg.add_progress_bar(
-                tag=LAYOUT_TAGS.progress_bar,
-                default_value=0.0,
-                width=150,
-                show=False,
-            )
-
-            # File info (right-aligned)
-            dpg.add_text(
-                "",
-                tag=LAYOUT_TAGS.file_info,
-                color=(128, 128, 128),
-            )
+        """Build the status bar at the bottom using the StatusBar widget."""
+        self._status_bar = StatusBar(parent=self._parent)
+        self._status_bar.build()
 
     def _on_tab_selected(self, sender: int, app_data: int) -> None:
         """Handle tab selection.
@@ -357,8 +332,8 @@ class MainLayout:
         Args:
             message: The status message to display.
         """
-        if dpg.does_item_exist(LAYOUT_TAGS.status_text):
-            dpg.set_value(LAYOUT_TAGS.status_text, message)
+        if self._status_bar:
+            self._status_bar.set_status(message)
 
     def set_file_info(self, info: str) -> None:
         """Update the file info display.
@@ -366,32 +341,65 @@ class MainLayout:
         Args:
             info: The file info text to display.
         """
-        if dpg.does_item_exist(LAYOUT_TAGS.file_info):
-            dpg.set_value(LAYOUT_TAGS.file_info, info)
+        if self._status_bar:
+            self._status_bar.set_file_info(info)
 
-    def show_progress(self, value: float = 0.0) -> None:
+    def show_progress(self, value: float = 0.0, task: str = "") -> None:
         """Show the progress bar.
 
         Args:
             value: Initial progress value (0.0 to 1.0).
+            task: Optional task description to display.
         """
-        if dpg.does_item_exist(LAYOUT_TAGS.progress_bar):
-            dpg.configure_item(LAYOUT_TAGS.progress_bar, show=True)
-            dpg.set_value(LAYOUT_TAGS.progress_bar, max(0.0, min(1.0, value)))
+        if self._status_bar:
+            self._status_bar.show_progress(value, task)
 
-    def update_progress(self, value: float) -> None:
+    def update_progress(self, value: float, message: str = "") -> None:
         """Update the progress bar value.
 
         Args:
             value: Progress value (0.0 to 1.0).
+            message: Optional status message to display.
         """
-        if dpg.does_item_exist(LAYOUT_TAGS.progress_bar):
-            dpg.set_value(LAYOUT_TAGS.progress_bar, max(0.0, min(1.0, value)))
+        if self._status_bar:
+            self._status_bar.update_progress(value, message)
 
     def hide_progress(self) -> None:
         """Hide the progress bar."""
-        if dpg.does_item_exist(LAYOUT_TAGS.progress_bar):
-            dpg.configure_item(LAYOUT_TAGS.progress_bar, show=False)
+        if self._status_bar:
+            self._status_bar.hide_progress()
+
+    def sync_status_with_state(self, state: ProcessingState) -> None:
+        """Synchronize the status bar with a ProcessingState.
+
+        Args:
+            state: The ProcessingState to sync with.
+        """
+        if self._status_bar:
+            self._status_bar.sync_with_state(state)
+
+    def show_error(self, message: str) -> None:
+        """Display an error message in the status bar.
+
+        Args:
+            message: The error message to display.
+        """
+        if self._status_bar:
+            self._status_bar.show_error(message)
+
+    def show_success(self, message: str) -> None:
+        """Display a success message in the status bar.
+
+        Args:
+            message: The success message to display.
+        """
+        if self._status_bar:
+            self._status_bar.show_success(message)
+
+    @property
+    def status_bar(self) -> StatusBar | None:
+        """Get the status bar widget instance."""
+        return self._status_bar
 
     # Sidebar methods
 

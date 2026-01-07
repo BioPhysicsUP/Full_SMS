@@ -389,8 +389,9 @@ class Application:
 
     def _on_frame(self) -> None:
         """Called every frame - use for async operations and updates."""
-        # Placeholder for future async task checking
-        pass
+        # Sync status bar with processing state
+        if self._layout:
+            self._layout.sync_status_with_state(self._session.processing)
 
     def shutdown(self) -> None:
         """Clean up and destroy the DearPyGui context."""
