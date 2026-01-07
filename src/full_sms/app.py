@@ -391,6 +391,22 @@ class Application:
                 f"Channel {selection.channel}"
             )
 
+            # Get the particle and channel data
+            particle = self._session.get_particle(selection.particle_id)
+            if particle:
+                # Get the appropriate channel data
+                channel = (
+                    particle.channel1 if selection.channel == 1 else particle.channel2
+                )
+                if channel:
+                    # Update intensity tab with photon timing data
+                    self._layout.set_intensity_data(channel.abstimes)
+
+                    # Update lifetime tab with microtime data
+                    self._layout.set_lifetime_data(
+                        channel.microtimes, particle.channelwidth
+                    )
+
             # Update intensity display with levels if they exist
             self._update_intensity_display()
 
@@ -398,6 +414,10 @@ class Application:
             self._update_correlation_display()
         else:
             logger.debug("Selection cleared")
+            # Clear tabs when selection is cleared
+            if self._layout:
+                self._layout.clear_intensity_data()
+                self._layout.clear_lifetime_data()
 
         # Update resolve button states
         self._update_resolve_buttons_state()
@@ -1227,6 +1247,7 @@ class Application:
                 groups=groups,
                 level_group_assignments=tuple(step_dict["level_group_assignments"]),
                 bic=step_dict["bic"],
+                num_groups=step_dict["num_groups"],
             )
             steps.append(step)
 
@@ -1531,7 +1552,7 @@ class Application:
         Returns:
             New list of LevelData with group_id set.
         """
-        assignments = clustering.selected_assignments
+        assignments = clustering.level_group_assignments
         updated_levels = []
         for i, level in enumerate(levels):
             group_id = assignments[i] if i < len(assignments) else None

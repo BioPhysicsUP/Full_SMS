@@ -1,0 +1,433 @@
+# Full SMS UI Improvements Plan
+
+This document tracks UI and behavioral improvements for the DearPyGui implementation. Each task is designed to be completable in a single Claude Code session.
+
+---
+
+## How to Use This Document
+
+1. Find the task marked `[NEXT]`
+2. Tell Claude: "Continue with the next task in the UI improvements plan"
+3. Claude will complete the task and update this document:
+   - Change `[NEXT]` to `[DONE]` with completion date
+   - Mark the following task as `[NEXT]`
+4. After completing a task, Claude should ask the user to test the changes and provide feedback
+5. Repeat until complete
+
+---
+
+## Status Legend
+
+- `[DONE]` - Task completed (date in parentheses)
+- `[NEXT]` - Current task to work on
+- `[TODO]` - Pending task
+- `[SKIP]` - Task skipped (reason noted)
+- `[BLOCKED]` - Waiting on something
+- `[FEEDBACK]` - Awaiting user feedback after implementation
+
+---
+
+## Phase 1: File Dialogs & Tree View
+
+### Task 1.1: File dialog remembers last location `[DONE]` (2026-01-07)
+**Objective**: Improve file dialog UX by remembering the last opened file location
+
+**Actions**:
+- Store the last opened file path in the application config
+- When opening a file dialog, start at the last opened file's directory
+- Ensure double-click on a file opens it (verify current behavior)
+
+**User Testing**: After implementation, ask user to test opening multiple files from different locations
+
+**Verification**: File dialog starts at previously used directory
+
+**Implementation Notes**:
+- Added `FileDialogSettings` dataclass in `config.py` with `last_open_directory`, `last_session_directory`, and `last_export_directory` fields
+- `FileDialogs` class now loads paths from settings on init and saves them when files are selected
+- Settings are persisted to `settings.json` in the platform-specific config location
+
+---
+
+### Task 1.2: Simplify tree view for single-channel files `[DONE]` (2026-01-07)
+**Objective**: Remove unnecessary nesting for particles with only one channel
+
+**Actions**:
+- Modify particle tree to detect single-channel particles
+- Display single-channel particles without channel nesting (show particle directly)
+- Multi-channel particles retain the current nested structure
+
+**User Testing**: Ask user to load both single and multi-channel files to verify
+
+**Verification**: Single-channel files show particles without channel sub-items
+
+**Implementation Notes**:
+- Modified `_build_particle_node` to check `particle.has_dual_channel`
+- Single-channel particles use new `_build_single_channel_item` method that creates a flat checkbox+selectable directly in the tree
+- Dual-channel particles retain the existing tree node structure with nested channel items
+
+---
+
+### Task 1.3: Clean up tree view display `[DONE]` (2026-01-07)
+**Objective**: Remove photon count and reduce tree width
+
+**Actions**:
+- Remove the number of photons display from tree view items
+- Reduce the horizontal width of the tree view panel (approximately half current size)
+- Ensure particle names are still readable (may need truncation with tooltip)
+
+**User Testing**: Ask user if the tree is now appropriately sized
+
+**Verification**: Tree view is narrower and cleaner without photon counts
+
+**Implementation Notes**:
+- Removed photon count from channel labels in `particle_tree.py` (now shows just "Channel 1" instead of "Channel 1 (12,345 photons)")
+- Reduced `SIDEBAR_WIDTH` from 280 to 180 pixels in `layout.py`
+- Adjusted sidebar button widths from 85 to 78 pixels to fit the narrower panel
+
+---
+
+## Phase 2: Layout & Scrolling Fixes
+
+### Task 2.1: Fix status bar visibility `[NEXT]`
+**Objective**: Status bar should always be visible without scrolling
+
+**Actions**:
+- Adjust main layout so status bar is pinned to the bottom
+- Ensure content area scrolls independently if needed
+- Status bar should remain visible regardless of content size
+
+**User Testing**: Ask user to load a file and check status bar visibility in all tabs
+
+**Verification**: Status bar is always visible at window bottom
+
+---
+
+### Task 2.2: Prevent horizontal text overflow `[TODO]`
+**Objective**: Prevent long text from expanding the view horizontally
+
+**Actions**:
+- Identify text elements that cause horizontal expansion (info panels, labels)
+- Apply text wrapping or truncation with tooltips for long values
+- Ensure tab content fits within the window width without horizontal scrolling
+- Focus on Intensity tab text (photon count, level count, average intensity)
+
+**User Testing**: Ask user to load data and check if horizontal scrolling is needed
+
+**Verification**: No horizontal scrollbar appears due to text length
+
+---
+
+## Phase 3: Spectra & Raster Tabs
+
+### Task 3.1: Fix Spectra tab display `[TODO]`
+**Objective**: Ensure Spectra tab shows data when available
+
+**Actions**:
+- Debug why spectra tab shows nothing
+- Verify spectra data is being loaded from HDF5 files
+- Ensure plot is created and data is rendered
+- Show informative message when no spectra data exists
+
+**User Testing**: Ask user to test with a file that has spectra data
+
+**Verification**: Spectra plot displays when data is present
+
+---
+
+### Task 3.2: Fix Raster tab display `[TODO]`
+**Objective**: Ensure Raster tab shows data when available
+
+**Actions**:
+- Debug why raster tab shows nothing
+- Verify raster scan data is being loaded from HDF5 files
+- Ensure 2D plot/image is created and rendered
+- Show informative message when no raster data exists
+
+**User Testing**: Ask user to test with a file that has raster scan data
+
+**Verification**: Raster image displays when data is present
+
+---
+
+## Phase 4: Intensity Tab Improvements
+
+### Task 4.1: Link histogram Y-axis to intensity plot `[TODO]`
+**Objective**: Histogram vertical axis should match intensity plot Y range
+
+**Actions**:
+- Link the histogram Y-axis to the intensity plot's Y range
+- When user zooms/pans intensity plot, histogram axis updates
+- Ensure bi-directional linking if appropriate
+
+**User Testing**: Ask user to zoom the intensity plot and verify histogram updates
+
+**Verification**: Histogram Y-axis stays in sync with intensity plot
+
+---
+
+### Task 4.2: Fix histogram visibility and layout `[TODO]`
+**Objective**: Histogram should always be visible without horizontal scrolling
+
+**Actions**:
+- Adjust intensity tab layout so histogram is always visible
+- Reduce/wrap the text labels that cause overflow (photon count, level count, avg intensity)
+- Consider using a fixed-width info panel or collapsible section
+
+**User Testing**: Ask user to verify histogram is visible when switching to Intensity tab
+
+**Verification**: Histogram visible without scrolling, info text doesn't cause overflow
+
+---
+
+### Task 4.3: Add user-editable bin size input `[TODO]`
+**Objective**: Allow user to type in a specific bin size value
+
+**Actions**:
+- Replace or augment bin size slider with an input field
+- User should be able to type an exact value (e.g., 10ms, 50ms)
+- Validate input and update plot on Enter or focus loss
+- Keep slider for quick adjustments if space permits
+
+**User Testing**: Ask user to try entering specific bin sizes
+
+**Verification**: User can type bin size values and plot updates
+
+---
+
+### Task 4.4: Add histogram display mode toggle `[TODO]`
+**Objective**: Toggle between colored bars and step line plot for histogram
+
+**Actions**:
+- Add a toggle/checkbox for histogram display mode
+- Mode 1: Colored bars indicating levels (current behavior)
+- Mode 2: Step line plot (single color, no fill)
+- Persist preference in settings
+
+**User Testing**: Ask user to toggle between modes and provide feedback
+
+**Verification**: Both display modes work correctly
+
+---
+
+### Task 4.5: Fix histogram bar width on bin size change `[TODO]`
+**Objective**: Histogram bars should remain full-width (bar-to-bar) when bin size changes
+
+**Actions**:
+- Investigate why bars become narrower when bin size changes
+- Ensure bar width is calculated to fill the space between bins
+- Bars should be adjacent with no gaps
+
+**User Testing**: Ask user to change bin size and verify bar widths
+
+**Verification**: Histogram bars remain full-width at all bin sizes
+
+---
+
+### Task 4.6: Replace resolve buttons with combo box `[TODO]`
+**Objective**: Simplify resolve controls with a scope selector
+
+**Actions**:
+- Replace "Current", "Selected", "All" buttons with a single "Resolve" button
+- Add a combo box/dropdown to select scope: Current, Selected, All
+- Apply consistent pattern to other tabs that have similar controls
+
+**User Testing**: Ask user if the new control arrangement is intuitive
+
+**Verification**: Single resolve button with scope selector works correctly
+
+---
+
+## Phase 5: Lifetime Tab Improvements
+
+### Task 5.1: Add intensity plot to Lifetime tab `[TODO]`
+**Objective**: Show intensity plot with clickable level selection
+
+**Actions**:
+- Add an intensity trace plot to the Lifetime tab (above or beside decay plot)
+- Display levels as colored regions on this plot
+- Allow user to click on a level to select it
+- When a level is selected, show that level's decay curve
+
+**User Testing**: Ask user to click on different levels and verify decay updates
+
+**Verification**: Clicking levels shows their respective decay curves
+
+---
+
+### Task 5.2: Reorganize fitting controls `[TODO]`
+**Objective**: Provide clear fit options with scope selection
+
+**Actions**:
+- Add 3 fit buttons: "Fit Particle", "Fit Levels", "Fit Both"
+- Add combo box for scope: Current, Selected, All
+- Consider moving these controls to the fitting dialog for cleaner UI
+- Update fitting workflow to handle level-specific fits
+
+**User Testing**: Ask user to test each fitting option
+
+**Verification**: All fitting options work with scope selection
+
+---
+
+### Task 5.3: Fix IRF display behavior `[TODO]`
+**Objective**: Show IRF button should display IRF (real or simulated)
+
+**Actions**:
+- Debug why clicking "Show IRF" unchecks immediately and shows nothing
+- If real IRF exists, display it
+- If no real IRF but simulated IRF was used in fit, display the simulated IRF
+- Show informative message if no IRF available at all
+
+**User Testing**: Ask user to test with files that have/don't have IRF data
+
+**Verification**: Show IRF displays appropriate IRF data
+
+---
+
+### Task 5.4: Fix log scale toggle `[TODO]`
+**Objective**: Log scale checkbox should properly toggle Y-axis scale
+
+**Actions**:
+- Debug why log scale toggle doesn't change the decay plot scale
+- Implement proper log/linear scale switching
+- Ensure all plot elements (data, fit, IRF) render correctly in both modes
+
+**User Testing**: Ask user to toggle log scale and verify plot updates
+
+**Verification**: Log scale toggle switches between log and linear Y-axis
+
+---
+
+### Task 5.5: Enlarge fitting dialog input boxes `[TODO]`
+**Objective**: Make input fields in fitting dialog larger and easier to use
+
+**Actions**:
+- Increase width of input fields in fitting dialog
+- Ensure values are fully visible without truncation
+- Apply consistent sizing across all dialog inputs
+
+**User Testing**: Ask user if dialog inputs are now appropriately sized
+
+**Verification**: All fitting dialog inputs are readable and usable
+
+---
+
+## Phase 6: Grouping Tab Improvements
+
+### Task 6.1: Add intensity plot to Grouping tab `[TODO]`
+**Objective**: Show intensity plot with group visualization
+
+**Actions**:
+- Add intensity trace plot to Grouping tab
+- After grouping, display horizontal bands in different colors for each group
+- Bands should span the time range of levels within each group
+
+**User Testing**: Ask user to run grouping and verify band visualization
+
+**Verification**: Group bands display on intensity plot after clustering
+
+---
+
+### Task 6.2: Interactive BIC plot selection `[TODO]`
+**Objective**: Replace slider with clickable BIC plot points
+
+**Actions**:
+- Add markers for each "number of groups" point on BIC curve
+- Markers should be same color as the line
+- Keep distinct markers for optimal and current selection
+- When user clicks a point, change selection to that number of groups
+- Remove the slider control
+
+**User Testing**: Ask user to click different points on BIC plot
+
+**Verification**: Clicking BIC points changes the selected grouping solution
+
+---
+
+## Phase 7: Export Tab Improvements
+
+### Task 7.1: Fix export options layout `[TODO]`
+**Objective**: All checkboxes visible without scrolling
+
+**Actions**:
+- Reorganize export tab layout to fit all options in visible area
+- Use columns or compact arrangement for checkboxes
+- Ensure all data and plot export options are visible
+
+**User Testing**: Ask user if all export options are visible
+
+**Verification**: No scrolling needed to see all export checkboxes
+
+---
+
+### Task 7.2: Add plot customization options `[TODO]`
+**Objective**: Allow user to specify what's included in exported plots
+
+**Actions**:
+- Add checkboxes for Intensity plot: Include levels? Include groups?
+- Add checkboxes for Lifetime plot: Include fit? Include IRF?
+- Add placeholder options for Spectra and Raster (when implemented)
+- Apply selections when exporting
+
+**User Testing**: Ask user to test export with different options
+
+**Verification**: Exported plots include/exclude elements based on selections
+
+---
+
+### Task 7.3: Improve export input fields `[TODO]`
+**Objective**: Wider DPI and bin size inputs with intensity tab link option
+
+**Actions**:
+- Increase width of DPI and bin size input fields
+- Add checkbox: "Use bin size from Intensity tab"
+- When checked, auto-populate bin size from intensity tab setting
+- Ensure inputs accept reasonable value ranges
+
+**User Testing**: Ask user to test the linked bin size option
+
+**Verification**: Input fields are wider, bin size linking works
+
+---
+
+### Task 7.4: Default export directory to input file location `[TODO]`
+**Objective**: Start export directory at input file's location
+
+**Actions**:
+- When opening export directory picker, start at the loaded file's directory
+- If no file loaded, use last export directory or home
+- Store last export directory in config
+
+**User Testing**: Ask user to verify export directory default behavior
+
+**Verification**: Export directory defaults to input file location
+
+---
+
+## Progress Summary
+
+| Phase | Tasks | Completed | Remaining |
+|-------|-------|-----------|-----------|
+| 1. File Dialogs & Tree | 3 | 3 | 0 |
+| 2. Layout & Scrolling | 2 | 0 | 2 |
+| 3. Spectra & Raster | 2 | 0 | 2 |
+| 4. Intensity Tab | 6 | 0 | 6 |
+| 5. Lifetime Tab | 5 | 0 | 5 |
+| 6. Grouping Tab | 2 | 0 | 2 |
+| 7. Export Tab | 4 | 0 | 4 |
+| **Total** | **24** | **3** | **21** |
+
+---
+
+## Notes
+
+- Each task should be tested by the user before moving to the next
+- Feedback from testing may result in follow-up tasks being added
+- Tasks can be split if they prove too large for a single session
+- Related tasks in the same area are grouped to minimize context switching
+- The user should be asked to run the app and test after each task
+
+---
+
+*Created: 2026-01-07*
+*Last Updated: 2026-01-07 (Task 1.3 completed)*

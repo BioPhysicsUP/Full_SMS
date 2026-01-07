@@ -96,7 +96,7 @@ class ParticleTree:
                 tag="particle_tree_empty_msg",
             )
             dpg.add_text(
-                "Use File > Open H5 to load data",
+                "File > Open H5",
                 color=(100, 100, 100),
                 tag="particle_tree_empty_hint",
             )
@@ -153,9 +153,18 @@ class ParticleTree:
     def _build_particle_node(self, particle: ParticleData) -> None:
         """Build a tree node for a single particle.
 
+        For single-channel particles, creates a flat selectable item.
+        For dual-channel particles, creates a tree node with nested channels.
+
         Args:
             particle: The particle data to display.
         """
+        # Single-channel particles: flat item without nesting
+        if not particle.has_dual_channel:
+            self._build_single_channel_item(particle)
+            return
+
+        # Dual-channel particles: tree node with nested channels
         node_tag = f"particle_node_{particle.id}"
         self._particle_nodes[particle.id] = node_tag
 
@@ -167,21 +176,49 @@ class ParticleTree:
             selectable=False,
         ):
             # Channel 1 (always present)
-            self._build_channel_item(particle.id, 1, particle.channel1.num_photons)
+            self._build_channel_item(particle.id, 1)
 
-            # Channel 2 (if dual-channel)
-            if particle.has_dual_channel and particle.channel2 is not None:
-                self._build_channel_item(particle.id, 2, particle.channel2.num_photons)
+            # Channel 2
+            if particle.channel2 is not None:
+                self._build_channel_item(particle.id, 2)
 
-    def _build_channel_item(
-        self, particle_id: int, channel: int, num_photons: int
-    ) -> None:
+    def _build_single_channel_item(self, particle: ParticleData) -> None:
+        """Build a flat item for a single-channel particle.
+
+        Args:
+            particle: The particle data to display.
+        """
+        key = (particle.id, 1)
+        selectable_tag = f"channel_sel_{particle.id}_1"
+        checkbox_tag = f"channel_chk_{particle.id}_1"
+
+        self._channel_items[key] = selectable_tag
+        self._checkbox_items[key] = checkbox_tag
+
+        with dpg.group(horizontal=True, parent=TREE_TAGS.tree_group):
+            # Checkbox for batch selection
+            dpg.add_checkbox(
+                tag=checkbox_tag,
+                default_value=False,
+                callback=self._on_checkbox_changed,
+                user_data=key,
+            )
+
+            # Selectable label showing particle name directly
+            dpg.add_selectable(
+                label=particle.name,
+                tag=selectable_tag,
+                default_value=False,
+                callback=self._on_selectable_clicked,
+                user_data=key,
+            )
+
+    def _build_channel_item(self, particle_id: int, channel: int) -> None:
         """Build a channel selection item.
 
         Args:
             particle_id: The particle ID.
             channel: The channel number (1 or 2).
-            num_photons: Number of photons in this channel.
         """
         key = (particle_id, channel)
         selectable_tag = f"channel_sel_{particle_id}_{channel}"
@@ -200,10 +237,8 @@ class ParticleTree:
             )
 
             # Selectable label for current selection
-            photon_str = f"{num_photons:,}"
-            label = f"Channel {channel} ({photon_str} photons)"
             dpg.add_selectable(
-                label=label,
+                label=f"Channel {channel}",
                 tag=selectable_tag,
                 default_value=False,
                 callback=self._on_selectable_clicked,
@@ -275,16 +310,7 @@ class ParticleTree:
             if dpg.does_item_exist(tag):
                 dpg.set_value(tag, True)
 
-        # Also ensure it's in batch selection
-        if key not in self._batch_selection:
-            self._batch_selection.add(key)
-            if key in self._checkbox_items:
-                chk_tag = self._checkbox_items[key]
-                if dpg.does_item_exist(chk_tag):
-                    dpg.set_value(chk_tag, True)
-            self._notify_batch_changed()
-
-        # Expand parent node if collapsed
+        # Expand parent node if collapsed (only for dual-channel particles)
         if particle_id in self._particle_nodes:
             node_tag = self._particle_nodes[particle_id]
             if dpg.does_item_exist(node_tag):

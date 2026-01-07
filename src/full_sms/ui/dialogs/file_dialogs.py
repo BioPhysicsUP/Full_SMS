@@ -4,6 +4,9 @@ Provides native file dialogs using DearPyGui's file_dialog for:
 - Open HDF5 file
 - Save/Load analysis sessions (.smsa)
 - Export directory selection
+
+File dialog paths are persisted in application settings so dialogs
+remember the last used location between sessions.
 """
 
 from __future__ import annotations
@@ -14,6 +17,8 @@ from pathlib import Path
 from typing import Callable, Optional
 
 import dearpygui.dearpygui as dpg
+
+from full_sms.config import get_settings, save_settings
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +67,27 @@ class FileDialogs:
         self._on_load_session: Optional[Callable[[Path], None]] = None
         self._on_select_export_dir: Optional[Callable[[Path], None]] = None
 
-        # Default paths (updated as user navigates)
-        self._last_open_path: Path = DEFAULT_OPEN_PATH
+        # Load paths from persistent settings
+        settings = get_settings()
+        fd_settings = settings.file_dialogs
+
+        # Initialize paths from settings, falling back to defaults
+        self._last_open_path: Path = (
+            Path(fd_settings.last_open_directory)
+            if fd_settings.last_open_directory
+            else DEFAULT_OPEN_PATH
+        )
         self._last_save_path: Path = DEFAULT_SAVE_PATH
-        self._last_session_path: Path = DEFAULT_SAVE_PATH
-        self._last_export_path: Path = DEFAULT_SAVE_PATH
+        self._last_session_path: Path = (
+            Path(fd_settings.last_session_directory)
+            if fd_settings.last_session_directory
+            else DEFAULT_SAVE_PATH
+        )
+        self._last_export_path: Path = (
+            Path(fd_settings.last_export_directory)
+            if fd_settings.last_export_directory
+            else DEFAULT_SAVE_PATH
+        )
 
         # Current open file path (for suggesting save location)
         self._current_file_path: Optional[Path] = None
@@ -83,6 +104,14 @@ class FileDialogs:
     def tags(self) -> FileDialogTags:
         """Get the dialog tags."""
         return self._tags
+
+    def _save_paths_to_settings(self) -> None:
+        """Save the current paths to persistent settings."""
+        settings = get_settings()
+        settings.file_dialogs.last_open_directory = str(self._last_open_path)
+        settings.file_dialogs.last_session_directory = str(self._last_session_path)
+        settings.file_dialogs.last_export_directory = str(self._last_export_path)
+        save_settings()
 
     @property
     def last_open_path(self) -> Path:
@@ -224,8 +253,9 @@ class FileDialogs:
             logger.warning(f"Selected file is not an HDF5 file: {path}")
             # Still allow it - user may know what they're doing
 
-        # Update last path
+        # Update last path and save to persistent settings
         self._last_open_path = path.parent
+        self._save_paths_to_settings()
 
         logger.info(f"HDF5 file selected: {path}")
 
@@ -310,8 +340,9 @@ class FileDialogs:
         if path.suffix.lower() != SESSION_EXTENSION:
             path = path.with_suffix(SESSION_EXTENSION)
 
-        # Update last path
+        # Update last path and save to persistent settings
         self._last_session_path = path.parent
+        self._save_paths_to_settings()
 
         logger.info(f"Session save path selected: {path}")
 
@@ -389,8 +420,9 @@ class FileDialogs:
             logger.warning(f"Selected file is not a session file: {path}")
             # Still allow it - user may know what they're doing
 
-        # Update last path
+        # Update last path and save to persistent settings
         self._last_session_path = path.parent
+        self._save_paths_to_settings()
 
         logger.info(f"Session file selected: {path}")
 
@@ -460,8 +492,9 @@ class FileDialogs:
         if path.is_file():
             path = path.parent
 
-        # Update last path
+        # Update last path and save to persistent settings
         self._last_export_path = path
+        self._save_paths_to_settings()
 
         logger.info(f"Export directory selected: {path}")
 

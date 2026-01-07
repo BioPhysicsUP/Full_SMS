@@ -2,20 +2,33 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Active Rewrite
+## Active Work: UI Improvements
 
-**Full SMS is being rewritten from PyQt5 to DearPyGui.**
+**The DearPyGui rewrite is complete. Now working on UI and behavioral improvements.**
 
-The rewrite plan is tracked in `rewrite_python_dearpygui_plan.md`. When asked to continue the rewrite:
+The improvement plan is tracked in `ui_improvements_plan.md`. When asked to continue:
 
-1. Read `rewrite_python_dearpygui_plan.md`
+1. Read `ui_improvements_plan.md`
 2. Find the task marked `[NEXT]`
 3. Complete that task
 4. Update the plan document:
    - Change `[NEXT]` to `[DONE]` with today's date
    - Change the following `[TODO]` to `[NEXT]`
    - Update the Progress Summary table
-5. Commit your changes with a message referencing the task
+5. **Ask the user to test the changes** and provide feedback
+6. Commit your changes with a message referencing the task
+
+### User Testing Protocol
+
+After completing each task:
+- Ask the user to run the application (`uv run python -m full_sms.app`)
+- Request they test the specific functionality that was changed
+- Wait for feedback before proceeding to the next task
+- If feedback indicates issues, address them before marking the task complete
+
+## Completed: DearPyGui Rewrite
+
+The PyQt5 to DearPyGui rewrite is complete (42 tasks). The rewrite plan is preserved in `rewrite_python_dearpygui_plan.md` for reference.
 
 ### Directory Structure
 

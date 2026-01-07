@@ -100,6 +100,21 @@ class DisplaySettings:
 
 
 @dataclass
+class FileDialogSettings:
+    """Settings for file dialogs.
+
+    Attributes:
+        last_open_directory: Last directory used for opening files.
+        last_session_directory: Last directory used for session files.
+        last_export_directory: Last directory used for exports.
+    """
+
+    last_open_directory: str = ""
+    last_session_directory: str = ""
+    last_export_directory: str = ""
+
+
+@dataclass
 class Settings:
     """Application settings container.
 
@@ -107,6 +122,7 @@ class Settings:
     - change_point: Settings for change point analysis
     - lifetime: Settings for lifetime fitting
     - display: Settings for display and visualization
+    - file_dialogs: Settings for file dialog paths
 
     Settings are persisted to JSON and loaded on startup.
     """
@@ -114,6 +130,7 @@ class Settings:
     change_point: ChangePointSettings = field(default_factory=ChangePointSettings)
     lifetime: LifetimeSettings = field(default_factory=LifetimeSettings)
     display: DisplaySettings = field(default_factory=DisplaySettings)
+    file_dialogs: FileDialogSettings = field(default_factory=FileDialogSettings)
 
     def to_dict(self) -> dict:
         """Convert settings to a dictionary for serialization.
@@ -125,6 +142,7 @@ class Settings:
             "change_point": asdict(self.change_point),
             "lifetime": asdict(self.lifetime),
             "display": asdict(self.display),
+            "file_dialogs": asdict(self.file_dialogs),
         }
 
     @classmethod
@@ -163,6 +181,14 @@ class Settings:
             settings.display = DisplaySettings(
                 default_bin_size_ms=disp.get("default_bin_size_ms", 10.0),
                 auto_resolve_levels=disp.get("auto_resolve_levels", False),
+            )
+
+        if "file_dialogs" in data:
+            fd = data["file_dialogs"]
+            settings.file_dialogs = FileDialogSettings(
+                last_open_directory=fd.get("last_open_directory", ""),
+                last_session_directory=fd.get("last_session_directory", ""),
+                last_export_directory=fd.get("last_export_directory", ""),
             )
 
         return settings
@@ -218,6 +244,7 @@ class Settings:
         self.change_point = ChangePointSettings()
         self.lifetime = LifetimeSettings()
         self.display = DisplaySettings()
+        self.file_dialogs = FileDialogSettings()
 
 
 # Global settings instance - loaded on module import

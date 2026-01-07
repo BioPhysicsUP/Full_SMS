@@ -27,7 +27,7 @@ from full_sms.ui.widgets.status_bar import StatusBar
 
 
 # Layout configuration
-SIDEBAR_WIDTH = 280
+SIDEBAR_WIDTH = 180
 STATUS_BAR_HEIGHT = 28
 
 
@@ -157,14 +157,14 @@ class MainLayout:
                 with dpg.group(horizontal=True):
                     dpg.add_button(
                         label="Select All",
-                        width=85,
+                        width=78,
                         enabled=False,
                         tag="sidebar_select_all",
                         callback=self._on_select_all_clicked,
                     )
                     dpg.add_button(
                         label="Clear",
-                        width=85,
+                        width=78,
                         enabled=False,
                         tag="sidebar_clear_selection",
                         callback=self._on_clear_selection_clicked,
