@@ -462,7 +462,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 8.2: Implement fit curve overlay `[NEXT]`
+### Task 8.2: Implement fit curve overlay `[DONE]` (2026-01-07)
 **Objective**: Show fitted curve on decay plot
 
 **Actions**:
@@ -476,7 +476,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 8.3: Implement residuals plot `[TODO]`
+### Task 8.3: Implement residuals plot `[NEXT]`
 **Objective**: Show weighted residuals below decay plot
 
 **Actions**:
@@ -729,12 +729,12 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 5. Workers | 2 | 2 | 0 |
 | 6. UI Foundation | 4 | 4 | 0 |
 | 7. Intensity Tab | 4 | 4 | 0 |
-| 8. Lifetime Tab | 4 | 1 | 3 |
+| 8. Lifetime Tab | 4 | 2 | 2 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **26** | **16** |
+| **Total** | **42** | **27** | **15** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 8.1 completed - decay histogram plot and lifetime tab)*
+*Last Updated: 2026-01-07 (Task 8.2 completed - fit curve overlay with results display)*

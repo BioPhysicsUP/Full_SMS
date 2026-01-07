@@ -2,6 +2,8 @@
 
 Provides the fluorescence decay histogram visualization with:
 - Decay plot showing TCSPC histogram
+- Fit curve overlay with results display
+- IRF display
 - Log/linear scale toggle
 - Basic plot controls
 """
@@ -10,12 +12,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Optional
 
 import dearpygui.dearpygui as dpg
 import numpy as np
 from numpy.typing import NDArray
 
+from full_sms.models.fit import FitResult
 from full_sms.ui.plots.decay_plot import DecayPlot
 
 logger = logging.getLogger(__name__)
@@ -28,11 +31,20 @@ class LifetimeTabTags:
     container: str = "lifetime_tab_view_container"
     controls_group: str = "lifetime_tab_controls"
     log_scale_checkbox: str = "lifetime_tab_log_scale"
+    show_fit_checkbox: str = "lifetime_tab_show_fit"
+    show_irf_checkbox: str = "lifetime_tab_show_irf"
     fit_view_button: str = "lifetime_tab_fit_view"
     info_text: str = "lifetime_tab_info"
     plot_container: str = "lifetime_tab_plot_container"
     plot_area: str = "lifetime_tab_plot_area"
     no_data_text: str = "lifetime_tab_no_data"
+    # Fit results display
+    results_group: str = "lifetime_tab_results_group"
+    results_header: str = "lifetime_tab_results_header"
+    tau_text: str = "lifetime_tab_tau_text"
+    chi_squared_text: str = "lifetime_tab_chi_squared_text"
+    dw_text: str = "lifetime_tab_dw_text"
+    avg_lifetime_text: str = "lifetime_tab_avg_lifetime_text"
 
 
 LIFETIME_TAB_TAGS = LifetimeTabTags()
@@ -64,6 +76,11 @@ class LifetimeTab:
         self._channelwidth: float = 0.1  # Default 100ps
         self._log_scale: bool = True
 
+        # Fit/IRF state
+        self._fit_result: Optional[FitResult] = None
+        self._show_fit: bool = True
+        self._show_irf: bool = False
+
         # Callbacks
         self._on_log_scale_changed: Callable[[bool], None] | None = None
 
@@ -75,11 +92,19 @@ class LifetimeTab:
             container=f"{tag_prefix}lifetime_tab_view_container",
             controls_group=f"{tag_prefix}lifetime_tab_controls",
             log_scale_checkbox=f"{tag_prefix}lifetime_tab_log_scale",
+            show_fit_checkbox=f"{tag_prefix}lifetime_tab_show_fit",
+            show_irf_checkbox=f"{tag_prefix}lifetime_tab_show_irf",
             fit_view_button=f"{tag_prefix}lifetime_tab_fit_view",
             info_text=f"{tag_prefix}lifetime_tab_info",
             plot_container=f"{tag_prefix}lifetime_tab_plot_container",
             plot_area=f"{tag_prefix}lifetime_tab_plot_area",
             no_data_text=f"{tag_prefix}lifetime_tab_no_data",
+            results_group=f"{tag_prefix}lifetime_tab_results_group",
+            results_header=f"{tag_prefix}lifetime_tab_results_header",
+            tau_text=f"{tag_prefix}lifetime_tab_tau_text",
+            chi_squared_text=f"{tag_prefix}lifetime_tab_chi_squared_text",
+            dw_text=f"{tag_prefix}lifetime_tab_dw_text",
+            avg_lifetime_text=f"{tag_prefix}lifetime_tab_avg_lifetime_text",
         )
 
     @property
@@ -106,6 +131,9 @@ class LifetimeTab:
         with dpg.group(parent=self._parent, tag=self._tags.container):
             # Controls bar at top
             self._build_controls()
+
+            # Fit results display (hidden until fit is available)
+            self._build_fit_results_display()
 
             # Separator
             dpg.add_separator()
@@ -152,6 +180,30 @@ class LifetimeTab:
             )
 
             # Spacer
+            dpg.add_spacer(width=15)
+
+            # Show fit checkbox
+            dpg.add_checkbox(
+                label="Show Fit",
+                tag=self._tags.show_fit_checkbox,
+                default_value=self._show_fit,
+                callback=self._on_show_fit_checkbox_changed,
+                enabled=False,
+            )
+
+            # Spacer
+            dpg.add_spacer(width=15)
+
+            # Show IRF checkbox
+            dpg.add_checkbox(
+                label="Show IRF",
+                tag=self._tags.show_irf_checkbox,
+                default_value=self._show_irf,
+                callback=self._on_show_irf_checkbox_changed,
+                enabled=False,
+            )
+
+            # Spacer
             dpg.add_spacer(width=20)
 
             # Fit view button
@@ -171,6 +223,89 @@ class LifetimeTab:
                 tag=self._tags.info_text,
                 color=(128, 128, 128),
             )
+
+    def _build_fit_results_display(self) -> None:
+        """Build the fit results display section."""
+        # Fit results group (hidden until fit is available)
+        with dpg.group(
+            tag=self._tags.results_group,
+            horizontal=True,
+            show=False,
+        ):
+            # Results header
+            dpg.add_text(
+                "Fit Results:",
+                tag=self._tags.results_header,
+                color=(180, 180, 180),
+            )
+
+            dpg.add_spacer(width=15)
+
+            # Tau value(s)
+            dpg.add_text(
+                "",
+                tag=self._tags.tau_text,
+                color=(100, 180, 255),  # Blue for tau
+            )
+
+            dpg.add_spacer(width=20)
+
+            # Average lifetime
+            dpg.add_text(
+                "",
+                tag=self._tags.avg_lifetime_text,
+                color=(180, 150, 255),  # Purple for average
+            )
+
+            dpg.add_spacer(width=20)
+
+            # Chi-squared
+            dpg.add_text(
+                "",
+                tag=self._tags.chi_squared_text,
+                color=(100, 220, 150),  # Green for good fit
+            )
+
+            dpg.add_spacer(width=20)
+
+            # Durbin-Watson
+            dpg.add_text(
+                "",
+                tag=self._tags.dw_text,
+                color=(200, 200, 200),
+            )
+
+    def _on_show_fit_checkbox_changed(
+        self, sender: int, app_data: bool
+    ) -> None:
+        """Handle show fit checkbox changes.
+
+        Args:
+            sender: The checkbox widget.
+            app_data: The new checkbox value.
+        """
+        self._show_fit = app_data
+
+        if self._decay_plot:
+            self._decay_plot.set_show_fit(app_data)
+
+        logger.debug(f"Show fit changed to {app_data}")
+
+    def _on_show_irf_checkbox_changed(
+        self, sender: int, app_data: bool
+    ) -> None:
+        """Handle show IRF checkbox changes.
+
+        Args:
+            sender: The checkbox widget.
+            app_data: The new checkbox value.
+        """
+        self._show_irf = app_data
+
+        if self._decay_plot:
+            self._decay_plot.set_show_irf(app_data)
+
+        logger.debug(f"Show IRF changed to {app_data}")
 
     def _on_log_scale_checkbox_changed(
         self, sender: int, app_data: bool
@@ -238,6 +373,7 @@ class LifetimeTab:
     def clear(self) -> None:
         """Clear the tab data."""
         self._microtimes = None
+        self._fit_result = None
 
         if self._decay_plot:
             self._decay_plot.clear()
@@ -245,12 +381,21 @@ class LifetimeTab:
         # Hide plot, show placeholder
         self._show_plot(False)
 
+        # Hide fit results
+        self._show_fit_results(False)
+
         # Disable controls
         if dpg.does_item_exist(self._tags.fit_view_button):
             dpg.configure_item(self._tags.fit_view_button, enabled=False)
 
         if dpg.does_item_exist(self._tags.log_scale_checkbox):
             dpg.configure_item(self._tags.log_scale_checkbox, enabled=False)
+
+        if dpg.does_item_exist(self._tags.show_fit_checkbox):
+            dpg.configure_item(self._tags.show_fit_checkbox, enabled=False)
+
+        if dpg.does_item_exist(self._tags.show_irf_checkbox):
+            dpg.configure_item(self._tags.show_irf_checkbox, enabled=False)
 
         # Clear info text
         if dpg.does_item_exist(self._tags.info_text):
@@ -332,3 +477,206 @@ class LifetimeTab:
     def channelwidth(self) -> float:
         """Get the current channel width in nanoseconds."""
         return self._channelwidth
+
+    # -------------------------------------------------------------------------
+    # Fit Result Methods
+    # -------------------------------------------------------------------------
+
+    @property
+    def has_fit(self) -> bool:
+        """Whether a fit result is currently set."""
+        return self._fit_result is not None
+
+    @property
+    def fit_result(self) -> Optional[FitResult]:
+        """Get the current fit result."""
+        return self._fit_result
+
+    @property
+    def show_fit(self) -> bool:
+        """Whether the fit curve is currently visible."""
+        return self._show_fit
+
+    def set_fit(self, fit_result: FitResult) -> None:
+        """Set the fit result and display it.
+
+        Args:
+            fit_result: The FitResult from lifetime fitting.
+        """
+        self._fit_result = fit_result
+
+        # Update the decay plot
+        if self._decay_plot:
+            self._decay_plot.set_fit(fit_result)
+
+        # Enable the show fit checkbox
+        if dpg.does_item_exist(self._tags.show_fit_checkbox):
+            dpg.configure_item(self._tags.show_fit_checkbox, enabled=True)
+
+        # Update the fit results text display
+        self._update_fit_results_text()
+
+        # Show the fit results group
+        self._show_fit_results(True)
+
+        logger.debug(
+            f"Fit set: tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}"
+        )
+
+    def clear_fit(self) -> None:
+        """Clear the fit result."""
+        self._fit_result = None
+
+        if self._decay_plot:
+            self._decay_plot.clear_fit()
+
+        # Disable the show fit checkbox
+        if dpg.does_item_exist(self._tags.show_fit_checkbox):
+            dpg.configure_item(self._tags.show_fit_checkbox, enabled=False)
+
+        # Hide the fit results group
+        self._show_fit_results(False)
+
+        logger.debug("Fit cleared")
+
+    def _show_fit_results(self, show: bool) -> None:
+        """Show or hide the fit results display section.
+
+        Args:
+            show: Whether to show the fit results section.
+        """
+        if dpg.does_item_exist(self._tags.results_group):
+            dpg.configure_item(self._tags.results_group, show=show)
+
+    def _update_fit_results_text(self) -> None:
+        """Update the fit results display text."""
+        if self._fit_result is None:
+            return
+
+        fit = self._fit_result
+
+        # Format tau values
+        if fit.num_exponentials == 1:
+            tau_text = f"tau = {fit.tau[0]:.2f} +/- {fit.tau_std[0]:.2f} ns"
+        else:
+            tau_parts = []
+            for i in range(fit.num_exponentials):
+                tau_parts.append(f"tau{i+1} = {fit.tau[i]:.2f} ns")
+            tau_text = ", ".join(tau_parts)
+
+        if dpg.does_item_exist(self._tags.tau_text):
+            dpg.set_value(self._tags.tau_text, tau_text)
+
+        # Average lifetime (for multi-exponential)
+        if fit.num_exponentials > 1:
+            avg_text = f"<tau> = {fit.average_lifetime:.2f} ns"
+        else:
+            avg_text = ""
+
+        if dpg.does_item_exist(self._tags.avg_lifetime_text):
+            dpg.set_value(self._tags.avg_lifetime_text, avg_text)
+
+        # Chi-squared with color coding
+        chi2 = fit.chi_squared
+        if fit.is_good_fit:
+            chi2_color = (100, 220, 150, 255)  # Green for good fit
+        elif chi2 < 0.8:
+            chi2_color = (255, 220, 100, 255)  # Yellow for overfitted
+        else:
+            chi2_color = (255, 150, 100, 255)  # Orange for poor fit
+
+        if dpg.does_item_exist(self._tags.chi_squared_text):
+            dpg.set_value(self._tags.chi_squared_text, f"chi2 = {chi2:.3f}")
+            dpg.configure_item(self._tags.chi_squared_text, color=chi2_color)
+
+        # Durbin-Watson
+        dw = fit.durbin_watson
+        dw_text = f"DW = {dw:.2f}"
+
+        # Color code DW if bounds are available
+        if fit.dw_is_acceptable is not None:
+            if fit.dw_is_acceptable:
+                dw_color = (100, 220, 150, 255)  # Green
+            else:
+                dw_color = (255, 150, 100, 255)  # Orange
+        else:
+            dw_color = (200, 200, 200, 255)  # Gray
+
+        if dpg.does_item_exist(self._tags.dw_text):
+            dpg.set_value(self._tags.dw_text, dw_text)
+            dpg.configure_item(self._tags.dw_text, color=dw_color)
+
+    def set_show_fit(self, show: bool) -> None:
+        """Programmatically set the show fit state.
+
+        Args:
+            show: Whether to show the fit curve.
+        """
+        self._show_fit = show
+
+        if dpg.does_item_exist(self._tags.show_fit_checkbox):
+            dpg.set_value(self._tags.show_fit_checkbox, show)
+
+        if self._decay_plot:
+            self._decay_plot.set_show_fit(show)
+
+    # -------------------------------------------------------------------------
+    # IRF Methods
+    # -------------------------------------------------------------------------
+
+    @property
+    def show_irf(self) -> bool:
+        """Whether the IRF is currently visible."""
+        return self._show_irf
+
+    @property
+    def has_irf(self) -> bool:
+        """Whether IRF data is currently set."""
+        return self._decay_plot.has_irf if self._decay_plot else False
+
+    def set_irf(
+        self,
+        t: NDArray[np.float64],
+        counts: NDArray[np.float64],
+        normalize: bool = True,
+    ) -> None:
+        """Set the IRF data and display it.
+
+        Args:
+            t: Time array in nanoseconds.
+            counts: Count array.
+            normalize: If True, normalize IRF to match data peak.
+        """
+        if self._decay_plot:
+            self._decay_plot.set_irf(t, counts, normalize=normalize)
+
+        # Enable the show IRF checkbox
+        if dpg.does_item_exist(self._tags.show_irf_checkbox):
+            dpg.configure_item(self._tags.show_irf_checkbox, enabled=True)
+
+        logger.debug(f"IRF set: {len(t)} points")
+
+    def clear_irf(self) -> None:
+        """Clear the IRF data."""
+        if self._decay_plot:
+            self._decay_plot.clear_irf()
+
+        # Disable the show IRF checkbox
+        if dpg.does_item_exist(self._tags.show_irf_checkbox):
+            dpg.configure_item(self._tags.show_irf_checkbox, enabled=False)
+
+        logger.debug("IRF cleared")
+
+    def set_show_irf(self, show: bool) -> None:
+        """Programmatically set the show IRF state.
+
+        Args:
+            show: Whether to show the IRF.
+        """
+        self._show_irf = show
+
+        if dpg.does_item_exist(self._tags.show_irf_checkbox):
+            dpg.set_value(self._tags.show_irf_checkbox, show)
+
+        if self._decay_plot:
+            self._decay_plot.set_show_irf(show)
