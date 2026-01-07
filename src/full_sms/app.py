@@ -7,13 +7,23 @@ from __future__ import annotations
 
 import logging
 import sys
+from concurrent.futures import Future
 from typing import TYPE_CHECKING
 
 import dearpygui.dearpygui as dpg
+import numpy as np
 
-from full_sms.models.session import ActiveTab, ChannelSelection, SessionState
+from full_sms.models.level import LevelData
+from full_sms.models.session import (
+    ActiveTab,
+    ChannelSelection,
+    ConfidenceLevel,
+    SessionState,
+)
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
+from full_sms.workers.pool import AnalysisPool, TaskResult
+from full_sms.workers.tasks import run_cpa_task
 
 if TYPE_CHECKING:
     from full_sms.models.particle import ParticleData
@@ -42,9 +52,20 @@ class Application:
         self._layout: MainLayout | None = None
         self._session = SessionState()
 
+        # Analysis worker pool
+        self._pool: AnalysisPool | None = None
+
+        # Pending futures for async operations
+        self._pending_futures: list[Future] = []
+        self._resolve_mode: str | None = None  # Track current resolve operation
+
     def setup(self) -> None:
         """Set up the DearPyGui context, viewport, and UI."""
         logger.info("Initializing Full SMS application")
+
+        # Initialize worker pool
+        self._pool = AnalysisPool()
+        logger.info(f"Analysis pool initialized with {self._pool.max_workers} workers")
 
         # Create DearPyGui context
         dpg.create_context()
@@ -85,6 +106,10 @@ class Application:
             self._layout.set_on_tab_change(self._on_tab_changed)
             self._layout.set_on_selection_change(self._on_selection_changed)
             self._layout.set_on_batch_change(self._on_batch_changed)
+
+            # Set up intensity tab resolve callback
+            if self._layout.intensity_tab:
+                self._layout.intensity_tab.set_on_resolve(self._on_resolve_from_tab)
 
         # Set as primary window (fills viewport)
         dpg.set_primary_window(TAGS["primary_window"], True)
@@ -239,8 +264,14 @@ class Application:
                 f"Selection changed: Particle {selection.particle_id}, "
                 f"Channel {selection.channel}"
             )
+
+            # Update intensity display with levels if they exist
+            self._update_intensity_display()
         else:
             logger.debug("Selection cleared")
+
+        # Update resolve button states
+        self._update_resolve_buttons_state()
 
     def _on_batch_changed(self, selections: list[ChannelSelection]) -> None:
         """Handle batch selection change from particle tree.
@@ -250,6 +281,9 @@ class Application:
         """
         self._session.selected = selections
         logger.debug(f"Batch selection changed: {len(selections)} items")
+
+        # Update resolve button states
+        self._update_resolve_buttons_state()
 
     # Menu callbacks - File menu
 
@@ -307,6 +341,9 @@ class Application:
     def _on_resolve(self, mode: str) -> None:
         """Handle Resolve menu action."""
         logger.info(f"Resolve {mode} triggered")
+        # Use the current confidence level from session state
+        confidence = self._session.ui_state.confidence
+        self._on_resolve_from_tab(mode, confidence)
 
     def _on_group(self, mode: str) -> None:
         """Handle Group menu action."""
@@ -389,13 +426,265 @@ class Application:
 
     def _on_frame(self) -> None:
         """Called every frame - use for async operations and updates."""
+        # Check for completed futures
+        self._check_pending_futures()
+
         # Sync status bar with processing state
         if self._layout:
             self._layout.sync_status_with_state(self._session.processing)
 
+    def _check_pending_futures(self) -> None:
+        """Check for completed futures and process their results."""
+        if not self._pending_futures:
+            return
+
+        completed = []
+        for future in self._pending_futures:
+            if future.done():
+                completed.append(future)
+                try:
+                    result = future.result()
+                    self._handle_future_result(result)
+                except Exception as e:
+                    logger.exception(f"Future failed: {e}")
+                    self._session.processing.finish(f"Error: {e}")
+                    if self._layout:
+                        self._layout.show_error(str(e))
+
+        # Remove completed futures
+        for future in completed:
+            self._pending_futures.remove(future)
+
+        # If all futures completed, finish processing
+        if not self._pending_futures and self._session.processing.is_busy:
+            self._finish_resolve()
+
+    def _handle_future_result(self, result: TaskResult) -> None:
+        """Handle a completed task result.
+
+        Args:
+            result: The TaskResult from the worker.
+        """
+        if not result.success:
+            logger.error(f"Task failed: {result.error}")
+            return
+
+        if result.value is None:
+            return
+
+        data = result.value
+        particle_id = data.get("particle_id")
+        channel_id = data.get("channel_id", 1)
+
+        # Check if this is a CPA result (has "levels" key)
+        if "levels" in data:
+            self._handle_cpa_result(particle_id, channel_id, data)
+
+    def _handle_cpa_result(
+        self, particle_id: int, channel_id: int, data: dict
+    ) -> None:
+        """Handle completed CPA result.
+
+        Args:
+            particle_id: The particle ID.
+            channel_id: The channel ID.
+            data: The result data containing levels.
+        """
+        # Convert level dicts back to LevelData objects
+        levels = []
+        for level_dict in data["levels"]:
+            level = LevelData(
+                start_index=level_dict["start_index"],
+                end_index=level_dict["end_index"],
+                start_time_ns=int(level_dict["start_time_ns"]),
+                end_time_ns=int(level_dict["end_time_ns"]),
+                num_photons=level_dict["num_photons"],
+                intensity_cps=level_dict["intensity_cps"],
+                group_id=level_dict.get("group_id"),
+            )
+            levels.append(level)
+
+        # Store in session state
+        self._session.set_levels(particle_id, channel_id, levels)
+
+        logger.info(
+            f"CPA complete for particle {particle_id}, channel {channel_id}: "
+            f"{len(levels)} levels detected"
+        )
+
+        # Update progress
+        completed = sum(
+            1
+            for key in self._session.levels
+            if self._session.levels[key] is not None
+        )
+        total = len(self._pending_futures) + completed
+        if total > 0:
+            self._session.processing.update(
+                completed / total,
+                f"Resolved {completed}/{total} particles...",
+            )
+
+    def _finish_resolve(self) -> None:
+        """Finish the resolve operation and update the UI."""
+        self._session.processing.finish("Change point analysis complete")
+        self._resolve_mode = None
+
+        # Re-enable resolve buttons
+        if self._layout and self._layout.intensity_tab:
+            self._layout.intensity_tab.set_resolving(False)
+            self._update_resolve_buttons_state()
+
+        # Update display with levels for current selection
+        self._update_intensity_display()
+
+        if self._layout:
+            num_levels = 0
+            if self._session.current_selection:
+                levels = self._session.get_current_levels()
+                num_levels = len(levels) if levels else 0
+            self._layout.show_success(
+                f"Change point analysis complete ({num_levels} levels detected)"
+            )
+
+    def _on_resolve_from_tab(self, mode: str, confidence: ConfidenceLevel) -> None:
+        """Handle resolve request from the intensity tab.
+
+        Args:
+            mode: The resolve mode ("current", "selected", or "all").
+            confidence: The confidence level for CPA.
+        """
+        logger.info(f"Resolve from tab: mode={mode}, confidence={confidence.value}")
+
+        # Check if already processing
+        if self._session.processing.is_busy:
+            logger.warning("Already processing, ignoring resolve request")
+            return
+
+        # Determine which particles to resolve
+        targets: list[ChannelSelection] = []
+
+        if mode == "current":
+            if self._session.current_selection:
+                targets = [self._session.current_selection]
+        elif mode == "selected":
+            targets = list(self._session.selected)
+        elif mode == "all":
+            # Create selections for all particles
+            for particle in self._session.particles:
+                # Channel 1
+                targets.append(ChannelSelection(particle.id, 1))
+                # Channel 2 if dual channel
+                if particle.channel2 is not None:
+                    targets.append(ChannelSelection(particle.id, 2))
+
+        if not targets:
+            logger.warning("No particles to resolve")
+            if self._layout:
+                self._layout.set_status("No particles selected for analysis")
+            return
+
+        # Start processing
+        self._resolve_mode = mode
+        self._session.processing.start(
+            "Change point analysis",
+            f"Resolving {len(targets)} particle(s)...",
+        )
+
+        # Disable resolve buttons
+        if self._layout and self._layout.intensity_tab:
+            self._layout.intensity_tab.set_resolving(True)
+
+        # Submit tasks
+        self._submit_cpa_tasks(targets, confidence)
+
+    def _submit_cpa_tasks(
+        self, targets: list[ChannelSelection], confidence: ConfidenceLevel
+    ) -> None:
+        """Submit CPA tasks to the worker pool.
+
+        Args:
+            targets: List of particle/channel selections to analyze.
+            confidence: The confidence level.
+        """
+        if not self._pool:
+            logger.error("Worker pool not initialized")
+            return
+
+        for selection in targets:
+            particle = self._session.get_particle(selection.particle_id)
+            if particle is None:
+                logger.warning(f"Particle {selection.particle_id} not found")
+                continue
+
+            # Get abstimes for the selected channel
+            if selection.channel == 1:
+                channel_data = particle.channel1
+            else:
+                channel_data = particle.channel2
+
+            if channel_data is None:
+                logger.warning(
+                    f"No channel {selection.channel} data for particle "
+                    f"{selection.particle_id}"
+                )
+                continue
+
+            # Build task parameters
+            params = {
+                "abstimes": channel_data.abstimes.astype(np.float64),
+                "confidence": confidence.value,
+                "particle_id": selection.particle_id,
+                "channel_id": selection.channel,
+            }
+
+            # Get end time if available
+            if len(channel_data.abstimes) > 0:
+                params["end_time_ns"] = float(channel_data.abstimes[-1])
+
+            # Submit task
+            future = self._pool.submit(run_cpa_task, params)
+            self._pending_futures.append(future)
+
+        logger.info(f"Submitted {len(self._pending_futures)} CPA tasks")
+
+    def _update_intensity_display(self) -> None:
+        """Update the intensity tab display with current data."""
+        if not self._layout or not self._layout.intensity_tab:
+            return
+
+        if not self._session.current_selection:
+            return
+
+        # Get levels for current selection
+        levels = self._session.get_current_levels()
+        if levels:
+            self._layout.intensity_tab.set_levels(levels)
+
+    def _update_resolve_buttons_state(self) -> None:
+        """Update resolve button states based on current selections."""
+        if not self._layout or not self._layout.intensity_tab:
+            return
+
+        has_current = self._session.current_selection is not None
+        has_selected = len(self._session.selected) > 0
+        has_any = len(self._session.particles) > 0
+
+        self._layout.intensity_tab.set_resolve_buttons_state(
+            has_current=has_current and self._layout.intensity_tab.has_data,
+            has_selected=has_selected,
+            has_any=has_any,
+        )
+
     def shutdown(self) -> None:
         """Clean up and destroy the DearPyGui context."""
         logger.info("Shutting down application")
+
+        # Shutdown worker pool
+        if self._pool:
+            self._pool.shutdown(wait=False, cancel_futures=True)
+            logger.info("Worker pool shutdown")
+
         dpg.destroy_context()
         logger.info("Application shutdown complete")
 

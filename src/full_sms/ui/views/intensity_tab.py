@@ -18,8 +18,19 @@ import numpy as np
 from numpy.typing import NDArray
 
 from full_sms.models.level import LevelData
+from full_sms.models.session import ConfidenceLevel
 from full_sms.ui.plots.intensity_histogram import IntensityHistogram
 from full_sms.ui.plots.intensity_plot import IntensityPlot
+
+# Confidence level options for the combo box
+CONFIDENCE_OPTIONS = ["69%", "90%", "95%", "99%"]
+CONFIDENCE_MAP = {
+    "69%": ConfidenceLevel.CONF_69,
+    "90%": ConfidenceLevel.CONF_90,
+    "95%": ConfidenceLevel.CONF_95,
+    "99%": ConfidenceLevel.CONF_99,
+}
+DEFAULT_CONFIDENCE = "95%"
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +53,12 @@ class IntensityTabTags:
     histogram_container: str = "intensity_tab_histogram_container"
     info_text: str = "intensity_tab_info"
     no_data_text: str = "intensity_tab_no_data"
+    # Resolve controls
+    resolve_group: str = "intensity_tab_resolve_group"
+    confidence_combo: str = "intensity_tab_confidence"
+    resolve_current_btn: str = "intensity_tab_resolve_current"
+    resolve_selected_btn: str = "intensity_tab_resolve_selected"
+    resolve_all_btn: str = "intensity_tab_resolve_all"
 
 
 INTENSITY_TAB_TAGS = IntensityTabTags()
@@ -84,6 +101,7 @@ class IntensityTab:
 
         # Callbacks
         self._on_bin_size_changed: Callable[[float], None] | None = None
+        self._on_resolve: Callable[[str, ConfidenceLevel], None] | None = None
 
         # UI components
         self._intensity_plot: IntensityPlot | None = None
@@ -105,6 +123,11 @@ class IntensityTab:
             histogram_container=f"{tag_prefix}intensity_tab_histogram_container",
             info_text=f"{tag_prefix}intensity_tab_info",
             no_data_text=f"{tag_prefix}intensity_tab_no_data",
+            resolve_group=f"{tag_prefix}intensity_tab_resolve_group",
+            confidence_combo=f"{tag_prefix}intensity_tab_confidence",
+            resolve_current_btn=f"{tag_prefix}intensity_tab_resolve_current",
+            resolve_selected_btn=f"{tag_prefix}intensity_tab_resolve_selected",
+            resolve_all_btn=f"{tag_prefix}intensity_tab_resolve_all",
         )
 
     @property
@@ -186,6 +209,7 @@ class IntensityTab:
 
     def _build_controls(self) -> None:
         """Build the controls bar at the top of the tab."""
+        # First row: Bin size and view controls
         with dpg.group(horizontal=True, tag=self._tags.controls_group):
             # Bin size control
             dpg.add_text("Bin Size:")
@@ -270,6 +294,43 @@ class IntensityTab:
                 color=(128, 128, 128),
             )
 
+        # Second row: Resolve controls
+        with dpg.group(horizontal=True, tag=self._tags.resolve_group):
+            dpg.add_text("Confidence:")
+            dpg.add_combo(
+                items=CONFIDENCE_OPTIONS,
+                default_value=DEFAULT_CONFIDENCE,
+                tag=self._tags.confidence_combo,
+                width=80,
+            )
+
+            dpg.add_spacer(width=15)
+
+            dpg.add_button(
+                label="Resolve Current",
+                tag=self._tags.resolve_current_btn,
+                callback=self._on_resolve_current_clicked,
+                enabled=False,
+            )
+
+            dpg.add_spacer(width=5)
+
+            dpg.add_button(
+                label="Resolve Selected",
+                tag=self._tags.resolve_selected_btn,
+                callback=self._on_resolve_selected_clicked,
+                enabled=False,
+            )
+
+            dpg.add_spacer(width=5)
+
+            dpg.add_button(
+                label="Resolve All",
+                tag=self._tags.resolve_all_btn,
+                callback=self._on_resolve_all_clicked,
+                enabled=False,
+            )
+
     def _on_bin_size_slider_changed(
         self, sender: int, app_data: float
     ) -> None:
@@ -340,6 +401,38 @@ class IntensityTab:
 
         logger.debug(f"Show histogram changed to {app_data}")
 
+    # -------------------------------------------------------------------------
+    # Resolve Control Callbacks
+    # -------------------------------------------------------------------------
+
+    def _get_selected_confidence(self) -> ConfidenceLevel:
+        """Get the currently selected confidence level."""
+        if dpg.does_item_exist(self._tags.confidence_combo):
+            value = dpg.get_value(self._tags.confidence_combo)
+            return CONFIDENCE_MAP.get(value, ConfidenceLevel.CONF_95)
+        return ConfidenceLevel.CONF_95
+
+    def _on_resolve_current_clicked(self) -> None:
+        """Handle Resolve Current button click."""
+        confidence = self._get_selected_confidence()
+        logger.info(f"Resolve Current clicked with confidence {confidence.value}")
+        if self._on_resolve:
+            self._on_resolve("current", confidence)
+
+    def _on_resolve_selected_clicked(self) -> None:
+        """Handle Resolve Selected button click."""
+        confidence = self._get_selected_confidence()
+        logger.info(f"Resolve Selected clicked with confidence {confidence.value}")
+        if self._on_resolve:
+            self._on_resolve("selected", confidence)
+
+    def _on_resolve_all_clicked(self) -> None:
+        """Handle Resolve All button click."""
+        confidence = self._get_selected_confidence()
+        logger.info(f"Resolve All clicked with confidence {confidence.value}")
+        if self._on_resolve:
+            self._on_resolve("all", confidence)
+
     def set_data(self, abstimes: NDArray[np.uint64]) -> None:
         """Set the photon arrival time data.
 
@@ -369,6 +462,10 @@ class IntensityTab:
         # Enable histogram checkbox
         if dpg.does_item_exist(self._tags.show_histogram_checkbox):
             dpg.configure_item(self._tags.show_histogram_checkbox, enabled=True)
+
+        # Enable resolve current button (data is loaded)
+        if dpg.does_item_exist(self._tags.resolve_current_btn):
+            dpg.configure_item(self._tags.resolve_current_btn, enabled=True)
 
         # Update info text
         self._update_info_text()
@@ -402,6 +499,10 @@ class IntensityTab:
         # Disable histogram checkbox
         if dpg.does_item_exist(self._tags.show_histogram_checkbox):
             dpg.configure_item(self._tags.show_histogram_checkbox, enabled=False)
+
+        # Disable resolve current button
+        if dpg.does_item_exist(self._tags.resolve_current_btn):
+            dpg.configure_item(self._tags.resolve_current_btn, enabled=False)
 
         # Clear info text
         if dpg.does_item_exist(self._tags.info_text):
@@ -476,6 +577,53 @@ class IntensityTab:
             callback: Function called when bin size changes, receives new bin size.
         """
         self._on_bin_size_changed = callback
+
+    def set_on_resolve(
+        self, callback: Callable[[str, ConfidenceLevel], None]
+    ) -> None:
+        """Set callback for resolve button clicks.
+
+        Args:
+            callback: Function called when resolve is triggered.
+                First arg is mode ("current", "selected", or "all").
+                Second arg is the confidence level.
+        """
+        self._on_resolve = callback
+
+    def set_resolve_buttons_state(
+        self,
+        has_current: bool = False,
+        has_selected: bool = False,
+        has_any: bool = False,
+    ) -> None:
+        """Enable/disable resolve buttons based on application state.
+
+        Args:
+            has_current: Whether there is a currently viewed particle.
+            has_selected: Whether there are batch-selected particles.
+            has_any: Whether there are any particles loaded.
+        """
+        if dpg.does_item_exist(self._tags.resolve_current_btn):
+            dpg.configure_item(self._tags.resolve_current_btn, enabled=has_current)
+        if dpg.does_item_exist(self._tags.resolve_selected_btn):
+            dpg.configure_item(self._tags.resolve_selected_btn, enabled=has_selected)
+        if dpg.does_item_exist(self._tags.resolve_all_btn):
+            dpg.configure_item(self._tags.resolve_all_btn, enabled=has_any)
+
+    def set_resolving(self, is_resolving: bool) -> None:
+        """Set the resolving state, disabling buttons while analysis is running.
+
+        Args:
+            is_resolving: Whether change point analysis is currently running.
+        """
+        # Disable all resolve buttons during analysis
+        for tag in [
+            self._tags.resolve_current_btn,
+            self._tags.resolve_selected_btn,
+            self._tags.resolve_all_btn,
+        ]:
+            if dpg.does_item_exist(tag):
+                dpg.configure_item(tag, enabled=not is_resolving)
 
     def set_bin_size(self, bin_size_ms: float) -> None:
         """Programmatically set the bin size.

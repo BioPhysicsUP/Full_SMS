@@ -429,7 +429,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 7.4: Implement resolve controls `[NEXT]`
+### Task 7.4: Implement resolve controls `[DONE]` (2026-01-07)
 **Objective**: Trigger change point analysis from UI
 
 **Actions**:
@@ -446,7 +446,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ## Phase 8: Lifetime Tab
 
-### Task 8.1: Implement decay histogram plot `[TODO]`
+### Task 8.1: Implement decay histogram plot `[NEXT]`
 **Objective**: Display fluorescence decay curve
 
 **Actions**:
@@ -728,13 +728,13 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 4. Analysis Core | 7 | 7 | 0 |
 | 5. Workers | 2 | 2 | 0 |
 | 6. UI Foundation | 4 | 4 | 0 |
-| 7. Intensity Tab | 4 | 3 | 1 |
+| 7. Intensity Tab | 4 | 4 | 0 |
 | 8. Lifetime Tab | 4 | 0 | 4 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **24** | **18** |
+| **Total** | **42** | **25** | **17** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 7.3 completed - intensity histogram sidebar)*
+*Last Updated: 2026-01-07 (Task 7.4 completed - resolve controls for CPA)*
