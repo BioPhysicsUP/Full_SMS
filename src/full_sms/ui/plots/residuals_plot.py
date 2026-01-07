@@ -232,19 +232,15 @@ class ResidualsPlot:
     def link_x_axis(self, decay_plot_x_axis: str) -> None:
         """Link this plot's X axis to the decay plot's X axis.
 
-        This enables synchronized panning and zooming between the plots.
+        This stores the reference for potential future use. Note that DearPyGui's
+        ImPlot backend doesn't support direct axis linking between separate plots.
+        Synchronized zooming would require manual callback handling.
 
         Args:
             decay_plot_x_axis: Tag of the decay plot's X axis.
         """
         self._linked_x_axis = decay_plot_x_axis
-
-        if dpg.does_item_exist(self._tags.x_axis) and dpg.does_item_exist(
-            decay_plot_x_axis
-        ):
-            # Link axes for synchronized interaction
-            dpg.configure_item(self._tags.x_axis, linked_axis=decay_plot_x_axis)
-            logger.debug(f"Residuals X axis linked to {decay_plot_x_axis}")
+        logger.debug(f"Residuals X axis reference set to {decay_plot_x_axis}")
 
     def _apply_series_colors(self) -> None:
         """Apply themed colors to the plot elements."""

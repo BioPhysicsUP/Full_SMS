@@ -125,7 +125,7 @@ class CorrelationPlot:
                 )
 
                 # Add vertical line at tau=0 (reference)
-                dpg.add_vline_series(
+                dpg.add_inf_line_series(
                     [0.0],
                     label="tau=0",
                     parent=self._tags.y_axis,
@@ -144,7 +144,7 @@ class CorrelationPlot:
 
         # Create a subtle dashed line style
         with dpg.theme() as theme:
-            with dpg.theme_component(dpg.mvVLineSeries):
+            with dpg.theme_component(dpg.mvInfLineSeries):
                 dpg.add_theme_color(
                     dpg.mvPlotCol_Line,
                     (128, 128, 128, 100),

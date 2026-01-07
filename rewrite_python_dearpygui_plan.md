@@ -688,7 +688,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 12.4: Create PyInstaller build configuration `[NEXT]`
+### Task 12.4: Create PyInstaller build configuration `[DONE]` (2026-01-07)
 **Objective**: Package application for distribution
 
 **Actions**:
@@ -703,7 +703,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 12.5: Cross-platform testing and fixes `[TODO]`
+### Task 12.5: Cross-platform testing and fixes `[NEXT]`
 **Objective**: Ensure app works on macOS, Windows, Linux
 
 **Actions**:
@@ -733,8 +733,8 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 9. Grouping Tab | 3 | 3 | 0 |
 | 10. Additional Tabs | 3 | 3 | 0 |
 | 11. Export | 2 | 2 | 0 |
-| 12. Polish | 5 | 3 | 2 |
-| **Total** | **42** | **40** | **2** |
+| 12. Polish | 5 | 4 | 1 |
+| **Total** | **42** | **41** | **1** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 12.3 completed - File dialogs for Open H5, Save/Load Session, Export directory)*
+*Last Updated: 2026-01-07 (Task 12.4 completed - PyInstaller build configuration for macOS/Windows/Linux)*
