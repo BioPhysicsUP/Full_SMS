@@ -920,3 +920,41 @@ class MainLayout:
         """
         if self._export_tab:
             self._export_tab.show_export_error(error)
+
+    # General data management
+
+    def clear_all_data(self) -> None:
+        """Clear all tab data and reset to initial state.
+
+        Called when closing a file.
+        """
+        # Clear particle tree
+        if self._particle_tree:
+            self._particle_tree.clear()
+
+        # Clear each tab
+        self.clear_intensity_data()
+        self.clear_lifetime_data()
+        self.clear_grouping_data()
+        self.clear_spectra_data()
+        self.clear_raster_data()
+        self.clear_correlation_data()
+        self.clear_export_data()
+
+        # Disable sidebar controls
+        self.enable_sidebar_controls(False)
+
+        # Reset selection info
+        self.update_selection_info(0)
+
+        # Reset to intensity tab
+        self.set_active_tab(ActiveTab.INTENSITY)
+
+    def set_current_selection(self, selection: ChannelSelection | None) -> None:
+        """Set the current selection in the particle tree.
+
+        Args:
+            selection: The selection to make current, or None to clear.
+        """
+        if self._particle_tree and selection:
+            self._particle_tree.select(selection.particle_id, selection.channel)

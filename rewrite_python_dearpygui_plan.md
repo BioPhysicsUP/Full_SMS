@@ -673,7 +673,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 12.3: Implement file dialogs `[NEXT]`
+### Task 12.3: Implement file dialogs `[DONE]` (2026-01-07)
 **Objective**: Native file open/save dialogs
 
 **Actions**:
@@ -688,7 +688,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 12.4: Create PyInstaller build configuration `[TODO]`
+### Task 12.4: Create PyInstaller build configuration `[NEXT]`
 **Objective**: Package application for distribution
 
 **Actions**:
@@ -733,8 +733,8 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 9. Grouping Tab | 3 | 3 | 0 |
 | 10. Additional Tabs | 3 | 3 | 0 |
 | 11. Export | 2 | 2 | 0 |
-| 12. Polish | 5 | 2 | 3 |
-| **Total** | **42** | **39** | **3** |
+| 12. Polish | 5 | 3 | 2 |
+| **Total** | **42** | **40** | **2** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 12.2 completed - Keyboard shortcuts with Cmd/Ctrl+O/S/E/R and Ctrl+Tab navigation)*
+*Last Updated: 2026-01-07 (Task 12.3 completed - File dialogs for Open H5, Save/Load Session, Export directory)*

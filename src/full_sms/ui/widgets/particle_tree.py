@@ -398,3 +398,11 @@ class ParticleTree:
     def get_particle_ids(self) -> list[int]:
         """Get list of all particle IDs."""
         return [p.id for p in self._particles]
+
+    def clear(self) -> None:
+        """Clear the tree and reset to empty state.
+
+        Called when closing a file.
+        """
+        self.set_particles([])
+        logger.debug("Particle tree cleared")

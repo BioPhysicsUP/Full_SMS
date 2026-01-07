@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import sys
 from concurrent.futures import Future
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import dearpygui.dearpygui as dpg
@@ -22,7 +23,7 @@ from full_sms.models.session import (
     SessionState,
 )
 from full_sms.config import Settings, get_settings, save_settings
-from full_sms.ui.dialogs import FittingDialog, FittingParameters, SettingsDialog
+from full_sms.ui.dialogs import FileDialogs, FittingDialog, FittingParameters, SettingsDialog
 from full_sms.ui.keyboard import KeyboardShortcuts, ShortcutHandler
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
@@ -32,6 +33,13 @@ from full_sms.workers.tasks import (
     run_correlation_task,
     run_cpa_task,
     run_fit_task,
+)
+from full_sms.io.hdf5_reader import load_h5_file
+from full_sms.io.session import (
+    apply_session_to_state,
+    load_session,
+    save_session,
+    SessionSerializationError,
 )
 
 if TYPE_CHECKING:
@@ -76,6 +84,9 @@ class Application:
 
         # Settings dialog
         self._settings_dialog: SettingsDialog | None = None
+
+        # File dialogs
+        self._file_dialogs: FileDialogs | None = None
 
         # Keyboard shortcuts
         self._keyboard: KeyboardShortcuts | None = None
@@ -162,6 +173,12 @@ class Application:
             self._settings_dialog = SettingsDialog()
             self._settings_dialog.build()
             self._settings_dialog.set_on_save(self._on_settings_saved)
+
+            # Create file dialogs
+            self._file_dialogs = FileDialogs()
+            self._file_dialogs.set_on_open_h5(self._on_h5_file_selected)
+            self._file_dialogs.set_on_save_session(self._on_save_session_path_selected)
+            self._file_dialogs.set_on_load_session(self._on_load_session_file_selected)
 
         # Set as primary window (fills viewport)
         dpg.set_primary_window(TAGS["primary_window"], True)
@@ -385,23 +402,261 @@ class Application:
     def _on_open_h5(self) -> None:
         """Handle Open H5 menu action."""
         logger.info("Open H5 triggered")
-        self.set_status("Opening file...")
-        # File dialog will be implemented in Task 6.3/12.3
+        if self._file_dialogs:
+            self._file_dialogs.show_open_h5_dialog()
 
     def _on_load_session(self) -> None:
         """Handle Load Session menu action."""
         logger.info("Load Session triggered")
-        self.set_status("Loading session...")
+        if self._file_dialogs:
+            self._file_dialogs.show_load_session_dialog()
 
     def _on_save_session(self) -> None:
         """Handle Save Session menu action."""
         logger.info("Save Session triggered")
-        self.set_status("Saving session...")
+        if self._file_dialogs:
+            # Generate default filename from current file
+            default_name = None
+            if self._session.file_metadata:
+                default_name = self._session.file_metadata.path.stem + "_analysis"
+            self._file_dialogs.show_save_session_dialog(default_filename=default_name)
 
     def _on_close_file(self) -> None:
         """Handle Close File menu action."""
         logger.info("Close File triggered")
-        self.set_status("File closed")
+        self._close_current_file()
+
+    def _close_current_file(self) -> None:
+        """Close the currently open file and reset state."""
+        # Clear session state
+        self._session = SessionState()
+
+        # Clear UI
+        if self._layout:
+            self._layout.clear_all_data()
+            self._layout.set_status("File closed")
+
+        # Update file dialogs
+        if self._file_dialogs:
+            self._file_dialogs.set_current_file_path(None)
+
+        # Disable menu items
+        self._update_menu_states_for_file(has_file=False)
+
+        logger.info("File closed and state reset")
+
+    def _update_menu_states_for_file(self, has_file: bool) -> None:
+        """Update menu item enabled states based on file loaded status.
+
+        Args:
+            has_file: Whether a file is currently loaded.
+        """
+        if dpg.does_item_exist("menu_save_session"):
+            dpg.configure_item("menu_save_session", enabled=has_file)
+        if dpg.does_item_exist("menu_close_file"):
+            dpg.configure_item("menu_close_file", enabled=has_file)
+        if dpg.does_item_exist("menu_analysis"):
+            dpg.configure_item("menu_analysis", enabled=has_file)
+        if dpg.does_item_exist("menu_select_all"):
+            dpg.configure_item("menu_select_all", enabled=has_file)
+        if dpg.does_item_exist("menu_deselect_all"):
+            dpg.configure_item("menu_deselect_all", enabled=has_file)
+        if dpg.does_item_exist("menu_invert_selection"):
+            dpg.configure_item("menu_invert_selection", enabled=has_file)
+
+    # File dialog callbacks
+
+    def _on_h5_file_selected(self, path: Path) -> None:
+        """Handle HDF5 file selection from dialog.
+
+        Args:
+            path: Path to the selected HDF5 file.
+        """
+        logger.info(f"Loading HDF5 file: {path}")
+        self.set_status(f"Loading {path.name}...")
+
+        try:
+            # Load the file
+            metadata, particles = load_h5_file(path)
+
+            # Update session state
+            self._session.file_metadata = metadata
+            self._session.particles = particles
+            self._session.levels.clear()
+            self._session.clustering_results.clear()
+            self._session.fit_results.clear()
+            self._session.selected.clear()
+            self._session.current_selection = None
+
+            # Update file dialogs with current path
+            if self._file_dialogs:
+                self._file_dialogs.set_current_file_path(path)
+
+            # Update UI
+            self._populate_ui_from_session()
+
+            # Enable menu items
+            self._update_menu_states_for_file(has_file=True)
+
+            # Show success
+            self.set_status(f"Loaded {path.name}: {len(particles)} particles")
+            if self._layout:
+                self._layout.show_success(
+                    f"Loaded {len(particles)} particle(s) from {path.name}"
+                )
+
+            logger.info(f"Successfully loaded {len(particles)} particles from {path}")
+
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {e}")
+            self.set_status(f"Error: File not found")
+            if self._layout:
+                self._layout.show_error(f"File not found: {path}")
+
+        except ValueError as e:
+            logger.error(f"Invalid file format: {e}")
+            self.set_status(f"Error: Invalid file format")
+            if self._layout:
+                self._layout.show_error(f"Invalid HDF5 file: {e}")
+
+        except Exception as e:
+            logger.exception(f"Error loading file: {e}")
+            self.set_status(f"Error loading file")
+            if self._layout:
+                self._layout.show_error(f"Error loading file: {e}")
+
+    def _on_save_session_path_selected(self, path: Path) -> None:
+        """Handle session save path selection from dialog.
+
+        Args:
+            path: Path to save the session file.
+        """
+        logger.info(f"Saving session to: {path}")
+        self.set_status(f"Saving session...")
+
+        try:
+            save_session(self._session, path)
+
+            self.set_status(f"Session saved to {path.name}")
+            if self._layout:
+                self._layout.show_success(f"Session saved to {path.name}")
+
+            logger.info(f"Successfully saved session to {path}")
+
+        except SessionSerializationError as e:
+            logger.error(f"Session serialization error: {e}")
+            self.set_status(f"Error: Cannot save session")
+            if self._layout:
+                self._layout.show_error(f"Cannot save session: {e}")
+
+        except IOError as e:
+            logger.error(f"IO error saving session: {e}")
+            self.set_status(f"Error: Cannot write file")
+            if self._layout:
+                self._layout.show_error(f"Cannot write file: {e}")
+
+        except Exception as e:
+            logger.exception(f"Error saving session: {e}")
+            self.set_status(f"Error saving session")
+            if self._layout:
+                self._layout.show_error(f"Error saving session: {e}")
+
+    def _on_load_session_file_selected(self, path: Path) -> None:
+        """Handle session file selection from dialog.
+
+        Args:
+            path: Path to the session file to load.
+        """
+        logger.info(f"Loading session from: {path}")
+        self.set_status(f"Loading session...")
+
+        try:
+            # Load session data
+            session_data = load_session(path)
+
+            # Get the HDF5 file path from the session
+            h5_path = session_data["file_metadata"]["path"]
+
+            # Check if HDF5 file exists
+            if not h5_path.exists():
+                raise FileNotFoundError(
+                    f"HDF5 file referenced in session not found: {h5_path}"
+                )
+
+            # Load the HDF5 file first
+            metadata, particles = load_h5_file(h5_path)
+
+            # Reset session and apply loaded data
+            self._session = SessionState()
+            self._session.file_metadata = metadata
+            self._session.particles = particles
+
+            # Apply session data (levels, clustering, fits, UI state)
+            apply_session_to_state(session_data, self._session)
+
+            # Update file dialogs with current path
+            if self._file_dialogs:
+                self._file_dialogs.set_current_file_path(h5_path)
+
+            # Update UI
+            self._populate_ui_from_session()
+
+            # Enable menu items
+            self._update_menu_states_for_file(has_file=True)
+
+            # Show success
+            self.set_status(f"Session loaded from {path.name}")
+            if self._layout:
+                self._layout.show_success(
+                    f"Loaded session with {len(particles)} particles"
+                )
+
+            logger.info(
+                f"Successfully loaded session from {path} "
+                f"({len(particles)} particles)"
+            )
+
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {e}")
+            self.set_status(f"Error: File not found")
+            if self._layout:
+                self._layout.show_error(str(e))
+
+        except SessionSerializationError as e:
+            logger.error(f"Invalid session file: {e}")
+            self.set_status(f"Error: Invalid session file")
+            if self._layout:
+                self._layout.show_error(f"Invalid session file: {e}")
+
+        except Exception as e:
+            logger.exception(f"Error loading session: {e}")
+            self.set_status(f"Error loading session")
+            if self._layout:
+                self._layout.show_error(f"Error loading session: {e}")
+
+    def _populate_ui_from_session(self) -> None:
+        """Populate the UI from the current session state."""
+        if not self._layout:
+            return
+
+        # Set up particle tree
+        if self._session.particles:
+            self._layout.set_particles(self._session.particles)
+
+        # Restore selection if available
+        if self._session.current_selection:
+            self._layout.set_current_selection(self._session.current_selection)
+
+        # Update the intensity tab with bin size from UI state
+        if self._layout.intensity_tab:
+            self._layout.intensity_tab.set_bin_size(self._session.ui_state.bin_size_ms)
+
+        # Update other tabs based on active tab
+        self._layout.set_active_tab(self._session.ui_state.active_tab)
+
+        # Update export tab session state
+        if self._layout.export_tab:
+            self._layout.export_tab.set_session_state(self._session)
 
     def _on_exit(self) -> None:
         """Handle Exit menu action."""
@@ -1477,6 +1732,10 @@ class Application:
         # Clean up keyboard shortcuts
         if self._keyboard:
             self._keyboard.destroy()
+
+        # Clean up file dialogs
+        if self._file_dialogs:
+            self._file_dialogs.destroy()
 
         dpg.destroy_context()
         logger.info("Application shutdown complete")

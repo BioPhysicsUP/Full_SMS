@@ -1,5 +1,9 @@
-"""Modal dialogs: settings, fitting, etc."""
+"""Modal dialogs: settings, fitting, file dialogs, etc."""
 
+from full_sms.ui.dialogs.file_dialogs import (
+    FileDialogs,
+    FileDialogTags,
+)
 from full_sms.ui.dialogs.fitting_dialog import (
     FittingDialog,
     FittingDialogTags,
@@ -11,6 +15,8 @@ from full_sms.ui.dialogs.settings_dialog import (
 )
 
 __all__ = [
+    "FileDialogs",
+    "FileDialogTags",
     "FittingDialog",
     "FittingDialogTags",
     "FittingParameters",
