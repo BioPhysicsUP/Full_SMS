@@ -18,6 +18,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from full_sms.models.level import LevelData
+from full_sms.ui.plots.intensity_histogram import IntensityHistogram
 from full_sms.ui.plots.intensity_plot import IntensityPlot
 
 logger = logging.getLogger(__name__)
@@ -34,8 +35,11 @@ class IntensityTabTags:
     fit_view_button: str = "intensity_tab_fit_view"
     show_levels_checkbox: str = "intensity_tab_show_levels"
     color_by_group_checkbox: str = "intensity_tab_color_by_group"
+    show_histogram_checkbox: str = "intensity_tab_show_histogram"
     level_info_text: str = "intensity_tab_level_info"
     plot_container: str = "intensity_tab_plot_container"
+    plot_area: str = "intensity_tab_plot_area"
+    histogram_container: str = "intensity_tab_histogram_container"
     info_text: str = "intensity_tab_info"
     no_data_text: str = "intensity_tab_no_data"
 
@@ -75,11 +79,15 @@ class IntensityTab:
         self._bin_size_ms: float = DEFAULT_BIN_SIZE_MS
         self._levels: list[LevelData] | None = None
 
+        # Histogram visibility state
+        self._histogram_visible: bool = True
+
         # Callbacks
         self._on_bin_size_changed: Callable[[float], None] | None = None
 
         # UI components
         self._intensity_plot: IntensityPlot | None = None
+        self._intensity_histogram: IntensityHistogram | None = None
 
         # Generate unique tags
         self._tags = IntensityTabTags(
@@ -90,8 +98,11 @@ class IntensityTab:
             fit_view_button=f"{tag_prefix}intensity_tab_fit_view",
             show_levels_checkbox=f"{tag_prefix}intensity_tab_show_levels",
             color_by_group_checkbox=f"{tag_prefix}intensity_tab_color_by_group",
+            show_histogram_checkbox=f"{tag_prefix}intensity_tab_show_histogram",
             level_info_text=f"{tag_prefix}intensity_tab_level_info",
             plot_container=f"{tag_prefix}intensity_tab_plot_container",
+            plot_area=f"{tag_prefix}intensity_tab_plot_area",
+            histogram_container=f"{tag_prefix}intensity_tab_histogram_container",
             info_text=f"{tag_prefix}intensity_tab_info",
             no_data_text=f"{tag_prefix}intensity_tab_no_data",
         )
@@ -110,6 +121,16 @@ class IntensityTab:
     def intensity_plot(self) -> IntensityPlot | None:
         """Get the intensity plot widget."""
         return self._intensity_plot
+
+    @property
+    def intensity_histogram(self) -> IntensityHistogram | None:
+        """Get the intensity histogram widget."""
+        return self._intensity_histogram
+
+    @property
+    def histogram_visible(self) -> bool:
+        """Whether the histogram sidebar is visible."""
+        return self._histogram_visible
 
     def build(self) -> None:
         """Build the tab UI structure."""
@@ -138,18 +159,27 @@ class IntensityTab:
                     color=(128, 128, 128),
                 )
 
-                # Intensity plot (hidden until data loaded)
-                self._intensity_plot = IntensityPlot(
-                    parent=self._tags.plot_container,
-                    tag_prefix=f"{self._tag_prefix}main_",
-                )
-                self._intensity_plot.build()
+                # Horizontal layout for plot + histogram
+                with dpg.group(
+                    horizontal=True,
+                    tag=self._tags.plot_area,
+                    show=False,  # Hidden until data loaded
+                ):
+                    # Main intensity plot (left side, takes most space)
+                    self._intensity_plot = IntensityPlot(
+                        parent=self._tags.plot_area,
+                        tag_prefix=f"{self._tag_prefix}main_",
+                    )
+                    self._intensity_plot.build()
 
-                # Hide plot container initially
-                dpg.configure_item(
-                    self._intensity_plot.tags.container,
-                    show=False,
-                )
+                    # Histogram sidebar (right side, fixed width)
+                    with dpg.group(tag=self._tags.histogram_container):
+                        self._intensity_histogram = IntensityHistogram(
+                            parent=self._tags.histogram_container,
+                            tag_prefix=f"{self._tag_prefix}hist_",
+                            width=150,
+                        )
+                        self._intensity_histogram.build()
 
         self._is_built = True
         logger.debug("Intensity tab built")
@@ -219,6 +249,18 @@ class IntensityTab:
             )
 
             # Spacer
+            dpg.add_spacer(width=30)
+
+            # Histogram visibility toggle
+            dpg.add_checkbox(
+                label="Show Histogram",
+                tag=self._tags.show_histogram_checkbox,
+                default_value=True,
+                callback=self._on_show_histogram_changed,
+                enabled=False,
+            )
+
+            # Spacer
             dpg.add_spacer(width=20)
 
             # Info text (shows photon count, time range)
@@ -248,6 +290,8 @@ class IntensityTab:
             self._intensity_plot.update_bin_size(self._abstimes, app_data)
             # Also update level overlays for the new bin size
             self._intensity_plot.update_levels_for_bin_size()
+            # Update the histogram with the new binned counts
+            self._update_histogram()
 
         # Call callback if set
         if self._on_bin_size_changed:
@@ -282,6 +326,20 @@ class IntensityTab:
             self._intensity_plot.set_color_by_group(app_data)
         logger.debug(f"Color by group changed to {app_data}")
 
+    def _on_show_histogram_changed(self, sender: int, app_data: bool) -> None:
+        """Handle show histogram checkbox changes.
+
+        Args:
+            sender: The checkbox widget.
+            app_data: Whether to show the histogram.
+        """
+        self._histogram_visible = app_data
+
+        if dpg.does_item_exist(self._tags.histogram_container):
+            dpg.configure_item(self._tags.histogram_container, show=app_data)
+
+        logger.debug(f"Show histogram changed to {app_data}")
+
     def set_data(self, abstimes: NDArray[np.uint64]) -> None:
         """Set the photon arrival time data.
 
@@ -298,12 +356,19 @@ class IntensityTab:
         if self._intensity_plot:
             self._intensity_plot.set_data(abstimes, self._bin_size_ms)
 
+        # Update histogram with the binned counts from the plot
+        self._update_histogram()
+
         # Show plot, hide placeholder
         self._show_plot(True)
 
         # Enable controls
         if dpg.does_item_exist(self._tags.fit_view_button):
             dpg.configure_item(self._tags.fit_view_button, enabled=True)
+
+        # Enable histogram checkbox
+        if dpg.does_item_exist(self._tags.show_histogram_checkbox):
+            dpg.configure_item(self._tags.show_histogram_checkbox, enabled=True)
 
         # Update info text
         self._update_info_text()
@@ -318,6 +383,9 @@ class IntensityTab:
         if self._intensity_plot:
             self._intensity_plot.clear()
 
+        if self._intensity_histogram:
+            self._intensity_histogram.clear()
+
         # Hide plot, show placeholder
         self._show_plot(False)
 
@@ -331,6 +399,10 @@ class IntensityTab:
         if dpg.does_item_exist(self._tags.color_by_group_checkbox):
             dpg.configure_item(self._tags.color_by_group_checkbox, enabled=False)
 
+        # Disable histogram checkbox
+        if dpg.does_item_exist(self._tags.show_histogram_checkbox):
+            dpg.configure_item(self._tags.show_histogram_checkbox, enabled=False)
+
         # Clear info text
         if dpg.does_item_exist(self._tags.info_text):
             dpg.set_value(self._tags.info_text, "")
@@ -342,18 +414,24 @@ class IntensityTab:
         logger.debug("Intensity tab cleared")
 
     def _show_plot(self, show: bool) -> None:
-        """Show or hide the plot.
+        """Show or hide the plot area.
 
         Args:
-            show: Whether to show the plot (True) or placeholder (False).
+            show: Whether to show the plot area (True) or placeholder (False).
         """
-        if self._intensity_plot and dpg.does_item_exist(
-            self._intensity_plot.tags.container
-        ):
-            dpg.configure_item(self._intensity_plot.tags.container, show=show)
+        # Show/hide the plot area (contains both plot and histogram)
+        if dpg.does_item_exist(self._tags.plot_area):
+            dpg.configure_item(self._tags.plot_area, show=show)
 
+        # Show/hide the no data placeholder
         if dpg.does_item_exist(self._tags.no_data_text):
             dpg.configure_item(self._tags.no_data_text, show=not show)
+
+        # Respect histogram visibility preference when showing
+        if show and dpg.does_item_exist(self._tags.histogram_container):
+            dpg.configure_item(
+                self._tags.histogram_container, show=self._histogram_visible
+            )
 
     def _update_info_text(self) -> None:
         """Update the info text with current data stats."""
@@ -376,6 +454,20 @@ class IntensityTab:
             info = f"{num_photons:,} photons"
 
         dpg.set_value(self._tags.info_text, info)
+
+    def _update_histogram(self) -> None:
+        """Update the histogram with the current binned counts from the plot."""
+        if self._intensity_histogram is None:
+            return
+
+        # Get the counts from the intensity plot
+        if (
+            self._intensity_plot is not None
+            and self._intensity_plot._counts is not None
+        ):
+            self._intensity_histogram.set_data(self._intensity_plot._counts)
+        else:
+            self._intensity_histogram.clear()
 
     def set_on_bin_size_changed(self, callback: Callable[[float], None]) -> None:
         """Set callback for bin size changes.
@@ -523,3 +615,22 @@ class IntensityTab:
         # Update checkbox
         if dpg.does_item_exist(self._tags.color_by_group_checkbox):
             dpg.set_value(self._tags.color_by_group_checkbox, by_group)
+
+    # -------------------------------------------------------------------------
+    # Histogram Methods
+    # -------------------------------------------------------------------------
+
+    def set_histogram_visible(self, visible: bool) -> None:
+        """Show or hide the histogram sidebar.
+
+        Args:
+            visible: Whether to show the histogram.
+        """
+        self._histogram_visible = visible
+
+        if dpg.does_item_exist(self._tags.histogram_container):
+            dpg.configure_item(self._tags.histogram_container, show=visible)
+
+        # Update checkbox
+        if dpg.does_item_exist(self._tags.show_histogram_checkbox):
+            dpg.set_value(self._tags.show_histogram_checkbox, visible)

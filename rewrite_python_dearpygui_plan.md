@@ -415,7 +415,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 7.3: Implement intensity histogram sidebar `[NEXT]`
+### Task 7.3: Implement intensity histogram sidebar `[DONE]` (2026-01-07)
 **Objective**: Show distribution of intensity values
 
 **Actions**:
@@ -429,7 +429,7 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 
 ---
 
-### Task 7.4: Implement resolve controls `[TODO]`
+### Task 7.4: Implement resolve controls `[NEXT]`
 **Objective**: Trigger change point analysis from UI
 
 **Actions**:
@@ -728,13 +728,13 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 | 4. Analysis Core | 7 | 7 | 0 |
 | 5. Workers | 2 | 2 | 0 |
 | 6. UI Foundation | 4 | 4 | 0 |
-| 7. Intensity Tab | 4 | 2 | 2 |
+| 7. Intensity Tab | 4 | 3 | 1 |
 | 8. Lifetime Tab | 4 | 0 | 4 |
 | 9. Grouping Tab | 3 | 0 | 3 |
 | 10. Additional Tabs | 3 | 0 | 3 |
 | 11. Export | 2 | 0 | 2 |
 | 12. Polish | 5 | 0 | 5 |
-| **Total** | **42** | **23** | **19** |
+| **Total** | **42** | **24** | **18** |
 
 ---
 
@@ -749,4 +749,4 @@ This document tracks the incremental rewrite of Full SMS from PyQt5 to DearPyGui
 ---
 
 *Created: January 2025*
-*Last Updated: 2026-01-07 (Task 7.2 completed - level overlay rendering)*
+*Last Updated: 2026-01-07 (Task 7.3 completed - intensity histogram sidebar)*
