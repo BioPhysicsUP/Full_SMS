@@ -3,6 +3,7 @@
 Provides the intensity trace visualization with:
 - Intensity plot showing binned photon counts over time
 - Bin size control slider
+- Level overlay controls
 - Basic plot controls
 """
 
@@ -10,12 +11,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Sequence
 
 import dearpygui.dearpygui as dpg
 import numpy as np
 from numpy.typing import NDArray
 
+from full_sms.models.level import LevelData
 from full_sms.ui.plots.intensity_plot import IntensityPlot
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,9 @@ class IntensityTabTags:
     bin_size_slider: str = "intensity_tab_bin_size"
     bin_size_label: str = "intensity_tab_bin_size_label"
     fit_view_button: str = "intensity_tab_fit_view"
+    show_levels_checkbox: str = "intensity_tab_show_levels"
+    color_by_group_checkbox: str = "intensity_tab_color_by_group"
+    level_info_text: str = "intensity_tab_level_info"
     plot_container: str = "intensity_tab_plot_container"
     info_text: str = "intensity_tab_info"
     no_data_text: str = "intensity_tab_no_data"
@@ -68,6 +73,7 @@ class IntensityTab:
         # Data state
         self._abstimes: NDArray[np.uint64] | None = None
         self._bin_size_ms: float = DEFAULT_BIN_SIZE_MS
+        self._levels: list[LevelData] | None = None
 
         # Callbacks
         self._on_bin_size_changed: Callable[[float], None] | None = None
@@ -82,6 +88,9 @@ class IntensityTab:
             bin_size_slider=f"{tag_prefix}intensity_tab_bin_size",
             bin_size_label=f"{tag_prefix}intensity_tab_bin_size_label",
             fit_view_button=f"{tag_prefix}intensity_tab_fit_view",
+            show_levels_checkbox=f"{tag_prefix}intensity_tab_show_levels",
+            color_by_group_checkbox=f"{tag_prefix}intensity_tab_color_by_group",
+            level_info_text=f"{tag_prefix}intensity_tab_level_info",
             plot_container=f"{tag_prefix}intensity_tab_plot_container",
             info_text=f"{tag_prefix}intensity_tab_info",
             no_data_text=f"{tag_prefix}intensity_tab_no_data",
@@ -180,6 +189,36 @@ class IntensityTab:
             )
 
             # Spacer
+            dpg.add_spacer(width=30)
+
+            # Level overlay controls
+            dpg.add_checkbox(
+                label="Show Levels",
+                tag=self._tags.show_levels_checkbox,
+                default_value=True,
+                callback=self._on_show_levels_changed,
+                enabled=False,
+            )
+
+            dpg.add_spacer(width=10)
+
+            dpg.add_checkbox(
+                label="Color by Group",
+                tag=self._tags.color_by_group_checkbox,
+                default_value=False,
+                callback=self._on_color_by_group_changed,
+                enabled=False,
+            )
+
+            # Level info text
+            dpg.add_spacer(width=10)
+            dpg.add_text(
+                "",
+                tag=self._tags.level_info_text,
+                color=(150, 200, 150),
+            )
+
+            # Spacer
             dpg.add_spacer(width=20)
 
             # Info text (shows photon count, time range)
@@ -207,6 +246,8 @@ class IntensityTab:
         # Rebin data if we have it
         if self._abstimes is not None and self._intensity_plot is not None:
             self._intensity_plot.update_bin_size(self._abstimes, app_data)
+            # Also update level overlays for the new bin size
+            self._intensity_plot.update_levels_for_bin_size()
 
         # Call callback if set
         if self._on_bin_size_changed:
@@ -218,6 +259,28 @@ class IntensityTab:
         """Handle fit view button click."""
         if self._intensity_plot:
             self._intensity_plot.fit_view()
+
+    def _on_show_levels_changed(self, sender: int, app_data: bool) -> None:
+        """Handle show levels checkbox changes.
+
+        Args:
+            sender: The checkbox widget.
+            app_data: Whether levels should be visible.
+        """
+        if self._intensity_plot:
+            self._intensity_plot.set_levels_visible(app_data)
+        logger.debug(f"Show levels changed to {app_data}")
+
+    def _on_color_by_group_changed(self, sender: int, app_data: bool) -> None:
+        """Handle color by group checkbox changes.
+
+        Args:
+            sender: The checkbox widget.
+            app_data: Whether to color by group.
+        """
+        if self._intensity_plot:
+            self._intensity_plot.set_color_by_group(app_data)
+        logger.debug(f"Color by group changed to {app_data}")
 
     def set_data(self, abstimes: NDArray[np.uint64]) -> None:
         """Set the photon arrival time data.
@@ -250,6 +313,7 @@ class IntensityTab:
     def clear(self) -> None:
         """Clear the tab data."""
         self._abstimes = None
+        self._levels = None
 
         if self._intensity_plot:
             self._intensity_plot.clear()
@@ -261,9 +325,19 @@ class IntensityTab:
         if dpg.does_item_exist(self._tags.fit_view_button):
             dpg.configure_item(self._tags.fit_view_button, enabled=False)
 
+        # Disable level controls
+        if dpg.does_item_exist(self._tags.show_levels_checkbox):
+            dpg.configure_item(self._tags.show_levels_checkbox, enabled=False)
+        if dpg.does_item_exist(self._tags.color_by_group_checkbox):
+            dpg.configure_item(self._tags.color_by_group_checkbox, enabled=False)
+
         # Clear info text
         if dpg.does_item_exist(self._tags.info_text):
             dpg.set_value(self._tags.info_text, "")
+
+        # Clear level info text
+        if dpg.does_item_exist(self._tags.level_info_text):
+            dpg.set_value(self._tags.level_info_text, "")
 
         logger.debug("Intensity tab cleared")
 
@@ -337,3 +411,115 @@ class IntensityTab:
     def has_data(self) -> bool:
         """Whether the tab has data loaded."""
         return self._abstimes is not None and len(self._abstimes) > 0
+
+    # -------------------------------------------------------------------------
+    # Level Overlay Methods
+    # -------------------------------------------------------------------------
+
+    @property
+    def has_levels(self) -> bool:
+        """Whether the tab has levels loaded."""
+        return self._levels is not None and len(self._levels) > 0
+
+    @property
+    def num_levels(self) -> int:
+        """Number of levels currently set."""
+        return len(self._levels) if self._levels else 0
+
+    def set_levels(
+        self,
+        levels: Sequence[LevelData],
+        color_by_group: bool = False,
+    ) -> None:
+        """Set the level data to overlay on the intensity plot.
+
+        Args:
+            levels: Sequence of LevelData objects to display.
+            color_by_group: If True, color by group_id; if False, by level index.
+        """
+        self._levels = list(levels)
+
+        if self._intensity_plot:
+            self._intensity_plot.set_levels(levels, color_by_group)
+
+        # Enable level controls if we have levels
+        has_levels = len(levels) > 0
+        if dpg.does_item_exist(self._tags.show_levels_checkbox):
+            dpg.configure_item(self._tags.show_levels_checkbox, enabled=has_levels)
+        if dpg.does_item_exist(self._tags.color_by_group_checkbox):
+            dpg.configure_item(self._tags.color_by_group_checkbox, enabled=has_levels)
+
+        # Update checkbox state
+        if dpg.does_item_exist(self._tags.color_by_group_checkbox):
+            dpg.set_value(self._tags.color_by_group_checkbox, color_by_group)
+
+        # Update level info text
+        self._update_level_info_text()
+
+        logger.debug(f"Intensity tab levels set: {len(levels)} levels")
+
+    def clear_levels(self) -> None:
+        """Clear all level overlays."""
+        self._levels = None
+
+        if self._intensity_plot:
+            self._intensity_plot.clear_levels()
+
+        # Disable level controls
+        if dpg.does_item_exist(self._tags.show_levels_checkbox):
+            dpg.configure_item(self._tags.show_levels_checkbox, enabled=False)
+        if dpg.does_item_exist(self._tags.color_by_group_checkbox):
+            dpg.configure_item(self._tags.color_by_group_checkbox, enabled=False)
+
+        # Clear level info text
+        if dpg.does_item_exist(self._tags.level_info_text):
+            dpg.set_value(self._tags.level_info_text, "")
+
+        logger.debug("Intensity tab levels cleared")
+
+    def _update_level_info_text(self) -> None:
+        """Update the level info text."""
+        if not dpg.does_item_exist(self._tags.level_info_text):
+            return
+
+        if not self._levels or len(self._levels) == 0:
+            dpg.set_value(self._tags.level_info_text, "")
+            return
+
+        num_levels = len(self._levels)
+
+        # Count unique groups if any levels have group assignments
+        groups = {level.group_id for level in self._levels if level.group_id is not None}
+        if groups:
+            dpg.set_value(
+                self._tags.level_info_text,
+                f"{num_levels} levels | {len(groups)} groups",
+            )
+        else:
+            dpg.set_value(self._tags.level_info_text, f"{num_levels} levels")
+
+    def set_levels_visible(self, visible: bool) -> None:
+        """Show or hide level overlays.
+
+        Args:
+            visible: Whether to show level overlays.
+        """
+        if self._intensity_plot:
+            self._intensity_plot.set_levels_visible(visible)
+
+        # Update checkbox
+        if dpg.does_item_exist(self._tags.show_levels_checkbox):
+            dpg.set_value(self._tags.show_levels_checkbox, visible)
+
+    def set_color_by_group(self, by_group: bool) -> None:
+        """Change the coloring scheme for levels.
+
+        Args:
+            by_group: If True, color by group_id; if False, by level index.
+        """
+        if self._intensity_plot:
+            self._intensity_plot.set_color_by_group(by_group)
+
+        # Update checkbox
+        if dpg.does_item_exist(self._tags.color_by_group_checkbox):
+            dpg.set_value(self._tags.color_by_group_checkbox, by_group)

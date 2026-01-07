@@ -1,21 +1,43 @@
 """Intensity trace plot widget.
 
 Renders binned photon counts over time using DearPyGui's ImPlot.
+Supports level overlay rendering for change point analysis results.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Sequence
 
 import dearpygui.dearpygui as dpg
 import numpy as np
 from numpy.typing import NDArray
 
 from full_sms.analysis.histograms import bin_photons, compute_intensity_cps
-from full_sms.ui.theme import COLORS
+from full_sms.models.level import LevelData
+from full_sms.ui.theme import COLORS, get_series_colors
 
 logger = logging.getLogger(__name__)
+
+
+# Extended color palette for levels (more colors than standard series)
+# Semi-transparent for overlays (alpha = 80-120)
+LEVEL_COLORS = [
+    (100, 180, 255, 100),  # Blue
+    (255, 150, 100, 100),  # Orange
+    (100, 220, 150, 100),  # Green
+    (255, 100, 150, 100),  # Pink
+    (180, 150, 255, 100),  # Purple
+    (255, 220, 100, 100),  # Yellow
+    (100, 220, 220, 100),  # Cyan
+    (220, 150, 180, 100),  # Rose
+    (150, 200, 100, 100),  # Lime
+    (200, 180, 150, 100),  # Tan
+]
+
+# Maximum number of individual level overlays before batching
+MAX_INDIVIDUAL_LEVELS = 100
 
 
 @dataclass
@@ -27,6 +49,7 @@ class IntensityPlotTags:
     x_axis: str = "intensity_plot_x_axis"
     y_axis: str = "intensity_plot_y_axis"
     series: str = "intensity_plot_series"
+    level_overlay_group: str = "intensity_plot_level_overlays"
 
 
 INTENSITY_PLOT_TAGS = IntensityPlotTags()
@@ -37,6 +60,7 @@ class IntensityPlot:
 
     Displays binned photon counts over time as a line plot.
     Supports configurable bin size with zoom and pan enabled.
+    Supports level overlay rendering for change point analysis results.
     """
 
     def __init__(
@@ -59,6 +83,12 @@ class IntensityPlot:
         self._counts: NDArray[np.int64] | None = None
         self._bin_size_ms: float = 10.0  # Default 10ms bins
 
+        # Level overlay state
+        self._levels: list[LevelData] | None = None
+        self._level_series_tags: list[str] = []
+        self._levels_visible: bool = True
+        self._color_by_group: bool = False
+
         # Generate unique tags
         self._tags = IntensityPlotTags(
             container=f"{tag_prefix}intensity_plot_container",
@@ -66,6 +96,7 @@ class IntensityPlot:
             x_axis=f"{tag_prefix}intensity_plot_x_axis",
             y_axis=f"{tag_prefix}intensity_plot_y_axis",
             series=f"{tag_prefix}intensity_plot_series",
+            level_overlay_group=f"{tag_prefix}intensity_plot_level_overlays",
         )
 
     @property
@@ -189,6 +220,7 @@ class IntensityPlot:
         self._times = None
         self._counts = None
         self._update_series()
+        self.clear_levels()
         logger.debug("Intensity plot cleared")
 
     def set_axis_label_y(self, label: str) -> None:
@@ -237,3 +269,219 @@ class IntensityPlot:
     def fit_view(self) -> None:
         """Fit the view to show all data (reset zoom/pan)."""
         self._fit_axes()
+
+    # -------------------------------------------------------------------------
+    # Level Overlay Methods
+    # -------------------------------------------------------------------------
+
+    @property
+    def levels_visible(self) -> bool:
+        """Whether level overlays are currently visible."""
+        return self._levels_visible
+
+    @property
+    def color_by_group(self) -> bool:
+        """Whether levels are colored by group ID (True) or level index (False)."""
+        return self._color_by_group
+
+    @property
+    def has_levels(self) -> bool:
+        """Whether any levels are set."""
+        return self._levels is not None and len(self._levels) > 0
+
+    @property
+    def num_levels(self) -> int:
+        """Number of levels currently set."""
+        return len(self._levels) if self._levels else 0
+
+    def set_levels(
+        self,
+        levels: Sequence[LevelData],
+        color_by_group: bool = False,
+    ) -> None:
+        """Set the level data to overlay on the plot.
+
+        Levels are rendered as shaded horizontal bands at their intensity,
+        spanning their time range. Colors cycle through the level palette.
+
+        Args:
+            levels: Sequence of LevelData objects to display.
+            color_by_group: If True, color by group_id; if False, by level index.
+        """
+        self._levels = list(levels)
+        self._color_by_group = color_by_group
+
+        # Remove existing level overlays
+        self._remove_level_series()
+
+        if not self._levels:
+            logger.debug("No levels to display")
+            return
+
+        # Render the level overlays
+        self._render_level_overlays()
+
+        logger.debug(
+            f"Set {len(self._levels)} level overlays (color_by_group={color_by_group})"
+        )
+
+    def clear_levels(self) -> None:
+        """Clear all level overlays from the plot."""
+        self._levels = None
+        self._remove_level_series()
+        logger.debug("Level overlays cleared")
+
+    def set_levels_visible(self, visible: bool) -> None:
+        """Show or hide level overlays.
+
+        Args:
+            visible: Whether to show level overlays.
+        """
+        self._levels_visible = visible
+
+        for tag in self._level_series_tags:
+            if dpg.does_item_exist(tag):
+                dpg.configure_item(tag, show=visible)
+
+        logger.debug(f"Level overlays visibility set to {visible}")
+
+    def toggle_levels_visible(self) -> bool:
+        """Toggle level overlay visibility.
+
+        Returns:
+            The new visibility state.
+        """
+        self.set_levels_visible(not self._levels_visible)
+        return self._levels_visible
+
+    def set_color_by_group(self, by_group: bool) -> None:
+        """Change the coloring scheme for levels.
+
+        Args:
+            by_group: If True, color by group_id; if False, by level index.
+        """
+        if self._color_by_group == by_group:
+            return
+
+        self._color_by_group = by_group
+
+        # Re-render with new colors if we have levels
+        if self._levels:
+            self._remove_level_series()
+            self._render_level_overlays()
+
+        logger.debug(f"Level coloring changed to by_group={by_group}")
+
+    def _render_level_overlays(self) -> None:
+        """Render all level overlays as shade series."""
+        if not self._levels or not dpg.does_item_exist(self._tags.y_axis):
+            return
+
+        # For performance with many levels, we create individual shade series
+        # but could batch them if needed (DearPyGui handles this reasonably well)
+        for i, level in enumerate(self._levels):
+            self._add_level_shade(level, i)
+
+    def _add_level_shade(self, level: LevelData, index: int) -> None:
+        """Add a shade series for a single level.
+
+        Args:
+            level: The level data.
+            index: The index of this level (for coloring).
+        """
+        # Determine color
+        if self._color_by_group and level.group_id is not None:
+            color_idx = level.group_id % len(LEVEL_COLORS)
+        else:
+            color_idx = index % len(LEVEL_COLORS)
+        color = LEVEL_COLORS[color_idx]
+
+        # Convert times from nanoseconds to milliseconds
+        start_ms = level.start_time_ns / 1e6
+        end_ms = level.end_time_ns / 1e6
+
+        # Create x values (start and end of the level)
+        x_vals = [start_ms, end_ms]
+
+        # Create y values (the intensity level as a horizontal band)
+        # We use the level's intensity in counts/sec, converted to counts/bin
+        # for consistency with the binned data display
+        if self._bin_size_ms > 0:
+            # Convert cps to counts per bin for display consistency
+            intensity_per_bin = level.intensity_cps * (self._bin_size_ms / 1000.0)
+        else:
+            intensity_per_bin = level.intensity_cps / 100.0  # Fallback
+
+        # Shade from 0 to the intensity level
+        y1_vals = [0.0, 0.0]
+        y2_vals = [intensity_per_bin, intensity_per_bin]
+
+        # Generate unique tag for this level
+        tag = f"{self._tag_prefix}level_shade_{index}"
+        self._level_series_tags.append(tag)
+
+        # Add the shade series
+        dpg.add_shade_series(
+            x_vals,
+            y1_vals,
+            y2=y2_vals,
+            parent=self._tags.y_axis,
+            tag=tag,
+            show=self._levels_visible,
+        )
+
+        # Apply color theme to the shade series
+        self._apply_shade_color(tag, color)
+
+    def _apply_shade_color(self, tag: str, color: tuple[int, int, int, int]) -> None:
+        """Apply a color to a shade series via theme.
+
+        Args:
+            tag: The tag of the shade series.
+            color: RGBA color tuple.
+        """
+        # Create a theme for this specific shade series
+        with dpg.theme() as theme:
+            with dpg.theme_component(dpg.mvShadeSeries):
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_Fill, color, category=dpg.mvThemeCat_Plots
+                )
+
+        # Apply the theme
+        dpg.bind_item_theme(tag, theme)
+
+    def _remove_level_series(self) -> None:
+        """Remove all existing level shade series."""
+        for tag in self._level_series_tags:
+            if dpg.does_item_exist(tag):
+                dpg.delete_item(tag)
+
+        self._level_series_tags.clear()
+
+    def update_levels_for_bin_size(self) -> None:
+        """Re-render level overlays after bin size change.
+
+        Call this after changing bin size to update level display heights.
+        """
+        if self._levels:
+            self._remove_level_series()
+            self._render_level_overlays()
+
+    def get_level_at_time(self, time_ms: float) -> LevelData | None:
+        """Get the level at a specific time.
+
+        Args:
+            time_ms: Time in milliseconds.
+
+        Returns:
+            The LevelData at that time, or None if no level found.
+        """
+        if not self._levels:
+            return None
+
+        time_ns = int(time_ms * 1e6)
+        for level in self._levels:
+            if level.start_time_ns <= time_ns <= level.end_time_ns:
+                return level
+
+        return None
