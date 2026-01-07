@@ -1,6 +1,11 @@
 """Full SMS application entry point.
 
 Single Molecule Spectroscopy analysis application using DearPyGui.
+
+Cross-platform support:
+- macOS: Metal backend, Retina display support, Cmd+key shortcuts
+- Windows: DirectX 11 backend, DPI awareness, Ctrl+key shortcuts
+- Linux: OpenGL backend, XDG config paths, Ctrl+key shortcuts
 """
 
 from __future__ import annotations
@@ -27,6 +32,12 @@ from full_sms.ui.dialogs import FileDialogs, FittingDialog, FittingParameters, S
 from full_sms.ui.keyboard import KeyboardShortcuts, ShortcutHandler
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
+from full_sms.utils.platform import (
+    configure_dpi_awareness,
+    configure_multiprocessing,
+    get_gpu_backend_name,
+    get_platform_name,
+)
 from full_sms.workers.pool import AnalysisPool, TaskResult
 from full_sms.workers.tasks import (
     run_clustering_task,
@@ -93,7 +104,13 @@ class Application:
 
     def setup(self) -> None:
         """Set up the DearPyGui context, viewport, and UI."""
-        logger.info("Initializing Full SMS application")
+        logger.info(
+            f"Initializing Full SMS v{APP_VERSION} on {get_platform_name()} "
+            f"(GPU: {get_gpu_backend_name()})"
+        )
+
+        # Configure platform-specific settings
+        configure_dpi_awareness()
 
         # Initialize worker pool
         self._pool = AnalysisPool()
@@ -1743,6 +1760,10 @@ class Application:
 
 def main() -> None:
     """Run the Full SMS application."""
+    # Configure multiprocessing before creating any workers
+    # This must be done early, before importing worker modules
+    configure_multiprocessing()
+
     app = Application()
 
     try:

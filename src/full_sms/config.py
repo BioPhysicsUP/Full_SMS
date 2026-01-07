@@ -2,20 +2,52 @@
 
 Provides persistent settings storage with JSON serialization.
 Settings are automatically saved when modified and loaded on startup.
+
+Platform-specific config locations:
+- macOS: ~/Library/Application Support/Full SMS/settings.json
+- Windows: %APPDATA%\\Full SMS\\settings.json
+- Linux: ~/.config/full_sms/settings.json (XDG Base Directory spec)
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
+import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+
+def _get_config_dir() -> Path:
+    """Get the platform-specific configuration directory.
+
+    Returns:
+        Path to the configuration directory for the current platform.
+    """
+    if sys.platform == "darwin":
+        # macOS: ~/Library/Application Support/Full SMS
+        return Path.home() / "Library" / "Application Support" / "Full SMS"
+    elif sys.platform == "win32":
+        # Windows: %APPDATA%\Full SMS
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            return Path(appdata) / "Full SMS"
+        # Fallback if APPDATA not set
+        return Path.home() / "AppData" / "Roaming" / "Full SMS"
+    else:
+        # Linux and other Unix: ~/.config/full_sms (XDG spec)
+        xdg_config = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config:
+            return Path(xdg_config) / "full_sms"
+        return Path.home() / ".config" / "full_sms"
+
+
 # Default config file location
-DEFAULT_CONFIG_PATH = Path.home() / ".config" / "full_sms" / "settings.json"
+DEFAULT_CONFIG_PATH = _get_config_dir() / "settings.json"
 
 
 @dataclass
