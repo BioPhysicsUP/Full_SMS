@@ -107,7 +107,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 2.2: Prevent horizontal text overflow `[NEXT]`
+### Task 2.2: Prevent horizontal text overflow `[DONE]` (2026-01-08)
 **Objective**: Prevent long text from expanding the view horizontally
 
 **Actions**:
@@ -120,11 +120,18 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: No horizontal scrollbar appears due to text length
 
+**Implementation Notes**:
+- Reorganized Intensity tab controls into three rows instead of one long horizontal row
+- Row 1: Bin Size slider + label, Show Histogram, Show Levels, Colour by Group (UK spelling), Fit View
+- Row 2: Confidence combo + Resolve buttons (Current, Selected, All)
+- Row 3: Level info text + data statistics text
+- This prevents the long info text from pushing other controls off-screen
+
 ---
 
 ## Phase 3: Spectra & Raster Tabs
 
-### Task 3.1: Fix Spectra tab display `[TODO]`
+### Task 3.1: Fix Spectra tab display `[NEXT]`
 **Objective**: Ensure Spectra tab shows data when available
 
 **Actions**:
@@ -414,13 +421,13 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | Phase | Tasks | Completed | Remaining |
 |-------|-------|-----------|-----------|
 | 1. File Dialogs & Tree | 3 | 3 | 0 |
-| 2. Layout & Scrolling | 2 | 1 | 1 |
+| 2. Layout & Scrolling | 2 | 2 | 0 |
 | 3. Spectra & Raster | 2 | 0 | 2 |
 | 4. Intensity Tab | 6 | 0 | 6 |
 | 5. Lifetime Tab | 5 | 0 | 5 |
 | 6. Grouping Tab | 2 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **4** | **20** |
+| **Total** | **24** | **5** | **19** |
 
 ---
 
@@ -435,4 +442,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-08 (Task 2.1 completed)*
+*Last Updated: 2026-01-08 (Task 2.2 completed)*

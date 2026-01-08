@@ -209,7 +209,7 @@ class IntensityTab:
 
     def _build_controls(self) -> None:
         """Build the controls bar at the top of the tab."""
-        # First row: Bin size and view controls
+        # First row: Bin size, display options, and fit view
         with dpg.group(horizontal=True, tag=self._tags.controls_group):
             # Bin size control
             dpg.add_text("Bin Size:")
@@ -234,16 +234,16 @@ class IntensityTab:
             # Spacer
             dpg.add_spacer(width=20)
 
-            # Fit view button
-            dpg.add_button(
-                label="Fit View",
-                tag=self._tags.fit_view_button,
-                callback=self._on_fit_view_clicked,
+            # Histogram visibility toggle
+            dpg.add_checkbox(
+                label="Show Histogram",
+                tag=self._tags.show_histogram_checkbox,
+                default_value=True,
+                callback=self._on_show_histogram_changed,
                 enabled=False,
             )
 
-            # Spacer
-            dpg.add_spacer(width=30)
+            dpg.add_spacer(width=10)
 
             # Level overlay controls
             dpg.add_checkbox(
@@ -257,41 +257,21 @@ class IntensityTab:
             dpg.add_spacer(width=10)
 
             dpg.add_checkbox(
-                label="Color by Group",
+                label="Colour by Group",
                 tag=self._tags.color_by_group_checkbox,
                 default_value=False,
                 callback=self._on_color_by_group_changed,
                 enabled=False,
             )
 
-            # Level info text
-            dpg.add_spacer(width=10)
-            dpg.add_text(
-                "",
-                tag=self._tags.level_info_text,
-                color=(150, 200, 150),
-            )
-
-            # Spacer
-            dpg.add_spacer(width=30)
-
-            # Histogram visibility toggle
-            dpg.add_checkbox(
-                label="Show Histogram",
-                tag=self._tags.show_histogram_checkbox,
-                default_value=True,
-                callback=self._on_show_histogram_changed,
-                enabled=False,
-            )
-
-            # Spacer
             dpg.add_spacer(width=20)
 
-            # Info text (shows photon count, time range)
-            dpg.add_text(
-                "",
-                tag=self._tags.info_text,
-                color=(128, 128, 128),
+            # Fit view button
+            dpg.add_button(
+                label="Fit View",
+                tag=self._tags.fit_view_button,
+                callback=self._on_fit_view_clicked,
+                enabled=False,
             )
 
         # Second row: Resolve controls
@@ -329,6 +309,24 @@ class IntensityTab:
                 tag=self._tags.resolve_all_btn,
                 callback=self._on_resolve_all_clicked,
                 enabled=False,
+            )
+
+        # Third row: Info text
+        with dpg.group(horizontal=True):
+            # Level info text
+            dpg.add_text(
+                "",
+                tag=self._tags.level_info_text,
+                color=(150, 200, 150),
+            )
+
+            dpg.add_spacer(width=20)
+
+            # Info text (shows photon count, time range)
+            dpg.add_text(
+                "",
+                tag=self._tags.info_text,
+                color=(128, 128, 128),
             )
 
     def _on_bin_size_slider_changed(
