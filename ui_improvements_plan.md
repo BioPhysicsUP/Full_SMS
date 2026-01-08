@@ -131,7 +131,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ## Phase 3: Spectra & Raster Tabs
 
-### Task 3.1: Fix Spectra tab display `[NEXT]`
+### Task 3.1: Fix Spectra tab display `[DONE]` (2026-01-08)
 **Objective**: Ensure Spectra tab shows data when available
 
 **Actions**:
@@ -144,9 +144,15 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Spectra plot displays when data is present
 
+**Implementation Notes**:
+- Root cause: `_on_selection_changed` in `app.py` was not updating the Spectra tab when a particle was selected
+- Added calls to `set_spectra_data()` when particle has spectra, or `set_spectra_unavailable()` when it doesn't
+- Added `clear_spectra_data()` call when selection is cleared
+- The tab already had proper placeholder messages for "no data loaded" and "no spectra data" states
+
 ---
 
-### Task 3.2: Fix Raster tab display `[TODO]`
+### Task 3.2: Fix Raster tab display `[DONE]` (2026-01-08)
 **Objective**: Ensure Raster tab shows data when available
 
 **Actions**:
@@ -159,11 +165,17 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Raster image displays when data is present
 
+**Implementation Notes**:
+- Same root cause as Task 3.1: `_on_selection_changed` was not updating the Raster tab
+- Added calls to `set_raster_data()` when particle has raster scan, or `set_raster_unavailable()` when it doesn't
+- Added `clear_raster_data()` call when selection is cleared
+- Fixed alongside Task 3.1 since both had the identical issue
+
 ---
 
 ## Phase 4: Intensity Tab Improvements
 
-### Task 4.1: Link histogram Y-axis to intensity plot `[TODO]`
+### Task 4.1: Link histogram Y-axis to intensity plot `[NEXT]`
 **Objective**: Histogram vertical axis should match intensity plot Y range
 
 **Actions**:
@@ -422,12 +434,12 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 |-------|-------|-----------|-----------|
 | 1. File Dialogs & Tree | 3 | 3 | 0 |
 | 2. Layout & Scrolling | 2 | 2 | 0 |
-| 3. Spectra & Raster | 2 | 0 | 2 |
+| 3. Spectra & Raster | 2 | 2 | 0 |
 | 4. Intensity Tab | 6 | 0 | 6 |
 | 5. Lifetime Tab | 5 | 0 | 5 |
 | 6. Grouping Tab | 2 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **5** | **19** |
+| **Total** | **24** | **7** | **17** |
 
 ---
 
@@ -442,4 +454,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-08 (Task 2.2 completed)*
+*Last Updated: 2026-01-08 (Tasks 3.1 & 3.2 completed)*

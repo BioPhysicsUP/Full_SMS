@@ -407,6 +407,18 @@ class Application:
                         channel.microtimes, particle.channelwidth
                     )
 
+                # Update spectra tab
+                if particle.has_spectra and particle.spectra is not None:
+                    self._layout.set_spectra_data(particle.spectra)
+                else:
+                    self._layout.set_spectra_unavailable()
+
+                # Update raster tab
+                if particle.has_raster_scan and particle.raster_scan is not None:
+                    self._layout.set_raster_data(particle.raster_scan)
+                else:
+                    self._layout.set_raster_unavailable()
+
             # Update intensity display with levels if they exist
             self._update_intensity_display()
 
@@ -418,6 +430,8 @@ class Application:
             if self._layout:
                 self._layout.clear_intensity_data()
                 self._layout.clear_lifetime_data()
+                self._layout.clear_spectra_data()
+                self._layout.clear_raster_data()
 
         # Update resolve button states
         self._update_resolve_buttons_state()
