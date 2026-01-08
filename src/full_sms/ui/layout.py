@@ -28,7 +28,7 @@ from full_sms.ui.widgets.status_bar import StatusBar
 
 # Layout configuration
 SIDEBAR_WIDTH = 180
-STATUS_BAR_HEIGHT = 28
+STATUS_BAR_HEIGHT = 36  # Includes separator above status bar
 
 
 @dataclass
@@ -112,14 +112,24 @@ class MainLayout:
         if self._is_built:
             return
 
-        with dpg.group(parent=self._parent, horizontal=True, tag=LAYOUT_TAGS.main_container):
-            # Left sidebar
-            self._build_sidebar()
+        # Main content area wrapped in child_window with negative height
+        # to leave room for the status bar at the bottom
+        with dpg.child_window(
+            parent=self._parent,
+            tag="main_content_wrapper",
+            height=-STATUS_BAR_HEIGHT,
+            border=False,
+            autosize_x=True,
+        ):
+            with dpg.group(horizontal=True, tag=LAYOUT_TAGS.main_container):
+                # Left sidebar
+                self._build_sidebar()
 
-            # Right content area with tabs
-            self._build_content_area()
+                # Right content area with tabs
+                self._build_content_area()
 
-        # Status bar at the bottom (outside the horizontal group)
+        # Status bar at the bottom (outside the main content wrapper)
+        # It will now always be visible at the bottom of the window
         self._build_status_bar()
 
         self._is_built = True
@@ -130,7 +140,6 @@ class MainLayout:
             tag=LAYOUT_TAGS.sidebar,
             width=SIDEBAR_WIDTH,
             border=True,
-            autosize_y=True,
         ):
             # Header
             dpg.add_text("Particles", color=(180, 180, 180))
@@ -182,7 +191,6 @@ class MainLayout:
             tag=LAYOUT_TAGS.content_area,
             border=False,
             autosize_x=True,
-            autosize_y=True,
         ):
             # Tab bar
             with dpg.tab_bar(

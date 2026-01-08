@@ -88,7 +88,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ## Phase 2: Layout & Scrolling Fixes
 
-### Task 2.1: Fix status bar visibility `[NEXT]`
+### Task 2.1: Fix status bar visibility `[DONE]` (2026-01-08)
 **Objective**: Status bar should always be visible without scrolling
 
 **Actions**:
@@ -100,9 +100,14 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Status bar is always visible at window bottom
 
+**Implementation Notes**:
+- Wrapped the main horizontal group (sidebar + content area) in a `child_window` with `height=-STATUS_BAR_HEIGHT` (negative height leaves room at the bottom)
+- Removed `autosize_y=True` from sidebar and content area child windows since they're now inside a fixed-height container
+- Status bar is placed outside the main content wrapper, ensuring it's always at the bottom regardless of content size
+
 ---
 
-### Task 2.2: Prevent horizontal text overflow `[TODO]`
+### Task 2.2: Prevent horizontal text overflow `[NEXT]`
 **Objective**: Prevent long text from expanding the view horizontally
 
 **Actions**:
@@ -409,13 +414,13 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | Phase | Tasks | Completed | Remaining |
 |-------|-------|-----------|-----------|
 | 1. File Dialogs & Tree | 3 | 3 | 0 |
-| 2. Layout & Scrolling | 2 | 0 | 2 |
+| 2. Layout & Scrolling | 2 | 1 | 1 |
 | 3. Spectra & Raster | 2 | 0 | 2 |
 | 4. Intensity Tab | 6 | 0 | 6 |
 | 5. Lifetime Tab | 5 | 0 | 5 |
 | 6. Grouping Tab | 2 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **3** | **21** |
+| **Total** | **24** | **4** | **20** |
 
 ---
 
@@ -430,4 +435,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-07 (Task 1.3 completed)*
+*Last Updated: 2026-01-08 (Task 2.1 completed)*
