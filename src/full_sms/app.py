@@ -416,6 +416,10 @@ class Application:
                 # Update raster tab
                 if particle.has_raster_scan and particle.raster_scan is not None:
                     self._layout.set_raster_data(particle.raster_scan)
+                    # Show particle position marker if coordinate is available
+                    if particle.raster_scan_coord is not None:
+                        x, y = particle.raster_scan_coord
+                        self._layout.set_raster_particle_marker(x, y)
                 else:
                     self._layout.set_raster_unavailable()
 
@@ -1726,6 +1730,9 @@ class Application:
         levels = self._session.get_current_levels()
         if levels:
             self._layout.intensity_tab.set_levels(levels)
+        else:
+            # Clear levels when switching to a particle without levels
+            self._layout.intensity_tab.clear_levels()
 
     def _update_correlation_display(self) -> None:
         """Update the correlation tab display for the current selection."""
