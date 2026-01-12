@@ -206,6 +206,25 @@ def _has_raster_scan(particle_group: h5py.Group) -> bool:
     return "Raster Scan" in particle_group
 
 
+def _read_raster_scan_coord(particle_group: h5py.Group) -> Optional[Tuple[float, float]]:
+    """Read the raster scan coordinate where the particle was measured.
+
+    Args:
+        particle_group: The HDF5 group for the particle.
+
+    Returns:
+        Tuple of (x, y) in micrometers, or None if not available.
+    """
+    try:
+        coord = particle_group.attrs.get("RS Coord. (um)")
+        if coord is not None and len(coord) >= 2:
+            # File stores (y, x), so swap to return (x, y)
+            return (float(coord[1]), float(coord[0]))
+    except (KeyError, ValueError, TypeError, IndexError):
+        pass
+    return None
+
+
 def _read_raster_scan_data(particle_group: h5py.Group) -> Optional[RasterScanData]:
     """Read raster scan data from a particle group if present.
 
@@ -318,9 +337,11 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
                 spectra_data = _read_spectra_data(particle_group)
 
             raster_scan_data = None
+            raster_scan_coord = None
             if _has_raster_scan(particle_group):
                 has_raster = True
                 raster_scan_data = _read_raster_scan_data(particle_group)
+                raster_scan_coord = _read_raster_scan_coord(particle_group)
 
             particle = ParticleData(
                 id=idx + 1,  # 1-based particle IDs
@@ -332,6 +353,7 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
                 description=description,
                 spectra=spectra_data,
                 raster_scan=raster_scan_data,
+                raster_scan_coord=raster_scan_coord,
             )
             particles.append(particle)
 

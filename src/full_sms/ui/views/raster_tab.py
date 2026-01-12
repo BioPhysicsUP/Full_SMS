@@ -343,3 +343,18 @@ class RasterTab:
             has_raster: Whether any particles in the file have raster scans.
         """
         self._has_raster_in_file = has_raster
+
+    def set_particle_marker(self, x: float, y: float) -> None:
+        """Set the particle position marker on the raster scan.
+
+        Args:
+            x: X coordinate in micrometers.
+            y: Y coordinate in micrometers.
+        """
+        if self._raster_plot:
+            self._raster_plot.set_particle_marker(x, y)
+
+    def clear_particle_marker(self) -> None:
+        """Clear the particle position marker."""
+        if self._raster_plot:
+            self._raster_plot.clear_particle_marker()

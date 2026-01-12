@@ -205,6 +205,8 @@ class ParticleData:
         channel1: Primary TCSPC channel data.
         channel2: Optional secondary TCSPC channel data (for dual detector setups).
         spectra: Optional spectral data if recorded for this particle.
+        raster_scan: Optional raster scan image data.
+        raster_scan_coord: Optional (x, y) coordinate in um where the particle was measured.
     """
 
     id: int
@@ -216,6 +218,7 @@ class ParticleData:
     description: str = ""
     spectra: Optional[SpectraData] = None
     raster_scan: Optional[RasterScanData] = None
+    raster_scan_coord: Optional[tuple[float, float]] = None
 
     @property
     def num_photons(self) -> int:

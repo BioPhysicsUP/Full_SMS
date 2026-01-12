@@ -27,6 +27,7 @@ class RasterPlotTags:
     y_axis: str = "raster_plot_y_axis"
     heat_series: str = "raster_plot_heat_series"
     colormap_scale: str = "raster_plot_colormap_scale"
+    particle_marker: str = "raster_plot_particle_marker"
 
 
 RASTER_PLOT_TAGS = RasterPlotTags()
@@ -62,6 +63,9 @@ class RasterPlot:
         # Display state
         self._colormap: int = dpg.mvPlotColormap_Plasma
 
+        # Particle marker position
+        self._marker_position: tuple[float, float] | None = None
+
         # Generate unique tags
         self._tags = RasterPlotTags(
             container=f"{tag_prefix}raster_plot_container",
@@ -70,6 +74,7 @@ class RasterPlot:
             y_axis=f"{tag_prefix}raster_plot_y_axis",
             heat_series=f"{tag_prefix}raster_plot_heat_series",
             colormap_scale=f"{tag_prefix}raster_plot_colormap_scale",
+            particle_marker=f"{tag_prefix}raster_plot_particle_marker",
         )
 
     @property
@@ -124,6 +129,15 @@ class RasterPlot:
                     format="",  # Don't show values on hover
                 )
 
+                # Add particle position marker (scatter series with single point)
+                # Use a crosshair marker for visibility
+                dpg.add_scatter_series(
+                    [],
+                    [],
+                    parent=self._tags.y_axis,
+                    tag=self._tags.particle_marker,
+                )
+
             # Add colormap scale
             dpg.add_colormap_scale(
                 tag=self._tags.colormap_scale,
@@ -134,6 +148,29 @@ class RasterPlot:
                 height=-1,
                 label="Intensity",
             )
+
+        # Style the particle marker to be more visible
+        # Create a theme for the marker with bright green color, larger size, and thick lines
+        with dpg.theme() as marker_theme:
+            with dpg.theme_component(dpg.mvScatterSeries):
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_MarkerFill, (50, 255, 50, 255), category=dpg.mvThemeCat_Plots
+                )
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_MarkerOutline, (50, 255, 50, 255), category=dpg.mvThemeCat_Plots
+                )
+                dpg.add_theme_style(
+                    dpg.mvPlotStyleVar_MarkerSize, 12, category=dpg.mvThemeCat_Plots
+                )
+                dpg.add_theme_style(
+                    dpg.mvPlotStyleVar_MarkerWeight, 3, category=dpg.mvThemeCat_Plots
+                )
+                dpg.add_theme_style(
+                    dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Cross, category=dpg.mvThemeCat_Plots
+                )
+
+        # Bind the theme to the marker
+        dpg.bind_item_theme(self._tags.particle_marker, marker_theme)
 
         # Bind colormap to the plot
         dpg.bind_colormap(self._tags.plot, self._colormap)
@@ -154,13 +191,16 @@ class RasterPlot:
             return
 
         # The raster data is (rows × cols) = (num_pixels_y × num_pixels_x)
-        # For heat_series, we need rows and cols for the heat series
-        data = raster.data
+        # Transform to match plot coordinates:
+        # 1. Flip vertically (y increases upward in plot, but row 0 is at top in array)
+        # 2. Transpose (flip across diagonal) to align image with coordinate system
+        # 3. Rotate 180 degrees to final alignment
+        data = np.rot90(np.flip(raster.data, axis=0).T, 2)
 
-        rows = data.shape[0]  # Y pixels
-        cols = data.shape[1]  # X pixels
+        rows = data.shape[0]  # rows for heat_series
+        cols = data.shape[1]  # cols for heat_series
 
-        # Get bounds for the heat series (spatial coordinates in um)
+        # Keep original bounds - the transpose aligns the image with the coordinates
         x_min = raster.x_min
         x_max = raster.x_max
         y_min = raster.y_min
@@ -234,6 +274,9 @@ class RasterPlot:
                 max_scale=1,
             )
 
+        # Clear the particle marker
+        self.clear_particle_marker()
+
         logger.debug("Raster plot cleared")
 
     def fit_view(self) -> None:
@@ -278,3 +321,38 @@ class RasterPlot:
         if self._raster_data is None:
             return None
         return (self._raster_data.intensity_min, self._raster_data.intensity_max)
+
+    def set_particle_marker(self, x: float, y: float) -> None:
+        """Set the particle position marker on the raster scan.
+
+        Args:
+            x: X coordinate in micrometers.
+            y: Y coordinate in micrometers.
+        """
+        self._marker_position = (x, y)
+
+        # Debug: print coordinate info
+        if self._raster_data:
+            raster = self._raster_data
+
+        if dpg.does_item_exist(self._tags.particle_marker):
+            dpg.configure_item(
+                self._tags.particle_marker,
+                x=[x],
+                y=[y],
+            )
+
+        logger.debug(f"Particle marker set at ({x:.2f}, {y:.2f}) um")
+
+    def clear_particle_marker(self) -> None:
+        """Clear the particle position marker."""
+        self._marker_position = None
+
+        if dpg.does_item_exist(self._tags.particle_marker):
+            dpg.configure_item(
+                self._tags.particle_marker,
+                x=[],
+                y=[],
+            )
+
+        logger.debug("Particle marker cleared")
