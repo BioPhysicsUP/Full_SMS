@@ -266,7 +266,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 4.5: Fix histogram bar width on bin size change `[NEXT]`
+### Task 4.5: Fix histogram bar width on bin size change `[DONE]` (2026-01-12)
 **Objective**: Histogram bars should remain full-width (bar-to-bar) when bin size changes
 
 **Actions**:
@@ -278,9 +278,19 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Histogram bars remain full-width at all bin sizes
 
+**Implementation Notes**:
+- Added `_bin_width` field to track computed histogram bin width
+- Calculate bin width from `bin_edges[1] - bin_edges[0]` in `_compute_histogram()`
+- Apply `weight=self._bin_width` to bar series in `_update_series()`
+- Added `no_inputs=True` to histogram plot to disable manual zoom/pan (controlled via intensity plot)
+- Set fixed Y-axis limits on histogram (0 to max with 20% padding) for consistent display
+- **Additional change**: Added plot legend to intensity plot with "Intensity" and "Levels" series
+- **Additional change**: Removed "Show Levels" checkbox - visibility now toggled via legend click
+- Level step line now appears as a proper series in the legend
+
 ---
 
-### Task 4.6: Replace resolve buttons with combo box `[TODO]`
+### Task 4.6: Replace resolve buttons with combo box `[NEXT]`
 **Objective**: Simplify resolve controls with a scope selector
 
 **Actions**:
@@ -468,11 +478,11 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 1. File Dialogs & Tree | 3 | 3 | 0 |
 | 2. Layout & Scrolling | 2 | 2 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 |
-| 4. Intensity Tab | 6 | 4 | 2 |
+| 4. Intensity Tab | 6 | 5 | 1 |
 | 5. Lifetime Tab | 5 | 0 | 5 |
 | 6. Grouping Tab | 2 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **11** | **13** |
+| **Total** | **24** | **12** | **12** |
 
 ---
 
@@ -487,4 +497,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-12 (Task 4.4 completed)*
+*Last Updated: 2026-01-12 (Task 4.5 completed)*

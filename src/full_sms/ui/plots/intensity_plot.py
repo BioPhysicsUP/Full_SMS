@@ -171,6 +171,9 @@ class IntensityPlot:
             height=-1,
             anti_aliased=True,
         ):
+            # Add legend - allows user to toggle series visibility by clicking
+            dpg.add_plot_legend()
+
             # X axis (time in milliseconds or seconds)
             dpg.add_plot_axis(
                 dpg.mvXAxis,
@@ -252,10 +255,11 @@ class IntensityPlot:
         )
 
     def _fit_axes(self) -> None:
-        """Auto-fit the axes to show all data."""
+        """Auto-fit the axes to show all data (allows zoom/pan)."""
         if not dpg.does_item_exist(self._tags.x_axis):
             return
 
+        # Auto-fit both axes - this allows user zoom/pan
         dpg.fit_axis_data(self._tags.x_axis)
         dpg.fit_axis_data(self._tags.y_axis)
 
@@ -456,14 +460,14 @@ class IntensityPlot:
             x_points.append(end_ms)
             y_points.append(intensity_per_bin)
 
-        # Create the step line series
+        # Create the step line series with label for legend
         if x_points:
             dpg.add_line_series(
                 x_points,
                 y_points,
+                label="Levels",
                 parent=self._tags.y_axis,
                 tag=self._tags.level_step_line,
-                show=self._levels_visible,
             )
 
             # Apply a theme for the level step line (a distinct color)

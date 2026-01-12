@@ -69,6 +69,7 @@ class IntensityHistogram:
         # Cached histogram data
         self._hist_freqs: NDArray[np.float64] | None = None
         self._hist_bins: NDArray[np.float64] | None = None
+        self._bin_width: float = 1.0  # Width of each histogram bin
 
         # Generate unique tags
         self._tags = IntensityHistogramTags(
@@ -122,6 +123,7 @@ class IntensityHistogram:
             height=-1,  # Fill available height
             no_title=True,
             no_mouse_pos=True,
+            no_inputs=True,  # Disable zoom/pan - Y-axis is linked to intensity plot
         ):
             # X axis (frequency, hidden label)
             dpg.add_plot_axis(
@@ -171,6 +173,7 @@ class IntensityHistogram:
         if self._counts is None or len(self._counts) == 0:
             self._hist_freqs = None
             self._hist_bins = None
+            self._bin_width = 1.0
             return
 
         # Compute histogram with fixed number of bins
@@ -188,6 +191,9 @@ class IntensityHistogram:
         # Compute bin centers for bar chart
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
+        # Calculate bin width for bar series weight
+        self._bin_width = bin_edges[1] - bin_edges[0]
+
         self._hist_freqs = freqs
         self._hist_bins = bin_centers
 
@@ -203,28 +209,41 @@ class IntensityHistogram:
         # For horizontal bar series:
         # x = bar length (frequency values)
         # y = bar position (intensity values / bin centers)
+        # weight = bar width (matches histogram bin width so bars are adjacent)
         dpg.configure_item(
             self._tags.series,
             x=self._hist_freqs.tolist(),
             y=self._hist_bins.tolist(),
+            weight=self._bin_width,
         )
 
-        # Fit the axes
-        self._fit_axes()
+        # Fit X-axis
+        dpg.fit_axis_data(self._tags.x_axis)
+
+        # Set Y-axis limits: 0 to max with 20% padding above highest bar
+        if self._counts is not None and len(self._counts) > 0:
+            max_val = float(self._hist_freqs.max())
+            dpg.set_axis_limits(self._tags.x_axis, 0, max_val * 1.20)
 
     def _fit_axes(self) -> None:
-        """Auto-fit the axes to show all data."""
+        """Auto-fit the axes with Y-axis padding."""
         if not dpg.does_item_exist(self._tags.x_axis):
             return
 
         dpg.fit_axis_data(self._tags.x_axis)
-        dpg.fit_axis_data(self._tags.y_axis)
+
+        # Set Y-axis limits: 0 to max with 20% padding
+        if self._counts is not None and len(self._counts) > 0:
+            max_val = float(self._counts.max())
+            dpg.set_axis_limits(self._tags.y_axis, 0, max_val * 1.20)
+            dpg.set_axis_limits_auto(self._tags.y_axis)
 
     def clear(self) -> None:
         """Clear the histogram data."""
         self._counts = None
         self._hist_freqs = None
         self._hist_bins = None
+        self._bin_width = 1.0
 
         if dpg.does_item_exist(self._tags.series):
             dpg.configure_item(self._tags.series, x=[], y=[])

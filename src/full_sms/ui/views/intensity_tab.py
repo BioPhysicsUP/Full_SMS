@@ -44,7 +44,6 @@ class IntensityTabTags:
     bin_size_slider: str = "intensity_tab_bin_size"
     bin_size_input: str = "intensity_tab_bin_size_input"
     fit_view_button: str = "intensity_tab_fit_view"
-    show_levels_checkbox: str = "intensity_tab_show_levels"
     color_by_group_checkbox: str = "intensity_tab_color_by_group"
     show_histogram_checkbox: str = "intensity_tab_show_histogram"
     level_info_text: str = "intensity_tab_level_info"
@@ -115,7 +114,6 @@ class IntensityTab:
             bin_size_slider=f"{tag_prefix}intensity_tab_bin_size",
             bin_size_input=f"{tag_prefix}intensity_tab_bin_size_input",
             fit_view_button=f"{tag_prefix}intensity_tab_fit_view",
-            show_levels_checkbox=f"{tag_prefix}intensity_tab_show_levels",
             color_by_group_checkbox=f"{tag_prefix}intensity_tab_color_by_group",
             show_histogram_checkbox=f"{tag_prefix}intensity_tab_show_histogram",
             level_info_text=f"{tag_prefix}intensity_tab_level_info",
@@ -187,7 +185,7 @@ class IntensityTab:
 
                 # Subplots layout for plot + histogram with linked Y-axes
                 # Using subplots with link_all_y=True ensures the histogram Y-axis
-                # stays in sync with the intensity plot when zooming/panning
+                # stays visually aligned with the intensity plot
                 with dpg.group(
                     tag=self._tags.plot_area,
                     show=False,  # Hidden until data loaded
@@ -198,7 +196,7 @@ class IntensityTab:
                         tag=self._tags.subplots,
                         width=-1,
                         height=-1,
-                        link_all_y=True,  # Link Y-axes between plots
+                        link_all_y=True,  # Link Y-axes for visual alignment
                         column_ratios=[5.0, 1.0],  # Intensity plot gets 5x the width
                         no_title=True,
                     ):
@@ -264,16 +262,6 @@ class IntensityTab:
             dpg.add_spacer(width=10)
 
             # Level overlay controls
-            dpg.add_checkbox(
-                label="Show Levels",
-                tag=self._tags.show_levels_checkbox,
-                default_value=True,
-                callback=self._on_show_levels_changed,
-                enabled=False,
-            )
-
-            dpg.add_spacer(width=10)
-
             dpg.add_checkbox(
                 label="Colour by Group",
                 tag=self._tags.color_by_group_checkbox,
@@ -419,17 +407,6 @@ class IntensityTab:
         if self._intensity_plot:
             self._intensity_plot.fit_view()
 
-    def _on_show_levels_changed(self, sender: int, app_data: bool) -> None:
-        """Handle show levels checkbox changes.
-
-        Args:
-            sender: The checkbox widget.
-            app_data: Whether levels should be visible.
-        """
-        if self._intensity_plot:
-            self._intensity_plot.set_levels_visible(app_data)
-        logger.debug(f"Show levels changed to {app_data}")
-
     def _on_color_by_group_changed(self, sender: int, app_data: bool) -> None:
         """Handle color by group checkbox changes.
 
@@ -548,8 +525,6 @@ class IntensityTab:
             dpg.configure_item(self._tags.fit_view_button, enabled=False)
 
         # Disable level controls
-        if dpg.does_item_exist(self._tags.show_levels_checkbox):
-            dpg.configure_item(self._tags.show_levels_checkbox, enabled=False)
         if dpg.does_item_exist(self._tags.color_by_group_checkbox):
             dpg.configure_item(self._tags.color_by_group_checkbox, enabled=False)
 
@@ -741,8 +716,6 @@ class IntensityTab:
 
         # Enable level controls if we have levels
         has_levels = len(levels) > 0
-        if dpg.does_item_exist(self._tags.show_levels_checkbox):
-            dpg.configure_item(self._tags.show_levels_checkbox, enabled=has_levels)
         if dpg.does_item_exist(self._tags.color_by_group_checkbox):
             dpg.configure_item(self._tags.color_by_group_checkbox, enabled=has_levels)
 
@@ -763,8 +736,6 @@ class IntensityTab:
             self._intensity_plot.clear_levels()
 
         # Disable level controls
-        if dpg.does_item_exist(self._tags.show_levels_checkbox):
-            dpg.configure_item(self._tags.show_levels_checkbox, enabled=False)
         if dpg.does_item_exist(self._tags.color_by_group_checkbox):
             dpg.configure_item(self._tags.color_by_group_checkbox, enabled=False)
 
@@ -803,10 +774,6 @@ class IntensityTab:
         """
         if self._intensity_plot:
             self._intensity_plot.set_levels_visible(visible)
-
-        # Update checkbox
-        if dpg.does_item_exist(self._tags.show_levels_checkbox):
-            dpg.set_value(self._tags.show_levels_checkbox, visible)
 
     def set_color_by_group(self, by_group: bool) -> None:
         """Change the coloring scheme for levels.
