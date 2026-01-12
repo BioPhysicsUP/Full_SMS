@@ -89,53 +89,66 @@ class IntensityHistogram:
         """Get the current number of histogram bins."""
         return self._num_bins
 
-    def build(self) -> None:
-        """Build the plot UI structure."""
+    def build(self, for_subplot: bool = False) -> None:
+        """Build the plot UI structure.
+
+        Args:
+            for_subplot: If True, build the plot directly without a container group.
+                Use this when the plot is being added inside a dpg.subplots() context.
+        """
         if self._is_built:
             return
 
-        # Plot container
-        with dpg.group(parent=self._parent, tag=self._tags.container):
-            # Create the plot - oriented horizontally
-            # Y-axis = intensity values (to match main plot)
-            # X-axis = frequency (normalized)
-            with dpg.plot(
-                tag=self._tags.plot,
-                label="",  # No title needed
-                width=self._width,
-                height=-1,  # Fill available height
-                no_title=True,
-                no_mouse_pos=True,
-            ):
-                # X axis (frequency, hidden label)
-                dpg.add_plot_axis(
-                    dpg.mvXAxis,
-                    label="",
-                    tag=self._tags.x_axis,
-                    no_tick_labels=True,
-                    no_tick_marks=True,
-                )
-
-                # Y axis (intensity values - should align with main plot)
-                dpg.add_plot_axis(
-                    dpg.mvYAxis,
-                    label="",
-                    tag=self._tags.y_axis,
-                    no_tick_labels=True,  # Main plot shows the labels
-                )
-
-                # Add empty bar series (horizontal bars for histogram)
-                dpg.add_bar_series(
-                    [],
-                    [],
-                    parent=self._tags.y_axis,
-                    tag=self._tags.series,
-                    horizontal=True,
-                    weight=1.0,
-                )
+        if for_subplot:
+            # Build plot directly (for use inside dpg.subplots)
+            self._build_plot_content()
+        else:
+            # Build with container group (standalone mode)
+            with dpg.group(parent=self._parent, tag=self._tags.container):
+                self._build_plot_content()
 
         self._is_built = True
         logger.debug("Intensity histogram built")
+
+    def _build_plot_content(self) -> None:
+        """Build the plot content (plot, axes, series)."""
+        # Create the plot - oriented horizontally
+        # Y-axis = intensity values (to match main plot)
+        # X-axis = frequency (normalized)
+        with dpg.plot(
+            tag=self._tags.plot,
+            label="",  # No title needed
+            width=self._width,
+            height=-1,  # Fill available height
+            no_title=True,
+            no_mouse_pos=True,
+        ):
+            # X axis (frequency, hidden label)
+            dpg.add_plot_axis(
+                dpg.mvXAxis,
+                label="",
+                tag=self._tags.x_axis,
+                no_tick_labels=True,
+                no_tick_marks=True,
+            )
+
+            # Y axis (intensity values - should align with main plot)
+            dpg.add_plot_axis(
+                dpg.mvYAxis,
+                label="",
+                tag=self._tags.y_axis,
+                no_tick_labels=True,  # Main plot shows the labels
+            )
+
+            # Add empty bar series (horizontal bars for histogram)
+            dpg.add_bar_series(
+                [],
+                [],
+                parent=self._tags.y_axis,
+                tag=self._tags.series,
+                horizontal=True,
+                weight=1.0,
+            )
 
     def set_data(self, counts: NDArray[np.int64]) -> None:
         """Set the binned count data and update the histogram.

@@ -8,10 +8,18 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 1. Find the task marked `[NEXT]`
 2. Tell Claude: "Continue with the next task in the UI improvements plan"
-3. Claude will complete the task and update this document:
-   - Change `[NEXT]` to `[DONE]` with completion date
-   - Mark the following task as `[NEXT]`
-4. After completing a task, Claude should ask the user to test the changes and provide feedback
+3. Claude will:
+   a. Read the task and research the codebase
+   b. **Explain the implementation plan briefly** and ask for approval before coding
+   c. Implement the changes after receiving go-ahead
+   d. **Ask user to test** the changes (`uv run python -m full_sms.app`)
+   e. **After user confirms it works**, update this document:
+      - Change `[NEXT]` to `[DONE]` with completion date
+      - Add implementation notes
+      - Mark the following task as `[NEXT]`
+      - Update the Progress Summary table
+   f. Commit the changes
+4. If testing reveals issues, fix them before updating the plan
 5. Repeat until complete
 
 ---
@@ -175,7 +183,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ## Phase 4: Intensity Tab Improvements
 
-### Task 4.1: Link histogram Y-axis to intensity plot `[NEXT]`
+### Task 4.1: Link histogram Y-axis to intensity plot `[DONE]` (2026-01-12)
 **Objective**: Histogram vertical axis should match intensity plot Y range
 
 **Actions**:
@@ -187,9 +195,16 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Histogram Y-axis stays in sync with intensity plot
 
+**Implementation Notes**:
+- Refactored Intensity tab to use `dpg.subplots()` with `link_all_y=True` parameter
+- This is DearPyGui's native axis linking feature that automatically synchronizes Y-axes
+- Modified `IntensityPlot` and `IntensityHistogram` to support building within subplot context via `for_subplot` parameter
+- Column ratios set to [5.0, 1.0] to give intensity plot 5x the width of histogram
+- The linking is bidirectional - zooming/panning either plot updates the other
+
 ---
 
-### Task 4.2: Fix histogram visibility and layout `[TODO]`
+### Task 4.2: Fix histogram visibility and layout `[NEXT]`
 **Objective**: Histogram should always be visible without horizontal scrolling
 
 **Actions**:
@@ -435,11 +450,11 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 1. File Dialogs & Tree | 3 | 3 | 0 |
 | 2. Layout & Scrolling | 2 | 2 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 |
-| 4. Intensity Tab | 6 | 0 | 6 |
+| 4. Intensity Tab | 6 | 1 | 5 |
 | 5. Lifetime Tab | 5 | 0 | 5 |
 | 6. Grouping Tab | 2 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **7** | **17** |
+| **Total** | **24** | **8** | **16** |
 
 ---
 
@@ -454,4 +469,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-08 (Tasks 3.1 & 3.2 completed)*
+*Last Updated: 2026-01-12 (Task 4.1 completed)*

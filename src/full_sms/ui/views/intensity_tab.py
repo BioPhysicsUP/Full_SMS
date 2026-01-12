@@ -50,6 +50,7 @@ class IntensityTabTags:
     level_info_text: str = "intensity_tab_level_info"
     plot_container: str = "intensity_tab_plot_container"
     plot_area: str = "intensity_tab_plot_area"
+    subplots: str = "intensity_tab_subplots"
     histogram_container: str = "intensity_tab_histogram_container"
     info_text: str = "intensity_tab_info"
     no_data_text: str = "intensity_tab_no_data"
@@ -120,6 +121,7 @@ class IntensityTab:
             level_info_text=f"{tag_prefix}intensity_tab_level_info",
             plot_container=f"{tag_prefix}intensity_tab_plot_container",
             plot_area=f"{tag_prefix}intensity_tab_plot_area",
+            subplots=f"{tag_prefix}intensity_tab_subplots",
             histogram_container=f"{tag_prefix}intensity_tab_histogram_container",
             info_text=f"{tag_prefix}intensity_tab_info",
             no_data_text=f"{tag_prefix}intensity_tab_no_data",
@@ -182,27 +184,37 @@ class IntensityTab:
                     color=(128, 128, 128),
                 )
 
-                # Horizontal layout for plot + histogram
+                # Subplots layout for plot + histogram with linked Y-axes
+                # Using subplots with link_all_y=True ensures the histogram Y-axis
+                # stays in sync with the intensity plot when zooming/panning
                 with dpg.group(
-                    horizontal=True,
                     tag=self._tags.plot_area,
                     show=False,  # Hidden until data loaded
                 ):
-                    # Main intensity plot (left side, takes most space)
-                    self._intensity_plot = IntensityPlot(
-                        parent=self._tags.plot_area,
-                        tag_prefix=f"{self._tag_prefix}main_",
-                    )
-                    self._intensity_plot.build()
-
-                    # Histogram sidebar (right side, fixed width)
-                    with dpg.group(tag=self._tags.histogram_container):
-                        self._intensity_histogram = IntensityHistogram(
-                            parent=self._tags.histogram_container,
-                            tag_prefix=f"{self._tag_prefix}hist_",
-                            width=150,
+                    with dpg.subplots(
+                        rows=1,
+                        columns=2,
+                        tag=self._tags.subplots,
+                        width=-1,
+                        height=-1,
+                        link_all_y=True,  # Link Y-axes between plots
+                        column_ratios=[5.0, 1.0],  # Intensity plot gets 5x the width
+                        no_title=True,
+                    ):
+                        # Main intensity plot (left, takes most space)
+                        self._intensity_plot = IntensityPlot(
+                            parent=self._tags.subplots,
+                            tag_prefix=f"{self._tag_prefix}main_",
                         )
-                        self._intensity_histogram.build()
+                        self._intensity_plot.build(for_subplot=True)
+
+                        # Histogram sidebar (right, narrow)
+                        self._intensity_histogram = IntensityHistogram(
+                            parent=self._tags.subplots,
+                            tag_prefix=f"{self._tag_prefix}hist_",
+                            width=-1,  # Let subplot control width
+                        )
+                        self._intensity_histogram.build(for_subplot=True)
 
         self._is_built = True
         logger.debug("Intensity tab built")
@@ -394,8 +406,11 @@ class IntensityTab:
         """
         self._histogram_visible = app_data
 
-        if dpg.does_item_exist(self._tags.histogram_container):
-            dpg.configure_item(self._tags.histogram_container, show=app_data)
+        # Hide the histogram plot directly within the subplot
+        if self._intensity_histogram is not None:
+            hist_plot_tag = self._intensity_histogram.tags.plot
+            if dpg.does_item_exist(hist_plot_tag):
+                dpg.configure_item(hist_plot_tag, show=app_data)
 
         logger.debug(f"Show histogram changed to {app_data}")
 
@@ -518,7 +533,7 @@ class IntensityTab:
         Args:
             show: Whether to show the plot area (True) or placeholder (False).
         """
-        # Show/hide the plot area (contains both plot and histogram)
+        # Show/hide the plot area (contains the subplots with plot and histogram)
         if dpg.does_item_exist(self._tags.plot_area):
             dpg.configure_item(self._tags.plot_area, show=show)
 
@@ -527,10 +542,10 @@ class IntensityTab:
             dpg.configure_item(self._tags.no_data_text, show=not show)
 
         # Respect histogram visibility preference when showing
-        if show and dpg.does_item_exist(self._tags.histogram_container):
-            dpg.configure_item(
-                self._tags.histogram_container, show=self._histogram_visible
-            )
+        if show and self._intensity_histogram is not None:
+            hist_plot_tag = self._intensity_histogram.tags.plot
+            if dpg.does_item_exist(hist_plot_tag):
+                dpg.configure_item(hist_plot_tag, show=self._histogram_visible)
 
     def _update_info_text(self) -> None:
         """Update the info text with current data stats."""
@@ -774,8 +789,11 @@ class IntensityTab:
         """
         self._histogram_visible = visible
 
-        if dpg.does_item_exist(self._tags.histogram_container):
-            dpg.configure_item(self._tags.histogram_container, show=visible)
+        # Hide the histogram plot directly within the subplot
+        if self._intensity_histogram is not None:
+            hist_plot_tag = self._intensity_histogram.tags.plot
+            if dpg.does_item_exist(hist_plot_tag):
+                dpg.configure_item(hist_plot_tag, show=visible)
 
         # Update checkbox
         if dpg.does_item_exist(self._tags.show_histogram_checkbox):

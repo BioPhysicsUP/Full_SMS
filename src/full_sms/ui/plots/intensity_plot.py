@@ -138,46 +138,59 @@ class IntensityPlot:
         """Get the current bin size in milliseconds."""
         return self._bin_size_ms
 
-    def build(self) -> None:
-        """Build the plot UI structure."""
+    def build(self, for_subplot: bool = False) -> None:
+        """Build the plot UI structure.
+
+        Args:
+            for_subplot: If True, build the plot directly without a container group.
+                Use this when the plot is being added inside a dpg.subplots() context.
+        """
         if self._is_built:
             return
 
-        # Plot container
-        with dpg.group(parent=self._parent, tag=self._tags.container):
-            # Create the plot
-            with dpg.plot(
-                tag=self._tags.plot,
-                label="Intensity Trace",
-                width=-1,
-                height=-1,
-                anti_aliased=True,
-            ):
-                # X axis (time in milliseconds or seconds)
-                dpg.add_plot_axis(
-                    dpg.mvXAxis,
-                    label="Time (ms)",
-                    tag=self._tags.x_axis,
-                )
-
-                # Y axis (counts per bin or counts per second)
-                dpg.add_plot_axis(
-                    dpg.mvYAxis,
-                    label="Counts/bin",
-                    tag=self._tags.y_axis,
-                )
-
-                # Add empty line series (will be populated when data is set)
-                dpg.add_line_series(
-                    [],
-                    [],
-                    label="Intensity",
-                    parent=self._tags.y_axis,
-                    tag=self._tags.series,
-                )
+        if for_subplot:
+            # Build plot directly (for use inside dpg.subplots)
+            self._build_plot_content()
+        else:
+            # Build with container group (standalone mode)
+            with dpg.group(parent=self._parent, tag=self._tags.container):
+                self._build_plot_content()
 
         self._is_built = True
         logger.debug("Intensity plot built")
+
+    def _build_plot_content(self) -> None:
+        """Build the plot content (plot, axes, series)."""
+        # Create the plot
+        with dpg.plot(
+            tag=self._tags.plot,
+            label="Intensity Trace",
+            width=-1,
+            height=-1,
+            anti_aliased=True,
+        ):
+            # X axis (time in milliseconds or seconds)
+            dpg.add_plot_axis(
+                dpg.mvXAxis,
+                label="Time (ms)",
+                tag=self._tags.x_axis,
+            )
+
+            # Y axis (counts per bin or counts per second)
+            dpg.add_plot_axis(
+                dpg.mvYAxis,
+                label="Counts/bin",
+                tag=self._tags.y_axis,
+            )
+
+            # Add empty line series (will be populated when data is set)
+            dpg.add_line_series(
+                [],
+                [],
+                label="Intensity",
+                parent=self._tags.y_axis,
+                tag=self._tags.series,
+            )
 
     def set_data(
         self,
@@ -289,6 +302,17 @@ class IntensityPlot:
         if self._counts is None or len(self._counts) == 0:
             return None
         return (int(np.min(self._counts)), int(np.max(self._counts)))
+
+    def get_y_axis_limits(self) -> tuple[float, float] | None:
+        """Get the current Y-axis visible limits.
+
+        Returns:
+            Tuple of (min, max) Y-axis limits, or None if not available.
+        """
+        if not dpg.does_item_exist(self._tags.y_axis):
+            return None
+        limits = dpg.get_axis_limits(self._tags.y_axis)
+        return (limits[0], limits[1])
 
     @property
     def has_data(self) -> bool:
