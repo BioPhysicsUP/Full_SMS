@@ -677,6 +677,29 @@ class MainLayout:
         if self._lifetime_tab:
             self._lifetime_tab.set_log_scale(log_scale)
 
+    def set_lifetime_abstimes(self, abstimes) -> None:
+        """Set absolute times for the lifetime tab's intensity plot.
+
+        Args:
+            abstimes: Absolute photon arrival times in nanoseconds.
+        """
+        if self._lifetime_tab:
+            self._lifetime_tab.set_abstimes(abstimes)
+
+    def set_lifetime_levels(self, levels) -> None:
+        """Set levels for the lifetime tab's level selection.
+
+        Args:
+            levels: Sequence of LevelData objects.
+        """
+        if self._lifetime_tab:
+            self._lifetime_tab.set_levels(levels)
+
+    def clear_lifetime_levels(self) -> None:
+        """Clear levels from the lifetime tab."""
+        if self._lifetime_tab:
+            self._lifetime_tab.clear_levels()
+
     # Grouping tab methods
 
     @property

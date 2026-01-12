@@ -290,7 +290,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 4.6: Replace resolve buttons with combo box `[NEXT]`
+### Task 4.6: Replace resolve buttons with combo box `[SKIP]` (2026-01-12)
 **Objective**: Simplify resolve controls with a scope selector
 
 **Actions**:
@@ -302,11 +302,13 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Single resolve button with scope selector works correctly
 
+**Skipped**: User not convinced this change is needed; may revisit later
+
 ---
 
 ## Phase 5: Lifetime Tab Improvements
 
-### Task 5.1: Add intensity plot to Lifetime tab `[TODO]`
+### Task 5.1: Add intensity plot to Lifetime tab `[DONE]` (2026-01-12)
 **Objective**: Show intensity plot with clickable level selection
 
 **Actions**:
@@ -319,9 +321,20 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Clicking levels shows their respective decay curves
 
+**Implementation Notes**:
+- Added compact intensity plot (250px height) above decay plot, hidden until levels exist
+- Click handler detects clicks on plot and finds level at that time position
+- Selected level highlighted with light green vertical band
+- Decay histogram updates to show only selected level's microtimes
+- "Show All" button returns to full data view
+- Legend hidden on compact plot for cleaner display
+- Step line and band both extend to next level's start time for visual consistency
+- Y-axis fixed to 0-max range
+- Decay plot height is dynamic: fills space when no residuals, shrinks when fit is shown
+
 ---
 
-### Task 5.2: Reorganize fitting controls `[TODO]`
+### Task 5.2: Reorganize fitting controls `[NEXT]`
 **Objective**: Provide clear fit options with scope selection
 
 **Actions**:
@@ -473,16 +486,16 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ## Progress Summary
 
-| Phase | Tasks | Completed | Remaining |
-|-------|-------|-----------|-----------|
-| 1. File Dialogs & Tree | 3 | 3 | 0 |
-| 2. Layout & Scrolling | 2 | 2 | 0 |
-| 3. Spectra & Raster | 2 | 2 | 0 |
-| 4. Intensity Tab | 6 | 5 | 1 |
-| 5. Lifetime Tab | 5 | 0 | 5 |
-| 6. Grouping Tab | 2 | 0 | 2 |
-| 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **12** | **12** |
+| Phase | Tasks | Completed | Skipped | Remaining |
+|-------|-------|-----------|---------|-----------|
+| 1. File Dialogs & Tree | 3 | 3 | 0 | 0 |
+| 2. Layout & Scrolling | 2 | 2 | 0 | 0 |
+| 3. Spectra & Raster | 2 | 2 | 0 | 0 |
+| 4. Intensity Tab | 6 | 5 | 1 | 0 |
+| 5. Lifetime Tab | 5 | 1 | 0 | 4 |
+| 6. Grouping Tab | 2 | 0 | 0 | 2 |
+| 7. Export Tab | 4 | 0 | 0 | 4 |
+| **Total** | **24** | **13** | **1** | **10** |
 
 ---
 

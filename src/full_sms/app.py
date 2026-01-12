@@ -407,6 +407,9 @@ class Application:
                         channel.microtimes, particle.channelwidth
                     )
 
+                    # Also pass abstimes to lifetime tab for intensity plot
+                    self._layout.set_lifetime_abstimes(channel.abstimes)
+
                 # Update spectra tab
                 if particle.has_spectra and particle.spectra is not None:
                     self._layout.set_spectra_data(particle.spectra)
@@ -425,6 +428,9 @@ class Application:
 
             # Update intensity display with levels if they exist
             self._update_intensity_display()
+
+            # Update lifetime tab with levels if they exist
+            self._update_lifetime_display()
 
             # Update correlation tab for dual-channel particles
             self._update_correlation_display()
@@ -1501,6 +1507,7 @@ class Application:
 
         # Update display with levels for current selection
         self._update_intensity_display()
+        self._update_lifetime_display()
 
         # Update group buttons state (now that levels exist)
         self._update_group_buttons_state()
@@ -1733,6 +1740,22 @@ class Application:
         else:
             # Clear levels when switching to a particle without levels
             self._layout.intensity_tab.clear_levels()
+
+    def _update_lifetime_display(self) -> None:
+        """Update the lifetime tab display with current levels."""
+        if not self._layout or not self._layout.lifetime_tab:
+            return
+
+        if not self._session.current_selection:
+            return
+
+        # Get levels for current selection
+        levels = self._session.get_current_levels()
+        if levels:
+            self._layout.set_lifetime_levels(levels)
+        else:
+            # Clear levels when switching to a particle without levels
+            self._layout.clear_lifetime_levels()
 
     def _update_correlation_display(self) -> None:
         """Update the correlation tab display for the current selection."""

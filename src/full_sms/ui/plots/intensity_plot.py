@@ -79,6 +79,7 @@ class IntensityPlotTags:
     series: str = "intensity_plot_series"
     level_overlay_group: str = "intensity_plot_level_overlays"
     level_step_line: str = "intensity_plot_level_step_line"
+    selected_level_band: str = "intensity_plot_selected_level_band"
 
 
 INTENSITY_PLOT_TAGS = IntensityPlotTags()
@@ -128,7 +129,11 @@ class IntensityPlot:
             series=f"{tag_prefix}intensity_plot_series",
             level_overlay_group=f"{tag_prefix}intensity_plot_level_overlays",
             level_step_line=f"{tag_prefix}intensity_plot_level_step_line",
+            selected_level_band=f"{tag_prefix}intensity_plot_selected_level_band",
         )
+
+        # Display options
+        self._show_legend: bool = True
 
     @property
     def tags(self) -> IntensityPlotTags:
@@ -140,15 +145,18 @@ class IntensityPlot:
         """Get the current bin size in milliseconds."""
         return self._bin_size_ms
 
-    def build(self, for_subplot: bool = False) -> None:
+    def build(self, for_subplot: bool = False, show_legend: bool = True) -> None:
         """Build the plot UI structure.
 
         Args:
             for_subplot: If True, build the plot directly without a container group.
                 Use this when the plot is being added inside a dpg.subplots() context.
+            show_legend: If True, show the plot legend. Set to False for compact plots.
         """
         if self._is_built:
             return
+
+        self._show_legend = show_legend
 
         if for_subplot:
             # Build plot directly (for use inside dpg.subplots)
@@ -172,7 +180,8 @@ class IntensityPlot:
             anti_aliased=True,
         ):
             # Add legend - allows user to toggle series visibility by clicking
-            dpg.add_plot_legend()
+            if self._show_legend:
+                dpg.add_plot_legend()
 
             # X axis (time in milliseconds or seconds)
             dpg.add_plot_axis(
@@ -329,6 +338,23 @@ class IntensityPlot:
         """Fit the view to show all data (reset zoom/pan)."""
         self._fit_axes()
 
+    def set_y_axis_limits(self, y_min: float, y_max: float) -> None:
+        """Set fixed Y-axis limits.
+
+        Args:
+            y_min: Minimum Y value.
+            y_max: Maximum Y value.
+        """
+        if dpg.does_item_exist(self._tags.y_axis):
+            dpg.set_axis_limits(self._tags.y_axis, y_min, y_max)
+
+    def fix_y_axis_to_data(self) -> None:
+        """Set Y-axis limits from 0 to max data value (with padding)."""
+        count_range = self.get_count_range()
+        if count_range:
+            y_max = count_range[1] * 1.1  # 10% padding
+            self.set_y_axis_limits(0, y_max)
+
     # -------------------------------------------------------------------------
     # Level Overlay Methods
     # -------------------------------------------------------------------------
@@ -438,14 +464,21 @@ class IntensityPlot:
         # Sort levels by start time
         sorted_levels = sorted(self._levels, key=lambda lv: lv.start_time_ns)
 
-        # Build step line points
+        # Build step line points with true vertical steps between levels
         x_points = []
         y_points = []
+        prev_intensity = None
 
-        for level in sorted_levels:
+        for i, level in enumerate(sorted_levels):
             # Convert times from nanoseconds to milliseconds
             start_ms = level.start_time_ns / 1e6
-            end_ms = level.end_time_ns / 1e6
+
+            # For the end, use the next level's start time if available
+            # This makes the step line visually continuous
+            if i + 1 < len(sorted_levels):
+                end_ms = sorted_levels[i + 1].start_time_ns / 1e6
+            else:
+                end_ms = level.end_time_ns / 1e6
 
             # Convert cps to counts per bin for display consistency
             if self._bin_size_ms > 0:
@@ -453,12 +486,18 @@ class IntensityPlot:
             else:
                 intensity_per_bin = level.intensity_cps / 100.0  # Fallback
 
-            # Add step: vertical line to this level's intensity at start
+            # Add vertical step at start (continue previous intensity to this x)
+            if prev_intensity is not None:
+                x_points.append(start_ms)
+                y_points.append(prev_intensity)
+
+            # Horizontal line at this level's intensity
             x_points.append(start_ms)
             y_points.append(intensity_per_bin)
-            # Horizontal line across the level duration
             x_points.append(end_ms)
             y_points.append(intensity_per_bin)
+
+            prev_intensity = intensity_per_bin
 
         # Create the step line series with label for legend
         if x_points:
@@ -555,3 +594,85 @@ class IntensityPlot:
     def clear_highlighted_group(self) -> None:
         """Clear any group highlighting."""
         self.set_highlighted_group(None)
+
+    # -------------------------------------------------------------------------
+    # Selected Level Highlighting
+    # -------------------------------------------------------------------------
+
+    def set_selected_level(self, level: LevelData | None) -> None:
+        """Highlight a selected level with a vertical band.
+
+        Args:
+            level: The level to highlight, or None to clear highlighting.
+        """
+        # Remove existing highlight band
+        if dpg.does_item_exist(self._tags.selected_level_band):
+            dpg.delete_item(self._tags.selected_level_band)
+
+        if level is None or not dpg.does_item_exist(self._tags.y_axis):
+            return
+
+        # Get Y-axis range for the band height
+        y_limits = self.get_y_axis_limits()
+        if y_limits is None:
+            # Use data range as fallback
+            count_range = self.get_count_range()
+            if count_range:
+                y_min, y_max = 0, count_range[1] * 1.2
+            else:
+                y_min, y_max = 0, 1000
+        else:
+            y_min, y_max = y_limits
+
+        # Convert level times to milliseconds
+        start_ms = level.start_time_ns / 1e6
+
+        # Find the end time - use next level's start if available (to match step line)
+        end_ms = level.end_time_ns / 1e6
+        if self._levels:
+            sorted_levels = sorted(self._levels, key=lambda lv: lv.start_time_ns)
+            for i, lv in enumerate(sorted_levels):
+                if lv.start_time_ns == level.start_time_ns:
+                    # Found the level, check if there's a next one
+                    if i + 1 < len(sorted_levels):
+                        end_ms = sorted_levels[i + 1].start_time_ns / 1e6
+                    break
+
+        # Create X coordinates for the band (left edge, right edge)
+        x_coords = [start_ms, end_ms]
+        # Y coordinates: bottom of band
+        y1_coords = [y_min, y_min]
+        # Y coordinates: top of band
+        y2_coords = [y_max, y_max]
+
+        # Add shade series for the vertical band
+        dpg.add_shade_series(
+            x_coords,
+            y1_coords,
+            y2=y2_coords,
+            parent=self._tags.y_axis,
+            tag=self._tags.selected_level_band,
+        )
+
+        # Apply light green theme to the band
+        self._apply_selected_level_theme()
+
+    def _apply_selected_level_theme(self) -> None:
+        """Apply a light green theme to the selected level band."""
+        if not dpg.does_item_exist(self._tags.selected_level_band):
+            return
+
+        with dpg.theme() as theme:
+            with dpg.theme_component(dpg.mvShadeSeries):
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_Fill,
+                    (100, 200, 100, 60),  # Light green, semi-transparent
+                    category=dpg.mvThemeCat_Plots,
+                )
+
+        dpg.bind_item_theme(self._tags.selected_level_band, theme)
+
+    def clear_selected_level(self) -> None:
+        """Clear any selected level highlighting."""
+        if dpg.does_item_exist(self._tags.selected_level_band):
+            dpg.delete_item(self._tags.selected_level_band)

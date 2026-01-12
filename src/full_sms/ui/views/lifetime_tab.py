@@ -1,6 +1,7 @@
 """Lifetime analysis tab view.
 
 Provides the fluorescence decay histogram visualization with:
+- Intensity trace plot with level selection
 - Decay plot showing TCSPC histogram
 - Fit curve overlay with results display
 - IRF display
@@ -12,15 +13,20 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 import dearpygui.dearpygui as dpg
 import numpy as np
 from numpy.typing import NDArray
 
 from full_sms.models.fit import FitResult
+from full_sms.models.level import LevelData
 from full_sms.ui.plots.decay_plot import DecayPlot
+from full_sms.ui.plots.intensity_plot import IntensityPlot
 from full_sms.ui.plots.residuals_plot import ResidualsPlot
+
+LIFETIME_INT_PLOT_HEIGHT = 250
+LIFETIME_RESIDUALS_HEIGHT = 140  # Space reserved for residuals plot at bottom
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +46,16 @@ class LifetimeTabTags:
     info_text: str = "lifetime_tab_info"
     plot_container: str = "lifetime_tab_plot_container"
     plot_area: str = "lifetime_tab_plot_area"
+    # Intensity plot for level selection
+    intensity_plot_group: str = "lifetime_tab_intensity_plot_group"
+    level_selection_text: str = "lifetime_tab_level_selection"
+    show_all_button: str = "lifetime_tab_show_all"
+    # Decay and residuals plots
     decay_plot_group: str = "lifetime_tab_decay_plot_group"
     residuals_plot_group: str = "lifetime_tab_residuals_plot_group"
     no_data_text: str = "lifetime_tab_no_data"
+    # Click handler
+    click_handler: str = "lifetime_tab_click_handler"
     # Fit results display
     results_group: str = "lifetime_tab_results_group"
     results_header: str = "lifetime_tab_results_header"
@@ -78,8 +91,13 @@ class LifetimeTab:
 
         # Data state
         self._microtimes: NDArray[np.float64] | None = None
+        self._abstimes: NDArray[np.uint64] | None = None
         self._channelwidth: float = 0.1  # Default 100ps
         self._log_scale: bool = True
+
+        # Level selection state
+        self._levels: list[LevelData] | None = None
+        self._selected_level_index: int | None = None  # None = all data
 
         # Fit/IRF/Residuals state
         self._fit_result: Optional[FitResult] = None
@@ -94,6 +112,7 @@ class LifetimeTab:
         # UI components
         self._decay_plot: DecayPlot | None = None
         self._residuals_plot: ResidualsPlot | None = None
+        self._intensity_plot: IntensityPlot | None = None
 
         # Generate unique tags
         self._tags = LifetimeTabTags(
@@ -108,9 +127,13 @@ class LifetimeTab:
             info_text=f"{tag_prefix}lifetime_tab_info",
             plot_container=f"{tag_prefix}lifetime_tab_plot_container",
             plot_area=f"{tag_prefix}lifetime_tab_plot_area",
+            intensity_plot_group=f"{tag_prefix}lifetime_tab_intensity_plot_group",
+            level_selection_text=f"{tag_prefix}lifetime_tab_level_selection",
+            show_all_button=f"{tag_prefix}lifetime_tab_show_all",
             decay_plot_group=f"{tag_prefix}lifetime_tab_decay_plot_group",
             residuals_plot_group=f"{tag_prefix}lifetime_tab_residuals_plot_group",
             no_data_text=f"{tag_prefix}lifetime_tab_no_data",
+            click_handler=f"{tag_prefix}lifetime_tab_click_handler",
             results_group=f"{tag_prefix}lifetime_tab_results_group",
             results_header=f"{tag_prefix}lifetime_tab_results_header",
             tau_text=f"{tag_prefix}lifetime_tab_tau_text",
@@ -169,12 +192,50 @@ class LifetimeTab:
                     tag=self._tags.plot_area,
                     show=False,  # Hidden until data loaded
                 ):
-                    # Main decay plot (takes most of the space)
+                    # Intensity plot with level selection (top, compact)
+                    with dpg.group(
+                        tag=self._tags.intensity_plot_group,
+                        show=False,  # Hidden until levels are set
+                    ):
+                        # Level selection header with "Show All" button
+                        with dpg.group(horizontal=True):
+                            dpg.add_text(
+                                "Click a level to view its decay:",
+                                color=(150, 150, 150),
+                            )
+                            dpg.add_spacer(width=10)
+                            dpg.add_button(
+                                label="Show All",
+                                tag=self._tags.show_all_button,
+                                callback=self._on_show_all_clicked,
+                                small=True,
+                            )
+                            dpg.add_spacer(width=15)
+                            dpg.add_text(
+                                "All data",
+                                tag=self._tags.level_selection_text,
+                                color=(100, 180, 255),
+                            )
+
+                        # Compact intensity plot (no legend for compact display)
+                        with dpg.child_window(
+                            border=False,
+                            autosize_x=True,
+                            height=LIFETIME_INT_PLOT_HEIGHT,
+                        ):
+                            self._intensity_plot = IntensityPlot(
+                                parent=dpg.last_container(),
+                                tag_prefix=f"{self._tag_prefix}intensity_",
+                            )
+                            self._intensity_plot.build(show_legend=False)
+
+                    # Main decay plot (takes remaining space)
+                    # Height is negative to fill available space minus residuals
                     with dpg.child_window(
                         tag=self._tags.decay_plot_group,
                         border=False,
                         autosize_x=True,
-                        height=-140,  # Leave room for residuals plot
+                        height=-LIFETIME_RESIDUALS_HEIGHT,
                     ):
                         self._decay_plot = DecayPlot(
                             parent=self._tags.decay_plot_group,
@@ -383,6 +444,9 @@ class LifetimeTab:
             should_show = app_data and self._fit_result is not None
             dpg.configure_item(self._tags.residuals_plot_group, show=should_show)
 
+        # Update decay plot height based on residuals visibility
+        self._update_decay_plot_height()
+
         logger.debug(f"Show residuals changed to {app_data}")
 
     def _on_log_scale_checkbox_changed(
@@ -450,6 +514,9 @@ class LifetimeTab:
         # Show plot, hide placeholder
         self._show_plot(True)
 
+        # Expand decay plot to fill space (no fit/residuals yet)
+        self._update_decay_plot_height()
+
         # Enable controls
         if dpg.does_item_exist(self._tags.fit_view_button):
             dpg.configure_item(self._tags.fit_view_button, enabled=True)
@@ -468,13 +535,27 @@ class LifetimeTab:
     def clear(self) -> None:
         """Clear the tab data."""
         self._microtimes = None
+        self._abstimes = None
         self._fit_result = None
+        self._levels = None
+        self._selected_level_index = None
 
         if self._decay_plot:
             self._decay_plot.clear()
 
+        if self._intensity_plot:
+            self._intensity_plot.clear()
+
+        # Remove click handler
+        if dpg.does_item_exist(self._tags.click_handler):
+            dpg.delete_item(self._tags.click_handler)
+
         # Hide plot, show placeholder
         self._show_plot(False)
+
+        # Hide intensity plot group
+        if dpg.does_item_exist(self._tags.intensity_plot_group):
+            dpg.configure_item(self._tags.intensity_plot_group, show=False)
 
         # Hide fit results
         self._show_fit_results(False)
@@ -521,6 +602,27 @@ class LifetimeTab:
         # Show/hide the no data placeholder
         if dpg.does_item_exist(self._tags.no_data_text):
             dpg.configure_item(self._tags.no_data_text, show=not show)
+
+    def _update_decay_plot_height(self) -> None:
+        """Update decay plot height based on whether residuals are visible."""
+        if not dpg.does_item_exist(self._tags.decay_plot_group):
+            return
+
+        # Check if residuals plot is visible
+        residuals_visible = (
+            self._show_residuals
+            and self._fit_result is not None
+            and dpg.does_item_exist(self._tags.residuals_plot_group)
+        )
+
+        if residuals_visible:
+            # Leave room for residuals
+            dpg.configure_item(
+                self._tags.decay_plot_group, height=-LIFETIME_RESIDUALS_HEIGHT
+            )
+        else:
+            # Fill all available space
+            dpg.configure_item(self._tags.decay_plot_group, height=-1)
 
     def _update_info_text(self) -> None:
         """Update the info text with current data stats."""
@@ -646,6 +748,9 @@ class LifetimeTab:
                 self._tags.residuals_plot_group, show=self._show_residuals
             )
 
+        # Update decay plot height to make room for residuals
+        self._update_decay_plot_height()
+
         # Update the fit results text display
         self._update_fit_results_text()
 
@@ -670,6 +775,9 @@ class LifetimeTab:
         # Hide the residuals plot
         if dpg.does_item_exist(self._tags.residuals_plot_group):
             dpg.configure_item(self._tags.residuals_plot_group, show=False)
+
+        # Expand decay plot to fill available space
+        self._update_decay_plot_height()
 
         # Disable the show fit checkbox
         if dpg.does_item_exist(self._tags.show_fit_checkbox):
@@ -855,3 +963,220 @@ class LifetimeTab:
         if dpg.does_item_exist(self._tags.residuals_plot_group):
             should_show = show and self._fit_result is not None
             dpg.configure_item(self._tags.residuals_plot_group, show=should_show)
+
+        # Update decay plot height based on residuals visibility
+        self._update_decay_plot_height()
+
+    # -------------------------------------------------------------------------
+    # Level Selection Methods
+    # -------------------------------------------------------------------------
+
+    @property
+    def intensity_plot(self) -> IntensityPlot | None:
+        """Get the intensity plot widget."""
+        return self._intensity_plot
+
+    @property
+    def has_levels(self) -> bool:
+        """Whether levels are currently set."""
+        return self._levels is not None and len(self._levels) > 0
+
+    @property
+    def selected_level_index(self) -> int | None:
+        """Get the currently selected level index, or None for all data."""
+        return self._selected_level_index
+
+    def set_abstimes(self, abstimes: NDArray[np.uint64]) -> None:
+        """Set the absolute photon arrival times for the intensity plot.
+
+        Args:
+            abstimes: Absolute photon arrival times in nanoseconds.
+        """
+        self._abstimes = abstimes
+
+        # Update intensity plot
+        if self._intensity_plot and len(abstimes) > 0:
+            self._intensity_plot.set_data(abstimes, bin_size_ms=10.0)
+            # Fix Y-axis to start at 0 and go to max value
+            self._intensity_plot.fix_y_axis_to_data()
+
+    def set_levels(self, levels: Sequence[LevelData]) -> None:
+        """Set the level data and display on intensity plot.
+
+        Args:
+            levels: Sequence of LevelData objects to display.
+        """
+        self._levels = list(levels)
+        self._selected_level_index = None  # Reset to "all data"
+
+        if not levels:
+            # Hide intensity plot group if no levels
+            if dpg.does_item_exist(self._tags.intensity_plot_group):
+                dpg.configure_item(self._tags.intensity_plot_group, show=False)
+            return
+
+        # Update intensity plot with levels
+        if self._intensity_plot:
+            self._intensity_plot.set_levels(levels)
+
+            # Register click handler for level selection
+            self._setup_click_handler()
+
+        # Show intensity plot group
+        if dpg.does_item_exist(self._tags.intensity_plot_group):
+            dpg.configure_item(self._tags.intensity_plot_group, show=True)
+
+        # Update selection text
+        self._update_level_selection_text()
+
+        logger.debug(f"Lifetime tab levels set: {len(levels)} levels")
+
+    def clear_levels(self) -> None:
+        """Clear the level data."""
+        self._levels = None
+        self._selected_level_index = None
+
+        if self._intensity_plot:
+            self._intensity_plot.clear_levels()
+
+        # Remove click handler
+        if dpg.does_item_exist(self._tags.click_handler):
+            dpg.delete_item(self._tags.click_handler)
+
+        # Hide intensity plot group
+        if dpg.does_item_exist(self._tags.intensity_plot_group):
+            dpg.configure_item(self._tags.intensity_plot_group, show=False)
+
+        # Reset decay to all data
+        self._show_all_data()
+
+        logger.debug("Lifetime tab levels cleared")
+
+    def _on_show_all_clicked(self) -> None:
+        """Handle Show All button click."""
+        self._selected_level_index = None
+        self._show_all_data()
+        self._update_level_selection_text()
+        logger.debug("Show All clicked - displaying all data")
+
+    def _setup_click_handler(self) -> None:
+        """Set up a mouse click handler for the intensity plot."""
+        # Remove existing handler if it exists
+        if dpg.does_item_exist(self._tags.click_handler):
+            dpg.delete_item(self._tags.click_handler)
+
+        # Create a handler registry for mouse clicks
+        with dpg.handler_registry(tag=self._tags.click_handler):
+            dpg.add_mouse_click_handler(
+                button=dpg.mvMouseButton_Left,
+                callback=self._on_mouse_click,
+            )
+
+    def _on_mouse_click(self, sender: int, app_data: int) -> None:
+        """Handle mouse click to check if it's on the intensity plot.
+
+        Args:
+            sender: The handler.
+            app_data: Mouse button that was clicked.
+        """
+        if not self._levels or not self._intensity_plot:
+            return
+
+        # Check if mouse is hovering over the intensity plot
+        plot_tag = self._intensity_plot.tags.plot
+        if not dpg.does_item_exist(plot_tag):
+            return
+
+        if not dpg.is_item_hovered(plot_tag):
+            return
+
+        # Get mouse position in plot coordinates
+        mouse_pos = dpg.get_plot_mouse_pos()
+        if mouse_pos is None:
+            return
+
+        click_time_ms = mouse_pos[0]
+
+        # Find the level at this time
+        level = self._intensity_plot.get_level_at_time(click_time_ms)
+        if level:
+            # Find the index of this level
+            try:
+                level_index = self._levels.index(level)
+                self._select_level(level_index)
+            except ValueError:
+                pass
+
+    def _select_level(self, level_index: int) -> None:
+        """Select a level and update the decay histogram.
+
+        Args:
+            level_index: Index of the level to select.
+        """
+        if not self._levels or level_index >= len(self._levels):
+            return
+
+        self._selected_level_index = level_index
+        level = self._levels[level_index]
+
+        # Highlight the selected level on the intensity plot
+        if self._intensity_plot:
+            self._intensity_plot.set_selected_level(level)
+
+        # Filter microtimes to this level's photon range
+        if self._microtimes is not None:
+            level_microtimes = self._microtimes[level.start_index : level.end_index + 1]
+
+            # Update decay plot with filtered data
+            if self._decay_plot and len(level_microtimes) > 0:
+                self._decay_plot.set_data(level_microtimes, self._channelwidth)
+
+                # Clear any existing fit since we changed the data
+                self.clear_fit()
+
+        # Update selection text
+        self._update_level_selection_text()
+
+        logger.debug(
+            f"Selected level {level_index + 1}: "
+            f"{level.num_photons} photons, {level.intensity_cps:.0f} cps"
+        )
+
+    def _show_all_data(self) -> None:
+        """Show decay histogram for all data (no level filtering)."""
+        # Clear the selected level highlight
+        if self._intensity_plot:
+            self._intensity_plot.clear_selected_level()
+
+        if self._microtimes is not None and self._decay_plot:
+            self._decay_plot.set_data(self._microtimes, self._channelwidth)
+
+            # Clear any existing fit since we changed the data
+            self.clear_fit()
+
+    def _update_level_selection_text(self) -> None:
+        """Update the level selection status text."""
+        if not dpg.does_item_exist(self._tags.level_selection_text):
+            return
+
+        if self._selected_level_index is None:
+            # All data mode
+            if self._microtimes is not None:
+                text = f"All data ({len(self._microtimes):,} photons)"
+            else:
+                text = "All data"
+            color = (100, 180, 255)  # Blue
+        else:
+            # Level selected
+            if self._levels and self._selected_level_index < len(self._levels):
+                level = self._levels[self._selected_level_index]
+                text = (
+                    f"Level {self._selected_level_index + 1} "
+                    f"({level.num_photons:,} photons, {level.intensity_cps:.0f} cps)"
+                )
+            else:
+                text = f"Level {self._selected_level_index + 1}"
+            color = (255, 180, 100)  # Orange for selected level
+
+        dpg.set_value(self._tags.level_selection_text, text)
+        dpg.configure_item(self._tags.level_selection_text, color=color)
