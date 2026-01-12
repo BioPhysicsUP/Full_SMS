@@ -176,6 +176,7 @@ class IntensityTab:
                 border=False,
                 autosize_x=True,
                 autosize_y=True,
+                horizontal_scrollbar=False,
             ):
                 # No data placeholder (shown when no data loaded)
                 dpg.add_text(
@@ -323,7 +324,7 @@ class IntensityTab:
                 enabled=False,
             )
 
-        # Third row: Info text
+        # Third row: Info text (constrained width to prevent horizontal overflow)
         with dpg.group(horizontal=True):
             # Level info text
             dpg.add_text(
@@ -335,10 +336,12 @@ class IntensityTab:
             dpg.add_spacer(width=20)
 
             # Info text (shows photon count, time range)
+            # Wrap at 400px to prevent horizontal overflow
             dpg.add_text(
                 "",
                 tag=self._tags.info_text,
                 color=(128, 128, 128),
+                wrap=400,
             )
 
     def _on_bin_size_slider_changed(

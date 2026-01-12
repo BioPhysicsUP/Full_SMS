@@ -191,6 +191,7 @@ class MainLayout:
             tag=LAYOUT_TAGS.content_area,
             border=False,
             autosize_x=True,
+            horizontal_scrollbar=False,
         ):
             # Tab bar
             with dpg.tab_bar(
@@ -204,6 +205,7 @@ class MainLayout:
                         border=False,
                         autosize_x=True,
                         autosize_y=True,
+                        horizontal_scrollbar=False,
                     ):
                         # Build the actual intensity tab view
                         self._intensity_tab = IntensityTab(
@@ -797,6 +799,21 @@ class MainLayout:
         """Clear the raster tab data."""
         if self._raster_tab:
             self._raster_tab.clear()
+
+    def set_raster_particle_marker(self, x: float, y: float) -> None:
+        """Set the particle position marker on the raster scan.
+
+        Args:
+            x: X coordinate in micrometers.
+            y: Y coordinate in micrometers.
+        """
+        if self._raster_tab:
+            self._raster_tab.set_particle_marker(x, y)
+
+    def clear_raster_particle_marker(self) -> None:
+        """Clear the particle position marker from the raster scan."""
+        if self._raster_tab:
+            self._raster_tab.clear_particle_marker()
 
     def set_file_has_raster(self, has_raster: bool) -> None:
         """Set whether the loaded file has any raster scan data.

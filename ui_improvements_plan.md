@@ -204,7 +204,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 4.2: Fix histogram visibility and layout `[NEXT]`
+### Task 4.2: Fix histogram visibility and layout `[DONE]` (2026-01-12)
 **Objective**: Histogram should always be visible without horizontal scrolling
 
 **Actions**:
@@ -216,9 +216,15 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Histogram visible without scrolling, info text doesn't cause overflow
 
+**Implementation Notes**:
+- Added `horizontal_scrollbar=False` to plot_container in intensity_tab.py
+- Added `horizontal_scrollbar=False` to content_area and tab_intensity containers in layout.py
+- Added `wrap=400` to info text element to prevent long statistics text from causing horizontal expansion
+- These changes ensure the histogram is always visible and the subplot fills available width properly
+
 ---
 
-### Task 4.3: Add user-editable bin size input `[TODO]`
+### Task 4.3: Add user-editable bin size input `[NEXT]`
 **Objective**: Allow user to type in a specific bin size value
 
 **Actions**:
@@ -450,11 +456,11 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 1. File Dialogs & Tree | 3 | 3 | 0 |
 | 2. Layout & Scrolling | 2 | 2 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 |
-| 4. Intensity Tab | 6 | 1 | 5 |
+| 4. Intensity Tab | 6 | 2 | 4 |
 | 5. Lifetime Tab | 5 | 0 | 5 |
 | 6. Grouping Tab | 2 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **8** | **16** |
+| **Total** | **24** | **9** | **15** |
 
 ---
 
@@ -469,4 +475,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-12 (Task 4.1 completed)*
+*Last Updated: 2026-01-12 (Task 4.2 completed)*
