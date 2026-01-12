@@ -224,7 +224,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 4.3: Add user-editable bin size input `[NEXT]`
+### Task 4.3: Add user-editable bin size input `[DONE]` (2026-01-12)
 **Objective**: Allow user to type in a specific bin size value
 
 **Actions**:
@@ -237,9 +237,16 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: User can type bin size values and plot updates
 
+**Implementation Notes**:
+- Added `dpg.add_input_float` next to the slider (70px wide)
+- Slider format set to empty string to avoid duplicate display
+- Bidirectional sync: slider updates input, input updates slider
+- Input validates on Enter key press, clamps values to valid range (0.1-1000 ms)
+- Slider width reduced from 200px to 150px to accommodate the input field
+
 ---
 
-### Task 4.4: Add histogram display mode toggle `[TODO]`
+### Task 4.4: Add histogram display mode toggle `[NEXT]`
 **Objective**: Toggle between colored bars and step line plot for histogram
 
 **Actions**:
@@ -456,11 +463,11 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 1. File Dialogs & Tree | 3 | 3 | 0 |
 | 2. Layout & Scrolling | 2 | 2 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 |
-| 4. Intensity Tab | 6 | 2 | 4 |
+| 4. Intensity Tab | 6 | 3 | 3 |
 | 5. Lifetime Tab | 5 | 0 | 5 |
 | 6. Grouping Tab | 2 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **9** | **15** |
+| **Total** | **24** | **10** | **14** |
 
 ---
 
@@ -475,4 +482,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-12 (Task 4.2 completed)*
+*Last Updated: 2026-01-12 (Task 4.3 completed)*

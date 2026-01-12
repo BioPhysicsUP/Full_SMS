@@ -42,7 +42,7 @@ class IntensityTabTags:
     container: str = "intensity_tab_view_container"
     controls_group: str = "intensity_tab_controls"
     bin_size_slider: str = "intensity_tab_bin_size"
-    bin_size_label: str = "intensity_tab_bin_size_label"
+    bin_size_input: str = "intensity_tab_bin_size_input"
     fit_view_button: str = "intensity_tab_fit_view"
     show_levels_checkbox: str = "intensity_tab_show_levels"
     color_by_group_checkbox: str = "intensity_tab_color_by_group"
@@ -113,7 +113,7 @@ class IntensityTab:
             container=f"{tag_prefix}intensity_tab_view_container",
             controls_group=f"{tag_prefix}intensity_tab_controls",
             bin_size_slider=f"{tag_prefix}intensity_tab_bin_size",
-            bin_size_label=f"{tag_prefix}intensity_tab_bin_size_label",
+            bin_size_input=f"{tag_prefix}intensity_tab_bin_size_input",
             fit_view_button=f"{tag_prefix}intensity_tab_fit_view",
             show_levels_checkbox=f"{tag_prefix}intensity_tab_show_levels",
             color_by_group_checkbox=f"{tag_prefix}intensity_tab_color_by_group",
@@ -231,18 +231,23 @@ class IntensityTab:
                 default_value=DEFAULT_BIN_SIZE_MS,
                 min_value=MIN_BIN_SIZE_MS,
                 max_value=MAX_BIN_SIZE_MS,
-                width=200,
-                format="%.1f ms",
+                width=150,
+                format="",  # Hide slider text, use input field instead
                 callback=self._on_bin_size_slider_changed,
                 clamped=True,
             )
 
-            # Current value label
-            dpg.add_text(
-                f"{DEFAULT_BIN_SIZE_MS:.1f} ms",
-                tag=self._tags.bin_size_label,
-                color=(180, 180, 180),
+            # Editable input field for exact bin size values
+            dpg.add_input_float(
+                tag=self._tags.bin_size_input,
+                default_value=DEFAULT_BIN_SIZE_MS,
+                width=70,
+                format="%.1f",
+                callback=self._on_bin_size_input_changed,
+                on_enter=True,
+                step=0,  # Disable +/- buttons
             )
+            dpg.add_text("ms", color=(180, 180, 180))
 
             # Spacer
             dpg.add_spacer(width=20)
@@ -355,9 +360,9 @@ class IntensityTab:
         """
         self._bin_size_ms = app_data
 
-        # Update label
-        if dpg.does_item_exist(self._tags.bin_size_label):
-            dpg.set_value(self._tags.bin_size_label, f"{app_data:.1f} ms")
+        # Sync input field with slider value
+        if dpg.does_item_exist(self._tags.bin_size_input):
+            dpg.set_value(self._tags.bin_size_input, app_data)
 
         # Rebin data if we have it
         if self._abstimes is not None and self._intensity_plot is not None:
@@ -372,6 +377,42 @@ class IntensityTab:
             self._on_bin_size_changed(app_data)
 
         logger.debug(f"Bin size changed to {app_data:.1f} ms")
+
+    def _on_bin_size_input_changed(
+        self, sender: int, app_data: float
+    ) -> None:
+        """Handle bin size input field changes.
+
+        Args:
+            sender: The input field widget.
+            app_data: The new bin size value in milliseconds.
+        """
+        # Clamp to valid range
+        clamped_value = max(MIN_BIN_SIZE_MS, min(MAX_BIN_SIZE_MS, app_data))
+
+        # Update input field if clamped
+        if clamped_value != app_data and dpg.does_item_exist(self._tags.bin_size_input):
+            dpg.set_value(self._tags.bin_size_input, clamped_value)
+
+        self._bin_size_ms = clamped_value
+
+        # Sync slider with input value
+        if dpg.does_item_exist(self._tags.bin_size_slider):
+            dpg.set_value(self._tags.bin_size_slider, clamped_value)
+
+        # Rebin data if we have it
+        if self._abstimes is not None and self._intensity_plot is not None:
+            self._intensity_plot.update_bin_size(self._abstimes, clamped_value)
+            # Also update level overlays for the new bin size
+            self._intensity_plot.update_levels_for_bin_size()
+            # Update the histogram with the new binned counts
+            self._update_histogram()
+
+        # Call callback if set
+        if self._on_bin_size_changed:
+            self._on_bin_size_changed(clamped_value)
+
+        logger.debug(f"Bin size input changed to {clamped_value:.1f} ms")
 
     def _on_fit_view_clicked(self) -> None:
         """Handle fit view button click."""
@@ -655,9 +696,9 @@ class IntensityTab:
         if dpg.does_item_exist(self._tags.bin_size_slider):
             dpg.set_value(self._tags.bin_size_slider, bin_size_ms)
 
-        # Update label
-        if dpg.does_item_exist(self._tags.bin_size_label):
-            dpg.set_value(self._tags.bin_size_label, f"{bin_size_ms:.1f} ms")
+        # Update input field
+        if dpg.does_item_exist(self._tags.bin_size_input):
+            dpg.set_value(self._tags.bin_size_input, bin_size_ms)
 
         # Rebin data if we have it
         if self._abstimes is not None and self._intensity_plot is not None:
