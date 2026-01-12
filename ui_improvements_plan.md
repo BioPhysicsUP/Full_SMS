@@ -246,22 +246,27 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 4.4: Add histogram display mode toggle `[NEXT]`
-**Objective**: Toggle between colored bars and step line plot for histogram
+### Task 4.4: Replace level bars with step line `[DONE]` (2026-01-12)
+**Objective**: Display resolved levels as a step line instead of filled bars
 
 **Actions**:
-- Add a toggle/checkbox for histogram display mode
-- Mode 1: Colored bars indicating levels (current behavior)
-- Mode 2: Step line plot (single color, no fill)
-- Persist preference in settings
+- Replace shade series (filled rectangles) with a single line series for levels
+- Step line traces intensity levels, stepping up/down at level boundaries
+- Simplified group coloring methods (to be reimplemented with horizontal bands later)
 
-**User Testing**: Ask user to toggle between modes and provide feedback
+**User Testing**: Ask user to resolve levels and verify step line display
 
-**Verification**: Both display modes work correctly
+**Verification**: Levels display as a red step line
+
+**Implementation Notes**:
+- Modified `_render_level_overlays()` in `intensity_plot.py` to build step line points from sorted levels
+- Added `level_step_line` tag and `_apply_step_line_theme()` for styling (red, 2px weight)
+- Simplified `set_color_by_group()` and `set_highlighted_group()` since they don't apply to the single step line
+- Group coloring will be implemented later with horizontal band overlays
 
 ---
 
-### Task 4.5: Fix histogram bar width on bin size change `[TODO]`
+### Task 4.5: Fix histogram bar width on bin size change `[NEXT]`
 **Objective**: Histogram bars should remain full-width (bar-to-bar) when bin size changes
 
 **Actions**:
@@ -463,11 +468,11 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 1. File Dialogs & Tree | 3 | 3 | 0 |
 | 2. Layout & Scrolling | 2 | 2 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 |
-| 4. Intensity Tab | 6 | 3 | 3 |
+| 4. Intensity Tab | 6 | 4 | 2 |
 | 5. Lifetime Tab | 5 | 0 | 5 |
 | 6. Grouping Tab | 2 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 4 |
-| **Total** | **24** | **10** | **14** |
+| **Total** | **24** | **11** | **13** |
 
 ---
 
@@ -482,4 +487,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-12 (Task 4.3 completed)*
+*Last Updated: 2026-01-12 (Task 4.4 completed)*

@@ -78,6 +78,7 @@ class IntensityPlotTags:
     y_axis: str = "intensity_plot_y_axis"
     series: str = "intensity_plot_series"
     level_overlay_group: str = "intensity_plot_level_overlays"
+    level_step_line: str = "intensity_plot_level_step_line"
 
 
 INTENSITY_PLOT_TAGS = IntensityPlotTags()
@@ -126,6 +127,7 @@ class IntensityPlot:
             y_axis=f"{tag_prefix}intensity_plot_y_axis",
             series=f"{tag_prefix}intensity_plot_series",
             level_overlay_group=f"{tag_prefix}intensity_plot_level_overlays",
+            level_step_line=f"{tag_prefix}intensity_plot_level_step_line",
         )
 
     @property
@@ -392,6 +394,11 @@ class IntensityPlot:
         """
         self._levels_visible = visible
 
+        # Toggle step line visibility
+        if dpg.does_item_exist(self._tags.level_step_line):
+            dpg.configure_item(self._tags.level_step_line, show=visible)
+
+        # Also handle any old shade series (for backward compatibility)
         for tag in self._level_series_tags:
             if dpg.does_item_exist(tag):
                 dpg.configure_item(tag, show=visible)
@@ -410,111 +417,86 @@ class IntensityPlot:
     def set_color_by_group(self, by_group: bool) -> None:
         """Change the coloring scheme for levels.
 
+        Note: With the step line display, this currently has no visual effect.
+        Group coloring will be implemented with horizontal band overlays.
+
         Args:
             by_group: If True, color by group_id; if False, by level index.
         """
-        if self._color_by_group == by_group:
-            return
-
         self._color_by_group = by_group
-
-        # Re-render with new colors if we have levels
-        if self._levels:
-            self._remove_level_series()
-            self._render_level_overlays()
-
         logger.debug(f"Level coloring changed to by_group={by_group}")
 
     def _render_level_overlays(self) -> None:
-        """Render all level overlays as shade series."""
+        """Render all level overlays as a step line."""
         if not self._levels or not dpg.does_item_exist(self._tags.y_axis):
             return
 
-        # For performance with many levels, we create individual shade series
-        # but could batch them if needed (DearPyGui handles this reasonably well)
-        for i, level in enumerate(self._levels):
-            self._add_level_shade(level, i)
+        # Sort levels by start time
+        sorted_levels = sorted(self._levels, key=lambda lv: lv.start_time_ns)
 
-    def _add_level_shade(self, level: LevelData, index: int) -> None:
-        """Add a shade series for a single level.
+        # Build step line points
+        x_points = []
+        y_points = []
 
-        Args:
-            level: The level data.
-            index: The index of this level (for coloring).
-        """
-        # Determine color index
-        if self._color_by_group and level.group_id is not None:
-            color_idx = level.group_id % len(LEVEL_COLORS)
-        else:
-            color_idx = index % len(LEVEL_COLORS)
+        for level in sorted_levels:
+            # Convert times from nanoseconds to milliseconds
+            start_ms = level.start_time_ns / 1e6
+            end_ms = level.end_time_ns / 1e6
 
-        # Determine color palette based on highlighting
-        if self._highlighted_group_id is not None and self._color_by_group:
-            # Highlighting is active - use highlighted or dimmed colors
-            if level.group_id == self._highlighted_group_id:
-                color = LEVEL_COLORS_HIGHLIGHTED[color_idx]
-            else:
-                color = LEVEL_COLORS_DIMMED[color_idx]
-        else:
-            # No highlighting - use normal colors
-            color = LEVEL_COLORS[color_idx]
-
-        # Convert times from nanoseconds to milliseconds
-        start_ms = level.start_time_ns / 1e6
-        end_ms = level.end_time_ns / 1e6
-
-        # Create x values (start and end of the level)
-        x_vals = [start_ms, end_ms]
-
-        # Create y values (the intensity level as a horizontal band)
-        # We use the level's intensity in counts/sec, converted to counts/bin
-        # for consistency with the binned data display
-        if self._bin_size_ms > 0:
             # Convert cps to counts per bin for display consistency
-            intensity_per_bin = level.intensity_cps * (self._bin_size_ms / 1000.0)
-        else:
-            intensity_per_bin = level.intensity_cps / 100.0  # Fallback
+            if self._bin_size_ms > 0:
+                intensity_per_bin = level.intensity_cps * (self._bin_size_ms / 1000.0)
+            else:
+                intensity_per_bin = level.intensity_cps / 100.0  # Fallback
 
-        # Shade from 0 to the intensity level
-        y1_vals = [0.0, 0.0]
-        y2_vals = [intensity_per_bin, intensity_per_bin]
+            # Add step: vertical line to this level's intensity at start
+            x_points.append(start_ms)
+            y_points.append(intensity_per_bin)
+            # Horizontal line across the level duration
+            x_points.append(end_ms)
+            y_points.append(intensity_per_bin)
 
-        # Generate unique tag for this level
-        tag = f"{self._tag_prefix}level_shade_{index}"
-        self._level_series_tags.append(tag)
+        # Create the step line series
+        if x_points:
+            dpg.add_line_series(
+                x_points,
+                y_points,
+                parent=self._tags.y_axis,
+                tag=self._tags.level_step_line,
+                show=self._levels_visible,
+            )
 
-        # Add the shade series
-        dpg.add_shade_series(
-            x_vals,
-            y1_vals,
-            y2=y2_vals,
-            parent=self._tags.y_axis,
-            tag=tag,
-            show=self._levels_visible,
-        )
+            # Apply a theme for the level step line (a distinct color)
+            self._apply_step_line_theme()
 
-        # Apply color theme to the shade series
-        self._apply_shade_color(tag, color)
+    def _apply_step_line_theme(self) -> None:
+        """Apply a theme to the level step line."""
+        if not dpg.does_item_exist(self._tags.level_step_line):
+            return
 
-    def _apply_shade_color(self, tag: str, color: tuple[int, int, int, int]) -> None:
-        """Apply a color to a shade series via theme.
-
-        Args:
-            tag: The tag of the shade series.
-            color: RGBA color tuple.
-        """
-        # Create a theme for this specific shade series
+        # Use a red/orange color for the step line to stand out
         with dpg.theme() as theme:
-            with dpg.theme_component(dpg.mvShadeSeries):
+            with dpg.theme_component(dpg.mvLineSeries):
                 dpg.add_theme_color(
-                    dpg.mvPlotCol_Fill, color, category=dpg.mvThemeCat_Plots
+                    dpg.mvPlotCol_Line,
+                    (255, 100, 100, 255),  # Red-orange, fully opaque
+                    category=dpg.mvThemeCat_Plots,
+                )
+                dpg.add_theme_style(
+                    dpg.mvPlotStyleVar_LineWeight,
+                    2.0,
+                    category=dpg.mvThemeCat_Plots,
                 )
 
-        # Apply the theme
-        dpg.bind_item_theme(tag, theme)
+        dpg.bind_item_theme(self._tags.level_step_line, theme)
 
     def _remove_level_series(self) -> None:
-        """Remove all existing level shade series."""
+        """Remove existing level step line series."""
+        # Remove the step line if it exists
+        if dpg.does_item_exist(self._tags.level_step_line):
+            dpg.delete_item(self._tags.level_step_line)
+
+        # Also clean up any old shade series (for backward compatibility)
         for tag in self._level_series_tags:
             if dpg.does_item_exist(tag):
                 dpg.delete_item(tag)
@@ -557,24 +539,13 @@ class IntensityPlot:
     def set_highlighted_group(self, group_id: int | None) -> None:
         """Highlight a specific group, dimming all others.
 
-        When a group is highlighted:
-        - The highlighted group's levels are shown with brighter colors
-        - All other groups' levels are dimmed
-        - Only works when color_by_group is True
+        Note: With the step line display, this currently has no visual effect.
+        Group highlighting will be implemented with horizontal band overlays.
 
         Args:
             group_id: The group ID to highlight, or None to clear highlighting.
         """
-        if self._highlighted_group_id == group_id:
-            return
-
         self._highlighted_group_id = group_id
-
-        # Re-render levels with new highlighting
-        if self._levels:
-            self._remove_level_series()
-            self._render_level_overlays()
-
         logger.debug(f"Highlighted group set to {group_id}")
 
     def clear_highlighted_group(self) -> None:
