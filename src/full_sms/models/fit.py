@@ -1,10 +1,146 @@
 """Data models for lifetime fitting results."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
+
+
+@dataclass(frozen=True)
+class FitResultData:
+    """Serializable fit result data (scalars only, no arrays).
+
+    This class stores only the scalar parameters from a fit result,
+    suitable for JSON serialization. The fitted_curve and residuals
+    arrays can be recomputed on demand.
+
+    Attributes:
+        tau: Lifetime values in nanoseconds.
+        tau_std: Standard errors of tau values.
+        amplitude: Relative amplitudes for each exponential component.
+        amplitude_std: Standard errors of amplitude values.
+        shift: IRF shift in channels.
+        shift_std: Standard error of IRF shift.
+        chi_squared: Reduced chi-squared value.
+        durbin_watson: Durbin-Watson statistic.
+        dw_bounds: Durbin-Watson critical bounds (lower, upper).
+        fit_start_index: Start index of fitting range.
+        fit_end_index: End index of fitting range.
+        background: Background value used in fit.
+        num_exponentials: Number of exponential components.
+        average_lifetime: Amplitude-weighted average lifetime.
+        level_index: Optional level index if this is a level-specific fit.
+    """
+
+    tau: Tuple[float, ...]
+    tau_std: Tuple[float, ...]
+    amplitude: Tuple[float, ...]
+    amplitude_std: Tuple[float, ...]
+    shift: float
+    shift_std: float
+    chi_squared: float
+    durbin_watson: float
+    dw_bounds: Optional[Tuple[float, float]]
+    fit_start_index: int
+    fit_end_index: int
+    background: float
+    num_exponentials: int
+    average_lifetime: float
+    level_index: Optional[int] = None
+
+    @classmethod
+    def from_fit_result(
+        cls, fit_result: FitResult, level_index: Optional[int] = None
+    ) -> FitResultData:
+        """Create FitResultData from a FitResult.
+
+        Args:
+            fit_result: The full FitResult with arrays.
+            level_index: Optional level index if this is a level-specific fit.
+
+        Returns:
+            A new FitResultData with only scalar values.
+        """
+        return cls(
+            tau=fit_result.tau,
+            tau_std=fit_result.tau_std,
+            amplitude=fit_result.amplitude,
+            amplitude_std=fit_result.amplitude_std,
+            shift=fit_result.shift,
+            shift_std=fit_result.shift_std,
+            chi_squared=fit_result.chi_squared,
+            durbin_watson=fit_result.durbin_watson,
+            dw_bounds=fit_result.dw_bounds,
+            fit_start_index=fit_result.fit_start_index,
+            fit_end_index=fit_result.fit_end_index,
+            background=fit_result.background,
+            num_exponentials=fit_result.num_exponentials,
+            average_lifetime=fit_result.average_lifetime,
+            level_index=level_index,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to a JSON-serializable dictionary."""
+        return {
+            "tau": list(self.tau),
+            "tau_std": list(self.tau_std),
+            "amplitude": list(self.amplitude),
+            "amplitude_std": list(self.amplitude_std),
+            "shift": self.shift,
+            "shift_std": self.shift_std,
+            "chi_squared": self.chi_squared,
+            "durbin_watson": self.durbin_watson,
+            "dw_bounds": list(self.dw_bounds) if self.dw_bounds else None,
+            "fit_start_index": self.fit_start_index,
+            "fit_end_index": self.fit_end_index,
+            "background": self.background,
+            "num_exponentials": self.num_exponentials,
+            "average_lifetime": self.average_lifetime,
+            "level_index": self.level_index,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> FitResultData:
+        """Create from a dictionary (e.g., loaded from JSON).
+
+        Args:
+            data: Dictionary with fit result data.
+
+        Returns:
+            A new FitResultData instance.
+        """
+        return cls(
+            tau=tuple(data["tau"]),
+            tau_std=tuple(data["tau_std"]),
+            amplitude=tuple(data["amplitude"]),
+            amplitude_std=tuple(data["amplitude_std"]),
+            shift=data["shift"],
+            shift_std=data["shift_std"],
+            chi_squared=data["chi_squared"],
+            durbin_watson=data["durbin_watson"],
+            dw_bounds=tuple(data["dw_bounds"]) if data["dw_bounds"] else None,
+            fit_start_index=data["fit_start_index"],
+            fit_end_index=data["fit_end_index"],
+            background=data["background"],
+            num_exponentials=data["num_exponentials"],
+            average_lifetime=data["average_lifetime"],
+            level_index=data.get("level_index"),
+        )
+
+    @property
+    def is_good_fit(self) -> bool:
+        """Whether the fit is considered good based on chi-squared."""
+        return 0.8 <= self.chi_squared <= 1.2
+
+    @property
+    def dw_is_acceptable(self) -> Optional[bool]:
+        """Whether Durbin-Watson statistic indicates acceptable residuals."""
+        if self.dw_bounds is None:
+            return None
+        return self.durbin_watson > self.dw_bounds[1]
 
 
 @dataclass(frozen=True)

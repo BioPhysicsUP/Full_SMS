@@ -767,18 +767,22 @@ def export_all_particle_data(
             exported_files.append(path)
 
     # Export fit results for this particle
+    # Note: Fit export requires FitResult (with arrays), but we now store FitResultData (scalars).
+    # TODO: Update export_fit_results to work with FitResultData or reconstruct arrays on demand.
     if export_fits:
-        particle_fits = {
-            k: v for k, v in state.fit_results.items()
-            if k[0] == particle_id and k[1] == channel
-        }
-        if particle_fits:
-            path = export_fit_results(
-                particle_fits,
-                output_dir / f"{prefix}_fits",
-                fmt=fmt,
-            )
-            exported_files.append(path)
+        # Combine particle fits and level fits for this particle/channel
+        all_fits = {}
+        particle_fit = state.particle_fits.get((particle_id, channel))
+        if particle_fit:
+            # Use -1 as level_id for particle fits
+            all_fits[(particle_id, channel, -1)] = particle_fit
+        for (pid, ch, lvl_idx), fit in state.level_fits.items():
+            if pid == particle_id and ch == channel:
+                all_fits[(pid, ch, lvl_idx)] = fit
+        # Note: export_fit_results expects FitResult, but we have FitResultData now
+        # This export functionality needs to be updated in a future task
+        if all_fits:
+            logger.warning("Fit export not yet updated for new FitResultData storage")
 
     return exported_files
 

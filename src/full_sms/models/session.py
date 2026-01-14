@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from full_sms.models.fit import FitResult
+from full_sms.models.fit import FitResult, FitResultData
 from full_sms.models.group import ClusteringResult
 from full_sms.models.level import LevelData
 from full_sms.models.particle import ParticleData
@@ -143,7 +143,8 @@ class SessionState:
         current_selection: The primary (most recently selected) particle/channel.
         levels: Dict mapping (particle_id, channel) to list of LevelData.
         clustering_results: Dict mapping (particle_id, channel) to ClusteringResult.
-        fit_results: Dict mapping (particle_id, channel, level_or_group_id) to FitResult.
+        particle_fits: Dict mapping (particle_id, channel) to FitResultData for full decay fits.
+        level_fits: Dict mapping (particle_id, channel, level_index) to FitResultData.
         ui_state: UI-related state.
         processing: Background processing state.
     """
@@ -156,7 +157,8 @@ class SessionState:
     clustering_results: Dict[tuple[int, int], ClusteringResult] = field(
         default_factory=dict
     )
-    fit_results: Dict[tuple[int, int, int], FitResult] = field(default_factory=dict)
+    particle_fits: Dict[tuple[int, int], FitResultData] = field(default_factory=dict)
+    level_fits: Dict[tuple[int, int, int], FitResultData] = field(default_factory=dict)
     ui_state: UIState = field(default_factory=UIState)
     processing: ProcessingState = field(default_factory=ProcessingState)
 
@@ -307,37 +309,84 @@ class SessionState:
             self.current_selection.particle_id, self.current_selection.channel
         )
 
-    def get_fit_result(
-        self, particle_id: int, channel: int, level_or_group_id: int
-    ) -> Optional[FitResult]:
-        """Get fit result for a specific level or group.
+    def get_particle_fit(
+        self, particle_id: int, channel: int
+    ) -> Optional[FitResultData]:
+        """Get particle (full decay) fit result.
 
         Args:
             particle_id: The particle ID.
             channel: The channel number (1 or 2).
-            level_or_group_id: The level index or group ID.
 
         Returns:
-            FitResult if fitting has been run, None otherwise.
+            FitResultData if fitting has been run, None otherwise.
         """
-        return self.fit_results.get((particle_id, channel, level_or_group_id))
+        return self.particle_fits.get((particle_id, channel))
 
-    def set_fit_result(
+    def set_particle_fit(
         self,
         particle_id: int,
         channel: int,
-        level_or_group_id: int,
-        result: FitResult,
+        result: FitResultData,
     ) -> None:
-        """Set fit result for a specific level or group.
+        """Set particle (full decay) fit result.
 
         Args:
             particle_id: The particle ID.
             channel: The channel number (1 or 2).
-            level_or_group_id: The level index or group ID.
-            result: The FitResult from lifetime fitting.
+            result: The FitResultData from lifetime fitting.
         """
-        self.fit_results[(particle_id, channel, level_or_group_id)] = result
+        self.particle_fits[(particle_id, channel)] = result
+
+    def get_level_fit(
+        self, particle_id: int, channel: int, level_index: int
+    ) -> Optional[FitResultData]:
+        """Get level-specific fit result.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+            level_index: The level index.
+
+        Returns:
+            FitResultData if fitting has been run, None otherwise.
+        """
+        return self.level_fits.get((particle_id, channel, level_index))
+
+    def set_level_fit(
+        self,
+        particle_id: int,
+        channel: int,
+        level_index: int,
+        result: FitResultData,
+    ) -> None:
+        """Set level-specific fit result.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+            level_index: The level index.
+            result: The FitResultData from lifetime fitting.
+        """
+        self.level_fits[(particle_id, channel, level_index)] = result
+
+    def get_all_level_fits(
+        self, particle_id: int, channel: int
+    ) -> Dict[int, FitResultData]:
+        """Get all level fits for a particle/channel.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+
+        Returns:
+            Dict mapping level_index to FitResultData.
+        """
+        result = {}
+        for (pid, ch, level_idx), fit_data in self.level_fits.items():
+            if pid == particle_id and ch == channel:
+                result[level_idx] = fit_data
+        return result
 
     def select(self, particle_id: int, channel: int = 1) -> None:
         """Select a particle/channel as the current selection.
@@ -360,7 +409,8 @@ class SessionState:
         """Clear all analysis results while keeping particles."""
         self.levels.clear()
         self.clustering_results.clear()
-        self.fit_results.clear()
+        self.particle_fits.clear()
+        self.level_fits.clear()
 
     def reset(self) -> None:
         """Reset the session to initial empty state."""
@@ -370,6 +420,7 @@ class SessionState:
         self.current_selection = None
         self.levels.clear()
         self.clustering_results.clear()
-        self.fit_results.clear()
+        self.particle_fits.clear()
+        self.level_fits.clear()
         self.ui_state = UIState()
         self.processing = ProcessingState()

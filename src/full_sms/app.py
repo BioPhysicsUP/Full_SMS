@@ -28,7 +28,15 @@ from full_sms.models.session import (
     SessionState,
 )
 from full_sms.config import Settings, get_settings, save_settings
-from full_sms.ui.dialogs import FileDialogs, FittingDialog, FittingParameters, SettingsDialog
+from full_sms.ui.dialogs import (
+    FileDialogs,
+    FitScope,
+    FitTarget,
+    FittingDialog,
+    FittingParameters,
+    SettingsDialog,
+)
+from full_sms.models.fit import FitResultData
 from full_sms.ui.keyboard import KeyboardShortcuts, ShortcutHandler
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
@@ -61,7 +69,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("full_sms.app")
 
 # Tag constants for UI elements
 TAGS = {
@@ -545,7 +553,8 @@ class Application:
             self._session.particles = particles
             self._session.levels.clear()
             self._session.clustering_results.clear()
-            self._session.fit_results.clear()
+            self._session.particle_fits.clear()
+            self._session.level_fits.clear()
             self._session.selected.clear()
             self._session.current_selection = None
 
@@ -940,54 +949,156 @@ class Application:
                 self._layout.set_status("Select a particle to fit")
             return
 
-        # Show the fitting dialog
+        # Get level state for current particle
+        current_levels = self._session.get_current_levels()
+        has_levels = current_levels is not None and len(current_levels) > 0
+
+        # Get selected level index from lifetime tab
+        selected_level_index = None
+        if self._layout and self._layout.lifetime_tab:
+            selected_level_index = self._layout.lifetime_tab.selected_level_index
+
+        # Update fitting dialog with level state
         if self._fitting_dialog:
+            self._fitting_dialog.set_level_state(
+                has_levels=has_levels,
+                selected_level_index=selected_level_index,
+            )
             self._fitting_dialog.show(self._fitting_params)
 
     def _on_fit_dialog_accepted(self, params: FittingParameters) -> None:
-        """Handle fit dialog acceptance - run the fit.
+        """Handle fit dialog acceptance - run the fit(s).
 
         Args:
             params: The fitting parameters from the dialog.
         """
         logger.info(
-            f"Fit dialog accepted: {params.num_exponentials} exp, "
-            f"tau_init={params.tau_init}"
+            f"Fit dialog accepted: target={params.fit_target.value}, "
+            f"scope={params.fit_scope.value}, {params.num_exponentials} exp"
         )
 
         # Store parameters for next time
         self._fitting_params = params
 
-        # Check if we have data
-        if not self._session.current_selection:
-            logger.warning("No particle selected for fitting")
+        # Determine which particles to fit based on scope
+        selections_to_fit = self._get_selections_for_scope(params.fit_scope)
+        if not selections_to_fit:
+            logger.warning("No particles to fit")
+            if self._layout:
+                self._layout.set_status("No particles to fit")
             return
 
-        # Get the current particle and channel data
-        selection = self._session.current_selection
-        particle = self._session.get_particle(selection.particle_id)
-        if particle is None:
-            logger.warning(f"Particle {selection.particle_id} not found")
-            return
+        # Submit fit tasks based on target
+        tasks_submitted = 0
 
-        channel_data = (
-            particle.channel1 if selection.channel == 1 else particle.channel2
-        )
-        if channel_data is None:
-            logger.warning(f"No channel {selection.channel} data")
-            return
+        for selection in selections_to_fit:
+            particle = self._session.get_particle(selection.particle_id)
+            if particle is None:
+                continue
 
-        # Run the fit
-        self._run_fit_task(particle, channel_data, selection, params)
+            channel_data = (
+                particle.channel1 if selection.channel == 1 else particle.channel2
+            )
+            if channel_data is None:
+                continue
 
-    def _run_fit_task(
+            if params.fit_target == FitTarget.PARTICLE:
+                # Fit full particle decay
+                self._submit_particle_fit_task(
+                    particle, channel_data, selection, params
+                )
+                tasks_submitted += 1
+
+            elif params.fit_target == FitTarget.SELECTED_LEVEL:
+                # Fit only the selected level (only for current particle)
+                if params.selected_level_index is not None:
+                    levels = self._session.get_levels(
+                        selection.particle_id, selection.channel
+                    )
+                    if levels and params.selected_level_index < len(levels):
+                        level = levels[params.selected_level_index]
+                        self._submit_level_fit_task(
+                            particle,
+                            channel_data,
+                            selection,
+                            params,
+                            level,
+                            params.selected_level_index,
+                        )
+                        tasks_submitted += 1
+
+            elif params.fit_target == FitTarget.ALL_LEVELS:
+                # Fit all levels for this particle
+                levels = self._session.get_levels(
+                    selection.particle_id, selection.channel
+                )
+                if levels:
+                    for level_idx, level in enumerate(levels):
+                        self._submit_level_fit_task(
+                            particle,
+                            channel_data,
+                            selection,
+                            params,
+                            level,
+                            level_idx,
+                        )
+                        tasks_submitted += 1
+
+        if tasks_submitted > 0:
+            self._session.processing.start(
+                "Lifetime fit", f"Fitting {tasks_submitted} decay curve(s)..."
+            )
+            if self._layout:
+                self._layout.set_status(f"Fitting {tasks_submitted} curve(s)...")
+            logger.info(f"Submitted {tasks_submitted} fit tasks")
+        else:
+            logger.warning("No fit tasks submitted")
+            if self._layout:
+                self._layout.set_status("No data to fit")
+
+    def _get_selections_for_scope(
+        self, scope: FitScope
+    ) -> list[ChannelSelection]:
+        """Get the list of selections to process based on scope.
+
+        Args:
+            scope: The fit scope (Current, Selected, or All).
+
+        Returns:
+            List of ChannelSelection objects to process.
+        """
+        if scope == FitScope.CURRENT:
+            if self._session.current_selection:
+                return [self._session.current_selection]
+            return []
+
+        elif scope == FitScope.SELECTED:
+            return list(self._session.selected)
+
+        elif scope == FitScope.ALL:
+            # Create selections for all particles (channel 1 by default)
+            selections = []
+            for particle in self._session.particles:
+                selections.append(
+                    ChannelSelection(particle_id=particle.particle_id, channel=1)
+                )
+                # Add channel 2 if dual channel
+                if particle.has_dual_channel:
+                    selections.append(
+                        ChannelSelection(particle_id=particle.particle_id, channel=2)
+                    )
+            return selections
+
+        return []
+
+    def _submit_particle_fit_task(
         self,
         particle,
         channel_data,
         selection: ChannelSelection,
         params: FittingParameters,
     ) -> None:
-        """Submit a lifetime fitting task.
+        """Submit a fit task for full particle decay.
 
         Args:
             particle: The particle data.
@@ -995,18 +1106,84 @@ class Application:
             selection: The current selection.
             params: Fitting parameters.
         """
-        if not self._pool:
-            logger.error("Worker pool not initialized")
-            return
-
-        # Build decay histogram
         from full_sms.analysis.histograms import build_decay_histogram
 
         t, counts = build_decay_histogram(
             channel_data.microtimes, particle.channelwidth
         )
 
-        # Prepare task parameters
+        task_params = self._build_fit_task_params(
+            t, counts, particle, selection, params
+        )
+        # Mark as particle fit (no level)
+        task_params["level_id"] = None
+
+        future = self._pool.submit(run_fit_task, task_params)
+        self._pending_futures.append(future)
+
+    def _submit_level_fit_task(
+        self,
+        particle,
+        channel_data,
+        selection: ChannelSelection,
+        params: FittingParameters,
+        level,
+        level_index: int,
+    ) -> None:
+        """Submit a fit task for a specific level.
+
+        Args:
+            particle: The particle data.
+            channel_data: The channel data with microtimes.
+            selection: The current selection.
+            params: Fitting parameters.
+            level: The LevelData for the level to fit.
+            level_index: Index of the level.
+        """
+        from full_sms.analysis.histograms import build_decay_histogram
+
+        # Get microtimes for just this level
+        level_microtimes = channel_data.microtimes[
+            level.start_index : level.end_index + 1
+        ]
+
+        if len(level_microtimes) < 100:
+            logger.warning(
+                f"Level {level_index} has too few photons ({len(level_microtimes)}), skipping"
+            )
+            return
+
+        t, counts = build_decay_histogram(level_microtimes, particle.channelwidth)
+
+        task_params = self._build_fit_task_params(
+            t, counts, particle, selection, params
+        )
+        # Mark as level fit
+        task_params["level_id"] = level_index
+
+        future = self._pool.submit(run_fit_task, task_params)
+        self._pending_futures.append(future)
+
+    def _build_fit_task_params(
+        self,
+        t,
+        counts,
+        particle,
+        selection: ChannelSelection,
+        params: FittingParameters,
+    ) -> dict:
+        """Build the task parameters dict for a fit task.
+
+        Args:
+            t: Time array for decay histogram.
+            counts: Counts array for decay histogram.
+            particle: The particle data.
+            selection: The channel selection.
+            params: Fitting parameters.
+
+        Returns:
+            Dict of task parameters.
+        """
         task_params = {
             "t": t,
             "counts": counts,
@@ -1022,31 +1199,15 @@ class Application:
             "channel_id": selection.channel,
         }
 
-        # Add manual start/end if provided
         if params.start_channel is not None:
             task_params["start"] = params.start_channel
         if params.end_channel is not None:
             task_params["end"] = params.end_channel
 
-        # Add background if manual
         if not params.background_auto:
             task_params["background"] = params.background_value
 
-        # Add IRF if using it (not simulated for now)
-        if params.use_irf and not params.use_simulated_irf:
-            # TODO: Get IRF from file metadata
-            pass
-
-        # Start processing
-        self._session.processing.start("Lifetime fit", "Fitting decay curve...")
-        if self._layout:
-            self._layout.set_status("Fitting...")
-
-        # Submit task
-        future = self._pool.submit(run_fit_task, task_params)
-        self._pending_futures.append(future)
-
-        logger.info(f"Submitted fit task for particle {selection.particle_id}")
+        return task_params
 
     # Menu callbacks - Help menu
 
@@ -1323,7 +1484,10 @@ class Application:
                 self._layout.show_error(f"Fit failed: {data['error']}")
             return
 
-        # Convert to FitResult
+        # Get level_id to determine if this is a particle or level fit
+        level_id = data.get("level_id")
+
+        # Convert to FitResult (for display)
         fit_result = FitResult.from_fit_parameters(
             tau=data["tau"],
             tau_std=data["tau_std"],
@@ -1341,14 +1505,38 @@ class Application:
             dw_bounds=data.get("dw_bounds"),
         )
 
-        logger.info(
-            f"Fit complete for particle {particle_id}, channel {channel_id}: "
-            f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}"
-        )
+        # Create FitResultData for storage (scalars only)
+        fit_data = FitResultData.from_fit_result(fit_result, level_index=level_id)
 
-        # Update the lifetime tab display
-        if self._layout and self._layout.lifetime_tab:
-            self._layout.lifetime_tab.set_fit(fit_result)
+        # Store in session
+        if level_id is None:
+            # Particle (full decay) fit
+            self._session.set_particle_fit(particle_id, channel_id, fit_data)
+            logger.info(
+                f"Particle fit complete for {particle_id}/{channel_id}: "
+                f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}"
+            )
+        else:
+            # Level-specific fit
+            self._session.set_level_fit(particle_id, channel_id, level_id, fit_data)
+            logger.info(
+                f"Level {level_id} fit complete for {particle_id}/{channel_id}: "
+                f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}"
+            )
+
+        # Update the lifetime tab display (only if this is for the current selection)
+        current_sel = self._session.current_selection
+        if (
+            self._layout
+            and self._layout.lifetime_tab
+            and current_sel
+            and current_sel.particle_id == particle_id
+            and current_sel.channel == channel_id
+        ):
+            # Only update display for particle fits or the currently selected level
+            selected_level = self._layout.lifetime_tab.selected_level_index
+            if level_id is None or level_id == selected_level:
+                self._layout.lifetime_tab.set_fit(fit_result)
 
         # Finish processing
         self._session.processing.finish("Fit complete")
@@ -1356,8 +1544,9 @@ class Application:
         # Show success message
         if self._layout:
             tau_str = ", ".join(f"{t:.2f}" for t in fit_result.tau)
+            level_info = f" (level {level_id})" if level_id is not None else ""
             self._layout.show_success(
-                f"Fit complete: tau = {tau_str} ns, chi2 = {fit_result.chi_squared:.3f}"
+                f"Fit complete{level_info}: tau = {tau_str} ns, chi2 = {fit_result.chi_squared:.3f}"
             )
 
     def _handle_correlation_result(self, particle_id: int, data: dict) -> None:

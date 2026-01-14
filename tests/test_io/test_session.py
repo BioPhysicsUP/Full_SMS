@@ -11,12 +11,12 @@ from full_sms.io.session import (
     SessionSerializationError,
     _clustering_to_dict,
     _dict_to_clustering,
-    _dict_to_fit_result,
+    _dict_to_fit_result_data,
     _dict_to_group,
     _dict_to_level,
     _dict_to_selection,
     _dict_to_ui_state,
-    _fit_result_to_dict,
+    _fit_result_data_to_dict,
     _group_to_dict,
     _level_to_dict,
     _selection_to_dict,
@@ -28,7 +28,7 @@ from full_sms.io.session import (
     save_session,
 )
 from conftest import make_clustering_result
-from full_sms.models import ChannelData, ClusteringResult, ClusteringStep, FitResult, GroupData, LevelData, ParticleData
+from full_sms.models import ChannelData, ClusteringResult, ClusteringStep, FitResultData, GroupData, LevelData, ParticleData
 from full_sms.models.session import (
     ActiveTab,
     ChannelSelection,
@@ -178,13 +178,13 @@ class TestClusteringResultSerialization:
         assert restored.num_steps == sample_clustering.num_steps
 
 
-class TestFitResultSerialization:
-    """Tests for FitResult serialization."""
+class TestFitResultDataSerialization:
+    """Tests for FitResultData serialization."""
 
     @pytest.fixture
-    def sample_fit(self) -> FitResult:
-        """Create a sample fit result."""
-        return FitResult(
+    def sample_fit(self) -> FitResultData:
+        """Create a sample fit result data."""
+        return FitResultData(
             tau=(5.0,),
             tau_std=(0.1,),
             amplitude=(1.0,),
@@ -194,40 +194,35 @@ class TestFitResultSerialization:
             chi_squared=1.05,
             durbin_watson=2.1,
             dw_bounds=(1.5, 2.5),
-            residuals=np.array([0.1, -0.1, 0.05, -0.02]),
-            fitted_curve=np.array([100.0, 80.0, 60.0, 45.0]),
             fit_start_index=10,
             fit_end_index=500,
             background=5.0,
             num_exponentials=1,
             average_lifetime=5.0,
+            level_index=None,
         )
 
-    def test_fit_to_dict(self, sample_fit: FitResult) -> None:
-        """FitResult converts to dict correctly."""
-        d = _fit_result_to_dict(sample_fit)
+    def test_fit_to_dict(self, sample_fit: FitResultData) -> None:
+        """FitResultData converts to dict correctly."""
+        d = _fit_result_data_to_dict(sample_fit)
 
         assert d["tau"] == [5.0]
         assert d["tau_std"] == [0.1]
         assert d["amplitude"] == [1.0]
         assert d["chi_squared"] == 1.05
         assert d["dw_bounds"] == [1.5, 2.5]
-        assert d["residuals"] == [0.1, -0.1, 0.05, -0.02]
-        assert d["fitted_curve"] == [100.0, 80.0, 60.0, 45.0]
 
-    def test_dict_to_fit(self, sample_fit: FitResult) -> None:
-        """Dict converts back to FitResult correctly."""
-        d = _fit_result_to_dict(sample_fit)
-        restored = _dict_to_fit_result(d)
+    def test_dict_to_fit(self, sample_fit: FitResultData) -> None:
+        """Dict converts back to FitResultData correctly."""
+        d = _fit_result_data_to_dict(sample_fit)
+        restored = _dict_to_fit_result_data(d)
 
         assert restored.tau == sample_fit.tau
         assert restored.chi_squared == sample_fit.chi_squared
-        np.testing.assert_array_almost_equal(restored.residuals, sample_fit.residuals)
-        np.testing.assert_array_almost_equal(restored.fitted_curve, sample_fit.fitted_curve)
 
     def test_fit_none_dw_bounds(self) -> None:
-        """FitResult with None dw_bounds roundtrips correctly."""
-        fit = FitResult(
+        """FitResultData with None dw_bounds roundtrips correctly."""
+        fit = FitResultData(
             tau=(5.0,),
             tau_std=(0.1,),
             amplitude=(1.0,),
@@ -237,19 +232,43 @@ class TestFitResultSerialization:
             chi_squared=1.05,
             durbin_watson=2.1,
             dw_bounds=None,
-            residuals=np.array([0.1]),
-            fitted_curve=np.array([100.0]),
             fit_start_index=10,
             fit_end_index=500,
             background=5.0,
             num_exponentials=1,
             average_lifetime=5.0,
+            level_index=None,
         )
 
-        d = _fit_result_to_dict(fit)
-        restored = _dict_to_fit_result(d)
+        d = _fit_result_data_to_dict(fit)
+        restored = _dict_to_fit_result_data(d)
 
         assert restored.dw_bounds is None
+
+    def test_fit_with_level_index(self) -> None:
+        """FitResultData with level_index roundtrips correctly."""
+        fit = FitResultData(
+            tau=(5.0,),
+            tau_std=(0.1,),
+            amplitude=(1.0,),
+            amplitude_std=(0.01,),
+            shift=0.5,
+            shift_std=0.05,
+            chi_squared=1.05,
+            durbin_watson=2.1,
+            dw_bounds=None,
+            fit_start_index=10,
+            fit_end_index=500,
+            background=5.0,
+            num_exponentials=1,
+            average_lifetime=5.0,
+            level_index=3,
+        )
+
+        d = _fit_result_data_to_dict(fit)
+        restored = _dict_to_fit_result_data(d)
+
+        assert restored.level_index == 3
 
 
 class TestUIStateSerialization:
@@ -466,7 +485,8 @@ class TestLoadSession:
                 ]
             },
             "clustering_results": {},
-            "fit_results": {},
+            "particle_fits": {},
+            "level_fits": {},
             "selected": [{"particle_id": 1, "channel": 1}],
             "current_selection": {"particle_id": 1, "channel": 1},
             "ui_state": {
@@ -633,8 +653,8 @@ class TestRoundTrip:
         )
         state.set_clustering(1, 1, clustering)
 
-        # Add fit result
-        fit = FitResult(
+        # Add particle fit result
+        particle_fit = FitResultData(
             tau=(4.5,),
             tau_std=(0.2,),
             amplitude=(1.0,),
@@ -644,15 +664,34 @@ class TestRoundTrip:
             chi_squared=1.1,
             durbin_watson=1.9,
             dw_bounds=(1.5, 2.5),
-            residuals=np.array([0.1, -0.2, 0.15, -0.05]),
-            fitted_curve=np.array([100.0, 75.0, 56.0, 42.0]),
             fit_start_index=5,
             fit_end_index=200,
             background=3.0,
             num_exponentials=1,
             average_lifetime=4.5,
+            level_index=None,
         )
-        state.set_fit_result(1, 1, 0, fit)
+        state.set_particle_fit(1, 1, particle_fit)
+
+        # Add level fit result
+        level_fit = FitResultData(
+            tau=(3.5,),
+            tau_std=(0.15,),
+            amplitude=(1.0,),
+            amplitude_std=(0.03,),
+            shift=0.8,
+            shift_std=0.08,
+            chi_squared=1.05,
+            durbin_watson=2.0,
+            dw_bounds=(1.5, 2.5),
+            fit_start_index=5,
+            fit_end_index=150,
+            background=2.5,
+            num_exponentials=1,
+            average_lifetime=3.5,
+            level_index=0,
+        )
+        state.set_level_fit(1, 1, 0, level_fit)
 
         # Set selections
         state.select(1)
@@ -722,14 +761,22 @@ class TestRoundTrip:
         save_session(complex_state, session_path)
         loaded = load_session(session_path)
 
-        original_fit = complex_state.fit_results[(1, 1, 0)]
-        loaded_fit = loaded["fit_results"][(1, 1, 0)]
+        # Check particle fit
+        original_particle_fit = complex_state.particle_fits[(1, 1)]
+        loaded_particle_fit = loaded["particle_fits"][(1, 1)]
 
-        assert loaded_fit.tau == original_fit.tau
-        assert loaded_fit.chi_squared == original_fit.chi_squared
-        assert loaded_fit.dw_bounds == original_fit.dw_bounds
-        np.testing.assert_array_almost_equal(loaded_fit.residuals, original_fit.residuals)
-        np.testing.assert_array_almost_equal(loaded_fit.fitted_curve, original_fit.fitted_curve)
+        assert loaded_particle_fit.tau == original_particle_fit.tau
+        assert loaded_particle_fit.chi_squared == original_particle_fit.chi_squared
+        assert loaded_particle_fit.dw_bounds == original_particle_fit.dw_bounds
+        assert loaded_particle_fit.level_index is None
+
+        # Check level fit
+        original_level_fit = complex_state.level_fits[(1, 1, 0)]
+        loaded_level_fit = loaded["level_fits"][(1, 1, 0)]
+
+        assert loaded_level_fit.tau == original_level_fit.tau
+        assert loaded_level_fit.chi_squared == original_level_fit.chi_squared
+        assert loaded_level_fit.level_index == 0
 
     def test_roundtrip_preserves_selections(self, complex_state: SessionState, tmp_path: Path) -> None:
         """Round-trip preserves selections."""
@@ -789,7 +836,8 @@ class TestApplySessionToState:
         session_data = {
             "levels": {(1, 1): [level]},
             "clustering_results": {},
-            "fit_results": {},
+            "particle_fits": {},
+            "level_fits": {},
             "selected": [],
             "current_selection": None,
             "ui_state": UIState(),
@@ -826,7 +874,8 @@ class TestApplySessionToState:
         session_data = {
             "levels": {},
             "clustering_results": {},
-            "fit_results": {},
+            "particle_fits": {},
+            "level_fits": {},
             "selected": [],
             "current_selection": None,
             "ui_state": UIState(),
@@ -852,7 +901,8 @@ class TestApplySessionToState:
         session_data = {
             "levels": {},
             "clustering_results": {},
-            "fit_results": {},
+            "particle_fits": {},
+            "level_fits": {},
             "selected": [],
             "current_selection": None,
             "ui_state": new_ui,

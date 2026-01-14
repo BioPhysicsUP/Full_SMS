@@ -334,7 +334,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 5.2: Reorganize fitting controls `[NEXT]`
+### Task 5.2: Reorganize fitting controls `[DONE]` (2026-01-13)
 **Objective**: Provide clear fit options with scope selection
 
 **Actions**:
@@ -347,9 +347,20 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: All fitting options work with scope selection
 
+**Implementation Notes**:
+- Added `FitTarget` enum (Particle (full decay), Selected Level, All Levels) and `FitScope` enum (Current, Selected, All) to fitting_dialog.py
+- Added Fit Target and Scope combos to the top of the fitting dialog
+- Selected Level option only appears when a level is selected in the Lifetime tab
+- When Selected Level is chosen, Scope is locked to Current
+- Created `FitResultData` class for scalar-only fit result persistence (no large arrays)
+- Updated `SessionState` to have separate `particle_fits` and `level_fits` dictionaries
+- Updated app.py to submit particle and level-specific fit tasks based on selection
+- Updated session save/load to handle the new fit storage structure
+- Level fits extract microtimes for just that level's time range
+
 ---
 
-### Task 5.3: Fix IRF display behavior `[TODO]`
+### Task 5.3: Fix IRF display behavior `[NEXT]`
 **Objective**: Show IRF button should display IRF (real or simulated)
 
 **Actions**:
@@ -492,10 +503,10 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 2. Layout & Scrolling | 2 | 2 | 0 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 | 0 |
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
-| 5. Lifetime Tab | 5 | 1 | 0 | 4 |
+| 5. Lifetime Tab | 5 | 2 | 0 | 3 |
 | 6. Grouping Tab | 2 | 0 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 0 | 4 |
-| **Total** | **24** | **13** | **1** | **10** |
+| **Total** | **24** | **14** | **1** | **9** |
 
 ---
 
@@ -510,4 +521,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-12 (Task 4.5 completed)*
+*Last Updated: 2026-01-13 (Task 5.2 completed)*

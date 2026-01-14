@@ -30,11 +30,30 @@ class NumExponentials(Enum):
     THREE = 3
 
 
+class FitTarget(Enum):
+    """What to fit - particle full decay or individual levels."""
+
+    PARTICLE = "Particle (full decay)"
+    SELECTED_LEVEL = "Selected Level"
+    ALL_LEVELS = "All Levels"
+
+
+class FitScope(Enum):
+    """Which particles to fit."""
+
+    CURRENT = "Current"
+    SELECTED = "Selected"
+    ALL = "All"
+
+
 @dataclass
 class FittingParameters:
     """Parameters for lifetime fitting.
 
     Attributes:
+        fit_target: What to fit - particle full decay or levels.
+        fit_scope: Which particles to fit (current, selected, all).
+        selected_level_index: Index of selected level (for SELECTED_LEVEL target).
         num_exponentials: Number of exponential components (1, 2, or 3).
         tau_init: Initial guess for tau values in nanoseconds.
         tau_min: Minimum bounds for tau values.
@@ -53,6 +72,9 @@ class FittingParameters:
         background_value: Manual background value.
     """
 
+    fit_target: FitTarget = FitTarget.PARTICLE
+    fit_scope: FitScope = FitScope.CURRENT
+    selected_level_index: Optional[int] = None
     num_exponentials: int = 1
     tau_init: list[float] = field(default_factory=lambda: [5.0])
     tau_min: float = 0.01
@@ -87,6 +109,10 @@ class FittingDialogTags:
     """Tags for fitting dialog UI elements."""
 
     dialog: str = "fitting_dialog"
+    # Fit target and scope
+    fit_target_combo: str = "fitting_fit_target"
+    fit_scope_combo: str = "fitting_fit_scope"
+    fit_scope_row: str = "fitting_fit_scope_row"
     num_exp_combo: str = "fitting_num_exp_combo"
     # Tau parameters
     tau_group: str = "fitting_tau_group"
@@ -144,9 +170,17 @@ class FittingDialog:
         self._on_cancel: Optional[Callable[[], None]] = None
         self._has_irf: bool = False
 
+        # Level state for fit target options
+        self._has_levels: bool = False
+        self._has_selected_level: bool = False
+        self._selected_level_index: Optional[int] = None
+
         # Generate unique tags
         self._tags = FittingDialogTags(
             dialog=f"{tag_prefix}fitting_dialog",
+            fit_target_combo=f"{tag_prefix}fitting_fit_target",
+            fit_scope_combo=f"{tag_prefix}fitting_fit_scope",
+            fit_scope_row=f"{tag_prefix}fitting_fit_scope_row",
             num_exp_combo=f"{tag_prefix}fitting_num_exp_combo",
             tau_group=f"{tag_prefix}fitting_tau_group",
             tau1_init=f"{tag_prefix}fitting_tau1_init",
@@ -211,6 +245,21 @@ class FittingDialog:
         """
         self._has_irf = has_irf
 
+    def set_level_state(
+        self,
+        has_levels: bool,
+        selected_level_index: Optional[int] = None,
+    ) -> None:
+        """Set the level state for fit target options.
+
+        Args:
+            has_levels: True if the current particle has resolved levels.
+            selected_level_index: Index of currently selected level, or None.
+        """
+        self._has_levels = has_levels
+        self._has_selected_level = selected_level_index is not None
+        self._selected_level_index = selected_level_index
+
     def build(self) -> None:
         """Build the dialog UI (but don't show it)."""
         if self._is_built:
@@ -227,11 +276,33 @@ class FittingDialog:
             modal=True,
             show=False,
             width=450,
-            height=520,
+            height=580,
             no_resize=True,
             no_move=False,
             on_close=self._on_close,
         ):
+            # Fit target selection
+            dpg.add_text("Fit Target")
+            dpg.add_combo(
+                items=[FitTarget.PARTICLE.value],  # Options set dynamically in show()
+                default_value=FitTarget.PARTICLE.value,
+                tag=self._tags.fit_target_combo,
+                callback=self._on_fit_target_changed,
+                width=180,
+            )
+
+            # Fit scope selection
+            with dpg.group(horizontal=True, tag=self._tags.fit_scope_row):
+                dpg.add_text("Scope:")
+                dpg.add_combo(
+                    items=[s.value for s in FitScope],
+                    default_value=FitScope.CURRENT.value,
+                    tag=self._tags.fit_scope_combo,
+                    width=120,
+                )
+
+            dpg.add_separator()
+
             # Number of exponentials
             dpg.add_text("Number of Exponentials")
             dpg.add_combo(
@@ -460,6 +531,9 @@ class FittingDialog:
         if not self._is_built:
             self.build()
 
+        # Configure fit target options based on level state
+        self._update_fit_target_options()
+
         if parameters:
             self._parameters = parameters
             self._populate_from_parameters()
@@ -469,11 +543,39 @@ class FittingDialog:
         viewport_height = dpg.get_viewport_height()
         dpg.set_item_pos(
             self._tags.dialog,
-            [viewport_width // 2 - 225, viewport_height // 2 - 260],
+            [viewport_width // 2 - 225, viewport_height // 2 - 290],
         )
 
         dpg.configure_item(self._tags.dialog, show=True)
         logger.debug("Fitting dialog shown")
+
+    def _update_fit_target_options(self) -> None:
+        """Update fit target combo options based on current level state."""
+        if not dpg.does_item_exist(self._tags.fit_target_combo):
+            return
+
+        # Build list of available options
+        options = [FitTarget.PARTICLE.value]
+
+        if self._has_selected_level:
+            options.append(FitTarget.SELECTED_LEVEL.value)
+
+        if self._has_levels:
+            options.append(FitTarget.ALL_LEVELS.value)
+
+        # Update combo items
+        dpg.configure_item(self._tags.fit_target_combo, items=options)
+
+        # Ensure current value is valid
+        current_value = dpg.get_value(self._tags.fit_target_combo)
+        if current_value not in options:
+            dpg.set_value(self._tags.fit_target_combo, FitTarget.PARTICLE.value)
+
+        # Update scope enabled state based on current target
+        self._on_fit_target_changed(
+            self._tags.fit_target_combo,
+            dpg.get_value(self._tags.fit_target_combo),
+        )
 
     def hide(self) -> None:
         """Hide the fitting dialog."""
@@ -483,6 +585,21 @@ class FittingDialog:
     def _populate_from_parameters(self) -> None:
         """Populate dialog fields from current parameters."""
         p = self._parameters
+
+        # Fit target and scope (only if the value is available in current options)
+        if dpg.does_item_exist(self._tags.fit_target_combo):
+            available_targets = dpg.get_item_configuration(
+                self._tags.fit_target_combo
+            ).get("items", [])
+            if p.fit_target.value in available_targets:
+                dpg.set_value(self._tags.fit_target_combo, p.fit_target.value)
+                # Update scope enabled state
+                self._on_fit_target_changed(
+                    self._tags.fit_target_combo, p.fit_target.value
+                )
+
+        if dpg.does_item_exist(self._tags.fit_scope_combo):
+            dpg.set_value(self._tags.fit_scope_combo, p.fit_scope.value)
 
         # Number of exponentials
         dpg.set_value(self._tags.num_exp_combo, str(p.num_exponentials))
@@ -525,6 +642,25 @@ class FittingDialog:
 
     def _collect_parameters(self) -> FittingParameters:
         """Collect parameters from dialog fields."""
+        # Get fit target
+        fit_target_str = dpg.get_value(self._tags.fit_target_combo)
+        fit_target = FitTarget.PARTICLE
+        for target in FitTarget:
+            if target.value == fit_target_str:
+                fit_target = target
+                break
+
+        # Get fit scope
+        fit_scope_str = dpg.get_value(self._tags.fit_scope_combo)
+        fit_scope = FitScope.CURRENT
+        for scope in FitScope:
+            if scope.value == fit_scope_str:
+                fit_scope = scope
+                break
+
+        # Get selected level index (stored when set_level_state was called)
+        selected_level_index = self._selected_level_index
+
         num_exp = int(dpg.get_value(self._tags.num_exp_combo))
 
         # Collect tau inits based on number of exponentials
@@ -559,6 +695,9 @@ class FittingDialog:
             background_value = dpg.get_value(self._tags.background_value)
 
         return FittingParameters(
+            fit_target=fit_target,
+            fit_scope=fit_scope,
+            selected_level_index=selected_level_index,
             num_exponentials=num_exp,
             tau_init=tau_inits,
             tau_min=dpg.get_value(self._tags.tau_min),
@@ -580,6 +719,22 @@ class FittingDialog:
     # -------------------------------------------------------------------------
     # UI Event Handlers
     # -------------------------------------------------------------------------
+
+    def _on_fit_target_changed(self, sender: int, app_data: str) -> None:
+        """Handle fit target combo change.
+
+        When "Selected Level" is chosen, scope must be locked to "Current".
+        """
+        is_selected_level = app_data == FitTarget.SELECTED_LEVEL.value
+
+        if dpg.does_item_exist(self._tags.fit_scope_combo):
+            if is_selected_level:
+                # Lock scope to Current when fitting a selected level
+                dpg.set_value(self._tags.fit_scope_combo, FitScope.CURRENT.value)
+                dpg.configure_item(self._tags.fit_scope_combo, enabled=False)
+            else:
+                # Enable scope selection for other targets
+                dpg.configure_item(self._tags.fit_scope_combo, enabled=True)
 
     def _on_num_exp_changed(self, sender: int, app_data: str) -> None:
         """Handle number of exponentials combo change."""

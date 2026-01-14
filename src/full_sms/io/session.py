@@ -12,9 +12,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
-
-from full_sms.models.fit import FitResult
+from full_sms.models.fit import FitResultData
 from full_sms.models.group import ClusteringResult, ClusteringStep, GroupData
 from full_sms.models.level import LevelData
 from full_sms.models.session import (
@@ -139,48 +137,14 @@ def _dict_to_clustering(data: Dict[str, Any]) -> ClusteringResult:
     )
 
 
-def _fit_result_to_dict(result: FitResult) -> Dict[str, Any]:
-    """Convert a FitResult to a serializable dict."""
-    return {
-        "tau": list(result.tau),
-        "tau_std": list(result.tau_std),
-        "amplitude": list(result.amplitude),
-        "amplitude_std": list(result.amplitude_std),
-        "shift": result.shift,
-        "shift_std": result.shift_std,
-        "chi_squared": result.chi_squared,
-        "durbin_watson": result.durbin_watson,
-        "dw_bounds": list(result.dw_bounds) if result.dw_bounds else None,
-        "residuals": result.residuals.tolist(),
-        "fitted_curve": result.fitted_curve.tolist(),
-        "fit_start_index": result.fit_start_index,
-        "fit_end_index": result.fit_end_index,
-        "background": result.background,
-        "num_exponentials": result.num_exponentials,
-        "average_lifetime": result.average_lifetime,
-    }
+def _fit_result_data_to_dict(result: FitResultData) -> Dict[str, Any]:
+    """Convert a FitResultData to a serializable dict."""
+    return result.to_dict()
 
 
-def _dict_to_fit_result(data: Dict[str, Any]) -> FitResult:
-    """Convert a dict back to a FitResult."""
-    return FitResult(
-        tau=tuple(data["tau"]),
-        tau_std=tuple(data["tau_std"]),
-        amplitude=tuple(data["amplitude"]),
-        amplitude_std=tuple(data["amplitude_std"]),
-        shift=data["shift"],
-        shift_std=data["shift_std"],
-        chi_squared=data["chi_squared"],
-        durbin_watson=data["durbin_watson"],
-        dw_bounds=tuple(data["dw_bounds"]) if data["dw_bounds"] else None,
-        residuals=np.array(data["residuals"], dtype=np.float64),
-        fitted_curve=np.array(data["fitted_curve"], dtype=np.float64),
-        fit_start_index=data["fit_start_index"],
-        fit_end_index=data["fit_end_index"],
-        background=data["background"],
-        num_exponentials=data["num_exponentials"],
-        average_lifetime=data["average_lifetime"],
-    )
+def _dict_to_fit_result_data(data: Dict[str, Any]) -> FitResultData:
+    """Convert a dict back to a FitResultData."""
+    return FitResultData.from_dict(data)
 
 
 def _ui_state_to_dict(ui: UIState) -> Dict[str, Any]:
@@ -263,12 +227,19 @@ def save_session(state: SessionState, path: Path) -> None:
         clustering_dict[key] = _clustering_to_dict(result)
     session_data["clustering_results"] = clustering_dict
 
-    # Serialize fit results (keyed by "particle_id,channel,level_or_group_id")
-    fit_dict: Dict[str, Dict[str, Any]] = {}
-    for (pid, ch, lvl_id), result in state.fit_results.items():
-        key = _tuple_key_to_str((pid, ch, lvl_id))
-        fit_dict[key] = _fit_result_to_dict(result)
-    session_data["fit_results"] = fit_dict
+    # Serialize particle fits (keyed by "particle_id,channel")
+    particle_fits_dict: Dict[str, Dict[str, Any]] = {}
+    for (pid, ch), result in state.particle_fits.items():
+        key = _tuple_key_to_str((pid, ch))
+        particle_fits_dict[key] = _fit_result_data_to_dict(result)
+    session_data["particle_fits"] = particle_fits_dict
+
+    # Serialize level fits (keyed by "particle_id,channel,level_index")
+    level_fits_dict: Dict[str, Dict[str, Any]] = {}
+    for (pid, ch, lvl_idx), result in state.level_fits.items():
+        key = _tuple_key_to_str((pid, ch, lvl_idx))
+        level_fits_dict[key] = _fit_result_data_to_dict(result)
+    session_data["level_fits"] = level_fits_dict
 
     # Serialize selections
     session_data["selected"] = [_selection_to_dict(s) for s in state.selected]
@@ -300,7 +271,8 @@ def load_session(path: Path) -> Dict[str, Any]:
     - "file_metadata": Dict with path, filename, and feature flags
     - "levels": Dict mapping (particle_id, channel) to list of LevelData
     - "clustering_results": Dict mapping (particle_id, channel) to ClusteringResult
-    - "fit_results": Dict mapping (particle_id, channel, level_id) to FitResult
+    - "particle_fits": Dict mapping (particle_id, channel) to FitResultData
+    - "level_fits": Dict mapping (particle_id, channel, level_index) to FitResultData
     - "selected": List of ChannelSelection
     - "current_selection": Optional ChannelSelection
     - "ui_state": UIState
@@ -359,12 +331,19 @@ def load_session(path: Path) -> Dict[str, Any]:
         clustering[(pid, ch)] = _dict_to_clustering(clust_data)
     result["clustering_results"] = clustering
 
-    # Deserialize fit results
-    fits: Dict[Tuple[int, int, int], FitResult] = {}
-    for key, fit_data in data.get("fit_results", {}).items():
-        pid, ch, lvl_id = _str_to_tuple_key(key, (int, int, int))
-        fits[(pid, ch, lvl_id)] = _dict_to_fit_result(fit_data)
-    result["fit_results"] = fits
+    # Deserialize particle fits
+    particle_fits: Dict[Tuple[int, int], FitResultData] = {}
+    for key, fit_data in data.get("particle_fits", {}).items():
+        pid, ch = _str_to_tuple_key(key, (int, int))
+        particle_fits[(pid, ch)] = _dict_to_fit_result_data(fit_data)
+    result["particle_fits"] = particle_fits
+
+    # Deserialize level fits
+    level_fits: Dict[Tuple[int, int, int], FitResultData] = {}
+    for key, fit_data in data.get("level_fits", {}).items():
+        pid, ch, lvl_idx = _str_to_tuple_key(key, (int, int, int))
+        level_fits[(pid, ch, lvl_idx)] = _dict_to_fit_result_data(fit_data)
+    result["level_fits"] = level_fits
 
     # Deserialize selections
     result["selected"] = [
@@ -405,9 +384,13 @@ def apply_session_to_state(
     state.clustering_results.clear()
     state.clustering_results.update(session_data["clustering_results"])
 
-    # Apply fit results
-    state.fit_results.clear()
-    state.fit_results.update(session_data["fit_results"])
+    # Apply particle fits
+    state.particle_fits.clear()
+    state.particle_fits.update(session_data["particle_fits"])
+
+    # Apply level fits
+    state.level_fits.clear()
+    state.level_fits.update(session_data["level_fits"])
 
     # Apply selections
     state.selected = session_data["selected"]

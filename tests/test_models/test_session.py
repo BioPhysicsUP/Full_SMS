@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from conftest import make_clustering_result
-from full_sms.models import ChannelData, ClusteringResult, FitResult, GroupData, LevelData, ParticleData
+from full_sms.models import ChannelData, ClusteringResult, FitResultData, GroupData, LevelData, ParticleData
 from full_sms.models.session import (
     ActiveTab,
     ChannelSelection,
@@ -253,7 +253,8 @@ class TestSessionState:
         assert state.current_selection is None
         assert state.levels == {}
         assert state.clustering_results == {}
-        assert state.fit_results == {}
+        assert state.particle_fits == {}
+        assert state.level_fits == {}
         assert state.has_file is False
         assert state.num_particles == 0
         assert state.has_selection is False
@@ -462,9 +463,9 @@ class TestSessionState:
         assert groups is not None
         assert len(groups) == 1
 
-    def test_set_and_get_fit_result(self, sample_particle: ParticleData) -> None:
-        """Can store and retrieve fit results."""
-        fit = FitResult(
+    def test_set_and_get_particle_fit(self, sample_particle: ParticleData) -> None:
+        """Can store and retrieve particle fit results."""
+        fit = FitResultData(
             tau=(5.0,),
             tau_std=(0.1,),
             amplitude=(1.0,),
@@ -474,22 +475,48 @@ class TestSessionState:
             chi_squared=1.0,
             durbin_watson=2.0,
             dw_bounds=(1.5, 2.5),
-            residuals=np.array([0.1, -0.1, 0.05]),
-            fitted_curve=np.array([100.0, 80.0, 60.0]),
             fit_start_index=0,
             fit_end_index=100,
             background=10.0,
             num_exponentials=1,
             average_lifetime=5.0,
+            level_index=None,
         )
         state = SessionState()
         state.particles = [sample_particle]
 
-        state.set_fit_result(1, 1, 0, fit)
+        state.set_particle_fit(1, 1, fit)
 
-        assert state.get_fit_result(1, 1, 0) is fit
-        assert state.get_fit_result(1, 1, 1) is None
-        assert state.get_fit_result(999, 1, 0) is None
+        assert state.get_particle_fit(1, 1) is fit
+        assert state.get_particle_fit(999, 1) is None
+
+    def test_set_and_get_level_fit(self, sample_particle: ParticleData) -> None:
+        """Can store and retrieve level fit results."""
+        fit = FitResultData(
+            tau=(5.0,),
+            tau_std=(0.1,),
+            amplitude=(1.0,),
+            amplitude_std=(0.01,),
+            shift=0.5,
+            shift_std=0.1,
+            chi_squared=1.0,
+            durbin_watson=2.0,
+            dw_bounds=(1.5, 2.5),
+            fit_start_index=0,
+            fit_end_index=100,
+            background=10.0,
+            num_exponentials=1,
+            average_lifetime=5.0,
+            level_index=0,
+        )
+        state = SessionState()
+        state.particles = [sample_particle]
+
+        state.set_level_fit(1, 1, 0, fit)
+
+        assert state.get_level_fit(1, 1, 0) is fit
+        assert state.get_level_fit(1, 1, 1) is None
+        assert state.get_level_fit(999, 1, 0) is None
 
     def test_clear_analysis(self, sample_particle: ParticleData, sample_level: LevelData) -> None:
         """clear_analysis() removes all analysis results."""
@@ -501,7 +528,8 @@ class TestSessionState:
 
         assert state.levels == {}
         assert state.clustering_results == {}
-        assert state.fit_results == {}
+        assert state.particle_fits == {}
+        assert state.level_fits == {}
         assert state.particles == [sample_particle]  # Particles preserved
 
     def test_reset(self, sample_particle: ParticleData, sample_level: LevelData) -> None:

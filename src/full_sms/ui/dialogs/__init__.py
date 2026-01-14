@@ -5,6 +5,8 @@ from full_sms.ui.dialogs.file_dialogs import (
     FileDialogTags,
 )
 from full_sms.ui.dialogs.fitting_dialog import (
+    FitScope,
+    FitTarget,
     FittingDialog,
     FittingDialogTags,
     FittingParameters,
@@ -17,6 +19,8 @@ from full_sms.ui.dialogs.settings_dialog import (
 __all__ = [
     "FileDialogs",
     "FileDialogTags",
+    "FitScope",
+    "FitTarget",
     "FittingDialog",
     "FittingDialogTags",
     "FittingParameters",
