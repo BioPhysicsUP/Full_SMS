@@ -108,6 +108,7 @@ class LifetimeTab:
         # Callbacks
         self._on_log_scale_changed: Callable[[bool], None] | None = None
         self._on_fit_requested: Callable[[], None] | None = None
+        self._on_level_selection_changed: Callable[[int | None], None] | None = None
 
         # UI components
         self._decay_plot: DecayPlot | None = None
@@ -659,6 +660,17 @@ class LifetimeTab:
         """
         self._on_log_scale_changed = callback
 
+    def set_on_level_selection_changed(
+        self, callback: Callable[[int | None], None]
+    ) -> None:
+        """Set callback for level selection changes.
+
+        Args:
+            callback: Function called when level selection changes.
+                      Receives level index (0-based) or None for "all data".
+        """
+        self._on_level_selection_changed = callback
+
     def set_log_scale(self, log_scale: bool) -> None:
         """Programmatically set the log scale.
 
@@ -1137,6 +1149,10 @@ class LifetimeTab:
         # Update selection text
         self._update_level_selection_text()
 
+        # Notify app of level selection change (so it can display stored fit)
+        if self._on_level_selection_changed:
+            self._on_level_selection_changed(level_index)
+
         logger.debug(
             f"Selected level {level_index + 1}: "
             f"{level.num_photons} photons, {level.intensity_cps:.0f} cps"
@@ -1144,6 +1160,8 @@ class LifetimeTab:
 
     def _show_all_data(self) -> None:
         """Show decay histogram for all data (no level filtering)."""
+        self._selected_level_index = None
+
         # Clear the selected level highlight
         if self._intensity_plot:
             self._intensity_plot.clear_selected_level()
@@ -1153,6 +1171,13 @@ class LifetimeTab:
 
             # Clear any existing fit since we changed the data
             self.clear_fit()
+
+        # Update selection text
+        self._update_level_selection_text()
+
+        # Notify app of level selection change (so it can display stored fit)
+        if self._on_level_selection_changed:
+            self._on_level_selection_changed(None)
 
     def _update_level_selection_text(self) -> None:
         """Update the level selection status text."""

@@ -101,6 +101,10 @@ class Application:
         self._fitting_dialog: FittingDialog | None = None
         self._fitting_params = FittingParameters()
 
+        # Cache for full FitResult objects (for display, not persisted)
+        # Key: (particle_id, channel_id, level_index) where level_index is None for particle fits
+        self._fit_cache: dict[tuple[int, int, int | None], FitResult] = {}
+
         # Settings dialog
         self._settings_dialog: SettingsDialog | None = None
 
@@ -171,10 +175,13 @@ class Application:
             if self._layout.intensity_tab:
                 self._layout.intensity_tab.set_on_resolve(self._on_resolve_from_tab)
 
-            # Set up lifetime tab fit callback
+            # Set up lifetime tab callbacks
             if self._layout.lifetime_tab:
                 self._layout.lifetime_tab.set_on_fit_requested(
                     self._on_fit_requested_from_tab
+                )
+                self._layout.lifetime_tab.set_on_level_selection_changed(
+                    self._on_level_selection_changed
                 )
 
             # Set up grouping tab callback
@@ -555,6 +562,7 @@ class Application:
             self._session.clustering_results.clear()
             self._session.particle_fits.clear()
             self._session.level_fits.clear()
+            self._fit_cache.clear()
             self._session.selected.clear()
             self._session.current_selection = None
 
@@ -965,6 +973,31 @@ class Application:
                 selected_level_index=selected_level_index,
             )
             self._fitting_dialog.show(self._fitting_params)
+
+    def _on_level_selection_changed(self, level_index: int | None) -> None:
+        """Handle level selection change from lifetime tab.
+
+        When the user selects a different level (or "Show All"), check if we have
+        a cached fit for that selection and display it.
+
+        Args:
+            level_index: The selected level index (0-based), or None for "all data".
+        """
+        if not self._session.current_selection:
+            return
+
+        particle_id = self._session.current_selection.particle_id
+        channel_id = self._session.current_selection.channel
+
+        # Look up cached fit for this level (or particle if level_index is None)
+        fit_result = self._fit_cache.get((particle_id, channel_id, level_index))
+
+        if fit_result and self._layout and self._layout.lifetime_tab:
+            self._layout.lifetime_tab.set_fit(fit_result)
+            logger.debug(
+                f"Restored cached fit for particle {particle_id}, "
+                f"channel {channel_id}, level {level_index}"
+            )
 
     def _on_fit_dialog_accepted(self, params: FittingParameters) -> None:
         """Handle fit dialog acceptance - run the fit(s).
@@ -1507,6 +1540,9 @@ class Application:
 
         # Create FitResultData for storage (scalars only)
         fit_data = FitResultData.from_fit_result(fit_result, level_index=level_id)
+
+        # Cache the full FitResult for display
+        self._fit_cache[(particle_id, channel_id, level_id)] = fit_result
 
         # Store in session
         if level_id is None:
