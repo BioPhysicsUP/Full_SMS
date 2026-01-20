@@ -105,6 +105,12 @@ class Application:
         # Key: (particle_id, channel_id, level_index) where level_index is None for particle fits
         self._fit_cache: dict[tuple[int, int, int | None], FitResult] = {}
 
+        # Cache for IRF data used in fits (for display, not persisted)
+        # Key: (particle_id, channel_id, level_index) -> (t_array, irf_array)
+        self._irf_cache: dict[
+            tuple[int, int, int | None], tuple[np.ndarray, np.ndarray]
+        ] = {}
+
         # Settings dialog
         self._settings_dialog: SettingsDialog | None = None
 
@@ -563,6 +569,7 @@ class Application:
             self._session.particle_fits.clear()
             self._session.level_fits.clear()
             self._fit_cache.clear()
+            self._irf_cache.clear()
             self._session.selected.clear()
             self._session.current_selection = None
 
@@ -990,10 +997,26 @@ class Application:
         channel_id = self._session.current_selection.channel
 
         # Look up cached fit for this level (or particle if level_index is None)
-        fit_result = self._fit_cache.get((particle_id, channel_id, level_index))
+        cache_key = (particle_id, channel_id, level_index)
+        fit_result = self._fit_cache.get(cache_key)
 
         if fit_result and self._layout and self._layout.lifetime_tab:
+            # Set IRF first (so it's available for fit curve computation)
+            if cache_key in self._irf_cache:
+                t_irf, irf_data = self._irf_cache[cache_key]
+                # Apply fitted shift to IRF display
+                # The shift aligns the IRF with its effective position during fitting
+                self._layout.lifetime_tab.set_irf(
+                    t_irf, irf_data, shift=fit_result.shift
+                )
+                # Also set raw IRF for full convolved curve computation
+                self._layout.lifetime_tab.set_raw_irf(irf_data)
+            else:
+                self._layout.lifetime_tab.clear_irf()
+
+            # Now set fit (can use IRF for full curve computation)
             self._layout.lifetime_tab.set_fit(fit_result)
+
             logger.debug(
                 f"Restored cached fit for particle {particle_id}, "
                 f"channel {channel_id}, level {level_index}"
@@ -1151,6 +1174,14 @@ class Application:
         # Mark as particle fit (no level)
         task_params["level_id"] = None
 
+        # Cache the IRF data for display if present
+        cache_key = (selection.particle_id, selection.channel, None)
+        if "irf" in task_params:
+            self._irf_cache[cache_key] = (t, task_params["irf"])
+        else:
+            # Clear any stale IRF cache for this fit
+            self._irf_cache.pop(cache_key, None)
+
         future = self._pool.submit(run_fit_task, task_params)
         self._pending_futures.append(future)
 
@@ -1193,6 +1224,14 @@ class Application:
         )
         # Mark as level fit
         task_params["level_id"] = level_index
+
+        # Cache the IRF data for display if present
+        cache_key = (selection.particle_id, selection.channel, level_index)
+        if "irf" in task_params:
+            self._irf_cache[cache_key] = (t, task_params["irf"])
+        else:
+            # Clear any stale IRF cache for this fit
+            self._irf_cache.pop(cache_key, None)
 
         future = self._pool.submit(run_fit_task, task_params)
         self._pending_futures.append(future)
@@ -1239,6 +1278,37 @@ class Application:
 
         if not params.background_auto:
             task_params["background"] = params.background_value
+
+        # Add IRF if requested
+        if params.use_irf and params.use_simulated_irf:
+            if params.fit_simulated_irf_fwhm:
+                # Fitting FWHM - pass parameters, IRF will be generated in fit_decay
+                task_params["fit_irf_fwhm"] = True
+                task_params["irf_fwhm_init"] = params.simulated_irf_fwhm
+                task_params["irf_fwhm_bounds"] = (
+                    params.simulated_irf_fwhm_min,
+                    params.simulated_irf_fwhm_max,
+                )
+                # Still generate initial IRF for display/caching purposes
+                # This will be replaced with fitted FWHM version after fit completes
+                from full_sms.analysis.lifetime import simulate_irf
+
+                irf, _ = simulate_irf(
+                    channelwidth=particle.channelwidth,
+                    fwhm=params.simulated_irf_fwhm,
+                    measured=counts.astype(np.float64),
+                )
+                task_params["irf"] = irf
+            else:
+                # Fixed FWHM - generate IRF and pass it
+                from full_sms.analysis.lifetime import simulate_irf
+
+                irf, _ = simulate_irf(
+                    channelwidth=particle.channelwidth,
+                    fwhm=params.simulated_irf_fwhm,
+                    measured=counts.astype(np.float64),
+                )
+                task_params["irf"] = irf
 
         return task_params
 
@@ -1536,6 +1606,8 @@ class Application:
             fit_end_index=data["fit_end_index"],
             background=data["background"],
             dw_bounds=data.get("dw_bounds"),
+            fitted_irf_fwhm=data.get("fitted_irf_fwhm"),
+            fitted_irf_fwhm_std=data.get("fitted_irf_fwhm_std"),
         )
 
         # Create FitResultData for storage (scalars only)
@@ -1545,19 +1617,22 @@ class Application:
         self._fit_cache[(particle_id, channel_id, level_id)] = fit_result
 
         # Store in session
+        fwhm_log = ""
+        if fit_result.fitted_irf_fwhm is not None:
+            fwhm_log = f", fwhm={fit_result.fitted_irf_fwhm:.3f}"
         if level_id is None:
             # Particle (full decay) fit
             self._session.set_particle_fit(particle_id, channel_id, fit_data)
             logger.info(
                 f"Particle fit complete for {particle_id}/{channel_id}: "
-                f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}"
+                f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}{fwhm_log}"
             )
         else:
             # Level-specific fit
             self._session.set_level_fit(particle_id, channel_id, level_id, fit_data)
             logger.info(
                 f"Level {level_id} fit complete for {particle_id}/{channel_id}: "
-                f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}"
+                f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}{fwhm_log}"
             )
 
         # Update the lifetime tab display (only if this is for the current selection)
@@ -1572,6 +1647,75 @@ class Application:
             # Only update display for particle fits or the currently selected level
             selected_level = self._layout.lifetime_tab.selected_level_index
             if level_id is None or level_id == selected_level:
+                # Set IRF first (so it's available for fit curve computation)
+                cache_key = (particle_id, channel_id, level_id)
+                if cache_key in self._irf_cache:
+                    t_irf, irf_data = self._irf_cache[cache_key]
+
+                    # If FWHM was fitted, regenerate IRF with fitted FWHM
+                    if fit_result.fitted_irf_fwhm is not None:
+                        from full_sms.analysis.lifetime import simulate_irf
+
+                        # Get channelwidth from current particle
+                        particle = self._session.get_particle(particle_id)
+                        if particle:
+                            ch_data = (
+                                particle.channel1
+                                if channel_id == 1
+                                else particle.channel2
+                            )
+                            if ch_data:
+                                channelwidth = particle.channelwidth
+                                # Get histogram for simulate_irf
+                                from full_sms.analysis.histograms import (
+                                    build_decay_histogram,
+                                )
+
+                                if level_id is not None:
+                                    # Level-specific histogram
+                                    cpa_result = self._session.get_cpa_result(
+                                        particle_id, channel_id
+                                    )
+                                    if cpa_result and level_id < len(cpa_result.levels):
+                                        level = cpa_result.levels[level_id]
+                                        level_microtimes = ch_data.microtimes[
+                                            level.start_index : level.end_index
+                                        ]
+                                        _, histogram = build_decay_histogram(
+                                            level_microtimes, channelwidth
+                                        )
+                                    else:
+                                        _, histogram = build_decay_histogram(
+                                            ch_data.microtimes, channelwidth
+                                        )
+                                else:
+                                    _, histogram = build_decay_histogram(
+                                        ch_data.microtimes, channelwidth
+                                    )
+
+                                # Regenerate IRF with fitted FWHM
+                                irf_data, _ = simulate_irf(
+                                    channelwidth,
+                                    fit_result.fitted_irf_fwhm,
+                                    histogram.astype(np.float64),
+                                )
+                                # Update cache with fitted IRF
+                                self._irf_cache[cache_key] = (t_irf, irf_data)
+                                logger.info(
+                                    f"Regenerated IRF with fitted FWHM={fit_result.fitted_irf_fwhm:.3f} ns"
+                                )
+
+                    # Apply fitted shift to IRF display
+                    self._layout.lifetime_tab.set_irf(
+                        t_irf, irf_data, shift=fit_result.shift
+                    )
+                    # Also set raw IRF for full convolved curve computation
+                    self._layout.lifetime_tab.set_raw_irf(irf_data)
+                else:
+                    # Clear IRF if this fit didn't use one
+                    self._layout.lifetime_tab.clear_irf()
+
+                # Now set fit (can use IRF for full curve computation)
                 self._layout.lifetime_tab.set_fit(fit_result)
 
         # Finish processing
@@ -1581,8 +1725,11 @@ class Application:
         if self._layout:
             tau_str = ", ".join(f"{t:.2f}" for t in fit_result.tau)
             level_info = f" (level {level_id})" if level_id is not None else ""
+            fwhm_info = ""
+            if fit_result.fitted_irf_fwhm is not None:
+                fwhm_info = f", FWHM = {fit_result.fitted_irf_fwhm:.3f} ns"
             self._layout.show_success(
-                f"Fit complete{level_info}: tau = {tau_str} ns, chi2 = {fit_result.chi_squared:.3f}"
+                f"Fit complete{level_info}: tau = {tau_str} ns, chi2 = {fit_result.chi_squared:.3f}{fwhm_info}"
             )
 
     def _handle_correlation_result(self, particle_id: int, data: dict) -> None:
@@ -1974,6 +2121,9 @@ class Application:
         if not self._session.current_selection:
             return
 
+        particle_id = self._session.current_selection.particle_id
+        channel_id = self._session.current_selection.channel
+
         # Get levels for current selection
         levels = self._session.get_current_levels()
         if levels:
@@ -1981,6 +2131,35 @@ class Application:
         else:
             # Clear levels when switching to a particle without levels
             self._layout.clear_lifetime_levels()
+
+        # After switching particles, restore fit for "all data" (level_index=None)
+        # since set_levels resets to "all data" view
+        cache_key = (particle_id, channel_id, None)
+        fit_result = self._fit_cache.get(cache_key)
+
+        if fit_result:
+            # Set IRF first (so it's available for fit curve computation)
+            if cache_key in self._irf_cache:
+                t_irf, irf_data = self._irf_cache[cache_key]
+                # Apply fitted shift to IRF display
+                self._layout.lifetime_tab.set_irf(
+                    t_irf, irf_data, shift=fit_result.shift
+                )
+                # Also set raw IRF for full convolved curve computation
+                self._layout.lifetime_tab.set_raw_irf(irf_data)
+            else:
+                self._layout.lifetime_tab.clear_irf()
+
+            # Now set fit (can use IRF for full curve computation)
+            self._layout.lifetime_tab.set_fit(fit_result)
+
+            logger.debug(
+                f"Restored cached fit for particle {particle_id}, channel {channel_id}"
+            )
+        else:
+            # Clear any stale fit/IRF display
+            self._layout.lifetime_tab.clear_fit()
+            self._layout.lifetime_tab.clear_irf()
 
     def _update_correlation_display(self) -> None:
         """Update the correlation tab display for the current selection."""

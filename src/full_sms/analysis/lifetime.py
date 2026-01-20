@@ -439,6 +439,9 @@ def fit_decay(
     background: Optional[float] = None,
     irf_background: Optional[float] = None,
     settings: Optional[FitSettings] = None,
+    fit_irf_fwhm: bool = False,
+    irf_fwhm_init: Optional[float] = None,
+    irf_fwhm_bounds: Optional[Tuple[float, float]] = None,
 ) -> FitResult:
     """Fit fluorescence decay data with exponential models.
 
@@ -466,6 +469,9 @@ def fit_decay(
         background: Pre-calculated decay background.
         irf_background: Pre-calculated IRF background.
         settings: Fit settings.
+        fit_irf_fwhm: Whether to fit the IRF FWHM (only for simulated IRF).
+        irf_fwhm_init: Initial guess for IRF FWHM in nanoseconds.
+        irf_fwhm_bounds: Bounds for FWHM as (min, max) in nanoseconds.
 
     Returns:
         FitResult containing fitted parameters and statistics.
@@ -560,19 +566,42 @@ def fit_decay(
     if shift_bounds is None:
         shift_bounds = (-2000.0, 2000.0)
 
+    # Set up FWHM fitting parameters
+    if fit_irf_fwhm:
+        if irf_fwhm_init is None:
+            irf_fwhm_init = 0.1  # Default 100 ps
+        if irf_fwhm_bounds is None:
+            irf_fwhm_bounds = (0.01, 2.0)  # 10 ps to 2 ns
+
     # Build fit function using closure
     n_channels = len(t)
 
     def make_convd_multi(
-        shift: float, taus: list[float], amps: list[float]
+        shift: float, taus: list[float], amps: list[float], fwhm: Optional[float] = None
     ) -> NDArray[np.float64]:
-        """Convolve multi-exponential model with shifted IRF."""
+        """Convolve multi-exponential model with shifted IRF.
+
+        If fwhm is provided, generates a simulated IRF with that FWHM.
+        Otherwise uses the pre-processed irf_processed from closure.
+        """
         # Build multi-exponential model
         model = np.zeros_like(t, dtype=np.float64)
         for tau_val, amp_val in zip(taus, amps):
             model += amp_val * np.exp(-t / tau_val)
 
-        irf_shifted = colorshift(irf_processed, shift)
+        # Get IRF (either from FWHM or pre-processed)
+        if fwhm is not None:
+            # Generate simulated IRF with this FWHM
+            irf_sim, _ = simulate_irf(channelwidth, fwhm, measured)
+            irf_bg = estimate_irf_background(irf_sim)
+            irf_to_use = irf_sim - irf_bg
+            irf_max = irf_to_use.max()
+            if irf_max > 0:
+                irf_to_use = irf_to_use / irf_max
+        else:
+            irf_to_use = irf_processed
+
+        irf_shifted = colorshift(irf_to_use, shift)
         # Use full convolution and take first n_channels elements
         convd = convolve(irf_shifted, model, mode="full")[:n_channels]
         # Slice to fit range and normalize
@@ -583,98 +612,202 @@ def fit_decay(
         return convd
 
     # Define fit functions for each number of exponentials
+    # When fit_irf_fwhm is True, FWHM is added as the last parameter
     if num_exponentials == 1:
+        if fit_irf_fwhm:
 
-        def fitfunc(
-            t_fit: NDArray, tau1: float, amp1: float, shift: float
-        ) -> NDArray[np.float64]:
-            """Single exponential fit function."""
-            return make_convd_multi(shift, [tau1], [amp1])
+            def fitfunc(
+                t_fit: NDArray, tau1: float, amp1: float, shift: float, fwhm: float
+            ) -> NDArray[np.float64]:
+                """Single exponential fit function with FWHM."""
+                return make_convd_multi(shift, [tau1], [amp1], fwhm=fwhm)
 
-        # Setup parameter bounds: [tau1, amp1, shift]
-        paramin = [tau_bounds[0], amp_bounds[0], shift_bounds[0]]
-        paramax = [tau_bounds[1], amp_bounds[1], shift_bounds[1]]
-        paraminit = [tau_init_list[0], amp_init_list[0], shift_init]
+            # Setup parameter bounds: [tau1, amp1, shift, fwhm]
+            paramin = [tau_bounds[0], amp_bounds[0], shift_bounds[0], irf_fwhm_bounds[0]]
+            paramax = [tau_bounds[1], amp_bounds[1], shift_bounds[1], irf_fwhm_bounds[1]]
+            paraminit = [tau_init_list[0], amp_init_list[0], shift_init, irf_fwhm_init]
+        else:
+
+            def fitfunc(
+                t_fit: NDArray, tau1: float, amp1: float, shift: float
+            ) -> NDArray[np.float64]:
+                """Single exponential fit function."""
+                return make_convd_multi(shift, [tau1], [amp1])
+
+            # Setup parameter bounds: [tau1, amp1, shift]
+            paramin = [tau_bounds[0], amp_bounds[0], shift_bounds[0]]
+            paramax = [tau_bounds[1], amp_bounds[1], shift_bounds[1]]
+            paraminit = [tau_init_list[0], amp_init_list[0], shift_init]
 
     elif num_exponentials == 2:
+        if fit_irf_fwhm:
 
-        def fitfunc(
-            t_fit: NDArray,
-            tau1: float,
-            tau2: float,
-            amp1: float,
-            amp2: float,
-            shift: float,
-        ) -> NDArray[np.float64]:
-            """Double exponential fit function."""
-            return make_convd_multi(shift, [tau1, tau2], [amp1, amp2])
+            def fitfunc(
+                t_fit: NDArray,
+                tau1: float,
+                tau2: float,
+                amp1: float,
+                amp2: float,
+                shift: float,
+                fwhm: float,
+            ) -> NDArray[np.float64]:
+                """Double exponential fit function with FWHM."""
+                return make_convd_multi(shift, [tau1, tau2], [amp1, amp2], fwhm=fwhm)
 
-        # Setup parameter bounds: [tau1, tau2, amp1, amp2, shift]
-        paramin = [
-            tau_bounds[0],
-            tau_bounds[0],
-            amp_bounds[0],
-            amp_bounds[0],
-            shift_bounds[0],
-        ]
-        paramax = [
-            tau_bounds[1],
-            tau_bounds[1],
-            amp_bounds[1],
-            amp_bounds[1],
-            shift_bounds[1],
-        ]
-        paraminit = [
-            tau_init_list[0],
-            tau_init_list[1],
-            amp_init_list[0],
-            amp_init_list[1],
-            shift_init,
-        ]
+            # Setup parameter bounds: [tau1, tau2, amp1, amp2, shift, fwhm]
+            paramin = [
+                tau_bounds[0],
+                tau_bounds[0],
+                amp_bounds[0],
+                amp_bounds[0],
+                shift_bounds[0],
+                irf_fwhm_bounds[0],
+            ]
+            paramax = [
+                tau_bounds[1],
+                tau_bounds[1],
+                amp_bounds[1],
+                amp_bounds[1],
+                shift_bounds[1],
+                irf_fwhm_bounds[1],
+            ]
+            paraminit = [
+                tau_init_list[0],
+                tau_init_list[1],
+                amp_init_list[0],
+                amp_init_list[1],
+                shift_init,
+                irf_fwhm_init,
+            ]
+        else:
+
+            def fitfunc(
+                t_fit: NDArray,
+                tau1: float,
+                tau2: float,
+                amp1: float,
+                amp2: float,
+                shift: float,
+            ) -> NDArray[np.float64]:
+                """Double exponential fit function."""
+                return make_convd_multi(shift, [tau1, tau2], [amp1, amp2])
+
+            # Setup parameter bounds: [tau1, tau2, amp1, amp2, shift]
+            paramin = [
+                tau_bounds[0],
+                tau_bounds[0],
+                amp_bounds[0],
+                amp_bounds[0],
+                shift_bounds[0],
+            ]
+            paramax = [
+                tau_bounds[1],
+                tau_bounds[1],
+                amp_bounds[1],
+                amp_bounds[1],
+                shift_bounds[1],
+            ]
+            paraminit = [
+                tau_init_list[0],
+                tau_init_list[1],
+                amp_init_list[0],
+                amp_init_list[1],
+                shift_init,
+            ]
 
     else:  # num_exponentials == 3
+        if fit_irf_fwhm:
 
-        def fitfunc(
-            t_fit: NDArray,
-            tau1: float,
-            tau2: float,
-            tau3: float,
-            amp1: float,
-            amp2: float,
-            amp3: float,
-            shift: float,
-        ) -> NDArray[np.float64]:
-            """Triple exponential fit function."""
-            return make_convd_multi(shift, [tau1, tau2, tau3], [amp1, amp2, amp3])
+            def fitfunc(
+                t_fit: NDArray,
+                tau1: float,
+                tau2: float,
+                tau3: float,
+                amp1: float,
+                amp2: float,
+                amp3: float,
+                shift: float,
+                fwhm: float,
+            ) -> NDArray[np.float64]:
+                """Triple exponential fit function with FWHM."""
+                return make_convd_multi(
+                    shift, [tau1, tau2, tau3], [amp1, amp2, amp3], fwhm=fwhm
+                )
 
-        # Setup parameter bounds: [tau1, tau2, tau3, amp1, amp2, amp3, shift]
-        paramin = [
-            tau_bounds[0],
-            tau_bounds[0],
-            tau_bounds[0],
-            amp_bounds[0],
-            amp_bounds[0],
-            amp_bounds[0],
-            shift_bounds[0],
-        ]
-        paramax = [
-            tau_bounds[1],
-            tau_bounds[1],
-            tau_bounds[1],
-            amp_bounds[1],
-            amp_bounds[1],
-            amp_bounds[1],
-            shift_bounds[1],
-        ]
-        paraminit = [
-            tau_init_list[0],
-            tau_init_list[1],
-            tau_init_list[2],
-            amp_init_list[0],
-            amp_init_list[1],
-            amp_init_list[2],
-            shift_init,
-        ]
+            # Setup parameter bounds: [tau1, tau2, tau3, amp1, amp2, amp3, shift, fwhm]
+            paramin = [
+                tau_bounds[0],
+                tau_bounds[0],
+                tau_bounds[0],
+                amp_bounds[0],
+                amp_bounds[0],
+                amp_bounds[0],
+                shift_bounds[0],
+                irf_fwhm_bounds[0],
+            ]
+            paramax = [
+                tau_bounds[1],
+                tau_bounds[1],
+                tau_bounds[1],
+                amp_bounds[1],
+                amp_bounds[1],
+                amp_bounds[1],
+                shift_bounds[1],
+                irf_fwhm_bounds[1],
+            ]
+            paraminit = [
+                tau_init_list[0],
+                tau_init_list[1],
+                tau_init_list[2],
+                amp_init_list[0],
+                amp_init_list[1],
+                amp_init_list[2],
+                shift_init,
+                irf_fwhm_init,
+            ]
+        else:
+
+            def fitfunc(
+                t_fit: NDArray,
+                tau1: float,
+                tau2: float,
+                tau3: float,
+                amp1: float,
+                amp2: float,
+                amp3: float,
+                shift: float,
+            ) -> NDArray[np.float64]:
+                """Triple exponential fit function."""
+                return make_convd_multi(shift, [tau1, tau2, tau3], [amp1, amp2, amp3])
+
+            # Setup parameter bounds: [tau1, tau2, tau3, amp1, amp2, amp3, shift]
+            paramin = [
+                tau_bounds[0],
+                tau_bounds[0],
+                tau_bounds[0],
+                amp_bounds[0],
+                amp_bounds[0],
+                amp_bounds[0],
+                shift_bounds[0],
+            ]
+            paramax = [
+                tau_bounds[1],
+                tau_bounds[1],
+                tau_bounds[1],
+                amp_bounds[1],
+                amp_bounds[1],
+                amp_bounds[1],
+                shift_bounds[1],
+            ]
+            paraminit = [
+                tau_init_list[0],
+                tau_init_list[1],
+                tau_init_list[2],
+                amp_init_list[0],
+                amp_init_list[1],
+                amp_init_list[2],
+                shift_init,
+            ]
 
     # Perform fit
     try:
@@ -692,6 +825,10 @@ def fit_decay(
     # Extract results based on number of exponentials
     stds = np.sqrt(np.diag(pcov))
 
+    # Initialize FWHM variables
+    fitted_fwhm: Optional[float] = None
+    fitted_fwhm_std: Optional[float] = None
+
     if num_exponentials == 1:
         tau_list = [param[0]]
         tau_std_list = [stds[0]]
@@ -699,6 +836,9 @@ def fit_decay(
         amp_std_list = [stds[1]]
         shift = param[2]
         shift_std = stds[2]
+        if fit_irf_fwhm:
+            fitted_fwhm = param[3]
+            fitted_fwhm_std = stds[3]
     elif num_exponentials == 2:
         tau_list = [param[0], param[1]]
         tau_std_list = [stds[0], stds[1]]
@@ -706,6 +846,9 @@ def fit_decay(
         amp_std_list = [stds[2], stds[3]]
         shift = param[4]
         shift_std = stds[4]
+        if fit_irf_fwhm:
+            fitted_fwhm = param[5]
+            fitted_fwhm_std = stds[5]
     else:  # num_exponentials == 3
         tau_list = [param[0], param[1], param[2]]
         tau_std_list = [stds[0], stds[1], stds[2]]
@@ -713,6 +856,9 @@ def fit_decay(
         amp_std_list = [stds[3], stds[4], stds[5]]
         shift = param[6]
         shift_std = stds[6]
+        if fit_irf_fwhm:
+            fitted_fwhm = param[7]
+            fitted_fwhm_std = stds[7]
 
     # Normalize amplitudes so they sum to 1
     amp_sum = sum(amp_list)
@@ -726,7 +872,7 @@ def fit_decay(
         amp_std_normalized = amp_std_list
 
     # Generate fitted curve using the fitted parameters
-    convd = make_convd_multi(shift, tau_list, amp_list)
+    convd = make_convd_multi(shift, tau_list, amp_list, fwhm=fitted_fwhm)
 
     # Calculate residuals
     measured_for_resid = measured[startpoint:endpoint]
@@ -741,8 +887,10 @@ def fit_decay(
     valid_residuals = residuals[np.isfinite(residuals)]
 
     # Chi-squared (reduced)
-    # Number of parameters: num_exp taus + num_exp amps + 1 shift
+    # Number of parameters: num_exp taus + num_exp amps + 1 shift (+ 1 fwhm if fitting)
     num_params = 2 * num_exponentials + 1
+    if fit_irf_fwhm:
+        num_params += 1
     dof = len(valid_residuals) - num_params - 1
     if dof <= 0:
         dof = 1
@@ -776,6 +924,8 @@ def fit_decay(
         fit_end_index=endpoint,
         background=background,
         dw_bounds=(dw_bounds_result[0], dw_bounds_result[1]),
+        fitted_irf_fwhm=fitted_fwhm,
+        fitted_irf_fwhm_std=fitted_fwhm_std,
     )
 
 

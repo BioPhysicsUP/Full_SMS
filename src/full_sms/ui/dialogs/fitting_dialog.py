@@ -64,6 +64,9 @@ class FittingParameters:
         shift_max: Maximum IRF shift bound.
         use_simulated_irf: Whether to use simulated IRF.
         simulated_irf_fwhm: FWHM for simulated IRF in nanoseconds.
+        fit_simulated_irf_fwhm: Whether to fit the FWHM (only for simulated IRF).
+        simulated_irf_fwhm_min: Minimum bound for fitted FWHM.
+        simulated_irf_fwhm_max: Maximum bound for fitted FWHM.
         start_mode: Automatic startpoint detection mode.
         start_channel: Manual start channel index.
         auto_end: Whether to automatically determine endpoint.
@@ -85,6 +88,9 @@ class FittingParameters:
     shift_max: float = 2000.0
     use_simulated_irf: bool = False
     simulated_irf_fwhm: float = 0.1
+    fit_simulated_irf_fwhm: bool = False
+    simulated_irf_fwhm_min: float = 0.01
+    simulated_irf_fwhm_max: float = 2.0
     start_mode: StartpointMode = StartpointMode.CLOSE_TO_MAX
     start_channel: Optional[int] = None
     auto_end: bool = True
@@ -130,6 +136,10 @@ class FittingDialogTags:
     shift_max: str = "fitting_shift_max"
     use_simulated_irf: str = "fitting_use_simulated_irf"
     simulated_irf_fwhm: str = "fitting_simulated_irf_fwhm"
+    fit_simulated_irf_fwhm: str = "fitting_fit_simulated_irf_fwhm"
+    simulated_irf_fwhm_min: str = "fitting_simulated_irf_fwhm_min"
+    simulated_irf_fwhm_max: str = "fitting_simulated_irf_fwhm_max"
+    simulated_irf_fwhm_bounds_row: str = "fitting_simulated_irf_fwhm_bounds_row"
     irf_group: str = "fitting_irf_group"
     simulated_irf_row: str = "fitting_simulated_irf_row"
     # Fit range
@@ -196,6 +206,10 @@ class FittingDialog:
             shift_max=f"{tag_prefix}fitting_shift_max",
             use_simulated_irf=f"{tag_prefix}fitting_use_simulated_irf",
             simulated_irf_fwhm=f"{tag_prefix}fitting_simulated_irf_fwhm",
+            fit_simulated_irf_fwhm=f"{tag_prefix}fitting_fit_simulated_irf_fwhm",
+            simulated_irf_fwhm_min=f"{tag_prefix}fitting_simulated_irf_fwhm_min",
+            simulated_irf_fwhm_max=f"{tag_prefix}fitting_simulated_irf_fwhm_max",
+            simulated_irf_fwhm_bounds_row=f"{tag_prefix}fitting_simulated_irf_fwhm_bounds_row",
             irf_group=f"{tag_prefix}fitting_irf_group",
             simulated_irf_row=f"{tag_prefix}fitting_simulated_irf_row",
             start_mode_combo=f"{tag_prefix}fitting_start_mode",
@@ -399,6 +413,33 @@ class FittingDialog:
                         width=70,
                         label="FWHM (ns)",
                         enabled=False,
+                    )
+                    dpg.add_checkbox(
+                        label="Fit FWHM",
+                        tag=self._tags.fit_simulated_irf_fwhm,
+                        default_value=False,
+                        callback=self._on_fit_fwhm_changed,
+                        enabled=False,
+                    )
+
+                # FWHM bounds (only shown when fitting FWHM)
+                with dpg.group(
+                    horizontal=True,
+                    tag=self._tags.simulated_irf_fwhm_bounds_row,
+                    show=False,
+                ):
+                    dpg.add_text("FWHM bounds:", indent=40)
+                    dpg.add_input_float(
+                        tag=self._tags.simulated_irf_fwhm_min,
+                        default_value=0.01,
+                        width=60,
+                        label="min",
+                    )
+                    dpg.add_input_float(
+                        tag=self._tags.simulated_irf_fwhm_max,
+                        default_value=2.0,
+                        width=60,
+                        label="max (ns)",
                     )
 
                 # Shift parameters
@@ -624,6 +665,13 @@ class FittingDialog:
         dpg.set_value(self._tags.shift_max, p.shift_max)
         dpg.set_value(self._tags.use_simulated_irf, p.use_simulated_irf)
         dpg.set_value(self._tags.simulated_irf_fwhm, p.simulated_irf_fwhm)
+        dpg.set_value(self._tags.fit_simulated_irf_fwhm, p.fit_simulated_irf_fwhm)
+        dpg.set_value(self._tags.simulated_irf_fwhm_min, p.simulated_irf_fwhm_min)
+        dpg.set_value(self._tags.simulated_irf_fwhm_max, p.simulated_irf_fwhm_max)
+        # Update UI state based on simulated IRF settings
+        self._on_use_simulated_irf_changed(
+            self._tags.use_simulated_irf, p.use_simulated_irf
+        )
 
         # Fit range
         dpg.set_value(self._tags.start_mode_combo, p.start_mode.value)
@@ -708,6 +756,9 @@ class FittingDialog:
             shift_max=dpg.get_value(self._tags.shift_max),
             use_simulated_irf=dpg.get_value(self._tags.use_simulated_irf),
             simulated_irf_fwhm=dpg.get_value(self._tags.simulated_irf_fwhm),
+            fit_simulated_irf_fwhm=dpg.get_value(self._tags.fit_simulated_irf_fwhm),
+            simulated_irf_fwhm_min=dpg.get_value(self._tags.simulated_irf_fwhm_min),
+            simulated_irf_fwhm_max=dpg.get_value(self._tags.simulated_irf_fwhm_max),
             start_mode=start_mode,
             start_channel=start_channel,
             auto_end=auto_end,
@@ -775,6 +826,20 @@ class FittingDialog:
         """Handle use simulated IRF checkbox change."""
         if dpg.does_item_exist(self._tags.simulated_irf_fwhm):
             dpg.configure_item(self._tags.simulated_irf_fwhm, enabled=app_data)
+        if dpg.does_item_exist(self._tags.fit_simulated_irf_fwhm):
+            dpg.configure_item(self._tags.fit_simulated_irf_fwhm, enabled=app_data)
+            if not app_data:
+                # Hide FWHM bounds row when simulated IRF is disabled
+                dpg.configure_item(self._tags.simulated_irf_fwhm_bounds_row, show=False)
+            else:
+                # Update bounds visibility based on fit FWHM checkbox
+                fit_fwhm = dpg.get_value(self._tags.fit_simulated_irf_fwhm)
+                dpg.configure_item(self._tags.simulated_irf_fwhm_bounds_row, show=fit_fwhm)
+
+    def _on_fit_fwhm_changed(self, sender: int, app_data: bool) -> None:
+        """Handle fit FWHM checkbox change."""
+        if dpg.does_item_exist(self._tags.simulated_irf_fwhm_bounds_row):
+            dpg.configure_item(self._tags.simulated_irf_fwhm_bounds_row, show=app_data)
 
     def _on_start_mode_changed(self, sender: int, app_data: str) -> None:
         """Handle start mode combo change."""

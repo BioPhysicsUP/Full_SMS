@@ -33,6 +33,8 @@ class FitResultData:
         num_exponentials: Number of exponential components.
         average_lifetime: Amplitude-weighted average lifetime.
         level_index: Optional level index if this is a level-specific fit.
+        fitted_irf_fwhm: Fitted IRF FWHM in nanoseconds (None if not fitted).
+        fitted_irf_fwhm_std: Standard error of fitted FWHM (None if not fitted).
     """
 
     tau: Tuple[float, ...]
@@ -50,6 +52,8 @@ class FitResultData:
     num_exponentials: int
     average_lifetime: float
     level_index: Optional[int] = None
+    fitted_irf_fwhm: Optional[float] = None
+    fitted_irf_fwhm_std: Optional[float] = None
 
     @classmethod
     def from_fit_result(
@@ -80,6 +84,8 @@ class FitResultData:
             num_exponentials=fit_result.num_exponentials,
             average_lifetime=fit_result.average_lifetime,
             level_index=level_index,
+            fitted_irf_fwhm=fit_result.fitted_irf_fwhm,
+            fitted_irf_fwhm_std=fit_result.fitted_irf_fwhm_std,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -100,6 +106,8 @@ class FitResultData:
             "num_exponentials": self.num_exponentials,
             "average_lifetime": self.average_lifetime,
             "level_index": self.level_index,
+            "fitted_irf_fwhm": self.fitted_irf_fwhm,
+            "fitted_irf_fwhm_std": self.fitted_irf_fwhm_std,
         }
 
     @classmethod
@@ -128,6 +136,8 @@ class FitResultData:
             num_exponentials=data["num_exponentials"],
             average_lifetime=data["average_lifetime"],
             level_index=data.get("level_index"),
+            fitted_irf_fwhm=data.get("fitted_irf_fwhm"),
+            fitted_irf_fwhm_std=data.get("fitted_irf_fwhm_std"),
         )
 
     @property
@@ -167,6 +177,8 @@ class FitResult:
         background: Background value used in fit.
         num_exponentials: Number of exponential components (1, 2, or 3).
         average_lifetime: Amplitude-weighted average lifetime in nanoseconds.
+        fitted_irf_fwhm: Fitted IRF FWHM in nanoseconds (None if not fitted).
+        fitted_irf_fwhm_std: Standard error of fitted FWHM (None if not fitted).
     """
 
     tau: Tuple[float, ...]
@@ -185,6 +197,8 @@ class FitResult:
     background: float
     num_exponentials: int
     average_lifetime: float
+    fitted_irf_fwhm: Optional[float] = None
+    fitted_irf_fwhm_std: Optional[float] = None
 
     @property
     def is_good_fit(self) -> bool:
@@ -256,6 +270,8 @@ class FitResult:
         fit_end_index: int,
         background: float,
         dw_bounds: Optional[Tuple[float, float]] = None,
+        fitted_irf_fwhm: Optional[float] = None,
+        fitted_irf_fwhm_std: Optional[float] = None,
     ) -> "FitResult":
         """Create a FitResult from fit parameters.
 
@@ -276,6 +292,8 @@ class FitResult:
             fit_end_index: End index of fitting range.
             background: Background value used in fit.
             dw_bounds: Optional Durbin-Watson critical bounds.
+            fitted_irf_fwhm: Fitted IRF FWHM in nanoseconds (None if not fitted).
+            fitted_irf_fwhm_std: Standard error of fitted FWHM (None if not fitted).
 
         Returns:
             A new FitResult instance.
@@ -307,4 +325,6 @@ class FitResult:
             background=background,
             num_exponentials=num_exp,
             average_lifetime=avg_lifetime,
+            fitted_irf_fwhm=fitted_irf_fwhm,
+            fitted_irf_fwhm_std=fitted_irf_fwhm_std,
         )

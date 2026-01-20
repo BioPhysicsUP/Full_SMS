@@ -904,6 +904,7 @@ class LifetimeTab:
         t: NDArray[np.float64],
         counts: NDArray[np.float64],
         normalize: bool = True,
+        shift: float = 0.0,
     ) -> None:
         """Set the IRF data and display it.
 
@@ -911,15 +912,29 @@ class LifetimeTab:
             t: Time array in nanoseconds.
             counts: Count array.
             normalize: If True, normalize IRF to match data peak.
+            shift: Time shift to apply to IRF in nanoseconds (from fit result).
         """
         if self._decay_plot:
-            self._decay_plot.set_irf(t, counts, normalize=normalize)
+            self._decay_plot.set_irf(t, counts, normalize=normalize, shift=shift)
 
         # Enable the show IRF checkbox
         if dpg.does_item_exist(self._tags.show_irf_checkbox):
             dpg.configure_item(self._tags.show_irf_checkbox, enabled=True)
 
-        logger.debug(f"IRF set: {len(t)} points")
+        logger.debug(f"IRF set: {len(t)} points, shift={shift:.3f} ns")
+
+    def set_raw_irf(self, irf: NDArray[np.float64]) -> None:
+        """Store raw IRF data for computing full convolved fit curve.
+
+        This enables the decay plot to compute and display the full convolved
+        fit including the rising edge.
+
+        Args:
+            irf: Raw IRF array (same length as decay histogram).
+        """
+        if self._decay_plot:
+            self._decay_plot.set_raw_irf(irf)
+        logger.debug(f"Raw IRF set: {len(irf)} points")
 
     def clear_irf(self) -> None:
         """Clear the IRF data."""

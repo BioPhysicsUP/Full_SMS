@@ -158,6 +158,9 @@ def run_fit_task(params: dict[str, Any]) -> dict[str, Any]:
             - autoend (bool, optional): Auto-detect endpoint (default False).
             - background (float, optional): Pre-calculated background.
             - irf_background (float, optional): Pre-calculated IRF background.
+            - fit_irf_fwhm (bool, optional): Fit IRF FWHM (default False).
+            - irf_fwhm_init (float, optional): Initial FWHM guess in nanoseconds.
+            - irf_fwhm_bounds (tuple[float, float], optional): FWHM bounds.
             - particle_id (Any, optional): Identifier to include in result.
             - channel_id (Any, optional): Channel identifier to include in result.
             - level_id (Any, optional): Level identifier to include in result.
@@ -181,6 +184,8 @@ def run_fit_task(params: dict[str, Any]) -> dict[str, Any]:
             - background (float): Background used.
             - num_exponentials (int): Number of exponential components.
             - average_lifetime (float): Amplitude-weighted average lifetime.
+            - fitted_irf_fwhm (float or None): Fitted IRF FWHM if fit_irf_fwhm=True.
+            - fitted_irf_fwhm_std (float or None): Standard error of fitted FWHM.
             - particle_id, channel_id, level_id, group_id: Original identifiers.
             - error (str or None): Error message if fitting failed.
     """
@@ -209,6 +214,11 @@ def run_fit_task(params: dict[str, Any]) -> dict[str, Any]:
     background = params.get("background")
     irf_background = params.get("irf_background")
     autoend = params.get("autoend", False)
+
+    # Extract FWHM fitting parameters
+    fit_irf_fwhm = params.get("fit_irf_fwhm", False)
+    irf_fwhm_init = params.get("irf_fwhm_init")
+    irf_fwhm_bounds = params.get("irf_fwhm_bounds")
 
     # Convert autostart string to enum
     autostart_str = params.get("autostart", "Manual")
@@ -246,6 +256,9 @@ def run_fit_task(params: dict[str, Any]) -> dict[str, Any]:
             autoend=autoend,
             background=background,
             irf_background=irf_background,
+            fit_irf_fwhm=fit_irf_fwhm,
+            irf_fwhm_init=irf_fwhm_init,
+            irf_fwhm_bounds=irf_fwhm_bounds,
         )
 
         # Convert FitResult to dict
@@ -267,6 +280,8 @@ def run_fit_task(params: dict[str, Any]) -> dict[str, Any]:
                 "background": result.background,
                 "num_exponentials": result.num_exponentials,
                 "average_lifetime": result.average_lifetime,
+                "fitted_irf_fwhm": result.fitted_irf_fwhm,
+                "fitted_irf_fwhm_std": result.fitted_irf_fwhm_std,
             }
         )
 

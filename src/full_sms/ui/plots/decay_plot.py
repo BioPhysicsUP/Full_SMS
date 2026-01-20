@@ -13,6 +13,7 @@ from typing import Optional
 import dearpygui.dearpygui as dpg
 import numpy as np
 from numpy.typing import NDArray
+from scipy.signal import convolve
 
 from full_sms.analysis.histograms import build_decay_histogram
 from full_sms.models.fit import FitResult
@@ -82,6 +83,9 @@ class DecayPlot:
         self._irf_t: NDArray[np.float64] | None = None
         self._irf_counts: NDArray[np.float64] | None = None
         self._show_irf: bool = False
+
+        # Raw IRF data for convolution computation (stored separately from display IRF)
+        self._raw_irf: NDArray[np.float64] | None = None
 
         # Generate unique tags
         self._tags = DecayPlotTags(
@@ -274,6 +278,7 @@ class DecayPlot:
         """Clear the plot data."""
         self._t = None
         self._counts = None
+        self._raw_irf = None
         self._update_series()
         self.clear_fit()
         self.clear_irf()
@@ -449,11 +454,61 @@ class DecayPlot:
         """Whether the fit curve is currently visible."""
         return self._show_fit
 
+    def set_raw_irf(self, irf: NDArray[np.float64]) -> None:
+        """Store raw IRF data for computing full convolved fit curve.
+
+        This IRF is used internally for convolution computation when set_fit
+        is called. It should be the normalized IRF as used during fitting.
+
+        Args:
+            irf: Raw IRF array (same length as decay histogram).
+        """
+        self._raw_irf = irf
+
+    def clear_raw_irf(self) -> None:
+        """Clear the stored raw IRF data."""
+        self._raw_irf = None
+
+    def _colorshift(
+        self, irf: NDArray[np.float64], shift: float
+    ) -> NDArray[np.float64]:
+        """Shift IRF with periodic wrapping (same as lifetime.colorshift).
+
+        Args:
+            irf: Instrument response function.
+            shift: Amount to shift in channels (can be non-integer).
+
+        Returns:
+            Shifted IRF.
+        """
+        irf = irf.flatten()
+        irf_length = len(irf)
+        t = np.arange(irf_length)
+
+        # Calculate indices for interpolation
+        new_index_left = np.fmod(
+            np.fmod(t - np.floor(shift), irf_length) + irf_length, irf_length
+        ).astype(int)
+        new_index_right = np.fmod(
+            np.fmod(t - np.ceil(shift), irf_length) + irf_length, irf_length
+        ).astype(int)
+
+        # Interpolate between integer shifts
+        integer_left_shift = irf[new_index_left]
+        integer_right_shift = irf[new_index_right]
+
+        irs = (1 - shift + np.floor(shift)) * integer_left_shift + (
+            shift - np.floor(shift)
+        ) * integer_right_shift
+
+        return irs
+
     def set_fit(self, fit_result: FitResult) -> None:
         """Set the fit result and display the fit curve.
 
-        The fit curve is rendered over the time range specified in the FitResult.
-        The fit curve is scaled and positioned to match the data histogram.
+        If raw IRF data is available (via set_raw_irf), computes the full
+        convolved fit curve including the rising edge. Otherwise, uses the
+        pre-computed fitted curve and extrapolates to the right only.
 
         Args:
             fit_result: The FitResult containing the fitted curve data.
@@ -467,18 +522,62 @@ class DecayPlot:
             logger.warning("Cannot display fit without data")
             return
 
-        # Extract fit curve from the result
-        fitted_curve = fit_result.fitted_curve
+        # Get fit parameters
         fit_start = fit_result.fit_start_index
         fit_end = fit_result.fit_end_index
+        background = fit_result.background
+        avg_tau = fit_result.average_lifetime
 
-        # Get the corresponding time values from our data
+        # Check if fit range is valid
         if fit_start >= len(self._t) or fit_end > len(self._t):
             logger.warning(
                 f"Fit range [{fit_start}:{fit_end}] exceeds data length {len(self._t)}"
             )
             return
 
+        # Try to compute full convolved curve if we have raw IRF data
+        if (
+            self._raw_irf is not None
+            and len(self._raw_irf) == len(self._t)
+            and self._counts is not None
+        ):
+            try:
+                full_curve = self._compute_full_convolved_curve(fit_result)
+                if full_curve is not None:
+                    # Use full curve - it covers the entire data range
+                    fit_t = self._t.copy()
+                    fitted_curve = full_curve
+
+                    # Extend to the right using exponential decay
+                    # (full_curve already covers the data range, but we extend further)
+                    # Actually the full_curve covers the same range as data,
+                    # so no further extension is needed here
+
+                    # For log scale, clip to minimum 0.5
+                    if self._log_scale:
+                        display_fit = np.maximum(fitted_curve, 0.5)
+                    else:
+                        display_fit = fitted_curve
+
+                    # Update the fit series
+                    dpg.configure_item(
+                        self._tags.fit_series,
+                        x=fit_t.tolist(),
+                        y=display_fit.tolist(),
+                        show=self._show_fit,
+                    )
+
+                    logger.debug(
+                        f"Full convolved fit curve set: {len(fit_t)} points, "
+                        f"chi2={fit_result.chi_squared:.3f}"
+                    )
+                    return
+            except Exception as e:
+                logger.warning(f"Failed to compute full convolved curve: {e}")
+                # Fall through to use original fitted curve
+
+        # Fallback: Use the pre-computed fitted curve from fit result
+        fitted_curve = fit_result.fitted_curve
         fit_t = self._t[fit_start:fit_end]
 
         # Ensure fitted curve matches the expected length
@@ -487,14 +586,24 @@ class DecayPlot:
                 f"Fit curve length {len(fitted_curve)} doesn't match "
                 f"time range length {len(fit_t)}"
             )
-            # Trim to match
             min_len = min(len(fitted_curve), len(fit_t))
             fitted_curve = fitted_curve[:min_len]
             fit_t = fit_t[:min_len]
 
-        # For log scale, replace zeros/negatives with small positive value
+        # Extrapolate to the right using exponential decay
+        if fit_end < len(self._t) and len(fitted_curve) > 0 and avg_tau > 0:
+            extra_t_right = self._t[fit_end:]
+            t0_right = fit_t[-1]
+            end_value = fitted_curve[-1]
+            extra_curve_right = background + (end_value - background) * np.exp(
+                -(extra_t_right - t0_right) / avg_tau
+            )
+            fit_t = np.concatenate([fit_t, extra_t_right])
+            fitted_curve = np.concatenate([fitted_curve, extra_curve_right])
+
+        # For log scale, clip to minimum 0.5
         if self._log_scale:
-            display_fit = np.where(fitted_curve > 0, fitted_curve, 0.5)
+            display_fit = np.maximum(fitted_curve, 0.5)
         else:
             display_fit = fitted_curve
 
@@ -507,9 +616,83 @@ class DecayPlot:
         )
 
         logger.debug(
-            f"Fit curve set: {len(fit_t)} points, "
+            f"Fit curve set: {len(fit_t)} points (extrapolated), "
             f"chi2={fit_result.chi_squared:.3f}"
         )
+
+    def _compute_full_convolved_curve(
+        self, fit_result: FitResult
+    ) -> Optional[NDArray[np.float64]]:
+        """Compute the full convolved fit curve for the entire data range.
+
+        This replicates the convolution computation from the fitting algorithm
+        but produces the curve for the full time range, not just the fit range.
+
+        Args:
+            fit_result: The fit result with parameters.
+
+        Returns:
+            Full convolved curve array, or None if computation fails.
+        """
+        if self._raw_irf is None or self._t is None or self._counts is None:
+            return None
+
+        # Get fit parameters
+        taus = list(fit_result.tau)
+        amps = list(fit_result.amplitude)
+        shift_ns = fit_result.shift
+        background = fit_result.background
+        fit_start = fit_result.fit_start_index
+        fit_end = fit_result.fit_end_index
+
+        # Convert shift from nanoseconds to channels
+        shift_channels = shift_ns / self._channelwidth
+
+        # Prepare IRF (subtract background and normalize)
+        irf = self._raw_irf.copy()
+        # Estimate IRF background from first 20 channels
+        irf_bg = np.mean(irf[:20]) if len(irf) >= 20 else 0
+        irf_processed = irf - irf_bg
+        irf_max = irf_processed.max()
+        if irf_max > 0:
+            irf_processed = irf_processed / irf_max
+
+        # Build time axis in channel units for model (relative to start)
+        n_channels = len(self._t)
+        t_channels = np.arange(n_channels) * self._channelwidth
+
+        # Build multi-exponential model
+        model = np.zeros(n_channels, dtype=np.float64)
+        for tau_val, amp_val in zip(taus, amps):
+            if tau_val > 0:
+                model += amp_val * np.exp(-t_channels / tau_val)
+
+        # Apply IRF shift and convolve
+        irf_shifted = self._colorshift(irf_processed, shift_channels)
+        convd = convolve(irf_shifted, model, mode="full")[:n_channels]
+
+        # Normalize to match the fit range intensity
+        # Use the same normalization as the fitting algorithm
+        measured_in_range = self._counts[fit_start:fit_end].astype(np.float64)
+        measured_bg_sub = measured_in_range - background
+        measured_bg_sub[measured_bg_sub <= 0] = 0
+        meas_sum = np.sum(measured_bg_sub)
+
+        if meas_sum <= 0:
+            return None
+
+        # Normalize convolved curve within fit range
+        convd_in_range = convd[fit_start:fit_end]
+        convd_sum = convd_in_range.sum()
+        if convd_sum > 0:
+            # Scale full curve to match measured intensity
+            bg_norm = background / meas_sum
+            convd_normalized = convd / convd_sum
+            full_curve = (convd_normalized + bg_norm) * meas_sum
+        else:
+            return None
+
+        return full_curve
 
     def clear_fit(self) -> None:
         """Clear the fit curve overlay."""
@@ -568,16 +751,19 @@ class DecayPlot:
         t: NDArray[np.float64],
         counts: NDArray[np.float64],
         normalize: bool = True,
+        shift: float = 0.0,
     ) -> None:
         """Set the IRF data and display it on the plot.
 
         The IRF is typically displayed normalized to match the peak of the
-        decay data for easier visual comparison.
+        decay data for easier visual comparison. Only the significant part
+        of the IRF is shown (values above 1% of peak).
 
         Args:
             t: Time array in nanoseconds.
             counts: Count array.
             normalize: If True, normalize IRF to match data peak.
+            shift: Time shift to apply to IRF in nanoseconds (from fit result).
         """
         self._irf_t = t
         self._irf_counts = counts
@@ -589,6 +775,9 @@ class DecayPlot:
             self.clear_irf()
             return
 
+        # Apply shift to time array
+        display_t = t + shift
+
         # Normalize IRF to match data peak if requested and data is available
         display_counts = counts.astype(np.float64)
         if normalize and self._counts is not None and len(self._counts) > 0:
@@ -597,19 +786,35 @@ class DecayPlot:
             if irf_max > 0:
                 display_counts = counts * (data_max / irf_max)
 
-        # For log scale, replace zeros with small value
-        if self._log_scale:
-            display_counts = np.where(display_counts > 0, display_counts, 0.5)
+        # Determine minimum display value: use 0.5 to match bar chart visual baseline
+        # (bars on log scale don't extend below ~0.5 visually)
+        min_display = 0.5
+
+        # Trim IRF to only show significant part (above min_display threshold)
+        # Include one extra point on each side so we can extend to exactly min_display
+        significant_mask = display_counts >= min_display
+
+        if np.any(significant_mask):
+            # Find contiguous region around peak
+            significant_indices = np.where(significant_mask)[0]
+            start_idx = max(0, significant_indices[0] - 1)
+            end_idx = min(len(display_t), significant_indices[-1] + 2)
+
+            display_t = display_t[start_idx:end_idx]
+            display_counts = display_counts[start_idx:end_idx]
+
+        # Clip small values to min_display for clean log scale display
+        display_counts = np.maximum(display_counts, min_display)
 
         # Update the IRF series
         dpg.configure_item(
             self._tags.irf_series,
-            x=t.tolist(),
+            x=display_t.tolist(),
             y=display_counts.tolist(),
             show=self._show_irf,
         )
 
-        logger.debug(f"IRF set: {len(t)} points")
+        logger.debug(f"IRF set: {len(display_t)} points (trimmed from {len(t)})")
 
     def clear_irf(self) -> None:
         """Clear the IRF overlay."""
