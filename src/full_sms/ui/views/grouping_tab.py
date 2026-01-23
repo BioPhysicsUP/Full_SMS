@@ -1,19 +1,27 @@
 """Grouping analysis tab view.
 
 Provides the BIC optimization curve visualization and group count selection
-for hierarchical clustering results.
+for hierarchical clustering results. Includes an intensity plot with group
+band visualization.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 import dearpygui.dearpygui as dpg
+import numpy as np
+from numpy.typing import NDArray
 
 from full_sms.models.group import ClusteringResult, GroupData
+from full_sms.models.level import LevelData
 from full_sms.ui.plots.bic_plot import BICPlot
+from full_sms.ui.plots.intensity_plot import IntensityPlot
+
+# Height of the compact intensity plot in the grouping tab
+GROUPING_INTENSITY_PLOT_HEIGHT = 400
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +57,9 @@ class GroupingTabTags:
     group_list_group: str = "grouping_tab_group_list_group"
     group_list_header: str = "grouping_tab_group_list_header"
     group_table: str = "grouping_tab_group_table"
+    # Intensity plot for group visualization
+    intensity_plot_group: str = "grouping_tab_intensity_plot_group"
+    intensity_plot_container: str = "grouping_tab_intensity_plot_container"
 
 
 GROUPING_TAB_TAGS = GroupingTabTags()
@@ -91,8 +102,15 @@ class GroupingTab:
         self._use_lifetime: bool = False
         self._global_grouping: bool = False
 
+        # Intensity plot data state
+        self._abstimes: NDArray[np.uint64] | None = None
+        self._bin_size_ms: float = 10.0
+        self._levels: list[LevelData] | None = None
+        self._group_band_tags: list[str] = []  # Tags for group band shade series
+
         # UI components
         self._bic_plot: BICPlot | None = None
+        self._intensity_plot: IntensityPlot | None = None
 
         # Generate unique tags
         self._tags = GroupingTabTags(
@@ -120,6 +138,8 @@ class GroupingTab:
             group_list_group=f"{tag_prefix}grouping_tab_group_list_group",
             group_list_header=f"{tag_prefix}grouping_tab_group_list_header",
             group_table=f"{tag_prefix}grouping_tab_group_table",
+            intensity_plot_group=f"{tag_prefix}grouping_tab_intensity_plot_group",
+            intensity_plot_container=f"{tag_prefix}grouping_tab_intensity_plot_container",
         )
 
     @property
@@ -136,6 +156,11 @@ class GroupingTab:
     def has_data(self) -> bool:
         """Whether the tab has clustering data loaded."""
         return self._clustering_result is not None
+
+    @property
+    def intensity_plot(self) -> IntensityPlot | None:
+        """Get the intensity plot widget."""
+        return self._intensity_plot
 
     @property
     def clustering_result(self) -> Optional[ClusteringResult]:
@@ -215,24 +240,42 @@ class GroupingTab:
                 # Plot area (hidden until data loaded)
                 with dpg.group(
                     tag=self._tags.plot_area,
-                    horizontal=True,
                     show=False,
                 ):
-                    # Left side: BIC plot
-                    with dpg.child_window(
-                        border=False,
-                        width=-250,  # Leave room for group list
-                        autosize_y=True,
+                    # Intensity plot with group bands (top, compact)
+                    with dpg.group(
+                        tag=self._tags.intensity_plot_group,
+                        show=False,  # Hidden until intensity data is set
                     ):
-                        self._bic_plot = BICPlot(
-                            parent=dpg.last_item(),
-                            tag_prefix=f"{self._tag_prefix}main_",
-                        )
-                        self._bic_plot.build()
-                        self._bic_plot.set_on_group_selected(self._on_bic_point_selected)
+                        with dpg.child_window(
+                            tag=self._tags.intensity_plot_container,
+                            border=False,
+                            autosize_x=True,
+                            height=GROUPING_INTENSITY_PLOT_HEIGHT,
+                        ):
+                            self._intensity_plot = IntensityPlot(
+                                parent=dpg.last_container(),
+                                tag_prefix=f"{self._tag_prefix}grouping_int_",
+                            )
+                            self._intensity_plot.build(show_legend=False)
 
-                    # Right side: Group list
-                    self._build_group_list()
+                    # Horizontal layout for BIC plot and group list
+                    with dpg.group(horizontal=True):
+                        # Left side: BIC plot
+                        with dpg.child_window(
+                            border=False,
+                            width=-320,  # Leave room for group list
+                            autosize_y=True,
+                        ):
+                            self._bic_plot = BICPlot(
+                                parent=dpg.last_item(),
+                                tag_prefix=f"{self._tag_prefix}main_",
+                            )
+                            self._bic_plot.build()
+                            self._bic_plot.set_on_group_selected(self._on_bic_point_selected)
+
+                        # Right side: Group list
+                        self._build_group_list()
 
         self._is_built = True
         logger.debug("Grouping tab built")
@@ -385,7 +428,7 @@ class GroupingTab:
         """Build the group list panel."""
         with dpg.child_window(
             tag=self._tags.group_list_group,
-            width=240,
+            width=310,
             border=True,
             autosize_y=True,
         ):
@@ -408,9 +451,9 @@ class GroupingTab:
                 row_background=True,
                 resizable=True,
             ):
-                dpg.add_table_column(label="ID", width_fixed=True, init_width_or_weight=30)
+                dpg.add_table_column(label="Group", width_fixed=True, init_width_or_weight=30)
                 dpg.add_table_column(label="Levels")
-                dpg.add_table_column(label="Intensity (cps)")
+                dpg.add_table_column(label="Int. (cps)")
                 dpg.add_table_column(label="Dwell (s)")
 
     def _update_group_table(self, groups: tuple[GroupData, ...]) -> None:
@@ -532,6 +575,17 @@ class GroupingTab:
         if self._bic_plot:
             self._bic_plot.clear()
 
+        # Clear intensity plot data
+        self._abstimes = None
+        self._levels = None
+        self._clear_group_bands()
+        if self._intensity_plot:
+            self._intensity_plot.clear()
+
+        # Hide intensity plot
+        if dpg.does_item_exist(self._tags.intensity_plot_group):
+            dpg.configure_item(self._tags.intensity_plot_group, show=False)
+
         # Clear the group table
         if dpg.does_item_exist(self._tags.group_table):
             children = dpg.get_item_children(self._tags.group_table, 1)
@@ -635,6 +689,9 @@ class GroupingTab:
                 self._update_group_table(self._clustering_result.groups)
                 self._update_results_text()
 
+                # Update group bands on intensity plot
+                self.update_group_bands()
+
                 # Call callback if set
                 if self._on_group_count_changed:
                     self._on_group_count_changed(num_groups)
@@ -710,6 +767,9 @@ class GroupingTab:
                 self._update_group_table(self._clustering_result.groups)
                 self._update_results_text()
 
+                # Update group bands on intensity plot
+                self.update_group_bands()
+
                 # Call callback
                 if self._on_group_count_changed:
                     self._on_group_count_changed(app_data)
@@ -736,6 +796,9 @@ class GroupingTab:
         # Update displays
         self._update_group_table(self._clustering_result.groups)
         self._update_results_text()
+
+        # Update group bands on intensity plot
+        self.update_group_bands()
 
         # Call callback
         if self._on_group_count_changed:
@@ -879,6 +942,9 @@ class GroupingTab:
                 # Update displays
                 self._update_group_table(self._clustering_result.groups)
                 self._update_results_text()
+
+                # Update group bands on intensity plot
+                self.update_group_bands()
                 break
 
     def update_info(self, text: str) -> None:
@@ -889,3 +955,250 @@ class GroupingTab:
         """
         if dpg.does_item_exist(self._tags.info_text):
             dpg.set_value(self._tags.info_text, text)
+
+    # -------------------------------------------------------------------------
+    # Intensity Plot Methods
+    # -------------------------------------------------------------------------
+
+    def set_intensity_data(
+        self,
+        abstimes: NDArray[np.uint64],
+        bin_size_ms: float = 10.0,
+    ) -> None:
+        """Set the intensity data for the plot.
+
+        Args:
+            abstimes: Absolute photon arrival times in nanoseconds.
+            bin_size_ms: Bin size in milliseconds.
+        """
+        self._abstimes = abstimes
+        self._bin_size_ms = bin_size_ms
+
+        if self._intensity_plot:
+            self._intensity_plot.set_data(abstimes, bin_size_ms)
+
+        logger.debug(f"Grouping tab intensity data set: {len(abstimes)} photons")
+
+    def set_levels_with_groups(
+        self,
+        levels: Sequence[LevelData],
+        clustering: ClusteringResult | None = None,
+    ) -> None:
+        """Set levels and render group bands on the intensity plot.
+
+        After setting levels, if clustering is available, renders alternating
+        color bands for each group to visualize grouping on the intensity trace.
+
+        Args:
+            levels: Sequence of LevelData objects.
+            clustering: Optional clustering result with group assignments.
+        """
+        self._levels = list(levels)
+
+        if not self._intensity_plot:
+            return
+
+        # Show the intensity plot group
+        if dpg.does_item_exist(self._tags.intensity_plot_group):
+            dpg.configure_item(self._tags.intensity_plot_group, show=True)
+
+        # Set levels on the intensity plot (shows step line)
+        self._intensity_plot.set_levels(levels, color_by_group=False)
+
+        # If clustering is available, render group bands
+        if clustering:
+            self._render_group_bands(levels, clustering)
+
+        # Fix Y-axis to data range
+        self._intensity_plot.fix_y_axis_to_data()
+
+        logger.debug(
+            f"Grouping tab levels set: {len(levels)} levels, "
+            f"clustering={'yes' if clustering else 'no'}"
+        )
+
+    def _render_group_bands(
+        self,
+        levels: Sequence[LevelData],
+        clustering: ClusteringResult,
+    ) -> None:
+        """Render alternating horizontal bands for groups on the intensity plot.
+
+        Calculates non-overlapping bounds between groups based on midpoints
+        of adjacent group intensities. Draws bands for alternating groups
+        and dashed lines at each group's average intensity.
+
+        Args:
+            levels: The levels (needed for intensity values).
+            clustering: The clustering result with group assignments.
+        """
+        if not self._intensity_plot:
+            return
+
+        # Clear any existing group bands
+        self._clear_group_bands()
+
+        y_axis_tag = self._intensity_plot.tags.y_axis
+        if not dpg.does_item_exist(y_axis_tag):
+            return
+
+        # Get the full time range for bands to span
+        time_range = self._intensity_plot.get_time_range()
+        if not time_range:
+            return
+        x_min, x_max = time_range
+
+        # Get groups and calculate their average intensities
+        groups = clustering.groups
+        if len(groups) < 2:
+            return
+
+        # Convert group intensities to counts/bin and sort descending
+        int_conv = self._bin_size_ms / 1000.0 if self._bin_size_ms > 0 else 0.01
+        group_ints = [(g.group_id, g.intensity_cps * int_conv) for g in groups]
+        group_ints.sort(key=lambda x: x[1], reverse=True)  # Sort descending by intensity
+
+        # Calculate non-overlapping bounds between groups (midpoints)
+        # Format: list of (group_id, intensity, lower_bound, upper_bound)
+        bounds_data: list[tuple[int, float, float, float]] = []
+
+        for i, (group_id, g_int) in enumerate(group_ints):
+            if i == 0:
+                # Highest intensity group: upper bound is infinity (use large value)
+                upper = g_int * 2  # Large enough to cover the plot
+                if i == len(group_ints) - 1:
+                    # Only one group
+                    lower = 0
+                else:
+                    # Midpoint with next group
+                    lower = (g_int + group_ints[i + 1][1]) / 2
+            elif i == len(group_ints) - 1:
+                # Lowest intensity group: lower bound is 0
+                upper = prev_mid
+                lower = 0
+            else:
+                # Middle groups: bounds are midpoints with neighbors
+                upper = prev_mid
+                lower = (g_int + group_ints[i + 1][1]) / 2
+
+            prev_mid = lower if i < len(group_ints) - 1 else 0
+            bounds_data.append((group_id, g_int, lower, upper))
+
+        # Band color (semi-transparent light green for visibility)
+        band_color = (60, 200, 120, 130)  # Light green
+
+        # Draw bands for alternating groups (every other one, starting from index 1)
+        for i, (group_id, g_int, lower, upper) in enumerate(bounds_data):
+            # Draw band for odd indices (alternating pattern)
+            if i % 2 == 1:
+                band_tag = f"{self._tag_prefix}group_band_{i}"
+                self._group_band_tags.append(band_tag)
+
+                # X coordinates span the full time range
+                x_coords = [x_min, x_max]
+                # Y coordinates define the horizontal band
+                y1_coords = [lower, lower]
+                y2_coords = [upper, upper]
+
+                dpg.add_shade_series(
+                    x_coords,
+                    y1_coords,
+                    y2=y2_coords,
+                    parent=y_axis_tag,
+                    tag=band_tag,
+                )
+                self._apply_group_band_theme(band_tag, band_color)
+
+            # Draw dashed line at group average intensity
+            # Create dashed effect by drawing segments with gaps
+            line_tag = f"{self._tag_prefix}group_line_{i}"
+            self._group_band_tags.append(line_tag)
+
+            # Generate dashed line points (dash-gap pattern)
+            total_width = x_max - x_min
+            num_dashes = 40  # Number of dash segments
+            dash_width = total_width / (num_dashes * 2)  # Dash and gap equal width
+
+            x_dashes = []
+            y_dashes = []
+            for d in range(num_dashes):
+                dash_start = x_min + d * 2 * dash_width
+                dash_end = dash_start + dash_width
+                # Add dash segment with NaN to create gap
+                x_dashes.extend([dash_start, dash_end, float('nan')])
+                y_dashes.extend([g_int, g_int, float('nan')])
+
+            dpg.add_line_series(
+                x_dashes,
+                y_dashes,
+                parent=y_axis_tag,
+                tag=line_tag,
+            )
+            self._apply_group_line_theme(line_tag)
+
+        logger.debug(f"Rendered {len(self._group_band_tags)} group bands and lines")
+
+    def _apply_group_band_theme(
+        self,
+        band_tag: str,
+        color: tuple[int, int, int, int],
+    ) -> None:
+        """Apply a theme to a group band shade series.
+
+        Args:
+            band_tag: The tag of the shade series.
+            color: RGBA color tuple for the band fill.
+        """
+        if not dpg.does_item_exist(band_tag):
+            return
+
+        with dpg.theme() as theme:
+            with dpg.theme_component(dpg.mvShadeSeries):
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_Fill,
+                    color,
+                    category=dpg.mvThemeCat_Plots,
+                )
+
+        dpg.bind_item_theme(band_tag, theme)
+
+    def _apply_group_line_theme(self, line_tag: str) -> None:
+        """Apply a theme for group average intensity lines.
+
+        Args:
+            line_tag: The tag of the line series.
+        """
+        if not dpg.does_item_exist(line_tag):
+            return
+
+        with dpg.theme() as theme:
+            with dpg.theme_component(dpg.mvLineSeries):
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_Line,
+                    (230, 220, 60, 260),
+                    category=dpg.mvThemeCat_Plots,
+                )
+                dpg.add_theme_style(
+                    dpg.mvPlotStyleVar_LineWeight,
+                    0.5,
+                    category=dpg.mvThemeCat_Plots,
+                )
+
+        dpg.bind_item_theme(line_tag, theme)
+
+    def _clear_group_bands(self) -> None:
+        """Remove all group band shade series from the intensity plot."""
+        for tag in self._group_band_tags:
+            if dpg.does_item_exist(tag):
+                dpg.delete_item(tag)
+        self._group_band_tags.clear()
+
+    def update_group_bands(self) -> None:
+        """Update group bands after group count selection changes.
+
+        Call this when the user changes the selected number of groups.
+        """
+        if not self._levels or not self._clustering_result:
+            return
+
+        self._render_group_bands(self._levels, self._clustering_result)

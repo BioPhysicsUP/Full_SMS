@@ -436,6 +436,10 @@ class Application:
                     # Also pass abstimes to lifetime tab for intensity plot
                     self._layout.set_lifetime_abstimes(channel.abstimes)
 
+                    # Update grouping tab with intensity data
+                    if self._layout.grouping_tab:
+                        self._layout.grouping_tab.set_intensity_data(channel.abstimes)
+
                 # Update spectra tab
                 if particle.has_spectra and particle.spectra is not None:
                     self._layout.set_spectra_data(particle.spectra)
@@ -1967,17 +1971,22 @@ class Application:
 
         # Get clustering result for current selection
         clustering = self._session.get_current_clustering()
+        levels = self._session.get_current_levels()
+
         if clustering:
             self._layout.grouping_tab.set_clustering_result(clustering)
 
             # Also update the intensity tab's level display to show group colors
-            levels = self._session.get_current_levels()
             if levels and self._layout.intensity_tab:
                 # Update levels with group assignments from clustering
                 updated_levels = self._apply_group_assignments_to_levels(
                     levels, clustering
                 )
                 self._layout.intensity_tab.set_levels(updated_levels, color_by_group=True)
+
+            # Update grouping tab intensity plot with levels and group bands
+            if levels:
+                self._layout.grouping_tab.set_levels_with_groups(levels, clustering)
 
     def _apply_group_assignments_to_levels(
         self, levels: list[LevelData], clustering

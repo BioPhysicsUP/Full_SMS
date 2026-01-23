@@ -37,6 +37,7 @@ class BICPlotTags:
     x_axis: str = "bic_plot_x_axis"
     y_axis: str = "bic_plot_y_axis"
     series: str = "bic_plot_series"
+    all_points_scatter: str = "bic_plot_all_points_scatter"
     optimal_scatter: str = "bic_plot_optimal_scatter"
     selected_scatter: str = "bic_plot_selected_scatter"
     legend: str = "bic_plot_legend"
@@ -88,6 +89,7 @@ class BICPlot:
             x_axis=f"{tag_prefix}bic_plot_x_axis",
             y_axis=f"{tag_prefix}bic_plot_y_axis",
             series=f"{tag_prefix}bic_plot_series",
+            all_points_scatter=f"{tag_prefix}bic_plot_all_points_scatter",
             optimal_scatter=f"{tag_prefix}bic_plot_optimal_scatter",
             selected_scatter=f"{tag_prefix}bic_plot_selected_scatter",
             legend=f"{tag_prefix}bic_plot_legend",
@@ -134,7 +136,7 @@ class BICPlot:
                 callback=self._on_plot_clicked,
             ):
                 # Add legend
-                dpg.add_plot_legend(tag=self._tags.legend, location=dpg.mvPlot_Location_NorthEast)
+                dpg.add_plot_legend(tag=self._tags.legend, location=dpg.mvPlot_Location_SouthEast)
 
                 # X axis (number of groups)
                 dpg.add_plot_axis(
@@ -157,6 +159,14 @@ class BICPlot:
                     label="BIC",
                     parent=self._tags.y_axis,
                     tag=self._tags.series,
+                )
+
+                # Add scatter series for all points (blue, same as line)
+                dpg.add_scatter_series(
+                    [],
+                    [],
+                    parent=self._tags.y_axis,
+                    tag=self._tags.all_points_scatter,
                 )
 
                 # Add scatter series for optimal point (green)
@@ -292,6 +302,7 @@ class BICPlot:
 
         if self._num_groups is None or self._bic_values is None:
             dpg.configure_item(self._tags.series, x=[], y=[])
+            dpg.configure_item(self._tags.all_points_scatter, x=[], y=[])
             dpg.configure_item(self._tags.optimal_scatter, x=[], y=[])
             dpg.configure_item(self._tags.selected_scatter, x=[], y=[])
             return
@@ -299,6 +310,13 @@ class BICPlot:
         # Update main BIC curve
         dpg.configure_item(
             self._tags.series,
+            x=self._num_groups.tolist(),
+            y=self._bic_values.tolist(),
+        )
+
+        # Update all points scatter (blue markers)
+        dpg.configure_item(
+            self._tags.all_points_scatter,
             x=self._num_groups.tolist(),
             y=self._bic_values.tolist(),
         )
@@ -351,12 +369,22 @@ class BICPlot:
         )
 
     def _fit_axes(self) -> None:
-        """Auto-fit the axes to show all data."""
+        """Auto-fit the axes to show all data with padding."""
         if not dpg.does_item_exist(self._tags.x_axis):
             return
 
         dpg.fit_axis_data(self._tags.x_axis)
-        dpg.fit_axis_data(self._tags.y_axis)
+
+        # Fit Y-axis with padding at the top so max value is visible
+        if self._bic_values is not None and len(self._bic_values) > 0:
+            y_min = float(np.min(self._bic_values))
+            y_max = float(np.max(self._bic_values))
+            y_range = y_max - y_min
+            # Add 10% padding at top and bottom
+            padding = y_range * 0.1 if y_range > 0 else abs(y_max) * 0.1
+            dpg.set_axis_limits(self._tags.y_axis, y_min - padding, y_max + padding)
+        else:
+            dpg.fit_axis_data(self._tags.y_axis)
 
     def clear(self) -> None:
         """Clear the plot data."""
@@ -372,6 +400,9 @@ class BICPlot:
         """Apply themed colors to all series."""
         # BIC curve - blue line
         self._apply_line_color(self._tags.series, BIC_COLORS["curve"])
+
+        # All points - blue scatter (same as line)
+        self._apply_scatter_color(self._tags.all_points_scatter, BIC_COLORS["curve"])
 
         # Optimal point - green scatter
         self._apply_scatter_color(self._tags.optimal_scatter, BIC_COLORS["optimal"])
