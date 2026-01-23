@@ -442,7 +442,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ## Phase 6: Grouping Tab Improvements
 
-### Task 6.1: Add intensity plot to Grouping tab `[NEXT]`
+### Task 6.1: Add intensity plot to Grouping tab `[DONE]` (2026-01-23)
 **Objective**: Show intensity plot with group visualization
 
 **Actions**:
@@ -454,9 +454,18 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Group bands display on intensity plot after clustering
 
+**Implementation Notes**:
+- Added compact intensity plot (400px height) above BIC plot, shown after levels are resolved
+- Group visualization uses alternating horizontal bands with semi-transparent fill
+- Dashed lines mark each group's average intensity level
+- Band bounds calculated as midpoints between adjacent group intensities
+- BIC plot improved: added scatter markers at all data points, Y-axis padding for visibility, legend moved to bottom-right
+- Group list panel widened (240→310px) and column labels shortened for better fit
+- Group bands update automatically when user changes the selected number of groups
+
 ---
 
-### Task 6.2: Interactive BIC plot selection `[TODO]`
+### Task 6.2: Interactive BIC plot selection `[NEXT]`
 **Objective**: Replace slider with clickable BIC plot points
 
 **Actions**:
@@ -541,9 +550,9 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 3. Spectra & Raster | 2 | 2 | 0 | 0 |
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
 | 5. Lifetime Tab | 5 | 5 | 0 | 0 |
-| 6. Grouping Tab | 2 | 0 | 0 | 2 |
+| 6. Grouping Tab | 2 | 1 | 0 | 1 |
 | 7. Export Tab | 4 | 0 | 0 | 4 |
-| **Total** | **24** | **17** | **1** | **6** |
+| **Total** | **24** | **18** | **1** | **5** |
 
 ---
 
@@ -558,4 +567,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-23 (Task 5.5 completed)*
+*Last Updated: 2026-01-23 (Task 6.1 completed)*
