@@ -410,7 +410,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 5.5: Enlarge fitting dialog input boxes `[NEXT]`
+### Task 5.5: Enlarge fitting dialog input boxes `[DONE]` (2026-01-23)
 **Objective**: Make input fields in fitting dialog larger and easier to use
 
 **Actions**:
@@ -422,11 +422,27 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: All fitting dialog inputs are readable and usable
 
+**Implementation Notes**:
+- Increased dialog dimensions to 550px width × 600px height (from 500×580)
+- Widened all input fields for better readability:
+  - Tau init fields: 80px → 100px
+  - Tau bounds: 70px → 110px
+  - Shift init: 70px → 100px
+  - Shift bounds: 70px → 110px
+  - Simulated IRF FWHM: 70px → 100px
+  - FWHM bounds: 60px → 80px
+  - Start/End channel: 80px → 100px
+- Widened combo boxes:
+  - Fit target: 180px → 220px
+  - Start mode: 150px → 180px
+- Widened buttons: 100px → 120px to prevent text cutoff
+- Updated dialog centering calculation for new dimensions
+
 ---
 
 ## Phase 6: Grouping Tab Improvements
 
-### Task 6.1: Add intensity plot to Grouping tab `[TODO]`
+### Task 6.1: Add intensity plot to Grouping tab `[NEXT]`
 **Objective**: Show intensity plot with group visualization
 
 **Actions**:
@@ -524,10 +540,10 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 2. Layout & Scrolling | 2 | 2 | 0 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 | 0 |
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
-| 5. Lifetime Tab | 5 | 4 | 0 | 1 |
+| 5. Lifetime Tab | 5 | 5 | 0 | 0 |
 | 6. Grouping Tab | 2 | 0 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 0 | 4 |
-| **Total** | **24** | **16** | **1** | **7** |
+| **Total** | **24** | **17** | **1** | **6** |
 
 ---
 
@@ -542,4 +558,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-23 (Task 5.4 completed)*
+*Last Updated: 2026-01-23 (Task 5.5 completed)*

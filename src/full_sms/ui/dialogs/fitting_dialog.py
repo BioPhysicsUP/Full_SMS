@@ -289,8 +289,8 @@ class FittingDialog:
             tag=self._tags.dialog,
             modal=True,
             show=False,
-            width=450,
-            height=580,
+            width=550,
+            height=600,
             no_resize=True,
             no_move=False,
             on_close=self._on_close,
@@ -302,7 +302,7 @@ class FittingDialog:
                 default_value=FitTarget.PARTICLE.value,
                 tag=self._tags.fit_target_combo,
                 callback=self._on_fit_target_changed,
-                width=180,
+                width=220,
             )
 
             # Fit scope selection
@@ -339,7 +339,7 @@ class FittingDialog:
                     dpg.add_input_float(
                         tag=self._tags.tau1_init,
                         default_value=5.0,
-                        width=80,
+                        width=100,
                         min_value=0.001,
                         min_clamped=True,
                     )
@@ -350,7 +350,7 @@ class FittingDialog:
                     dpg.add_input_float(
                         tag=self._tags.tau2_init,
                         default_value=1.0,
-                        width=80,
+                        width=100,
                         min_value=0.001,
                         min_clamped=True,
                     )
@@ -361,7 +361,7 @@ class FittingDialog:
                     dpg.add_input_float(
                         tag=self._tags.tau3_init,
                         default_value=0.1,
-                        width=80,
+                        width=100,
                         min_value=0.001,
                         min_clamped=True,
                     )
@@ -372,13 +372,13 @@ class FittingDialog:
                     dpg.add_input_float(
                         tag=self._tags.tau_min,
                         default_value=0.01,
-                        width=70,
+                        width=110,
                         label="min",
                     )
                     dpg.add_input_float(
                         tag=self._tags.tau_max,
                         default_value=100.0,
-                        width=70,
+                        width=110,
                         label="max",
                     )
 
@@ -410,7 +410,7 @@ class FittingDialog:
                     dpg.add_input_float(
                         tag=self._tags.simulated_irf_fwhm,
                         default_value=0.1,
-                        width=70,
+                        width=100,
                         label="FWHM (ns)",
                         enabled=False,
                     )
@@ -432,13 +432,13 @@ class FittingDialog:
                     dpg.add_input_float(
                         tag=self._tags.simulated_irf_fwhm_min,
                         default_value=0.01,
-                        width=60,
+                        width=80,
                         label="min",
                     )
                     dpg.add_input_float(
                         tag=self._tags.simulated_irf_fwhm_max,
                         default_value=2.0,
-                        width=60,
+                        width=80,
                         label="max (ns)",
                     )
 
@@ -448,7 +448,7 @@ class FittingDialog:
                     dpg.add_input_float(
                         tag=self._tags.shift_init,
                         default_value=0.0,
-                        width=70,
+                        width=100,
                         label="init",
                     )
 
@@ -457,13 +457,13 @@ class FittingDialog:
                     dpg.add_input_float(
                         tag=self._tags.shift_min,
                         default_value=-2000.0,
-                        width=70,
+                        width=110,
                         label="min",
                     )
                     dpg.add_input_float(
                         tag=self._tags.shift_max,
                         default_value=2000.0,
-                        width=70,
+                        width=110,
                         label="max",
                     )
 
@@ -480,7 +480,7 @@ class FittingDialog:
                     default_value=StartpointMode.CLOSE_TO_MAX.value,
                     tag=self._tags.start_mode_combo,
                     callback=self._on_start_mode_changed,
-                    width=150,
+                    width=180,
                 )
 
             # Manual start channel (hidden by default)
@@ -491,7 +491,7 @@ class FittingDialog:
                 dpg.add_input_int(
                     tag=self._tags.start_channel,
                     default_value=0,
-                    width=80,
+                    width=100,
                     min_value=0,
                     min_clamped=True,
                 )
@@ -511,7 +511,7 @@ class FittingDialog:
                 dpg.add_input_int(
                     tag=self._tags.end_channel,
                     default_value=4096,
-                    width=80,
+                    width=100,
                     min_value=1,
                     min_clamped=True,
                 )
@@ -550,14 +550,14 @@ class FittingDialog:
                     label="Fit",
                     tag=self._tags.fit_button,
                     callback=self._on_fit_clicked,
-                    width=100,
+                    width=120,
                 )
                 dpg.add_spacer(width=20)
                 dpg.add_button(
                     label="Cancel",
                     tag=self._tags.cancel_button,
                     callback=self._on_cancel_clicked,
-                    width=100,
+                    width=120,
                 )
 
         self._is_built = True
@@ -584,7 +584,7 @@ class FittingDialog:
         viewport_height = dpg.get_viewport_height()
         dpg.set_item_pos(
             self._tags.dialog,
-            [viewport_width // 2 - 225, viewport_height // 2 - 290],
+            [viewport_width // 2 - 275, viewport_height // 2 - 300],
         )
 
         dpg.configure_item(self._tags.dialog, show=True)
