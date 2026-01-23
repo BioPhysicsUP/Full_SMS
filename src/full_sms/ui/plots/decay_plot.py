@@ -78,10 +78,14 @@ class DecayPlot:
         # Fit overlay state
         self._fit_result: Optional[FitResult] = None
         self._show_fit: bool = True
+        # Store the max of the displayed fit curve (full convolved or extrapolated)
+        # Used for IRF normalization to match what's visible on screen
+        self._displayed_fit_max: float | None = None
 
         # IRF overlay state
         self._irf_t: NDArray[np.float64] | None = None
         self._irf_counts: NDArray[np.float64] | None = None
+        self._irf_shift: float = 0.0  # Time shift applied to IRF display
         self._show_irf: bool = False
 
         # Raw IRF data for convolution computation (stored separately from display IRF)
@@ -114,73 +118,86 @@ class DecayPlot:
         """Get the current TCSPC channel width in nanoseconds."""
         return self._channelwidth
 
-    def build(self) -> None:
-        """Build the plot UI structure."""
+    def build(self, for_subplot: bool = False) -> None:
+        """Build the plot UI structure.
+
+        Args:
+            for_subplot: If True, build directly inside a subplot context
+                        (no container group, plot uses parent from subplot).
+        """
         if self._is_built:
             return
 
-        # Plot container
-        with dpg.group(parent=self._parent, tag=self._tags.container):
-            # Create the plot
-            with dpg.plot(
-                tag=self._tags.plot,
-                label="Fluorescence Decay",
-                width=-1,
-                height=-1,
-                anti_aliased=True,
-            ):
-                # Add legend
-                dpg.add_plot_legend(tag=self._tags.legend)
-
-                # X axis (time in nanoseconds)
-                dpg.add_plot_axis(
-                    dpg.mvXAxis,
-                    label="Time (ns)",
-                    tag=self._tags.x_axis,
-                )
-
-                # Y axis (photon counts) - default to log scale
-                dpg.add_plot_axis(
-                    dpg.mvYAxis,
-                    label="Counts",
-                    tag=self._tags.y_axis,
-                    log_scale=self._log_scale,
-                )
-
-                # Add empty line series for data (will be populated when data is set)
-                dpg.add_line_series(
-                    [],
-                    [],
-                    label="Data",
-                    parent=self._tags.y_axis,
-                    tag=self._tags.series,
-                )
-
-                # Add empty line series for fit curve (hidden until fit is set)
-                dpg.add_line_series(
-                    [],
-                    [],
-                    label="Fit",
-                    parent=self._tags.y_axis,
-                    tag=self._tags.fit_series,
-                    show=False,
-                )
-
-                # Add empty line series for IRF (hidden until IRF is set)
-                dpg.add_line_series(
-                    [],
-                    [],
-                    label="IRF",
-                    parent=self._tags.y_axis,
-                    tag=self._tags.irf_series,
-                    show=False,
-                )
+        if for_subplot:
+            # Build directly inside subplot - no container group needed
+            self._build_plot_content()
+        else:
+            # Standalone mode - create container group
+            with dpg.group(parent=self._parent, tag=self._tags.container):
+                self._build_plot_content()
 
         # Apply colors to series
         self._apply_series_colors()
 
         self._is_built = True
         logger.debug("Decay plot built")
+
+    def _build_plot_content(self) -> None:
+        """Build the plot content (used by both standalone and subplot modes)."""
+        # Create the plot
+        with dpg.plot(
+            tag=self._tags.plot,
+            label="Fluorescence Decay",
+            width=-1,
+            height=-1,
+            anti_aliased=True,
+        ):
+            # Add legend
+            dpg.add_plot_legend(tag=self._tags.legend)
+
+            # X axis (time in nanoseconds)
+            dpg.add_plot_axis(
+                dpg.mvXAxis,
+                label="Time (ns)",
+                tag=self._tags.x_axis,
+            )
+
+            # Y axis (photon counts) - default to log scale
+            dpg.add_plot_axis(
+                dpg.mvYAxis,
+                label="Counts",
+                tag=self._tags.y_axis,
+                log_scale=self._log_scale,
+            )
+
+            # Add empty line series for data (will be populated when data is set)
+            dpg.add_line_series(
+                [],
+                [],
+                label="Data",
+                parent=self._tags.y_axis,
+                tag=self._tags.series,
+            )
+
+            # Add empty line series for fit curve (hidden until fit is set)
+            dpg.add_line_series(
+                [],
+                [],
+                label="Fit",
+                parent=self._tags.y_axis,
+                tag=self._tags.fit_series,
+                show=False,
+            )
+
+            # Add empty line series for IRF (hidden until IRF is set)
+            dpg.add_line_series(
+                [],
+                [],
+                label="IRF",
+                parent=self._tags.y_axis,
+                tag=self._tags.irf_series,
+                show=False,
+            )
 
     def set_data(
         self,
@@ -295,14 +312,115 @@ class DecayPlot:
 
         self._log_scale = log_scale
 
-        # Update the Y axis
-        if dpg.does_item_exist(self._tags.y_axis):
-            dpg.configure_item(self._tags.y_axis, log_scale=log_scale)
-
-        # Re-update series to handle zero values appropriately
-        self._update_series()
+        # DearPyGui doesn't support changing log_scale dynamically via configure_item
+        # We must rebuild the Y axis with the new scale setting
+        self._rebuild_y_axis()
 
         logger.debug(f"Decay plot log scale set to {log_scale}")
+
+    def _rebuild_y_axis(self) -> None:
+        """Rebuild the Y axis and all its series with current log_scale setting.
+
+        This is necessary because DearPyGui's log_scale is a creation-time parameter.
+        """
+        if not dpg.does_item_exist(self._tags.plot):
+            return
+
+        # Store current series data before deletion
+        data_x = []
+        data_y = []
+        fit_x = []
+        fit_y = []
+        fit_show = self._show_fit and self._fit_result is not None
+        irf_x = []
+        irf_y = []
+        irf_show = self._show_irf
+
+        if dpg.does_item_exist(self._tags.series):
+            # Note: DearPyGui stores series data in the item's value
+            value = dpg.get_value(self._tags.series)
+            if value and len(value) >= 2:
+                data_x = list(value[0]) if value[0] else []
+                data_y = list(value[1]) if value[1] else []
+
+        if dpg.does_item_exist(self._tags.fit_series):
+            value = dpg.get_value(self._tags.fit_series)
+            if value and len(value) >= 2:
+                fit_x = list(value[0]) if value[0] else []
+                fit_y = list(value[1]) if value[1] else []
+
+        if dpg.does_item_exist(self._tags.irf_series):
+            value = dpg.get_value(self._tags.irf_series)
+            if value and len(value) >= 2:
+                irf_x = list(value[0]) if value[0] else []
+                irf_y = list(value[1]) if value[1] else []
+            irf_show = irf_show and len(irf_x) > 0
+
+        # Delete old Y axis (this also deletes all child series)
+        if dpg.does_item_exist(self._tags.y_axis):
+            dpg.delete_item(self._tags.y_axis)
+
+        # Create new Y axis with updated log_scale
+        dpg.add_plot_axis(
+            dpg.mvYAxis,
+            label="Counts",
+            tag=self._tags.y_axis,
+            log_scale=self._log_scale,
+            parent=self._tags.plot,
+        )
+
+        # Recreate data series
+        dpg.add_line_series(
+            data_x,
+            data_y,
+            label="Data",
+            parent=self._tags.y_axis,
+            tag=self._tags.series,
+        )
+
+        # Recreate fit series
+        dpg.add_line_series(
+            fit_x,
+            fit_y,
+            label="Fit",
+            parent=self._tags.y_axis,
+            tag=self._tags.fit_series,
+            show=fit_show,
+        )
+
+        # Recreate IRF series
+        dpg.add_line_series(
+            irf_x,
+            irf_y,
+            label="IRF",
+            parent=self._tags.y_axis,
+            tag=self._tags.irf_series,
+            show=irf_show,
+        )
+
+        # Re-apply colors to series
+        self._apply_series_colors()
+
+        # Re-update series data to handle zero values appropriately for log scale
+        self._update_series()
+
+        # Update fit display if we have a fit result
+        if self._fit_result is not None:
+            self.set_fit(self._fit_result)
+
+        # Re-render IRF if we have IRF data (to apply appropriate scaling for new mode)
+        if self._irf_t is not None and self._irf_counts is not None:
+            # Store current show state
+            was_showing = self._show_irf
+            self.set_irf(
+                self._irf_t, self._irf_counts, normalize=True, shift=self._irf_shift
+            )
+            # Restore show state (set_irf doesn't change _show_irf)
+            if dpg.does_item_exist(self._tags.irf_series):
+                dpg.configure_item(self._tags.irf_series, show=was_showing)
+
+        # Fit axes to data
+        self._fit_axes()
 
     def toggle_log_scale(self) -> bool:
         """Toggle the Y axis between log and linear scale.
@@ -559,6 +677,9 @@ class DecayPlot:
                     else:
                         display_fit = fitted_curve
 
+                    # Store the max of displayed curve for IRF normalization
+                    self._displayed_fit_max = float(np.max(fitted_curve))
+
                     # Update the fit series
                     dpg.configure_item(
                         self._tags.fit_series,
@@ -606,6 +727,9 @@ class DecayPlot:
             display_fit = np.maximum(fitted_curve, 0.5)
         else:
             display_fit = fitted_curve
+
+        # Store the max of displayed curve for IRF normalization
+        self._displayed_fit_max = float(np.max(fitted_curve))
 
         # Update the fit series
         dpg.configure_item(
@@ -697,6 +821,7 @@ class DecayPlot:
     def clear_fit(self) -> None:
         """Clear the fit curve overlay."""
         self._fit_result = None
+        self._displayed_fit_max = None
 
         if dpg.does_item_exist(self._tags.fit_series):
             dpg.configure_item(
@@ -755,18 +880,19 @@ class DecayPlot:
     ) -> None:
         """Set the IRF data and display it on the plot.
 
-        The IRF is typically displayed normalized to match the peak of the
-        decay data for easier visual comparison. Only the significant part
-        of the IRF is shown (values above 1% of peak).
+        The IRF is displayed normalized to match the peak of the fitted curve
+        (or data peak if no fit exists) for easier visual comparison. Only
+        the significant part of the IRF is shown.
 
         Args:
             t: Time array in nanoseconds.
             counts: Count array.
-            normalize: If True, normalize IRF to match data peak.
+            normalize: If True, normalize IRF to match fit/data peak.
             shift: Time shift to apply to IRF in nanoseconds (from fit result).
         """
         self._irf_t = t
         self._irf_counts = counts
+        self._irf_shift = shift
 
         if not dpg.does_item_exist(self._tags.irf_series):
             return
@@ -778,13 +904,21 @@ class DecayPlot:
         # Apply shift to time array
         display_t = t + shift
 
-        # Normalize IRF to match data peak if requested and data is available
+        # Normalize IRF to match the fitted curve peak (or data peak if no fit)
         display_counts = counts.astype(np.float64)
-        if normalize and self._counts is not None and len(self._counts) > 0:
-            data_max = float(np.max(self._counts))
-            irf_max = float(np.max(counts))
-            if irf_max > 0:
-                display_counts = counts * (data_max / irf_max)
+        if normalize:
+            # Use the displayed fit max (full convolved or extrapolated)
+            # instead of fit_result.fitted_curve which is only the fit range
+            target_max = None
+            if self._displayed_fit_max is not None and self._displayed_fit_max > 0:
+                target_max = self._displayed_fit_max
+            elif self._counts is not None and len(self._counts) > 0:
+                target_max = float(np.max(self._counts))
+
+            if target_max is not None and target_max > 0:
+                irf_max = float(np.max(counts))
+                if irf_max > 0:
+                    display_counts = counts * (target_max / irf_max)
 
         # Determine minimum display value: use 0.5 to match bar chart visual baseline
         # (bars on log scale don't extend below ~0.5 visually)
@@ -817,9 +951,11 @@ class DecayPlot:
         logger.debug(f"IRF set: {len(display_t)} points (trimmed from {len(t)})")
 
     def clear_irf(self) -> None:
-        """Clear the IRF overlay."""
+        """Clear the IRF overlay and raw IRF data."""
         self._irf_t = None
         self._irf_counts = None
+        self._irf_shift = 0.0
+        self._raw_irf = None  # Also clear raw IRF to prevent stale data
 
         if dpg.does_item_exist(self._tags.irf_series):
             dpg.configure_item(

@@ -85,6 +85,7 @@ class GroupingTab:
         self._on_group_count_changed: Callable[[int], None] | None = None
         self._on_grouping_requested: Callable[[str], None] | None = None
         self._on_group_selected: Callable[[int | None], None] | None = None
+        self._on_grouping_options_changed: Callable[[bool, bool], None] | None = None
 
         # Grouping options
         self._use_lifetime: bool = False
@@ -156,10 +157,30 @@ class GroupingTab:
         """Whether to include lifetime in clustering."""
         return self._use_lifetime
 
+    def set_use_lifetime(self, value: bool) -> None:
+        """Set whether to use lifetime in clustering.
+
+        Args:
+            value: Whether to use lifetime.
+        """
+        self._use_lifetime = value
+        if self._is_built and dpg.does_item_exist(self._tags.use_lifetime_checkbox):
+            dpg.set_value(self._tags.use_lifetime_checkbox, value)
+
     @property
     def global_grouping(self) -> bool:
         """Whether global grouping mode is enabled."""
         return self._global_grouping
+
+    def set_global_grouping(self, value: bool) -> None:
+        """Set whether global grouping mode is enabled.
+
+        Args:
+            value: Whether to use global grouping.
+        """
+        self._global_grouping = value
+        if self._is_built and dpg.does_item_exist(self._tags.global_grouping_checkbox):
+            dpg.set_value(self._tags.global_grouping_checkbox, value)
 
     def build(self) -> None:
         """Build the tab UI structure."""
@@ -640,6 +661,11 @@ class GroupingTab:
         """
         self._use_lifetime = app_data
         logger.debug(f"Use lifetime changed to {app_data}")
+        # Notify callback if set (app will save to session)
+        if self._on_grouping_options_changed:
+            self._on_grouping_options_changed(
+                use_lifetime=app_data, global_grouping=self._global_grouping
+            )
 
     def _on_global_grouping_changed(self, sender: int, app_data: bool) -> None:
         """Handle global grouping checkbox change.
@@ -650,6 +676,11 @@ class GroupingTab:
         """
         self._global_grouping = app_data
         logger.debug(f"Global grouping changed to {app_data}")
+        # Notify callback if set (app will save to session)
+        if self._on_grouping_options_changed:
+            self._on_grouping_options_changed(
+                use_lifetime=self._use_lifetime, global_grouping=app_data
+            )
 
     def _on_group_count_slider_changed(self, sender: int, app_data: int) -> None:
         """Handle group count slider change.
@@ -749,6 +780,17 @@ class GroupingTab:
                 Receives the group_id (0-indexed) or None if deselected.
         """
         self._on_group_selected = callback
+
+    def set_on_grouping_options_changed(
+        self, callback: Callable[[bool, bool], None]
+    ) -> None:
+        """Set callback for when grouping options change.
+
+        Args:
+            callback: Function called when use_lifetime or global_grouping changes.
+                Receives (use_lifetime, global_grouping) as parameters.
+        """
+        self._on_grouping_options_changed = callback
 
     def set_selected_group(self, group_id: int | None) -> None:
         """Programmatically set the selected group for highlighting.

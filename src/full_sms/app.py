@@ -111,6 +111,8 @@ class Application:
             tuple[int, int, int | None], tuple[np.ndarray, np.ndarray]
         ] = {}
 
+        # NOTE: Selected level cache is now stored in session.ui_state.selected_level_indices
+
         # Settings dialog
         self._settings_dialog: SettingsDialog | None = None
 
@@ -190,10 +192,13 @@ class Application:
                     self._on_level_selection_changed
                 )
 
-            # Set up grouping tab callback
+            # Set up grouping tab callbacks
             if self._layout.grouping_tab:
                 self._layout.grouping_tab.set_on_grouping_requested(
                     self._on_grouping_from_tab
+                )
+                self._layout.grouping_tab.set_on_grouping_options_changed(
+                    self._on_grouping_options_changed
                 )
 
             # Set up correlation tab callback
@@ -570,6 +575,7 @@ class Application:
             self._session.level_fits.clear()
             self._fit_cache.clear()
             self._irf_cache.clear()
+            self._session.ui_state.selected_level_indices.clear()
             self._session.selected.clear()
             self._session.current_selection = None
 
@@ -727,6 +733,9 @@ class Application:
         # Set up particle tree
         if self._session.particles:
             self._layout.set_particles(self._session.particles)
+            # Enable Fit button on lifetime tab (allows "Fit All" without selecting a particle)
+            if self._layout.lifetime_tab:
+                self._layout.lifetime_tab.enable_fit_button()
 
         # Restore selection if available
         if self._session.current_selection:
@@ -736,12 +745,27 @@ class Application:
         if self._layout.intensity_tab:
             self._layout.intensity_tab.set_bin_size(self._session.ui_state.bin_size_ms)
 
+        # Update grouping tab with options from UI state
+        if self._layout.grouping_tab:
+            self._layout.grouping_tab.set_use_lifetime(
+                self._session.ui_state.use_lifetime_grouping
+            )
+            self._layout.grouping_tab.set_global_grouping(
+                self._session.ui_state.global_grouping
+            )
+
         # Update other tabs based on active tab
         self._layout.set_active_tab(self._session.ui_state.active_tab)
 
         # Update export tab session state
         if self._layout.export_tab:
             self._layout.export_tab.set_session_state(self._session)
+
+        # Update resolve button states (enables "Resolve All" even without selection)
+        self._update_resolve_buttons_state()
+
+        # Update group button states (enables "Group All" if any levels exist)
+        self._update_group_buttons_state()
 
     def _on_exit(self) -> None:
         """Handle Exit menu action."""
@@ -957,21 +981,16 @@ class Application:
         """Handle fit request from lifetime tab's Fit button."""
         logger.info("Fit requested from tab")
 
-        # Check if we have data
-        if not self._session.current_selection:
-            logger.warning("No particle selected for fitting")
-            if self._layout:
-                self._layout.set_status("Select a particle to fit")
-            return
+        # Check if ANY particle has levels (not just the current one)
+        # This allows level-based fitting even when no particle is selected
+        has_levels = len(self._session.levels) > 0
 
-        # Get level state for current particle
-        current_levels = self._session.get_current_levels()
-        has_levels = current_levels is not None and len(current_levels) > 0
-
-        # Get selected level index from lifetime tab
+        # Get selected level index from lifetime tab (if a particle is selected)
         selected_level_index = None
-        if self._layout and self._layout.lifetime_tab:
-            selected_level_index = self._layout.lifetime_tab.selected_level_index
+        if self._session.current_selection:
+            # Get selected level index from lifetime tab
+            if self._layout and self._layout.lifetime_tab:
+                selected_level_index = self._layout.lifetime_tab.selected_level_index
 
         # Update fitting dialog with level state
         if self._fitting_dialog:
@@ -996,26 +1015,31 @@ class Application:
         particle_id = self._session.current_selection.particle_id
         channel_id = self._session.current_selection.channel
 
+        # Save the selected level for this particle/channel in session state
+        self._session.set_selected_level_index(particle_id, channel_id, level_index)
+
         # Look up cached fit for this level (or particle if level_index is None)
         cache_key = (particle_id, channel_id, level_index)
         fit_result = self._fit_cache.get(cache_key)
 
         if fit_result and self._layout and self._layout.lifetime_tab:
-            # Set IRF first (so it's available for fit curve computation)
+            # Set raw IRF first (needed for full convolved curve computation)
             if cache_key in self._irf_cache:
                 t_irf, irf_data = self._irf_cache[cache_key]
-                # Apply fitted shift to IRF display
-                # The shift aligns the IRF with its effective position during fitting
-                self._layout.lifetime_tab.set_irf(
-                    t_irf, irf_data, shift=fit_result.shift
-                )
-                # Also set raw IRF for full convolved curve computation
                 self._layout.lifetime_tab.set_raw_irf(irf_data)
             else:
                 self._layout.lifetime_tab.clear_irf()
 
-            # Now set fit (can use IRF for full curve computation)
+            # Set fit (computes full curve and stores max for IRF normalization)
             self._layout.lifetime_tab.set_fit(fit_result)
+
+            # Now set display IRF (normalizes to fit max)
+            if cache_key in self._irf_cache:
+                t_irf, irf_data = self._irf_cache[cache_key]
+                # The shift aligns the IRF with its effective position during fitting
+                self._layout.lifetime_tab.set_irf(
+                    t_irf, irf_data, shift=fit_result.shift
+                )
 
             logger.debug(
                 f"Restored cached fit for particle {particle_id}, "
@@ -1136,12 +1160,12 @@ class Application:
             selections = []
             for particle in self._session.particles:
                 selections.append(
-                    ChannelSelection(particle_id=particle.particle_id, channel=1)
+                    ChannelSelection(particle_id=particle.id, channel=1)
                 )
                 # Add channel 2 if dual channel
                 if particle.has_dual_channel:
                     selections.append(
-                        ChannelSelection(particle_id=particle.particle_id, channel=2)
+                        ChannelSelection(particle_id=particle.id, channel=2)
                     )
             return selections
 
@@ -1705,18 +1729,20 @@ class Application:
                                     f"Regenerated IRF with fitted FWHM={fit_result.fitted_irf_fwhm:.3f} ns"
                                 )
 
-                    # Apply fitted shift to IRF display
+                    # Set raw IRF first (needed for full convolved curve computation)
+                    self._layout.lifetime_tab.set_raw_irf(irf_data)
+                else:
+                    self._layout.lifetime_tab.clear_irf()
+
+                # Set fit (computes full curve and stores max for IRF normalization)
+                self._layout.lifetime_tab.set_fit(fit_result)
+
+                # Now set display IRF (normalizes to fit max)
+                if cache_key in self._irf_cache:
+                    t_irf, irf_data = self._irf_cache[cache_key]
                     self._layout.lifetime_tab.set_irf(
                         t_irf, irf_data, shift=fit_result.shift
                     )
-                    # Also set raw IRF for full convolved curve computation
-                    self._layout.lifetime_tab.set_raw_irf(irf_data)
-                else:
-                    # Clear IRF if this fit didn't use one
-                    self._layout.lifetime_tab.clear_irf()
-
-                # Now set fit (can use IRF for full curve computation)
-                self._layout.lifetime_tab.set_fit(fit_result)
 
         # Finish processing
         self._session.processing.finish("Fit complete")
@@ -1771,6 +1797,22 @@ class Application:
             self._layout.show_success(
                 f"Correlation complete: {result.num_events:,} events, g2(0)={g2_zero}"
             )
+
+    def _on_grouping_options_changed(
+        self, use_lifetime: bool, global_grouping: bool
+    ) -> None:
+        """Handle grouping options change from the grouping tab.
+
+        Args:
+            use_lifetime: Whether to use lifetime in clustering.
+            global_grouping: Whether to use global grouping mode.
+        """
+        self._session.ui_state.use_lifetime_grouping = use_lifetime
+        self._session.ui_state.global_grouping = global_grouping
+        logger.debug(
+            f"Grouping options updated: use_lifetime={use_lifetime}, "
+            f"global_grouping={global_grouping}"
+        )
 
     def _on_correlate_from_tab(
         self, window_ns: float, binsize_ns: float, difftime_ns: float
@@ -2132,26 +2174,42 @@ class Application:
             # Clear levels when switching to a particle without levels
             self._layout.clear_lifetime_levels()
 
-        # After switching particles, restore fit for "all data" (level_index=None)
-        # since set_levels resets to "all data" view
+        # Restore previously selected level for this particle (if any)
+        # This happens after set_levels which resets to "all data" view
+        cached_level_index = self._session.get_selected_level_index(particle_id, channel_id)
+
+        if cached_level_index is not None and levels:
+            # Restore the previously selected level
+            # Validate that the cached index is still valid
+            if 0 <= cached_level_index < len(levels):
+                self._layout.lifetime_tab.select_level(cached_level_index)
+                logger.debug(
+                    f"Restored level selection {cached_level_index} for "
+                    f"particle {particle_id}, channel {channel_id}"
+                )
+                return  # select_level will trigger callback to restore fit
+
+        # If no cached level or not valid, restore fit for "all data" (level_index=None)
         cache_key = (particle_id, channel_id, None)
         fit_result = self._fit_cache.get(cache_key)
 
         if fit_result:
-            # Set IRF first (so it's available for fit curve computation)
+            # Set raw IRF first (needed for full convolved curve computation)
             if cache_key in self._irf_cache:
                 t_irf, irf_data = self._irf_cache[cache_key]
-                # Apply fitted shift to IRF display
-                self._layout.lifetime_tab.set_irf(
-                    t_irf, irf_data, shift=fit_result.shift
-                )
-                # Also set raw IRF for full convolved curve computation
                 self._layout.lifetime_tab.set_raw_irf(irf_data)
             else:
                 self._layout.lifetime_tab.clear_irf()
 
-            # Now set fit (can use IRF for full curve computation)
+            # Set fit (computes full curve and stores max for IRF normalization)
             self._layout.lifetime_tab.set_fit(fit_result)
+
+            # Now set display IRF (normalizes to fit max)
+            if cache_key in self._irf_cache:
+                t_irf, irf_data = self._irf_cache[cache_key]
+                self._layout.lifetime_tab.set_irf(
+                    t_irf, irf_data, shift=fit_result.shift
+                )
 
             logger.debug(
                 f"Restored cached fit for particle {particle_id}, channel {channel_id}"
@@ -2200,8 +2258,10 @@ class Application:
         has_selected = len(self._session.selected) > 0
         has_any = len(self._session.particles) > 0
 
+        # Enable buttons based on availability, not on whether data is currently displayed
+        # This allows "Resolve All" even without selecting a particle first
         self._layout.intensity_tab.set_resolve_buttons_state(
-            has_current=has_current and self._layout.intensity_tab.has_data,
+            has_current=has_current,
             has_selected=has_selected,
             has_any=has_any,
         )

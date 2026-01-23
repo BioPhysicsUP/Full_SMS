@@ -25,7 +25,7 @@ from full_sms.ui.plots.decay_plot import DecayPlot
 from full_sms.ui.plots.intensity_plot import IntensityPlot
 from full_sms.ui.plots.residuals_plot import ResidualsPlot
 
-LIFETIME_INT_PLOT_HEIGHT = 250
+LIFETIME_INT_PLOT_HEIGHT = 175  # Reduced by 30% from 250
 LIFETIME_RESIDUALS_HEIGHT = 140  # Space reserved for residuals plot at bottom
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,6 @@ class LifetimeTabTags:
     container: str = "lifetime_tab_view_container"
     controls_group: str = "lifetime_tab_controls"
     log_scale_checkbox: str = "lifetime_tab_log_scale"
-    show_fit_checkbox: str = "lifetime_tab_show_fit"
     show_irf_checkbox: str = "lifetime_tab_show_irf"
     show_residuals_checkbox: str = "lifetime_tab_show_residuals"
     fit_view_button: str = "lifetime_tab_fit_view"
@@ -50,7 +49,8 @@ class LifetimeTabTags:
     intensity_plot_group: str = "lifetime_tab_intensity_plot_group"
     level_selection_text: str = "lifetime_tab_level_selection"
     show_all_button: str = "lifetime_tab_show_all"
-    # Decay and residuals plots
+    # Decay and residuals plots (using subplots for linked X-axis)
+    decay_residuals_subplots: str = "lifetime_tab_decay_residuals_subplots"
     decay_plot_group: str = "lifetime_tab_decay_plot_group"
     residuals_plot_group: str = "lifetime_tab_residuals_plot_group"
     no_data_text: str = "lifetime_tab_no_data"
@@ -120,7 +120,6 @@ class LifetimeTab:
             container=f"{tag_prefix}lifetime_tab_view_container",
             controls_group=f"{tag_prefix}lifetime_tab_controls",
             log_scale_checkbox=f"{tag_prefix}lifetime_tab_log_scale",
-            show_fit_checkbox=f"{tag_prefix}lifetime_tab_show_fit",
             show_irf_checkbox=f"{tag_prefix}lifetime_tab_show_irf",
             show_residuals_checkbox=f"{tag_prefix}lifetime_tab_show_residuals",
             fit_view_button=f"{tag_prefix}lifetime_tab_fit_view",
@@ -131,6 +130,7 @@ class LifetimeTab:
             intensity_plot_group=f"{tag_prefix}lifetime_tab_intensity_plot_group",
             level_selection_text=f"{tag_prefix}lifetime_tab_level_selection",
             show_all_button=f"{tag_prefix}lifetime_tab_show_all",
+            decay_residuals_subplots=f"{tag_prefix}lifetime_tab_decay_residuals_subplots",
             decay_plot_group=f"{tag_prefix}lifetime_tab_decay_plot_group",
             residuals_plot_group=f"{tag_prefix}lifetime_tab_residuals_plot_group",
             no_data_text=f"{tag_prefix}lifetime_tab_no_data",
@@ -230,37 +230,31 @@ class LifetimeTab:
                             )
                             self._intensity_plot.build(show_legend=False)
 
-                    # Main decay plot (takes remaining space)
-                    # Height is negative to fill available space minus residuals
-                    with dpg.child_window(
-                        tag=self._tags.decay_plot_group,
-                        border=False,
-                        autosize_x=True,
-                        height=-LIFETIME_RESIDUALS_HEIGHT,
+                    # Subplots container for decay and residuals with linked X-axis
+                    # row_ratios: decay plot gets ~2.3x the height of residuals
+                    with dpg.subplots(
+                        rows=2,
+                        columns=1,
+                        tag=self._tags.decay_residuals_subplots,
+                        width=-1,
+                        height=-1,
+                        link_all_x=True,  # Native X-axis linking
+                        row_ratios=[3.5, 1.5],
                     ):
+                        # Decay plot (row 0)
                         self._decay_plot = DecayPlot(
-                            parent=self._tags.decay_plot_group,
+                            parent=self._tags.decay_residuals_subplots,
                             tag_prefix=f"{self._tag_prefix}main_",
                         )
-                        self._decay_plot.build()
+                        self._decay_plot.build(for_subplot=True)
 
-                    # Residuals plot (below decay plot, hidden until fit)
-                    with dpg.group(
-                        tag=self._tags.residuals_plot_group,
-                        show=False,  # Hidden until fit is available
-                    ):
+                        # Residuals plot (row 1) - always visible, empty until fit
                         self._residuals_plot = ResidualsPlot(
-                            parent=self._tags.residuals_plot_group,
+                            parent=self._tags.decay_residuals_subplots,
                             tag_prefix=f"{self._tag_prefix}main_",
-                            height=120,
+                            height=-1,  # Let subplot control height
                         )
-                        self._residuals_plot.build()
-
-                        # Link X axis to decay plot for synchronized panning
-                        if self._decay_plot:
-                            self._residuals_plot.link_x_axis(
-                                self._decay_plot.tags.x_axis
-                            )
+                        self._residuals_plot.build(for_subplot=True)
 
         self._is_built = True
         logger.debug("Lifetime tab built")
@@ -280,17 +274,7 @@ class LifetimeTab:
             # Spacer
             dpg.add_spacer(width=15)
 
-            # Show fit checkbox
-            dpg.add_checkbox(
-                label="Show Fit",
-                tag=self._tags.show_fit_checkbox,
-                default_value=self._show_fit,
-                callback=self._on_show_fit_checkbox_changed,
-                enabled=False,
-            )
-
-            # Spacer
-            dpg.add_spacer(width=15)
+            # Note: "Show Fit" checkbox removed - user can click legend to toggle fit visibility
 
             # Show IRF checkbox
             dpg.add_checkbox(
@@ -298,18 +282,6 @@ class LifetimeTab:
                 tag=self._tags.show_irf_checkbox,
                 default_value=self._show_irf,
                 callback=self._on_show_irf_checkbox_changed,
-                enabled=False,
-            )
-
-            # Spacer
-            dpg.add_spacer(width=15)
-
-            # Show Residuals checkbox
-            dpg.add_checkbox(
-                label="Show Residuals",
-                tag=self._tags.show_residuals_checkbox,
-                default_value=self._show_residuals,
-                callback=self._on_show_residuals_checkbox_changed,
                 enabled=False,
             )
 
@@ -396,22 +368,6 @@ class LifetimeTab:
                 color=(200, 200, 200),
             )
 
-    def _on_show_fit_checkbox_changed(
-        self, sender: int, app_data: bool
-    ) -> None:
-        """Handle show fit checkbox changes.
-
-        Args:
-            sender: The checkbox widget.
-            app_data: The new checkbox value.
-        """
-        self._show_fit = app_data
-
-        if self._decay_plot:
-            self._decay_plot.set_show_fit(app_data)
-
-        logger.debug(f"Show fit changed to {app_data}")
-
     def _on_show_irf_checkbox_changed(
         self, sender: int, app_data: bool
     ) -> None:
@@ -437,17 +393,8 @@ class LifetimeTab:
             sender: The checkbox widget.
             app_data: The new checkbox value.
         """
+        # Residuals are always shown with subplots, checkbox is removed
         self._show_residuals = app_data
-
-        # Show or hide the residuals plot
-        if dpg.does_item_exist(self._tags.residuals_plot_group):
-            # Only show if we have fit data and the checkbox is enabled
-            should_show = app_data and self._fit_result is not None
-            dpg.configure_item(self._tags.residuals_plot_group, show=should_show)
-
-        # Update decay plot height based on residuals visibility
-        self._update_decay_plot_height()
-
         logger.debug(f"Show residuals changed to {app_data}")
 
     def _on_log_scale_checkbox_changed(
@@ -571,24 +518,21 @@ class LifetimeTab:
         if dpg.does_item_exist(self._tags.log_scale_checkbox):
             dpg.configure_item(self._tags.log_scale_checkbox, enabled=False)
 
-        if dpg.does_item_exist(self._tags.show_fit_checkbox):
-            dpg.configure_item(self._tags.show_fit_checkbox, enabled=False)
-
         if dpg.does_item_exist(self._tags.show_irf_checkbox):
             dpg.configure_item(self._tags.show_irf_checkbox, enabled=False)
 
-        if dpg.does_item_exist(self._tags.show_residuals_checkbox):
-            dpg.configure_item(self._tags.show_residuals_checkbox, enabled=False)
-
-        # Hide the residuals plot
-        if dpg.does_item_exist(self._tags.residuals_plot_group):
-            dpg.configure_item(self._tags.residuals_plot_group, show=False)
+        # Note: Residuals plot stays visible but empty (subplots always show)
 
         # Clear info text
         if dpg.does_item_exist(self._tags.info_text):
             dpg.set_value(self._tags.info_text, "")
 
         logger.debug("Lifetime tab cleared")
+
+    def enable_fit_button(self) -> None:
+        """Enable the Fit button (allows fitting without displaying particle data)."""
+        if dpg.does_item_exist(self._tags.fit_button):
+            dpg.configure_item(self._tags.fit_button, enabled=True)
 
     def _show_plot(self, show: bool) -> None:
         """Show or hide the plot area.
@@ -605,25 +549,12 @@ class LifetimeTab:
             dpg.configure_item(self._tags.no_data_text, show=not show)
 
     def _update_decay_plot_height(self) -> None:
-        """Update decay plot height based on whether residuals are visible."""
-        if not dpg.does_item_exist(self._tags.decay_plot_group):
-            return
+        """Update decay plot height based on whether residuals are visible.
 
-        # Check if residuals plot is visible
-        residuals_visible = (
-            self._show_residuals
-            and self._fit_result is not None
-            and dpg.does_item_exist(self._tags.residuals_plot_group)
-        )
-
-        if residuals_visible:
-            # Leave room for residuals
-            dpg.configure_item(
-                self._tags.decay_plot_group, height=-LIFETIME_RESIDUALS_HEIGHT
-            )
-        else:
-            # Fill all available space
-            dpg.configure_item(self._tags.decay_plot_group, height=-1)
+        Note: With subplots, height is managed by row_ratios, so this is a no-op.
+        """
+        # With subplots, height is managed automatically by row_ratios
+        pass
 
     def _update_info_text(self) -> None:
         """Update the info text with current data stats."""
@@ -727,41 +658,72 @@ class LifetimeTab:
         # Update the decay plot
         if self._decay_plot:
             self._decay_plot.set_fit(fit_result)
+            # Ensure X-axis shows full data range (not just fit range)
+            self._decay_plot.reset_x_limits()
 
-        # Update the residuals plot
+        # Update the residuals plot with full data range
         if self._residuals_plot and self._decay_plot:
-            # Get time array for the fit range from decay plot
-            if self._decay_plot._t is not None:
-                fit_t = self._decay_plot._t[
-                    fit_result.fit_start_index : fit_result.fit_end_index
-                ]
-                # Ensure residuals match the time array length
-                residuals = fit_result.residuals
-                if len(residuals) == len(fit_t):
-                    self._residuals_plot.set_residuals(fit_t, residuals)
-                else:
-                    # Trim to match
-                    min_len = min(len(residuals), len(fit_t))
-                    self._residuals_plot.set_residuals(
-                        fit_t[:min_len], residuals[:min_len]
-                    )
+            if self._decay_plot._t is not None and self._decay_plot._counts is not None:
+                full_t = self._decay_plot._t
+                full_counts = self._decay_plot._counts
 
-        # Enable the show fit checkbox
-        if dpg.does_item_exist(self._tags.show_fit_checkbox):
-            dpg.configure_item(self._tags.show_fit_checkbox, enabled=True)
+                # Create residuals array for full range
+                # In-range: use actual weighted residuals from fit
+                # Out-of-range: extrapolate smoothly to show what residuals would be
+                full_residuals = np.zeros(len(full_t))
 
-        # Enable the show residuals checkbox
-        if dpg.does_item_exist(self._tags.show_residuals_checkbox):
-            dpg.configure_item(self._tags.show_residuals_checkbox, enabled=True)
+                # Calculate residuals for full range
+                if len(fit_result.fitted_curve) > 0:
+                    fit_start = fit_result.fit_start_index
+                    fit_end = fit_result.fit_end_index
+                    fit_curve = fit_result.fitted_curve
+                    background = fit_result.background
+                    avg_tau = fit_result.average_lifetime
 
-        # Show the residuals plot (if checkbox is checked)
-        if dpg.does_item_exist(self._tags.residuals_plot_group):
-            dpg.configure_item(
-                self._tags.residuals_plot_group, show=self._show_residuals
-            )
+                    # Calculate weighted residuals for fit range (in-range)
+                    fit_data = full_counts[fit_start:fit_end]
+                    sigma = np.sqrt(np.maximum(fit_data, 1.0))
+                    in_range_residuals = (fit_data - fit_curve) / sigma
+                    full_residuals[fit_start:fit_end] = in_range_residuals
 
-        # Update decay plot height to make room for residuals
-        self._update_decay_plot_height()
+                    # Calculate residuals for out-of-range regions with smooth transitions
+                    # Before fit_start: linearly interpolate from background to fit_curve[0]
+                    if fit_start > 0 and len(fit_curve) > 0:
+                        pre_data = full_counts[:fit_start]
+                        pre_sigma = np.sqrt(np.maximum(pre_data, 1.0))
+                        # Linear interpolation from background (at t=0) to fit_curve[0] (at fit_start)
+                        # This ensures continuity at the fit boundary
+                        interpolation_fraction = np.linspace(0, 1, fit_start)
+                        pre_expected = background + interpolation_fraction * (fit_curve[0] - background)
+                        pre_residuals = (pre_data - pre_expected) / pre_sigma
+                        full_residuals[:fit_start] = pre_residuals
+
+                    # After fit_end: extrapolate using exponential decay from last fit point
+                    if fit_end < len(full_t) and avg_tau > 0 and len(fit_curve) > 0:
+                        post_data = full_counts[fit_end:]
+                        post_sigma = np.sqrt(np.maximum(post_data, 1.0))
+                        # Extrapolate fit using exponential decay from last fit point
+                        # This ensures continuity at the fit boundary
+                        t0 = full_t[fit_end - 1]
+                        end_value = fit_curve[-1]
+                        post_t = full_t[fit_end:]
+                        extrapolated = background + (end_value - background) * np.exp(
+                            -(post_t - t0) / avg_tau
+                        )
+                        post_residuals = (post_data - extrapolated) / post_sigma
+                        full_residuals[fit_end:] = post_residuals
+
+                self._residuals_plot.set_residuals(
+                    full_t,
+                    full_residuals,
+                    fit_start_index=fit_result.fit_start_index,
+                    fit_end_index=fit_result.fit_end_index,
+                )
+
+                # Sync X-axis to show full data range
+                self._residuals_plot.sync_x_axis_from(self._decay_plot.tags.x_axis)
+
+        # Note: Residuals plot is always visible (subplots), no need to show/hide
 
         # Update the fit results text display
         self._update_fit_results_text()
@@ -780,24 +742,9 @@ class LifetimeTab:
         if self._decay_plot:
             self._decay_plot.clear_fit()
 
-        # Clear the residuals plot
+        # Clear the residuals plot (it stays visible but empty)
         if self._residuals_plot:
             self._residuals_plot.clear()
-
-        # Hide the residuals plot
-        if dpg.does_item_exist(self._tags.residuals_plot_group):
-            dpg.configure_item(self._tags.residuals_plot_group, show=False)
-
-        # Expand decay plot to fill available space
-        self._update_decay_plot_height()
-
-        # Disable the show fit checkbox
-        if dpg.does_item_exist(self._tags.show_fit_checkbox):
-            dpg.configure_item(self._tags.show_fit_checkbox, enabled=False)
-
-        # Disable the show residuals checkbox
-        if dpg.does_item_exist(self._tags.show_residuals_checkbox):
-            dpg.configure_item(self._tags.show_residuals_checkbox, enabled=False)
 
         # Hide the fit results group
         self._show_fit_results(False)
@@ -874,13 +821,13 @@ class LifetimeTab:
     def set_show_fit(self, show: bool) -> None:
         """Programmatically set the show fit state.
 
+        Note: The Show Fit checkbox has been removed - user can click the
+        legend to toggle fit visibility. This method is kept for API compatibility.
+
         Args:
             show: Whether to show the fit curve.
         """
         self._show_fit = show
-
-        if dpg.does_item_exist(self._tags.show_fit_checkbox):
-            dpg.set_value(self._tags.show_fit_checkbox, show)
 
         if self._decay_plot:
             self._decay_plot.set_show_fit(show)
@@ -978,21 +925,14 @@ class LifetimeTab:
     def set_show_residuals(self, show: bool) -> None:
         """Programmatically set the show residuals state.
 
+        Note: With subplots, residuals are always visible. This method
+        is kept for backwards compatibility but is essentially a no-op.
+
         Args:
             show: Whether to show the residuals plot.
         """
+        # Residuals are always visible with subplots
         self._show_residuals = show
-
-        if dpg.does_item_exist(self._tags.show_residuals_checkbox):
-            dpg.set_value(self._tags.show_residuals_checkbox, show)
-
-        # Only show if we have fit data
-        if dpg.does_item_exist(self._tags.residuals_plot_group):
-            should_show = show and self._fit_result is not None
-            dpg.configure_item(self._tags.residuals_plot_group, show=should_show)
-
-        # Update decay plot height based on residuals visibility
-        self._update_decay_plot_height()
 
     # -------------------------------------------------------------------------
     # Level Selection Methods
@@ -1078,6 +1018,17 @@ class LifetimeTab:
         self._show_all_data()
 
         logger.debug("Lifetime tab levels cleared")
+
+    def select_level(self, level_index: int | None) -> None:
+        """Programmatically select a level (or show all data).
+
+        Args:
+            level_index: Index of the level to select (0-based), or None for "all data".
+        """
+        if level_index is None:
+            self._show_all_data()
+        else:
+            self._select_level(level_index)
 
     def _on_show_all_clicked(self) -> None:
         """Handle Show All button click."""

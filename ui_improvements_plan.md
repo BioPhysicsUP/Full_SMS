@@ -360,7 +360,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 5.3: Fix IRF display behavior `[NEXT]`
+### Task 5.3: Fix IRF display behavior `[DONE]` (2026-01-20)
 **Objective**: Show IRF button should display IRF (real or simulated)
 
 **Actions**:
@@ -373,9 +373,23 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Show IRF displays appropriate IRF data
 
+**Implementation Notes**:
+- Root cause: IRF was never passed to the fit task and never stored for display
+- Modified `_build_fit_task_params` to generate simulated IRF when `use_simulated_irf` is True
+- Added `_irf_cache` to store IRF data keyed by (particle_id, channel_id, level_index)
+- Modified `_handle_fit_result` to set IRF on lifetime tab after fit completes
+- Added IRF restoration in `_update_lifetime_display` and `_on_level_selection_changed` when switching particles/levels
+- IRF cache is cleared when opening a new file
+- Added full convolved fit curve computation including rising edge:
+  - Added `set_raw_irf()` method to store raw IRF for convolution computation
+  - Added `_compute_full_convolved_curve()` to compute convolution using fitted parameters
+  - Fit curve now shows the full rising edge when IRF data is available
+- Fixed IRF display position by applying fitted shift to IRF time axis
+- IRF display trimmed to show only significant part (≥0.5 counts) for cleaner log scale visualization
+
 ---
 
-### Task 5.4: Fix log scale toggle `[TODO]`
+### Task 5.4: Fix log scale toggle `[NEXT]`
 **Objective**: Log scale checkbox should properly toggle Y-axis scale
 
 **Actions**:
@@ -503,10 +517,10 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 2. Layout & Scrolling | 2 | 2 | 0 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 | 0 |
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
-| 5. Lifetime Tab | 5 | 2 | 0 | 3 |
+| 5. Lifetime Tab | 5 | 3 | 0 | 2 |
 | 6. Grouping Tab | 2 | 0 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 0 | 4 |
-| **Total** | **24** | **14** | **1** | **9** |
+| **Total** | **24** | **15** | **1** | **8** |
 
 ---
 
@@ -521,4 +535,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-13 (Task 5.2 completed)*
+*Last Updated: 2026-01-20 (Task 5.3 completed)*

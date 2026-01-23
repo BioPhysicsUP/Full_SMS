@@ -82,6 +82,9 @@ class UIState:
         show_levels: Whether to show levels on intensity plot.
         show_groups: Whether to show group colors on intensity plot.
         log_scale_decay: Whether to use log scale for decay plot.
+        selected_level_indices: Dict mapping (particle_id, channel) to selected level index.
+        use_lifetime_grouping: Whether to use lifetime in grouping analysis.
+        global_grouping: Whether to apply grouping globally across all particles.
     """
 
     bin_size_ms: float = 10.0
@@ -90,6 +93,9 @@ class UIState:
     show_levels: bool = True
     show_groups: bool = True
     log_scale_decay: bool = True
+    selected_level_indices: Dict[tuple[int, int], int] = field(default_factory=dict)
+    use_lifetime_grouping: bool = False
+    global_grouping: bool = False
 
 
 @dataclass
@@ -404,6 +410,47 @@ class SessionState:
         """Clear all selections."""
         self.selected.clear()
         self.current_selection = None
+
+    def get_selected_level_index(
+        self, particle_id: int, channel: int = 1
+    ) -> Optional[int]:
+        """Get the selected level index for a particle/channel.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+
+        Returns:
+            The selected level index, or None if no level is selected.
+        """
+        return self.ui_state.selected_level_indices.get((particle_id, channel))
+
+    def set_selected_level_index(
+        self, particle_id: int, channel: int, level_index: Optional[int]
+    ) -> None:
+        """Set the selected level index for a particle/channel.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+            level_index: The level index to select, or None to clear selection.
+        """
+        if level_index is None:
+            self.ui_state.selected_level_indices.pop((particle_id, channel), None)
+        else:
+            self.ui_state.selected_level_indices[(particle_id, channel)] = level_index
+
+    def get_current_selected_level_index(self) -> Optional[int]:
+        """Get the selected level index for the current selection.
+
+        Returns:
+            The selected level index for the current particle/channel, or None.
+        """
+        if self.current_selection is None:
+            return None
+        return self.get_selected_level_index(
+            self.current_selection.particle_id, self.current_selection.channel
+        )
 
     def clear_analysis(self) -> None:
         """Clear all analysis results while keeping particles."""

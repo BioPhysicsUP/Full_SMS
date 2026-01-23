@@ -399,6 +399,9 @@ class IntensityPlot:
         # Remove existing level overlays
         self._remove_level_series()
 
+        # Clear any selected level highlighting (from previous particle)
+        self.clear_selected_level()
+
         if not self._levels:
             logger.debug("No levels to display")
             return
@@ -612,18 +615,6 @@ class IntensityPlot:
         if level is None or not dpg.does_item_exist(self._tags.y_axis):
             return
 
-        # Get Y-axis range for the band height
-        y_limits = self.get_y_axis_limits()
-        if y_limits is None:
-            # Use data range as fallback
-            count_range = self.get_count_range()
-            if count_range:
-                y_min, y_max = 0, count_range[1] * 1.2
-            else:
-                y_min, y_max = 0, 1000
-        else:
-            y_min, y_max = y_limits
-
         # Convert level times to milliseconds
         start_ms = level.start_time_ns / 1e6
 
@@ -640,10 +631,11 @@ class IntensityPlot:
 
         # Create X coordinates for the band (left edge, right edge)
         x_coords = [start_ms, end_ms]
-        # Y coordinates: bottom of band
-        y1_coords = [y_min, y_min]
-        # Y coordinates: top of band
-        y2_coords = [y_max, y_max]
+        # Y coordinates: Use 0 for bottom and a very large value for top
+        # This ensures the band always extends to the full plot height
+        # regardless of current axis limits or auto-fit timing
+        y1_coords = [0, 0]
+        y2_coords = [1e10, 1e10]  # Very large value to always reach plot top
 
         # Add shade series for the vertical band
         dpg.add_shade_series(

@@ -250,17 +250,6 @@ class IntensityTab:
             # Spacer
             dpg.add_spacer(width=20)
 
-            # Histogram visibility toggle
-            dpg.add_checkbox(
-                label="Show Histogram",
-                tag=self._tags.show_histogram_checkbox,
-                default_value=True,
-                callback=self._on_show_histogram_changed,
-                enabled=False,
-            )
-
-            dpg.add_spacer(width=10)
-
             # Level overlay controls
             dpg.add_checkbox(
                 label="Colour by Group",
@@ -421,18 +410,15 @@ class IntensityTab:
     def _on_show_histogram_changed(self, sender: int, app_data: bool) -> None:
         """Handle show histogram checkbox changes.
 
+        Note: Checkbox removed - histogram is always visible with subplots.
+        This method is kept for backwards compatibility.
+
         Args:
             sender: The checkbox widget.
             app_data: Whether to show the histogram.
         """
+        # Histogram is always visible with subplots
         self._histogram_visible = app_data
-
-        # Hide the histogram plot directly within the subplot
-        if self._intensity_histogram is not None:
-            hist_plot_tag = self._intensity_histogram.tags.plot
-            if dpg.does_item_exist(hist_plot_tag):
-                dpg.configure_item(hist_plot_tag, show=app_data)
-
         logger.debug(f"Show histogram changed to {app_data}")
 
     # -------------------------------------------------------------------------
@@ -493,9 +479,7 @@ class IntensityTab:
         if dpg.does_item_exist(self._tags.fit_view_button):
             dpg.configure_item(self._tags.fit_view_button, enabled=True)
 
-        # Enable histogram checkbox
-        if dpg.does_item_exist(self._tags.show_histogram_checkbox):
-            dpg.configure_item(self._tags.show_histogram_checkbox, enabled=True)
+        # Note: Histogram is always visible with subplots
 
         # Enable resolve current button (data is loaded)
         if dpg.does_item_exist(self._tags.resolve_current_btn):
@@ -528,9 +512,7 @@ class IntensityTab:
         if dpg.does_item_exist(self._tags.color_by_group_checkbox):
             dpg.configure_item(self._tags.color_by_group_checkbox, enabled=False)
 
-        # Disable histogram checkbox
-        if dpg.does_item_exist(self._tags.show_histogram_checkbox):
-            dpg.configure_item(self._tags.show_histogram_checkbox, enabled=False)
+        # Note: Histogram is always visible with subplots
 
         # Disable resolve current button
         if dpg.does_item_exist(self._tags.resolve_current_btn):
@@ -560,11 +542,7 @@ class IntensityTab:
         if dpg.does_item_exist(self._tags.no_data_text):
             dpg.configure_item(self._tags.no_data_text, show=not show)
 
-        # Respect histogram visibility preference when showing
-        if show and self._intensity_histogram is not None:
-            hist_plot_tag = self._intensity_histogram.tags.plot
-            if dpg.does_item_exist(hist_plot_tag):
-                dpg.configure_item(hist_plot_tag, show=self._histogram_visible)
+        # Note: Histogram is always visible with subplots
 
     def _update_info_text(self) -> None:
         """Update the info text with current data stats."""
@@ -795,20 +773,14 @@ class IntensityTab:
     def set_histogram_visible(self, visible: bool) -> None:
         """Show or hide the histogram sidebar.
 
+        Note: With subplots, histogram is always visible. This method
+        is kept for backwards compatibility but is essentially a no-op.
+
         Args:
             visible: Whether to show the histogram.
         """
+        # Histogram is always visible with subplots
         self._histogram_visible = visible
-
-        # Hide the histogram plot directly within the subplot
-        if self._intensity_histogram is not None:
-            hist_plot_tag = self._intensity_histogram.tags.plot
-            if dpg.does_item_exist(hist_plot_tag):
-                dpg.configure_item(hist_plot_tag, show=visible)
-
-        # Update checkbox
-        if dpg.does_item_exist(self._tags.show_histogram_checkbox):
-            dpg.set_value(self._tags.show_histogram_checkbox, visible)
 
     # -------------------------------------------------------------------------
     # Group Highlighting Methods

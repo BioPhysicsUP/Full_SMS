@@ -52,13 +52,13 @@ def _str_to_tuple_key(key: str, types: Tuple[type, ...]) -> tuple:
 def _level_to_dict(level: LevelData) -> Dict[str, Any]:
     """Convert a LevelData to a serializable dict."""
     return {
-        "start_index": level.start_index,
-        "end_index": level.end_index,
-        "start_time_ns": level.start_time_ns,
-        "end_time_ns": level.end_time_ns,
-        "num_photons": level.num_photons,
-        "intensity_cps": level.intensity_cps,
-        "group_id": level.group_id,
+        "start_index": int(level.start_index),
+        "end_index": int(level.end_index),
+        "start_time_ns": int(level.start_time_ns),
+        "end_time_ns": int(level.end_time_ns),
+        "num_photons": int(level.num_photons),
+        "intensity_cps": float(level.intensity_cps),
+        "group_id": int(level.group_id) if level.group_id is not None else None,
     }
 
 
@@ -78,11 +78,11 @@ def _dict_to_level(data: Dict[str, Any]) -> LevelData:
 def _group_to_dict(group: GroupData) -> Dict[str, Any]:
     """Convert a GroupData to a serializable dict."""
     return {
-        "group_id": group.group_id,
-        "level_indices": list(group.level_indices),
-        "total_photons": group.total_photons,
-        "total_dwell_time_s": group.total_dwell_time_s,
-        "intensity_cps": group.intensity_cps,
+        "group_id": int(group.group_id),
+        "level_indices": [int(idx) for idx in group.level_indices],
+        "total_photons": int(group.total_photons),
+        "total_dwell_time_s": float(group.total_dwell_time_s),
+        "intensity_cps": float(group.intensity_cps),
     }
 
 
@@ -101,9 +101,9 @@ def _step_to_dict(step: ClusteringStep) -> Dict[str, Any]:
     """Convert a ClusteringStep to a serializable dict."""
     return {
         "groups": [_group_to_dict(g) for g in step.groups],
-        "level_group_assignments": list(step.level_group_assignments),
-        "bic": step.bic,
-        "num_groups": step.num_groups,
+        "level_group_assignments": [int(g) for g in step.level_group_assignments],
+        "bic": float(step.bic),
+        "num_groups": int(step.num_groups),
     }
 
 
@@ -121,9 +121,9 @@ def _clustering_to_dict(result: ClusteringResult) -> Dict[str, Any]:
     """Convert a ClusteringResult to a serializable dict."""
     return {
         "steps": [_step_to_dict(s) for s in result.steps],
-        "optimal_step_index": result.optimal_step_index,
-        "selected_step_index": result.selected_step_index,
-        "num_original_levels": result.num_original_levels,
+        "optimal_step_index": int(result.optimal_step_index),
+        "selected_step_index": int(result.selected_step_index),
+        "num_original_levels": int(result.num_original_levels),
     }
 
 
@@ -149,18 +149,33 @@ def _dict_to_fit_result_data(data: Dict[str, Any]) -> FitResultData:
 
 def _ui_state_to_dict(ui: UIState) -> Dict[str, Any]:
     """Convert UIState to a serializable dict."""
+    # Convert selected_level_indices dict to string keys
+    selected_level_indices_dict = {}
+    for (pid, ch), level_idx in ui.selected_level_indices.items():
+        key = _tuple_key_to_str((pid, ch))
+        selected_level_indices_dict[key] = int(level_idx)
+
     return {
-        "bin_size_ms": ui.bin_size_ms,
+        "bin_size_ms": float(ui.bin_size_ms),
         "confidence": ui.confidence.value,
         "active_tab": ui.active_tab.value,
-        "show_levels": ui.show_levels,
-        "show_groups": ui.show_groups,
-        "log_scale_decay": ui.log_scale_decay,
+        "show_levels": bool(ui.show_levels),
+        "show_groups": bool(ui.show_groups),
+        "log_scale_decay": bool(ui.log_scale_decay),
+        "selected_level_indices": selected_level_indices_dict,
+        "use_lifetime_grouping": bool(ui.use_lifetime_grouping),
+        "global_grouping": bool(ui.global_grouping),
     }
 
 
 def _dict_to_ui_state(data: Dict[str, Any]) -> UIState:
     """Convert a dict back to UIState."""
+    # Convert selected_level_indices string keys back to tuples
+    selected_level_indices = {}
+    for key, level_idx in data.get("selected_level_indices", {}).items():
+        pid, ch = _str_to_tuple_key(key, (int, int))
+        selected_level_indices[(pid, ch)] = level_idx
+
     return UIState(
         bin_size_ms=data["bin_size_ms"],
         confidence=ConfidenceLevel(data["confidence"]),
@@ -168,12 +183,15 @@ def _dict_to_ui_state(data: Dict[str, Any]) -> UIState:
         show_levels=data["show_levels"],
         show_groups=data["show_groups"],
         log_scale_decay=data["log_scale_decay"],
+        selected_level_indices=selected_level_indices,
+        use_lifetime_grouping=data.get("use_lifetime_grouping", False),
+        global_grouping=data.get("global_grouping", False),
     )
 
 
 def _selection_to_dict(sel: ChannelSelection) -> Dict[str, Any]:
     """Convert a ChannelSelection to a serializable dict."""
-    return {"particle_id": sel.particle_id, "channel": sel.channel}
+    return {"particle_id": int(sel.particle_id), "channel": int(sel.channel)}
 
 
 def _dict_to_selection(data: Dict[str, Any]) -> ChannelSelection:
@@ -206,10 +224,10 @@ def save_session(state: SessionState, path: Path) -> None:
         "file_metadata": {
             "path": str(state.file_metadata.path),
             "filename": state.file_metadata.filename,
-            "num_particles": state.file_metadata.num_particles,
-            "has_irf": state.file_metadata.has_irf,
-            "has_spectra": state.file_metadata.has_spectra,
-            "has_raster": state.file_metadata.has_raster,
+            "num_particles": int(state.file_metadata.num_particles),
+            "has_irf": bool(state.file_metadata.has_irf),
+            "has_spectra": bool(state.file_metadata.has_spectra),
+            "has_raster": bool(state.file_metadata.has_raster),
         },
     }
 
