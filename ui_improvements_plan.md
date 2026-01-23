@@ -389,7 +389,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 5.4: Fix log scale toggle `[NEXT]`
+### Task 5.4: Fix log scale toggle `[DONE]` (2026-01-23)
 **Objective**: Log scale checkbox should properly toggle Y-axis scale
 
 **Actions**:
@@ -401,9 +401,16 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Log scale toggle switches between log and linear Y-axis
 
+**Implementation Notes**:
+- The `_rebuild_y_axis()` method in `decay_plot.py` was already correctly implemented
+- Y-axis is deleted and recreated with updated `log_scale` parameter when toggled
+- All series (data, fit, IRF) are recreated and properly styled after rebuild
+- Log scale transformation handles zero counts by replacing with 0.5 for visualization
+- User confirmed the functionality is working as expected
+
 ---
 
-### Task 5.5: Enlarge fitting dialog input boxes `[TODO]`
+### Task 5.5: Enlarge fitting dialog input boxes `[NEXT]`
 **Objective**: Make input fields in fitting dialog larger and easier to use
 
 **Actions**:
@@ -517,10 +524,10 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 2. Layout & Scrolling | 2 | 2 | 0 | 0 |
 | 3. Spectra & Raster | 2 | 2 | 0 | 0 |
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
-| 5. Lifetime Tab | 5 | 3 | 0 | 2 |
+| 5. Lifetime Tab | 5 | 4 | 0 | 1 |
 | 6. Grouping Tab | 2 | 0 | 0 | 2 |
 | 7. Export Tab | 4 | 0 | 0 | 4 |
-| **Total** | **24** | **15** | **1** | **8** |
+| **Total** | **24** | **16** | **1** | **7** |
 
 ---
 
@@ -535,4 +542,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-20 (Task 5.3 completed)*
+*Last Updated: 2026-01-23 (Task 5.4 completed)*
