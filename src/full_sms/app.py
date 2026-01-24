@@ -200,6 +200,9 @@ class Application:
                 self._layout.grouping_tab.set_on_grouping_options_changed(
                     self._on_grouping_options_changed
                 )
+                self._layout.grouping_tab.set_on_group_count_changed(
+                    self._on_group_count_changed
+                )
 
             # Set up correlation tab callback
             if self._layout.correlation_tab:
@@ -462,6 +465,9 @@ class Application:
             # Update lifetime tab with levels if they exist
             self._update_lifetime_display()
 
+            # Update grouping tab with clustering results if they exist
+            self._update_grouping_display()
+
             # Update correlation tab for dual-channel particles
             self._update_correlation_display()
         else:
@@ -472,6 +478,8 @@ class Application:
                 self._layout.clear_lifetime_data()
                 self._layout.clear_spectra_data()
                 self._layout.clear_raster_data()
+                if self._layout.grouping_tab:
+                    self._layout.grouping_tab.clear()
 
         # Update resolve button states
         self._update_resolve_buttons_state()
@@ -1818,6 +1826,43 @@ class Application:
             f"global_grouping={global_grouping}"
         )
 
+    def _on_group_count_changed(self, num_groups: int) -> None:
+        """Handle group count change from the grouping tab.
+
+        Updates the session state with the new clustering result that has
+        the selected number of groups.
+
+        Args:
+            num_groups: The new number of groups selected.
+        """
+        if not self._session.current_selection:
+            return
+
+        # Get the updated clustering result from the grouping tab
+        if self._layout and self._layout.grouping_tab:
+            updated_result = self._layout.grouping_tab.clustering_result
+            if updated_result:
+                # Update the session state with the new selected step
+                self._session.set_clustering(
+                    self._session.current_selection.particle_id,
+                    self._session.current_selection.channel,
+                    updated_result,
+                )
+                logger.debug(
+                    f"Session updated: particle {self._session.current_selection.particle_id} "
+                    f"now has {num_groups} groups selected"
+                )
+
+                # Also update the intensity tab if levels are shown
+                levels = self._session.get_current_levels()
+                if levels and self._layout.intensity_tab:
+                    updated_levels = self._apply_group_assignments_to_levels(
+                        levels, updated_result
+                    )
+                    self._layout.intensity_tab.set_levels(
+                        updated_levels, color_by_group=True
+                    )
+
     def _on_correlate_from_tab(
         self, window_ns: float, binsize_ns: float, difftime_ns: float
     ) -> None:
@@ -1967,6 +2012,7 @@ class Application:
             return
 
         if not self._session.current_selection:
+            self._layout.grouping_tab.clear()
             return
 
         # Get clustering result for current selection
@@ -1986,7 +2032,22 @@ class Application:
 
             # Update grouping tab intensity plot with levels and group bands
             if levels:
+                # Ensure intensity data is set on the grouping tab's intensity plot
+                # (needed because the plot may have been hidden when data was first set)
+                particle = self._session.get_current_particle()
+                if particle:
+                    channel = (
+                        particle.channel1
+                        if self._session.current_selection.channel == 1
+                        else particle.channel2
+                    )
+                    if channel:
+                        self._layout.grouping_tab.set_intensity_data(channel.abstimes)
+
                 self._layout.grouping_tab.set_levels_with_groups(levels, clustering)
+        else:
+            # No clustering result - clear the grouping tab
+            self._layout.grouping_tab.clear()
 
     def _apply_group_assignments_to_levels(
         self, levels: list[LevelData], clustering

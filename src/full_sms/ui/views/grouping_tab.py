@@ -685,6 +685,12 @@ class GroupingTab:
                 self._clustering_result = self._clustering_result.with_selected_step(i)
                 self._selected_num_groups = num_groups
 
+                # Update slider and label
+                if dpg.does_item_exist(self._tags.group_count_slider):
+                    dpg.set_value(self._tags.group_count_slider, num_groups)
+                if dpg.does_item_exist(self._tags.group_count_label):
+                    dpg.set_value(self._tags.group_count_label, str(num_groups))
+
                 # Update displays
                 self._update_group_table(self._clustering_result.groups)
                 self._update_results_text()
@@ -792,6 +798,12 @@ class GroupingTab:
         # Update BIC plot selection
         if self._bic_plot:
             self._bic_plot.set_selected_num_groups(optimal_groups)
+
+        # Update slider and label
+        if dpg.does_item_exist(self._tags.group_count_slider):
+            dpg.set_value(self._tags.group_count_slider, optimal_groups)
+        if dpg.does_item_exist(self._tags.group_count_label):
+            dpg.set_value(self._tags.group_count_label, str(optimal_groups))
 
         # Update displays
         self._update_group_table(self._clustering_result.groups)
@@ -1001,6 +1013,11 @@ class GroupingTab:
         # Show the intensity plot group
         if dpg.does_item_exist(self._tags.intensity_plot_group):
             dpg.configure_item(self._tags.intensity_plot_group, show=True)
+
+        # Ensure intensity data is set on the plot (may not have been rendered
+        # if the plot was hidden when set_intensity_data was called)
+        if self._abstimes is not None:
+            self._intensity_plot.set_data(self._abstimes, self._bin_size_ms)
 
         # Set levels on the intensity plot (shows step line)
         self._intensity_plot.set_levels(levels, color_by_group=False)

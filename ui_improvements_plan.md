@@ -465,7 +465,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 6.2: Interactive BIC plot selection `[NEXT]`
+### Task 6.2: Interactive BIC plot selection `[DONE]` (2026-01-24)
 **Objective**: Replace slider with clickable BIC plot points
 
 **Actions**:
@@ -479,11 +479,20 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Clicking BIC points changes the selected grouping solution
 
+**Implementation Notes**:
+- BIC plot already had markers for all points, optimal (green), and selected (orange)
+- Implemented proper mouse click handler using DearPyGui handler registry (plot callback doesn't work for clicks)
+- Kept the slider control (user requested both methods for changing selection)
+- Added session state persistence: selected group count is now saved/restored when navigating between particles
+- Added `_on_group_count_changed` callback in app.py to update session state when selection changes
+- Fixed intensity plot not showing immediately after grouping by explicitly setting intensity data in `_update_grouping_display`
+- Fixed clearing of group bands/lines when switching between particles
+
 ---
 
 ## Phase 7: Export Tab Improvements
 
-### Task 7.1: Fix export options layout `[TODO]`
+### Task 7.1: Fix export options layout `[NEXT]`
 **Objective**: All checkboxes visible without scrolling
 
 **Actions**:
@@ -550,9 +559,9 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 3. Spectra & Raster | 2 | 2 | 0 | 0 |
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
 | 5. Lifetime Tab | 5 | 5 | 0 | 0 |
-| 6. Grouping Tab | 2 | 1 | 0 | 1 |
+| 6. Grouping Tab | 2 | 2 | 0 | 0 |
 | 7. Export Tab | 4 | 0 | 0 | 4 |
-| **Total** | **24** | **18** | **1** | **5** |
+| **Total** | **24** | **19** | **1** | **4** |
 
 ---
 
@@ -567,4 +576,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-23 (Task 6.1 completed)*
+*Last Updated: 2026-01-24 (Task 6.2 completed)*

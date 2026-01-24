@@ -41,6 +41,7 @@ class BICPlotTags:
     optimal_scatter: str = "bic_plot_optimal_scatter"
     selected_scatter: str = "bic_plot_selected_scatter"
     legend: str = "bic_plot_legend"
+    click_handler: str = "bic_plot_click_handler"
 
 
 class BICPlot:
@@ -93,6 +94,7 @@ class BICPlot:
             optimal_scatter=f"{tag_prefix}bic_plot_optimal_scatter",
             selected_scatter=f"{tag_prefix}bic_plot_selected_scatter",
             legend=f"{tag_prefix}bic_plot_legend",
+            click_handler=f"{tag_prefix}bic_plot_click_handler",
         )
 
     @property
@@ -133,7 +135,6 @@ class BICPlot:
                 width=-1,
                 height=self._height,
                 anti_aliased=True,
-                callback=self._on_plot_clicked,
             ):
                 # Add legend
                 dpg.add_plot_legend(tag=self._tags.legend, location=dpg.mvPlot_Location_SouthEast)
@@ -189,6 +190,9 @@ class BICPlot:
 
         # Apply colors to series
         self._apply_series_colors()
+
+        # Set up click handler for point selection
+        self._setup_click_handler()
 
         self._is_built = True
         logger.debug("BIC plot built")
@@ -396,6 +400,11 @@ class BICPlot:
         self._update_series()
         logger.debug("BIC plot cleared")
 
+    def cleanup(self) -> None:
+        """Clean up resources including click handler."""
+        if dpg.does_item_exist(self._tags.click_handler):
+            dpg.delete_item(self._tags.click_handler)
+
     def _apply_series_colors(self) -> None:
         """Apply themed colors to all series."""
         # BIC curve - blue line
@@ -462,12 +471,25 @@ class BICPlot:
 
         dpg.bind_item_theme(tag, theme)
 
-    def _on_plot_clicked(self, sender: int, app_data: tuple) -> None:
-        """Handle plot click to select a group count.
+    def _setup_click_handler(self) -> None:
+        """Set up a mouse click handler for point selection."""
+        # Remove existing handler if it exists
+        if dpg.does_item_exist(self._tags.click_handler):
+            dpg.delete_item(self._tags.click_handler)
+
+        # Create a handler registry for mouse clicks
+        with dpg.handler_registry(tag=self._tags.click_handler):
+            dpg.add_mouse_click_handler(
+                button=dpg.mvMouseButton_Left,
+                callback=self._on_mouse_click,
+            )
+
+    def _on_mouse_click(self, sender: int, app_data: int) -> None:
+        """Handle mouse click to check if it's on the BIC plot.
 
         Args:
-            sender: The plot widget.
-            app_data: Click data containing (mouse_x, mouse_y).
+            sender: The handler.
+            app_data: Mouse button that was clicked.
         """
         if self._num_groups is None or len(self._num_groups) == 0:
             return
@@ -475,25 +497,31 @@ class BICPlot:
         if not dpg.does_item_exist(self._tags.plot):
             return
 
-        # Get the mouse position in plot coordinates
-        if not dpg.is_plot_queried(self._tags.plot):
-            # Get mouse position in plot data coordinates
-            mouse_x, mouse_y = app_data
+        # Check if mouse is hovering over the BIC plot
+        if not dpg.is_item_hovered(self._tags.plot):
+            return
 
-            # Find the closest point on the curve
-            closest_idx = self._find_closest_point(mouse_x)
+        # Get mouse position in plot coordinates
+        mouse_pos = dpg.get_plot_mouse_pos()
+        if mouse_pos is None:
+            return
 
-            if closest_idx is not None and closest_idx != self._selected_index:
-                self._selected_index = closest_idx
-                self._update_selected_scatter()
+        mouse_x = mouse_pos[0]
 
-                # Call callback if set
-                if self._on_group_selected:
-                    self._on_group_selected(int(self._num_groups[closest_idx]))
+        # Find the closest point on the curve
+        closest_idx = self._find_closest_point(mouse_x)
 
-                logger.debug(
-                    f"User selected {self._num_groups[closest_idx]} groups via click"
-                )
+        if closest_idx is not None and closest_idx != self._selected_index:
+            self._selected_index = closest_idx
+            self._update_selected_scatter()
+
+            # Call callback if set
+            if self._on_group_selected:
+                self._on_group_selected(int(self._num_groups[closest_idx]))
+
+            logger.debug(
+                f"User selected {self._num_groups[closest_idx]} groups via click"
+            )
 
     def _find_closest_point(self, x_value: float) -> int | None:
         """Find the closest data point to the given X value.
