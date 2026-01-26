@@ -188,6 +188,7 @@ def export_levels(
     output_path: Path,
     fmt: ExportFormat = ExportFormat.CSV,
     particle_name: str = "",
+    level_fits: dict[int, "FitResultData"] | None = None,
 ) -> Path:
     """Export detected levels to a file.
 
@@ -196,6 +197,7 @@ def export_levels(
         output_path: Path to output file (without extension).
         fmt: Export format.
         particle_name: Optional particle name for metadata.
+        level_fits: Optional dict mapping level_index to FitResultData for that level.
 
     Returns:
         Path to the exported file.
@@ -204,13 +206,13 @@ def export_levels(
     _ensure_directory(output_file)
 
     if fmt == ExportFormat.CSV:
-        _export_levels_csv(output_file, levels)
+        _export_levels_csv(output_file, levels, level_fits)
     elif fmt == ExportFormat.PARQUET:
-        _export_levels_parquet(output_file, levels)
+        _export_levels_parquet(output_file, levels, level_fits)
     elif fmt == ExportFormat.EXCEL:
-        _export_levels_excel(output_file, levels)
+        _export_levels_excel(output_file, levels, level_fits)
     elif fmt == ExportFormat.JSON:
-        _export_levels_json(output_file, levels, particle_name)
+        _export_levels_json(output_file, levels, particle_name, level_fits)
     else:
         raise ValueError(f"Unsupported format: {fmt}")
 
@@ -218,11 +220,13 @@ def export_levels(
     return output_file
 
 
-def _export_levels_csv(path: Path, levels: list[LevelData]) -> None:
-    """Export levels to CSV."""
+def _export_levels_csv(path: Path, levels: list[LevelData], level_fits: dict[int, "FitResultData"] | None = None) -> None:
+    """Export levels to CSV with optional fit parameters."""
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([
+
+        # Build header row
+        header = [
             "level_index",
             "start_time_s",
             "end_time_s",
@@ -230,9 +234,34 @@ def _export_levels_csv(path: Path, levels: list[LevelData]) -> None:
             "num_photons",
             "intensity_cps",
             "group_id",
-        ])
+        ]
+
+        # Determine maximum number of exponentials across all fits
+        max_exponentials = 0
+        if level_fits:
+            for fit in level_fits.values():
+                max_exponentials = max(max_exponentials, fit.num_exponentials)
+
+        # Add fit parameter columns based on max_exponentials
+        if level_fits and max_exponentials > 0:
+            # Always add first exponential
+            header.extend(["tau_1_ns", "tau_1_std", "amp_1"])
+
+            # Add second exponential if needed
+            if max_exponentials >= 2:
+                header.extend(["tau_2_ns", "tau_2_std", "amp_2"])
+
+            # Add third exponential if needed
+            if max_exponentials >= 3:
+                header.extend(["tau_3_ns", "tau_3_std", "amp_3"])
+
+            # Always add summary statistics
+            header.extend(["avg_lifetime_ns", "chi_squared", "durbin_watson"])
+
+        writer.writerow(header)
+
         for idx, level in enumerate(levels):
-            writer.writerow([
+            row = [
                 idx,
                 f"{level.start_time_ns / 1e9:.6f}",
                 f"{level.end_time_ns / 1e9:.6f}",
@@ -240,10 +269,50 @@ def _export_levels_csv(path: Path, levels: list[LevelData]) -> None:
                 level.num_photons,
                 f"{level.intensity_cps:.2f}",
                 level.group_id if level.group_id is not None else "",
-            ])
+            ]
+
+            # Add fit parameters if available for this level
+            if level_fits and idx in level_fits:
+                fit = level_fits[idx]
+
+                # First exponential
+                row.extend([
+                    f"{fit.tau[0]:.4f}" if len(fit.tau) > 0 else "",
+                    f"{fit.tau_std[0]:.4f}" if len(fit.tau_std) > 0 else "",
+                    f"{fit.amplitude[0]:.4f}" if len(fit.amplitude) > 0 else "",
+                ])
+
+                # Second exponential (if columns exist)
+                if max_exponentials >= 2:
+                    row.extend([
+                        f"{fit.tau[1]:.4f}" if len(fit.tau) > 1 else "",
+                        f"{fit.tau_std[1]:.4f}" if len(fit.tau_std) > 1 else "",
+                        f"{fit.amplitude[1]:.4f}" if len(fit.amplitude) > 1 else "",
+                    ])
+
+                # Third exponential (if columns exist)
+                if max_exponentials >= 3:
+                    row.extend([
+                        f"{fit.tau[2]:.4f}" if len(fit.tau) > 2 else "",
+                        f"{fit.tau_std[2]:.4f}" if len(fit.tau_std) > 2 else "",
+                        f"{fit.amplitude[2]:.4f}" if len(fit.amplitude) > 2 else "",
+                    ])
+
+                # Summary statistics
+                row.extend([
+                    f"{fit.average_lifetime:.4f}",
+                    f"{fit.chi_squared:.4f}",
+                    f"{fit.durbin_watson:.4f}",
+                ])
+            elif level_fits:
+                # Add empty values if fits are expected but not available for this level
+                num_empty = 3 + (3 if max_exponentials >= 2 else 0) + (3 if max_exponentials >= 3 else 0) + 3
+                row.extend([""] * num_empty)
+
+            writer.writerow(row)
 
 
-def _export_levels_parquet(path: Path, levels: list[LevelData]) -> None:
+def _export_levels_parquet(path: Path, levels: list[LevelData], level_fits: dict[int, "FitResultData"] | None = None) -> None:
     """Export levels to Parquet format."""
     try:
         import pyarrow as pa
@@ -260,11 +329,50 @@ def _export_levels_parquet(path: Path, levels: list[LevelData]) -> None:
         "intensity_cps": [level.intensity_cps for level in levels],
         "group_id": [level.group_id for level in levels],
     }
+
+    # Determine maximum number of exponentials
+    max_exponentials = 0
+    if level_fits:
+        for fit in level_fits.values():
+            max_exponentials = max(max_exponentials, fit.num_exponentials)
+
+    # Add fit parameters based on max_exponentials
+    if level_fits and max_exponentials > 0:
+        # First exponential (always present)
+        data.update({
+            "tau_1_ns": [level_fits[i].tau[0] if i in level_fits and len(level_fits[i].tau) > 0 else None for i in range(len(levels))],
+            "tau_1_std": [level_fits[i].tau_std[0] if i in level_fits and len(level_fits[i].tau_std) > 0 else None for i in range(len(levels))],
+            "amp_1": [level_fits[i].amplitude[0] if i in level_fits and len(level_fits[i].amplitude) > 0 else None for i in range(len(levels))],
+        })
+
+        # Second exponential (if used)
+        if max_exponentials >= 2:
+            data.update({
+                "tau_2_ns": [level_fits[i].tau[1] if i in level_fits and len(level_fits[i].tau) > 1 else None for i in range(len(levels))],
+                "tau_2_std": [level_fits[i].tau_std[1] if i in level_fits and len(level_fits[i].tau_std) > 1 else None for i in range(len(levels))],
+                "amp_2": [level_fits[i].amplitude[1] if i in level_fits and len(level_fits[i].amplitude) > 1 else None for i in range(len(levels))],
+            })
+
+        # Third exponential (if used)
+        if max_exponentials >= 3:
+            data.update({
+                "tau_3_ns": [level_fits[i].tau[2] if i in level_fits and len(level_fits[i].tau) > 2 else None for i in range(len(levels))],
+                "tau_3_std": [level_fits[i].tau_std[2] if i in level_fits and len(level_fits[i].tau_std) > 2 else None for i in range(len(levels))],
+                "amp_3": [level_fits[i].amplitude[2] if i in level_fits and len(level_fits[i].amplitude) > 2 else None for i in range(len(levels))],
+            })
+
+        # Summary statistics (always present when fits exist)
+        data.update({
+            "avg_lifetime_ns": [level_fits[i].average_lifetime if i in level_fits else None for i in range(len(levels))],
+            "chi_squared": [level_fits[i].chi_squared if i in level_fits else None for i in range(len(levels))],
+            "durbin_watson": [level_fits[i].durbin_watson if i in level_fits else None for i in range(len(levels))],
+        })
+
     table = pa.table(data)
     pq.write_table(table, path)
 
 
-def _export_levels_excel(path: Path, levels: list[LevelData]) -> None:
+def _export_levels_excel(path: Path, levels: list[LevelData], level_fits: dict[int, "FitResultData"] | None = None) -> None:
     """Export levels to Excel format."""
     try:
         import openpyxl
@@ -301,7 +409,7 @@ def _export_levels_excel(path: Path, levels: list[LevelData]) -> None:
     wb.save(path)
 
 
-def _export_levels_json(path: Path, levels: list[LevelData], particle_name: str) -> None:
+def _export_levels_json(path: Path, levels: list[LevelData], particle_name: str, level_fits: dict[int, "FitResultData"] | None = None) -> None:
     """Export levels to JSON format."""
     data = {
         "metadata": {
@@ -744,12 +852,20 @@ def export_all_particle_data(
     if export_levels:
         levels_data = state.get_levels(particle_id, channel)
         if levels_data:
+            # Get level-specific fit results if available
+            level_fits_dict = {}
+            all_level_fits = state.get_all_level_fits(particle_id, channel)
+            if all_level_fits:
+                for level_index, fit_data in all_level_fits.items():
+                    level_fits_dict[level_index] = fit_data
+
             from full_sms.io.exporters import export_levels as _export_levels
             path = _export_levels(
                 levels_data,
                 output_dir / f"{prefix}_levels",
                 fmt=fmt,
                 particle_name=particle.name,
+                level_fits=level_fits_dict if level_fits_dict else None,
             )
             exported_files.append(path)
 

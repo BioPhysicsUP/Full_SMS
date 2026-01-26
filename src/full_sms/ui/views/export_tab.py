@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable
 
 import dearpygui.dearpygui as dpg
+import numpy as np
 
 from full_sms.io.exporters import ExportFormat
 from full_sms.io.plot_exporters import PlotFormat
@@ -60,6 +61,12 @@ class ExportTabTags:
     export_bic_plot: str = "export_tab_bic_plot_cb"
     export_correlation_plot: str = "export_tab_correlation_plot_cb"
 
+    # Plot customization checkboxes
+    intensity_include_levels: str = "export_tab_intensity_include_levels_cb"
+    intensity_include_groups: str = "export_tab_intensity_include_groups_cb"
+    decay_include_fit: str = "export_tab_decay_include_fit_cb"
+    decay_include_irf: str = "export_tab_decay_include_irf_cb"
+
     # Format selection
     format_combo: str = "export_tab_format"
     plot_format_combo: str = "export_tab_plot_format"
@@ -71,6 +78,7 @@ class ExportTabTags:
 
     # Bin size
     bin_size_input: str = "export_tab_bin_size"
+    use_intensity_bin_size_cb: str = "export_tab_use_intensity_bin_size"
 
     # Export buttons
     export_current_button: str = "export_tab_export_current"
@@ -132,12 +140,17 @@ class ExportTab:
             export_decay_plot=f"{tag_prefix}export_tab_decay_plot_cb",
             export_bic_plot=f"{tag_prefix}export_tab_bic_plot_cb",
             export_correlation_plot=f"{tag_prefix}export_tab_correlation_plot_cb",
+            intensity_include_levels=f"{tag_prefix}export_tab_intensity_include_levels_cb",
+            intensity_include_groups=f"{tag_prefix}export_tab_intensity_include_groups_cb",
+            decay_include_fit=f"{tag_prefix}export_tab_decay_include_fit_cb",
+            decay_include_irf=f"{tag_prefix}export_tab_decay_include_irf_cb",
             format_combo=f"{tag_prefix}export_tab_format",
             plot_format_combo=f"{tag_prefix}export_tab_plot_format",
             plot_dpi_input=f"{tag_prefix}export_tab_plot_dpi",
             output_dir_input=f"{tag_prefix}export_tab_output_dir",
             browse_button=f"{tag_prefix}export_tab_browse",
             bin_size_input=f"{tag_prefix}export_tab_bin_size",
+            use_intensity_bin_size_cb=f"{tag_prefix}export_tab_use_intensity_bin_size",
             export_current_button=f"{tag_prefix}export_tab_export_current",
             export_selected_button=f"{tag_prefix}export_tab_export_selected",
             export_all_button=f"{tag_prefix}export_tab_export_all",
@@ -181,13 +194,13 @@ class ExportTab:
                 # Two column layout
                 with dpg.group(horizontal=True):
                     # Left column: Export options
-                    with dpg.child_window(width=350, height=300, border=True):
+                    with dpg.child_window(width=420, height=480, border=True):
                         self._build_export_options()
 
                     dpg.add_spacer(width=20)
 
                     # Right column: Output settings
-                    with dpg.child_window(width=400, height=300, border=True):
+                    with dpg.child_window(width=400, height=480, border=True):
                         self._build_output_settings()
 
                 dpg.add_spacer(height=20)
@@ -212,7 +225,7 @@ class ExportTab:
 
         # Checkboxes for data export
         dpg.add_checkbox(
-            label="Intensity Trace",
+            label="Intensity Plot",
             default_value=True,
             tag=self._tags.export_intensity,
         )
@@ -227,7 +240,7 @@ class ExportTab:
             tag=self._tags.export_groups,
         )
         dpg.add_checkbox(
-            label="Fit Results",
+            label="Lifetime Fit Parameters",
             default_value=True,
             tag=self._tags.export_fits,
         )
@@ -239,22 +252,61 @@ class ExportTab:
         dpg.add_separator()
         dpg.add_spacer(height=5)
 
-        # Checkboxes for plot export
+        # Intensity Plot
         dpg.add_checkbox(
             label="Intensity Plot",
             default_value=True,
             tag=self._tags.export_intensity_plot,
+            callback=self._on_plot_checkbox_changed,
         )
+        # Indented sub-options
+        with dpg.group(indent=20):
+            dpg.add_checkbox(
+                label="Include Levels",
+                default_value=True,
+                tag=self._tags.intensity_include_levels,
+            )
+            dpg.add_checkbox(
+                label="Include Groups",
+                default_value=False,
+                tag=self._tags.intensity_include_groups,
+                enabled=False,  # Disabled for now per user request
+            )
+
+        dpg.add_spacer(height=5)
+
+        # Decay Plot
         dpg.add_checkbox(
             label="Decay Plot",
             default_value=True,
             tag=self._tags.export_decay_plot,
+            callback=self._on_plot_checkbox_changed,
         )
+        # Indented sub-options
+        with dpg.group(indent=20):
+            dpg.add_checkbox(
+                label="Include Fit",
+                default_value=True,
+                tag=self._tags.decay_include_fit,
+            )
+            dpg.add_checkbox(
+                label="Include IRF",
+                default_value=True,
+                tag=self._tags.decay_include_irf,
+            )
+
+        dpg.add_spacer(height=5)
+
+        # BIC Plot (no sub-options)
         dpg.add_checkbox(
             label="BIC Plot",
             default_value=True,
             tag=self._tags.export_bic_plot,
         )
+
+        dpg.add_spacer(height=5)
+
+        # Correlation Plot (no sub-options)
         dpg.add_checkbox(
             label="Correlation Plot",
             default_value=False,
@@ -300,8 +352,23 @@ class ExportTab:
                 max_value=600,
                 step=50,
                 tag=self._tags.plot_dpi_input,
-                width=80,
+                width=120,
             )
+
+        dpg.add_spacer(height=10)
+
+        # Bin size section
+        dpg.add_text("Bin Size", color=(180, 180, 180))
+        dpg.add_separator()
+        dpg.add_spacer(height=5)
+
+        # Checkbox to use intensity tab bin size
+        dpg.add_checkbox(
+            label="Use bin size from Intensity tab",
+            default_value=True,
+            tag=self._tags.use_intensity_bin_size_cb,
+            callback=self._on_use_intensity_bin_size_changed,
+        )
 
         dpg.add_spacer(height=5)
 
@@ -314,7 +381,9 @@ class ExportTab:
                 max_value=1000.0,
                 step=1.0,
                 tag=self._tags.bin_size_input,
-                width=80,
+                width=120,
+                enabled=False,  # Disabled by default since checkbox is checked
+                callback=self._on_export_bin_size_changed,
             )
 
         dpg.add_spacer(height=10)
@@ -338,6 +407,7 @@ class ExportTab:
 
     def _build_export_buttons(self) -> None:
         """Build the export action buttons."""
+        logger.debug("Building export buttons")
         with dpg.group(horizontal=True):
             dpg.add_button(
                 label="Export Current",
@@ -364,6 +434,7 @@ class ExportTab:
                 callback=self._on_export_all,
                 enabled=False,
             )
+        logger.debug(f"Export buttons created with tags: current={self._tags.export_current_button}, selected={self._tags.export_selected_button}, all={self._tags.export_all_button}")
 
     def _build_status_area(self) -> None:
         """Build the status display area."""
@@ -384,6 +455,70 @@ class ExportTab:
             color=(100, 200, 100),
             wrap=600,
         )
+
+    def _on_plot_checkbox_changed(self, sender: int | str) -> None:
+        """Handle plot checkbox state change to enable/disable sub-options.
+
+        Args:
+            sender: The checkbox tag.
+        """
+        if sender == self._tags.export_intensity_plot:
+            enabled = dpg.get_value(self._tags.export_intensity_plot)
+            if dpg.does_item_exist(self._tags.intensity_include_levels):
+                dpg.configure_item(self._tags.intensity_include_levels, enabled=enabled)
+            # Note: intensity_include_groups stays disabled per user request
+
+        elif sender == self._tags.export_decay_plot:
+            enabled = dpg.get_value(self._tags.export_decay_plot)
+            if dpg.does_item_exist(self._tags.decay_include_fit):
+                dpg.configure_item(self._tags.decay_include_fit, enabled=enabled)
+            if dpg.does_item_exist(self._tags.decay_include_irf):
+                dpg.configure_item(self._tags.decay_include_irf, enabled=enabled)
+
+    def _on_use_intensity_bin_size_changed(self, sender: int | str) -> None:
+        """Handle checkbox change for using intensity tab bin size.
+
+        Args:
+            sender: The checkbox tag.
+        """
+        use_intensity = dpg.get_value(self._tags.use_intensity_bin_size_cb)
+
+        # Enable/disable the bin size input
+        if dpg.does_item_exist(self._tags.bin_size_input):
+            dpg.configure_item(self._tags.bin_size_input, enabled=not use_intensity)
+
+        # Update session state if available
+        if self._session_state is not None:
+            self._session_state.ui_state.export_use_intensity_bin_size = use_intensity
+
+            # If switching to use intensity bin size, sync the value
+            if use_intensity:
+                self._sync_bin_size_from_intensity()
+            else:
+                # Store current value as custom value
+                if dpg.does_item_exist(self._tags.bin_size_input):
+                    custom_value = dpg.get_value(self._tags.bin_size_input)
+                    self._session_state.ui_state.export_bin_size_ms = custom_value
+
+    def _on_export_bin_size_changed(self, sender: int | str, app_data: float) -> None:
+        """Handle export bin size input change.
+
+        Args:
+            sender: The input field tag.
+            app_data: The new bin size value.
+        """
+        # Only save if we're in custom mode (checkbox unchecked)
+        if self._session_state is not None:
+            use_intensity = dpg.get_value(self._tags.use_intensity_bin_size_cb) if dpg.does_item_exist(self._tags.use_intensity_bin_size_cb) else True
+            if not use_intensity:
+                self._session_state.ui_state.export_bin_size_ms = app_data
+                logger.debug(f"Export bin size saved to session state: {app_data} ms")
+
+    def _sync_bin_size_from_intensity(self) -> None:
+        """Sync the export bin size from the intensity tab."""
+        if self._session_state is not None and dpg.does_item_exist(self._tags.bin_size_input):
+            intensity_bin_size = self._session_state.ui_state.bin_size_ms
+            dpg.set_value(self._tags.bin_size_input, intensity_bin_size)
 
     def _on_browse_clicked(self) -> None:
         """Handle browse button click - open directory picker."""
@@ -419,6 +554,18 @@ class ExportTab:
 
     def _get_export_options(self) -> dict:
         """Get current export options from UI."""
+        # Get bin size - sync from intensity tab if checkbox is checked
+        bin_size = 10.0
+        if dpg.does_item_exist(self._tags.bin_size_input):
+            use_intensity = dpg.get_value(self._tags.use_intensity_bin_size_cb) if dpg.does_item_exist(self._tags.use_intensity_bin_size_cb) else True
+            if use_intensity and self._session_state is not None:
+                bin_size = self._session_state.ui_state.bin_size_ms
+            else:
+                bin_size = dpg.get_value(self._tags.bin_size_input)
+                # Save custom value to session state
+                if self._session_state is not None:
+                    self._session_state.ui_state.export_bin_size_ms = bin_size
+
         return {
             # Data export options
             "export_intensity": dpg.get_value(self._tags.export_intensity) if dpg.does_item_exist(self._tags.export_intensity) else True,
@@ -430,8 +577,13 @@ class ExportTab:
             "export_decay_plot": dpg.get_value(self._tags.export_decay_plot) if dpg.does_item_exist(self._tags.export_decay_plot) else True,
             "export_bic_plot": dpg.get_value(self._tags.export_bic_plot) if dpg.does_item_exist(self._tags.export_bic_plot) else True,
             "export_correlation_plot": dpg.get_value(self._tags.export_correlation_plot) if dpg.does_item_exist(self._tags.export_correlation_plot) else False,
+            # Plot customization options
+            "intensity_include_levels": dpg.get_value(self._tags.intensity_include_levels) if dpg.does_item_exist(self._tags.intensity_include_levels) else True,
+            "intensity_include_groups": dpg.get_value(self._tags.intensity_include_groups) if dpg.does_item_exist(self._tags.intensity_include_groups) else False,
+            "decay_include_fit": dpg.get_value(self._tags.decay_include_fit) if dpg.does_item_exist(self._tags.decay_include_fit) else True,
+            "decay_include_irf": dpg.get_value(self._tags.decay_include_irf) if dpg.does_item_exist(self._tags.decay_include_irf) else True,
             # Common options
-            "bin_size_ms": dpg.get_value(self._tags.bin_size_input) if dpg.does_item_exist(self._tags.bin_size_input) else 10.0,
+            "bin_size_ms": bin_size,
             "plot_dpi": dpg.get_value(self._tags.plot_dpi_input) if dpg.does_item_exist(self._tags.plot_dpi_input) else 150,
         }
 
@@ -451,11 +603,14 @@ class ExportTab:
 
     def _on_export_current(self) -> None:
         """Handle export current button click."""
+        logger.info("Export current button clicked")
         if self._current_selection is None:
+            logger.warning("No particle selected for export")
             self._set_status("No particle selected", error=True)
             return
 
         selections = [(self._current_selection.particle_id, self._current_selection.channel)]
+        logger.info(f"Exporting current selection: {selections}")
         self._do_export(selections)
 
     def _on_export_selected(self) -> None:
@@ -487,17 +642,147 @@ class ExportTab:
         Args:
             selections: List of (particle_id, channel) tuples to export.
         """
+        logger.info(f"_do_export called with {len(selections)} selections")
         fmt = self._get_selected_format()
         plot_fmt = self._get_selected_plot_format()
         options = self._get_export_options()
+        logger.debug(f"Export options: {options}")
 
         self._set_status(f"Exporting {len(selections)} particle(s)...")
 
         if self._on_export:
+            logger.info("Using export callback")
             self._on_export(selections, self._output_dir, fmt, options)
         else:
             # No callback set - do export directly
+            logger.info("No export callback, using direct export")
             self._do_export_sync(selections, fmt, plot_fmt, options)
+
+    def _export_plots_for_particle(
+        self,
+        particle,
+        channel: int,
+        levels,
+        clustering,
+        fit_result,
+        plot_fmt: PlotFormat,
+        options: dict,
+    ) -> list[Path]:
+        """Export plots for a single particle with customization options.
+
+        Args:
+            particle: ParticleData instance.
+            channel: Channel number (1 or 2).
+            levels: Optional levels from CPA.
+            clustering: Optional clustering result.
+            fit_result: Optional fit result.
+            plot_fmt: Plot export format.
+            options: Export options dictionary.
+
+        Returns:
+            List of exported file paths.
+        """
+        from full_sms.io.plot_exporters import (
+            export_intensity_plot,
+            export_decay_plot,
+            export_bic_plot,
+        )
+        from full_sms.analysis.histograms import build_decay_histogram
+
+        exported: list[Path] = []
+        prefix = f"particle_{particle.id}_ch{channel}"
+        bin_size_ms = options.get("bin_size_ms", 10.0)
+        dpi = options.get("plot_dpi", 150)
+
+        # Get channel data
+        channel_data = particle.channel1 if channel == 1 else particle.channel2
+        if channel_data is None:
+            logger.warning(f"No channel {channel} data for particle {particle.id}")
+            return exported
+
+        # Export intensity plot
+        if options.get("export_intensity_plot", True):
+            try:
+                # Determine what to include in the intensity plot
+                show_levels = options.get("intensity_include_levels", True)
+                show_groups = options.get("intensity_include_groups", False)
+
+                # Get groups from clustering if needed
+                groups = list(clustering.groups) if (clustering and show_groups) else None
+
+                path = export_intensity_plot(
+                    abstimes=channel_data.abstimes,
+                    output_path=self._output_dir / f"{prefix}_intensity",
+                    bin_size_ms=bin_size_ms,
+                    levels=levels if show_levels else None,
+                    groups=groups,
+                    show_levels=show_levels,
+                    show_groups=show_groups,
+                    fmt=plot_fmt,
+                    title=f"Particle {particle.id} - Channel {channel}",
+                    dpi=dpi,
+                )
+                exported.append(path)
+            except Exception as e:
+                logger.warning(f"Failed to export intensity plot: {e}")
+
+        # Export decay plot
+        if options.get("export_decay_plot", True) and channel_data.microtimes is not None:
+            try:
+                # Build decay histogram
+                t_ns, counts = build_decay_histogram(
+                    channel_data.microtimes.astype(np.float64),
+                    particle.channelwidth,
+                )
+
+                if len(t_ns) > 0:
+                    # Determine what to include in the decay plot
+                    include_fit = options.get("decay_include_fit", True)
+                    include_irf = options.get("decay_include_irf", True)
+
+                    # Note: fit_result is FitResultData (serializable), not FitResult (with arrays)
+                    # The plot exporter needs FitResult with fitted_curve and residuals arrays
+                    # For now, we skip the fit in exported plots (would need to recompute)
+                    # TODO: Recompute fitted curve from FitResultData parameters
+
+                    # TODO: Get IRF data from session state when available
+                    # For now, IRF export is not implemented
+                    irf_t = None
+                    irf_counts = None
+
+                    path = export_decay_plot(
+                        t_ns=t_ns,
+                        counts=counts,
+                        output_path=self._output_dir / f"{prefix}_decay",
+                        fit_result=None,  # Skip fit for now - need FitResult, not FitResultData
+                        irf_t=irf_t if include_irf else None,
+                        irf_counts=irf_counts if include_irf else None,
+                        fmt=plot_fmt,
+                        title=f"Particle {particle.id} - Channel {channel} Decay",
+                        dpi=dpi,
+                    )
+                    exported.append(path)
+            except Exception as e:
+                logger.warning(f"Failed to export decay plot: {e}")
+
+        # Export BIC plot
+        if options.get("export_bic_plot", True) and clustering is not None:
+            try:
+                path = export_bic_plot(
+                    clustering_result=clustering,
+                    output_path=self._output_dir / f"{prefix}_bic",
+                    fmt=plot_fmt,
+                    title=f"Particle {particle.id} - BIC Optimization",
+                    dpi=dpi,
+                )
+                exported.append(path)
+            except Exception as e:
+                logger.warning(f"Failed to export BIC plot: {e}")
+
+        # Note: Correlation plot not yet implemented in this method
+        # Would be added here when correlation functionality is available
+
+        return exported
 
     def _do_export_sync(
         self,
@@ -514,7 +799,11 @@ class ExportTab:
             plot_fmt: Export format for plots.
             options: Export options dict.
         """
+        logger.info(f"_do_export_sync started: {len(selections)} selections, format={fmt.value}, plot_format={plot_fmt.value}")
+        logger.info(f"Output directory: {self._output_dir}")
+
         if self._session_state is None:
+            logger.error("No session state available for export")
             self._set_status("No data to export", error=True)
             return
 
@@ -563,20 +852,18 @@ class ExportTab:
                     levels = self._session_state.get_levels(particle_id, channel)
                     clustering = self._session_state.get_clustering(particle_id, channel)
 
-                    # Get fit result for the whole particle (level_or_group_id = -1 for particle-level fit)
-                    fit_result = self._session_state.get_fit_result(particle_id, channel, -1)
+                    # Get fit result for the whole particle
+                    fit_result = self._session_state.get_particle_fit(particle_id, channel)
 
-                    # Build list of plots to export based on options
-                    plot_files = export_all_plots(
+                    # Export individual plots with customization options
+                    plot_files = self._export_plots_for_particle(
                         particle=particle,
                         channel=channel,
-                        output_dir=self._output_dir,
-                        levels=levels if options.get("export_intensity_plot", True) else None,
-                        clustering_result=clustering if options.get("export_bic_plot", True) else None,
-                        fit_result=fit_result if options.get("export_decay_plot", True) else None,
-                        bin_size_ms=options.get("bin_size_ms", 10.0),
-                        fmt=plot_fmt,
-                        dpi=options.get("plot_dpi", 150),
+                        levels=levels,
+                        clustering=clustering,
+                        fit_result=fit_result,
+                        plot_fmt=plot_fmt,
+                        options=options,
                     )
                     all_files.extend(plot_files)
 
@@ -627,6 +914,27 @@ class ExportTab:
         """
         self._session_state = state
         self._has_data = state.has_file
+
+        # Restore bin size settings from state
+        if dpg.does_item_exist(self._tags.use_intensity_bin_size_cb):
+            dpg.set_value(
+                self._tags.use_intensity_bin_size_cb,
+                state.ui_state.export_use_intensity_bin_size,
+            )
+
+        if dpg.does_item_exist(self._tags.bin_size_input):
+            # Enable/disable based on checkbox state
+            use_intensity = state.ui_state.export_use_intensity_bin_size
+            dpg.configure_item(self._tags.bin_size_input, enabled=not use_intensity)
+
+            # Set the value
+            if use_intensity:
+                # Use intensity tab bin size
+                dpg.set_value(self._tags.bin_size_input, state.ui_state.bin_size_ms)
+            else:
+                # Use custom export bin size
+                dpg.set_value(self._tags.bin_size_input, state.ui_state.export_bin_size_ms)
+
         self._update_ui_state()
 
     def set_current_selection(self, selection: ChannelSelection | None) -> None:
@@ -635,6 +943,7 @@ class ExportTab:
         Args:
             selection: The current selection, or None.
         """
+        logger.debug(f"Export tab: set_current_selection called with {selection}")
         self._current_selection = selection
         self._update_button_states()
 
@@ -663,8 +972,11 @@ class ExportTab:
         has_batch = len(self._batch_selection) > 0
         has_any = self._has_data and self._session_state is not None and len(self._session_state.particles) > 0
 
+        logger.debug(f"Updating export button states: has_current={has_current}, has_batch={has_batch}, has_any={has_any}")
+
         if dpg.does_item_exist(self._tags.export_current_button):
             dpg.configure_item(self._tags.export_current_button, enabled=has_current)
+            logger.debug(f"Export Current button enabled: {has_current}")
 
         if dpg.does_item_exist(self._tags.export_selected_button):
             dpg.configure_item(self._tags.export_selected_button, enabled=has_batch)
@@ -733,3 +1045,17 @@ class ExportTab:
         """
         self._set_status(f"Export failed: {error}", error=True)
         self._set_results("")
+
+    def on_intensity_bin_size_changed(self, new_bin_size_ms: float) -> None:
+        """Called when the intensity tab bin size changes.
+
+        If the "Use bin size from Intensity tab" checkbox is checked,
+        this will update the export bin size to match.
+
+        Args:
+            new_bin_size_ms: The new bin size from the intensity tab.
+        """
+        if dpg.does_item_exist(self._tags.use_intensity_bin_size_cb):
+            use_intensity = dpg.get_value(self._tags.use_intensity_bin_size_cb)
+            if use_intensity and dpg.does_item_exist(self._tags.bin_size_input):
+                dpg.set_value(self._tags.bin_size_input, new_bin_size_ms)

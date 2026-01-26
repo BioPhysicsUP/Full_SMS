@@ -170,38 +170,65 @@ def _draw_level_overlays(
         intensity_kcps: Intensity array in kcps.
         color_by_group: Whether to color by group assignment.
     """
-    # Build group lookup for coloring
-    group_colors: dict[int, str] = {}
-    if groups and color_by_group:
-        for i, group in enumerate(groups):
-            group_colors[group.group_id] = _get_level_color(i)
+    if not levels:
+        return
 
-    for i, level in enumerate(levels):
-        # Get time boundaries in seconds
+    # Draw levels as a single red step line (matches intensity tab)
+    sorted_levels = sorted(levels, key=lambda l: l.start_time_ns)
+
+    # Build step line points
+    step_times = []
+    step_intensities = []
+
+    for level in sorted_levels:
         start_s = level.start_time_ns / 1e9
         end_s = level.end_time_ns / 1e9
+        intensity_kcps_val = level.intensity_cps / 1000.0
 
-        # Determine color
-        if color_by_group and level.group_id is not None and level.group_id in group_colors:
-            color = group_colors[level.group_id]
-            alpha = 0.3
-        else:
-            color = _get_level_color(i)
-            alpha = 0.2
+        step_times.extend([start_s, end_s])
+        step_intensities.extend([intensity_kcps_val, intensity_kcps_val])
 
-        # Draw shaded region
-        ax.axvspan(start_s, end_s, alpha=alpha, color=color, linewidth=0)
+    # Draw the step line in red
+    ax.plot(step_times, step_intensities, color="#d62728", linewidth=2, label="Levels", zorder=5)
 
-        # Draw horizontal line at level intensity
-        level_intensity_kcps = level.intensity_cps / 1000.0
-        ax.hlines(
-            level_intensity_kcps,
-            start_s,
-            end_s,
-            colors=color,
-            linewidth=1.5,
-            alpha=0.9,
-        )
+    # Draw group bands and dashed lines (matches grouping tab)
+    if groups and color_by_group:
+        # Sort groups by average intensity to draw bands
+        sorted_groups = sorted(groups, key=lambda g: g.intensity_cps)
+
+        # Calculate band boundaries (midpoints between group intensities)
+        group_intensities = [g.intensity_cps / 1000.0 for g in sorted_groups]
+
+        # Assign alternating colors for bands
+        band_colors = ["#e3f2fd", "#fff3e0"]  # Light blue and light orange
+
+        for i, group in enumerate(sorted_groups):
+            group_intensity_kcps = group.intensity_cps / 1000.0
+
+            # Calculate band boundaries
+            if i == 0:
+                lower_bound = 0
+            else:
+                lower_bound = (group_intensities[i - 1] + group_intensities[i]) / 2
+
+            if i == len(sorted_groups) - 1:
+                upper_bound = max(intensity_kcps) * 1.1  # Extend to top
+            else:
+                upper_bound = (group_intensities[i] + group_intensities[i + 1]) / 2
+
+            # Draw horizontal band
+            color = band_colors[i % len(band_colors)]
+            ax.axhspan(lower_bound, upper_bound, alpha=0.2, color=color, linewidth=0, zorder=1)
+
+            # Draw dashed line at group average intensity
+            ax.axhline(
+                group_intensity_kcps,
+                color="#666666",
+                linewidth=1,
+                linestyle="--",
+                alpha=0.7,
+                zorder=2,
+            )
 
 
 def export_decay_plot(

@@ -165,6 +165,8 @@ def _ui_state_to_dict(ui: UIState) -> Dict[str, Any]:
         "selected_level_indices": selected_level_indices_dict,
         "use_lifetime_grouping": bool(ui.use_lifetime_grouping),
         "global_grouping": bool(ui.global_grouping),
+        "export_bin_size_ms": float(ui.export_bin_size_ms),
+        "export_use_intensity_bin_size": bool(ui.export_use_intensity_bin_size),
     }
 
 
@@ -186,6 +188,8 @@ def _dict_to_ui_state(data: Dict[str, Any]) -> UIState:
         selected_level_indices=selected_level_indices,
         use_lifetime_grouping=data.get("use_lifetime_grouping", False),
         global_grouping=data.get("global_grouping", False),
+        export_bin_size_ms=data.get("export_bin_size_ms", 10.0),
+        export_use_intensity_bin_size=data.get("export_use_intensity_bin_size", True),
     )
 
 

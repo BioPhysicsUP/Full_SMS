@@ -492,7 +492,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ## Phase 7: Export Tab Improvements
 
-### Task 7.1: Fix export options layout `[NEXT]`
+### Task 7.1: Fix export options layout `[DONE]` (2026-01-26)
 **Objective**: All checkboxes visible without scrolling
 
 **Actions**:
@@ -504,9 +504,21 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: No scrolling needed to see all export checkboxes
 
+**Implementation Notes**:
+- Increased child window dimensions to 420×480px (left) and 400×480px (right)
+- All export options now visible without scrolling
+- Added plot customization sub-options:
+  - Intensity plot: Include Levels (functional), Include Groups (disabled for now)
+  - Decay plot: Include Fit, Include IRF (both functional but currently not exported - see Task 7.5)
+- Renamed "Intensity Trace" to "Intensity Plot" for consistency
+- Renamed "Fit Results" to "Lifetime Fit Parameters" for clarity
+- Consolidated levels export to include group_id and lifetime fit parameters in one file
+- Smart column export: only includes tau_2/tau_3 columns if multi-exponential fits exist
+- Updated group_id assignment: levels now get group_id populated after clustering completes
+
 ---
 
-### Task 7.2: Add plot customization options `[TODO]`
+### Task 7.2: Add plot customization options `[DONE]` (2026-01-26)
 **Objective**: Allow user to specify what's included in exported plots
 
 **Actions**:
@@ -519,9 +531,15 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Exported plots include/exclude elements based on selections
 
+**Implementation Notes**:
+- Combined with Task 7.1 implementation
+- Intensity plot now uses correct style (red step line for levels, horizontal bands for groups)
+- Matches visual style from Intensity tab and Grouping tab
+- Decay plot customization UI exists but fit/IRF not yet exported (see Task 7.5)
+
 ---
 
-### Task 7.3: Improve export input fields `[TODO]`
+### Task 7.3: Improve export input fields `[DONE]` (2026-01-26)
 **Objective**: Wider DPI and bin size inputs with intensity tab link option
 
 **Actions**:
@@ -534,9 +552,20 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Input fields are wider, bin size linking works
 
+**Implementation Notes**:
+- Increased Plot DPI input width from 80px to 120px
+- Increased Bin Size input width from 80px to 120px
+- Added "Use bin size from Intensity tab" checkbox (checked by default)
+- Bin size input is greyed out when checkbox is checked
+- Real-time sync: when Intensity tab bin size changes, export tab updates automatically
+- Settings are stateful and persist in session:
+  - `export_bin_size_ms`: Custom bin size value
+  - `export_use_intensity_bin_size`: Whether to sync with intensity tab
+- Values saved/restored correctly when saving/loading sessions
+
 ---
 
-### Task 7.4: Default export directory to input file location `[TODO]`
+### Task 7.4: Default export directory to input file location `[NEXT]`
 **Objective**: Start export directory at input file's location
 
 **Actions**:
@@ -550,6 +579,34 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
+### Task 7.5: Export decay plots with fit curves and IRF `[TODO]`
+**Objective**: Include fitted curves and IRF in exported decay plots
+
+**Actions**:
+- Recompute fit curve from stored `FitResultData` parameters for export
+- Reference existing recalculation code from `decay_plot.py::_compute_full_convolved_curve()` (lines 747-800+)
+- This method already recomputes the convolved fit curve from parameters:
+  - Takes tau values, amplitudes, shift, and background
+  - Builds multi-exponential model
+  - Applies IRF convolution using stored IRF data
+  - Returns full curve for entire time range
+- Adapt this logic to `plot_exporters.py::export_decay_plot()`
+- Store/retrieve IRF data from session state for recomputation
+- Respect the "Include Fit" and "Include IRF" checkboxes
+- Ensure residuals can be recomputed from fit parameters and data
+
+**User Testing**: Ask user to export decay plots with fitted data
+
+**Verification**: Exported decay plots show fitted curves and IRF when selected
+
+**Technical Notes**:
+- Currently, only `FitResultData` (scalars) is stored in session, not `FitResult` (with arrays)
+- Need to also store/retrieve IRF data for convolution
+- The visualization code already does this successfully - adapt that approach
+- Ensure fit curve matches what's shown in the Lifetime tab
+
+---
+
 ## Progress Summary
 
 | Phase | Tasks | Completed | Skipped | Remaining |
@@ -560,8 +617,8 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
 | 5. Lifetime Tab | 5 | 5 | 0 | 0 |
 | 6. Grouping Tab | 2 | 2 | 0 | 0 |
-| 7. Export Tab | 4 | 0 | 0 | 4 |
-| **Total** | **24** | **19** | **1** | **4** |
+| 7. Export Tab | 5 | 3 | 0 | 2 |
+| **Total** | **25** | **22** | **1** | **2** |
 
 ---
 
@@ -576,4 +633,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-24 (Task 6.2 completed)*
+*Last Updated: 2026-01-26 (Tasks 7.1, 7.2, 7.3 completed; Task 7.5 added)*

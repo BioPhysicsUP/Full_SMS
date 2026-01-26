@@ -85,6 +85,8 @@ class UIState:
         selected_level_indices: Dict mapping (particle_id, channel) to selected level index.
         use_lifetime_grouping: Whether to use lifetime in grouping analysis.
         global_grouping: Whether to apply grouping globally across all particles.
+        export_bin_size_ms: Custom bin size for export (when not syncing with intensity tab).
+        export_use_intensity_bin_size: Whether to sync export bin size with intensity tab.
     """
 
     bin_size_ms: float = 10.0
@@ -96,6 +98,8 @@ class UIState:
     selected_level_indices: Dict[tuple[int, int], int] = field(default_factory=dict)
     use_lifetime_grouping: bool = False
     global_grouping: bool = False
+    export_bin_size_ms: float = 10.0
+    export_use_intensity_bin_size: bool = True
 
 
 @dataclass

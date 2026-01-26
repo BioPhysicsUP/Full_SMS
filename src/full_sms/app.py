@@ -179,9 +179,10 @@ class Application:
             self._layout.set_on_selection_change(self._on_selection_changed)
             self._layout.set_on_batch_change(self._on_batch_changed)
 
-            # Set up intensity tab resolve callback
+            # Set up intensity tab callbacks
             if self._layout.intensity_tab:
                 self._layout.intensity_tab.set_on_resolve(self._on_resolve_from_tab)
+                self._layout.intensity_tab.set_on_bin_size_changed(self._on_bin_size_changed)
 
             # Set up lifetime tab callbacks
             if self._layout.lifetime_tab:
@@ -484,6 +485,10 @@ class Application:
         # Update resolve button states
         self._update_resolve_buttons_state()
 
+        # Update export tab with current selection
+        if self._layout and self._layout.export_tab:
+            self._layout.export_tab.set_current_selection(selection)
+
     def _on_batch_changed(self, selections: list[ChannelSelection]) -> None:
         """Handle batch selection change from particle tree.
 
@@ -495,6 +500,10 @@ class Application:
 
         # Update resolve button states
         self._update_resolve_buttons_state()
+
+        # Update export tab with batch selection
+        if self._layout and self._layout.export_tab:
+            self._layout.export_tab.set_batch_selection(selections)
 
     # Menu callbacks - File menu
 
@@ -1587,6 +1596,30 @@ class Application:
         if particle_id != "global":
             self._session.set_clustering(particle_id, channel_id, result)
 
+            # Update levels with their group_id assignments
+            levels = self._session.get_levels(particle_id, channel_id)
+            if levels and len(result.steps) > 0:
+                # Get the selected clustering step
+                selected_step = result.steps[result.selected_step_index]
+                updated_levels = []
+                for i, level in enumerate(levels):
+                    # Get group assignment from the selected clustering step
+                    group_id = selected_step.level_group_assignments[i]
+                    # Create new LevelData with group_id set
+                    updated_level = LevelData(
+                        start_index=level.start_index,
+                        end_index=level.end_index,
+                        start_time_ns=level.start_time_ns,
+                        end_time_ns=level.end_time_ns,
+                        num_photons=level.num_photons,
+                        intensity_cps=level.intensity_cps,
+                        group_id=group_id,
+                    )
+                    updated_levels.append(updated_level)
+                # Update session state with levels that have group_id
+                self._session.levels[(particle_id, channel_id)] = updated_levels
+                logger.debug(f"Updated {len(updated_levels)} levels with group assignments")
+
         logger.info(
             f"Clustering complete for particle {particle_id}, channel {channel_id}: "
             f"{result.num_groups} groups (optimal), {len(steps)} steps"
@@ -2107,6 +2140,23 @@ class Application:
             has_selected=has_selected,
             has_any=has_any,
         )
+
+    def _on_bin_size_changed(self, new_bin_size_ms: float) -> None:
+        """Handle bin size change from the intensity tab.
+
+        Updates the session state and notifies the export tab if syncing is enabled.
+
+        Args:
+            new_bin_size_ms: The new bin size in milliseconds.
+        """
+        # Update session state
+        self._session.ui_state.bin_size_ms = new_bin_size_ms
+
+        # Notify export tab to sync if checkbox is checked
+        if self._layout and self._layout.export_tab:
+            self._layout.export_tab.on_intensity_bin_size_changed(new_bin_size_ms)
+
+        logger.debug(f"Bin size changed to {new_bin_size_ms} ms")
 
     def _on_resolve_from_tab(self, mode: str, confidence: ConfidenceLevel) -> None:
         """Handle resolve request from the intensity tab.
