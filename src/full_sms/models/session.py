@@ -155,6 +155,7 @@ class SessionState:
         clustering_results: Dict mapping (particle_id, channel) to ClusteringResult.
         particle_fits: Dict mapping (particle_id, channel) to FitResultData for full decay fits.
         level_fits: Dict mapping (particle_id, channel, level_index) to FitResultData.
+        export_directory: Directory to export data to (defaults to input file's directory).
         ui_state: UI-related state.
         processing: Background processing state.
     """
@@ -169,6 +170,7 @@ class SessionState:
     )
     particle_fits: Dict[tuple[int, int], FitResultData] = field(default_factory=dict)
     level_fits: Dict[tuple[int, int, int], FitResultData] = field(default_factory=dict)
+    export_directory: Optional[Path] = None
     ui_state: UIState = field(default_factory=UIState)
     processing: ProcessingState = field(default_factory=ProcessingState)
 

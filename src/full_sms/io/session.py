@@ -274,6 +274,11 @@ def save_session(state: SessionState, path: Path) -> None:
     # Serialize UI state
     session_data["ui_state"] = _ui_state_to_dict(state.ui_state)
 
+    # Serialize export directory
+    session_data["export_directory"] = (
+        str(state.export_directory) if state.export_directory else None
+    )
+
     # Write to file
     path = Path(path)
     with open(path, "w", encoding="utf-8") as f:
@@ -298,6 +303,7 @@ def load_session(path: Path) -> Dict[str, Any]:
     - "selected": List of ChannelSelection
     - "current_selection": Optional ChannelSelection
     - "ui_state": UIState
+    - "export_directory": Optional Path to export directory
 
     Args:
         path: Path to the session file.
@@ -383,6 +389,11 @@ def load_session(path: Path) -> Dict[str, Any]:
     else:
         result["ui_state"] = UIState()
 
+    # Deserialize export directory
+    result["export_directory"] = (
+        Path(data["export_directory"]) if data.get("export_directory") else None
+    )
+
     return result
 
 
@@ -420,3 +431,6 @@ def apply_session_to_state(
 
     # Apply UI state
     state.ui_state = session_data["ui_state"]
+
+    # Apply export directory
+    state.export_directory = session_data.get("export_directory")

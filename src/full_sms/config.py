@@ -106,12 +106,10 @@ class FileDialogSettings:
     Attributes:
         last_open_directory: Last directory used for opening files.
         last_session_directory: Last directory used for session files.
-        last_export_directory: Last directory used for exports.
     """
 
     last_open_directory: str = ""
     last_session_directory: str = ""
-    last_export_directory: str = ""
 
 
 @dataclass
@@ -188,7 +186,6 @@ class Settings:
             settings.file_dialogs = FileDialogSettings(
                 last_open_directory=fd.get("last_open_directory", ""),
                 last_session_directory=fd.get("last_session_directory", ""),
-                last_export_directory=fd.get("last_export_directory", ""),
             )
 
         return settings

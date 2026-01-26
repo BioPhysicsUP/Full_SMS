@@ -38,7 +38,6 @@ class FileDialogTags:
     open_h5_dialog: str = "file_dialog_open_h5"
     save_session_dialog: str = "file_dialog_save_session"
     load_session_dialog: str = "file_dialog_load_session"
-    export_dir_dialog: str = "file_dialog_export_dir"
 
 
 class FileDialogs:
@@ -65,7 +64,6 @@ class FileDialogs:
         self._on_open_h5: Optional[Callable[[Path], None]] = None
         self._on_save_session: Optional[Callable[[Path], None]] = None
         self._on_load_session: Optional[Callable[[Path], None]] = None
-        self._on_select_export_dir: Optional[Callable[[Path], None]] = None
 
         # Load paths from persistent settings
         settings = get_settings()
@@ -83,11 +81,6 @@ class FileDialogs:
             if fd_settings.last_session_directory
             else DEFAULT_SAVE_PATH
         )
-        self._last_export_path: Path = (
-            Path(fd_settings.last_export_directory)
-            if fd_settings.last_export_directory
-            else DEFAULT_SAVE_PATH
-        )
 
         # Current open file path (for suggesting save location)
         self._current_file_path: Optional[Path] = None
@@ -97,7 +90,6 @@ class FileDialogs:
             open_h5_dialog=f"{tag_prefix}file_dialog_open_h5",
             save_session_dialog=f"{tag_prefix}file_dialog_save_session",
             load_session_dialog=f"{tag_prefix}file_dialog_load_session",
-            export_dir_dialog=f"{tag_prefix}file_dialog_export_dir",
         )
 
     @property
@@ -110,18 +102,12 @@ class FileDialogs:
         settings = get_settings()
         settings.file_dialogs.last_open_directory = str(self._last_open_path)
         settings.file_dialogs.last_session_directory = str(self._last_session_path)
-        settings.file_dialogs.last_export_directory = str(self._last_export_path)
         save_settings()
 
     @property
     def last_open_path(self) -> Path:
         """Get the last path used for opening files."""
         return self._last_open_path
-
-    @property
-    def last_export_path(self) -> Path:
-        """Get the last path used for export."""
-        return self._last_export_path
 
     def set_current_file_path(self, path: Optional[Path]) -> None:
         """Set the current open file path.
@@ -163,14 +149,6 @@ class FileDialogs:
             callback: Function called with the session file path.
         """
         self._on_load_session = callback
-
-    def set_on_select_export_dir(self, callback: Callable[[Path], None]) -> None:
-        """Set callback for when an export directory is selected.
-
-        Args:
-            callback: Function called with the selected directory path.
-        """
-        self._on_select_export_dir = callback
 
     # -------------------------------------------------------------------------
     # Open HDF5 Dialog
@@ -430,78 +408,6 @@ class FileDialogs:
             self._on_load_session(path)
 
     # -------------------------------------------------------------------------
-    # Export Directory Dialog
-    # -------------------------------------------------------------------------
-
-    def show_export_dir_dialog(self, default_path: Optional[Path] = None) -> None:
-        """Show the Export Directory selection dialog.
-
-        Args:
-            default_path: Optional starting directory.
-        """
-        # Clean up any existing dialog
-        if dpg.does_item_exist(self._tags.export_dir_dialog):
-            dpg.delete_item(self._tags.export_dir_dialog)
-
-        start_path = default_path or self._last_export_path
-        if not start_path.exists():
-            start_path = Path.home()
-
-        def dir_selected(sender, app_data):
-            """Handle directory selection."""
-            self._handle_export_dir_selection(app_data)
-            dpg.delete_item(sender)
-
-        def cancel_callback(sender, app_data):
-            """Handle cancel."""
-            dpg.delete_item(sender)
-
-        # Create directory selection dialog
-        with dpg.file_dialog(
-            label="Select Export Directory",
-            tag=self._tags.export_dir_dialog,
-            directory_selector=True,
-            default_path=str(start_path),
-            callback=dir_selected,
-            cancel_callback=cancel_callback,
-            width=600,
-            height=400,
-            modal=True,
-            show=True,
-        ):
-            pass
-
-        logger.debug("Export directory dialog shown")
-
-    def _handle_export_dir_selection(self, app_data: dict) -> None:
-        """Handle export directory selection from dialog.
-
-        Args:
-            app_data: Data from the file dialog callback.
-        """
-        if not app_data:
-            return
-
-        dir_path_name = app_data.get("file_path_name", "")
-        if not dir_path_name:
-            return
-
-        path = Path(dir_path_name)
-
-        # For directories, ensure it's actually a directory
-        if path.is_file():
-            path = path.parent
-
-        # Update last path and save to persistent settings
-        self._last_export_path = path
-        self._save_paths_to_settings()
-
-        logger.info(f"Export directory selected: {path}")
-
-        if self._on_select_export_dir:
-            self._on_select_export_dir(path)
-
-    # -------------------------------------------------------------------------
     # Utility methods
     # -------------------------------------------------------------------------
 
@@ -511,7 +417,6 @@ class FileDialogs:
             self._tags.open_h5_dialog,
             self._tags.save_session_dialog,
             self._tags.load_session_dialog,
-            self._tags.export_dir_dialog,
         ]:
             if dpg.does_item_exist(tag):
                 dpg.delete_item(tag)

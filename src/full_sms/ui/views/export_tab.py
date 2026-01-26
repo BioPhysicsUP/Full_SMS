@@ -120,7 +120,7 @@ class ExportTab:
 
         # State
         self._session_state: SessionState | None = None
-        self._output_dir: Path = Path.home() / "Desktop"
+        self._output_dir: Path | None = None  # Will be set from session or smart default
         self._has_data = False
         self._current_selection: ChannelSelection | None = None
         self._batch_selection: list[ChannelSelection] = []
@@ -394,7 +394,7 @@ class ExportTab:
 
         with dpg.group(horizontal=True):
             dpg.add_input_text(
-                default_value=str(self._output_dir),
+                default_value="",  # Will be set when session state is loaded
                 tag=self._tags.output_dir_input,
                 width=280,
                 readonly=True,
@@ -520,8 +520,35 @@ class ExportTab:
             intensity_bin_size = self._session_state.ui_state.bin_size_ms
             dpg.set_value(self._tags.bin_size_input, intensity_bin_size)
 
+    def _get_default_export_directory(self) -> Path:
+        """Get the default export directory using smart logic.
+
+        Returns:
+            Path to use as default export directory.
+        """
+        # 1. If already set in current state, use that
+        if self._output_dir is not None:
+            return self._output_dir
+
+        # 2. If session state has an export directory, use that
+        if self._session_state is not None and self._session_state.export_directory is not None:
+            return self._session_state.export_directory
+
+        # 3. If a file is loaded, use the file's directory
+        if (
+            self._session_state is not None
+            and self._session_state.file_metadata is not None
+        ):
+            return self._session_state.file_metadata.path.parent
+
+        # 4. Fall back to Desktop
+        return Path.home() / "Desktop"
+
     def _on_browse_clicked(self) -> None:
         """Handle browse button click - open directory picker."""
+        # Determine starting path using smart default logic
+        start_path = self._get_default_export_directory()
+
         # Create file dialog for directory selection
         def dir_selected(sender, app_data):
             if app_data and "file_path_name" in app_data:
@@ -532,6 +559,12 @@ class ExportTab:
                 else:
                     # Use parent directory if a file was somehow selected
                     self._output_dir = Path(dir_path).parent
+
+                # Save to session state
+                if self._session_state is not None:
+                    self._session_state.export_directory = self._output_dir
+
+                # Update UI
                 if dpg.does_item_exist(self._tags.output_dir_input):
                     dpg.set_value(self._tags.output_dir_input, str(self._output_dir))
             # Delete the dialog
@@ -544,7 +577,7 @@ class ExportTab:
         with dpg.file_dialog(
             label="Select Output Directory",
             directory_selector=True,
-            default_path=str(self._output_dir),
+            default_path=str(start_path),
             callback=dir_selected,
             cancel_callback=cancel_callback,
             width=600,
@@ -914,6 +947,17 @@ class ExportTab:
         """
         self._session_state = state
         self._has_data = state.has_file
+
+        # Set output directory using smart default logic
+        self._output_dir = self._get_default_export_directory()
+
+        # Update UI to show the directory
+        if dpg.does_item_exist(self._tags.output_dir_input):
+            dpg.set_value(self._tags.output_dir_input, str(self._output_dir))
+
+        # Save to session state if not already set
+        if state.export_directory is None:
+            state.export_directory = self._output_dir
 
         # Restore bin size settings from state
         if dpg.does_item_exist(self._tags.use_intensity_bin_size_cb):
