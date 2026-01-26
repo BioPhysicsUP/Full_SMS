@@ -565,7 +565,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 7.4: Default export directory to input file location `[NEXT]`
+### Task 7.4: Default export directory to input file location `[DONE]` (2026-01-26)
 **Objective**: Start export directory at input file's location
 
 **Actions**:
@@ -577,9 +577,21 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Export directory defaults to input file location
 
+**Implementation Notes**:
+- Removed `last_export_directory` from global settings (FileDialogSettings)
+- Added `export_directory: Optional[Path]` field to SessionState
+- Export tab now uses smart default logic in `_get_default_export_directory()`:
+  1. Uses current `_output_dir` if already set
+  2. Uses session state's `export_directory` if saved
+  3. Uses input file's parent directory if file is loaded
+  4. Falls back to Desktop only if none of the above apply
+- Export directory is saved to session state when user browses or exports
+- Export directory is persisted in session files and restored on load
+- Removed unused export directory dialog methods from file_dialogs.py
+
 ---
 
-### Task 7.5: Export decay plots with fit curves and IRF `[TODO]`
+### Task 7.5: Export decay plots with fit curves and IRF `[NEXT]`
 **Objective**: Include fitted curves and IRF in exported decay plots
 
 **Actions**:
@@ -617,8 +629,8 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
 | 5. Lifetime Tab | 5 | 5 | 0 | 0 |
 | 6. Grouping Tab | 2 | 2 | 0 | 0 |
-| 7. Export Tab | 5 | 3 | 0 | 2 |
-| **Total** | **25** | **22** | **1** | **2** |
+| 7. Export Tab | 5 | 4 | 0 | 1 |
+| **Total** | **25** | **23** | **1** | **1** |
 
 ---
 
@@ -633,4 +645,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-26 (Tasks 7.1, 7.2, 7.3 completed; Task 7.5 added)*
+*Last Updated: 2026-01-26 (Task 7.4 completed)*
