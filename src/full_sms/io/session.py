@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from full_sms.models.fit import FitResultData
+from full_sms.models.fit import FitResultData, IRFData
 from full_sms.models.group import ClusteringResult, ClusteringStep, GroupData
 from full_sms.models.level import LevelData
 from full_sms.models.session import (
@@ -147,6 +147,16 @@ def _dict_to_fit_result_data(data: Dict[str, Any]) -> FitResultData:
     return FitResultData.from_dict(data)
 
 
+def _irf_data_to_dict(irf: IRFData) -> Dict[str, Any]:
+    """Convert an IRFData to a serializable dict."""
+    return irf.to_dict()
+
+
+def _dict_to_irf_data(data: Dict[str, Any]) -> IRFData:
+    """Convert a dict back to an IRFData."""
+    return IRFData.from_dict(data)
+
+
 def _ui_state_to_dict(ui: UIState) -> Dict[str, Any]:
     """Convert UIState to a serializable dict."""
     # Convert selected_level_indices dict to string keys
@@ -263,6 +273,20 @@ def save_session(state: SessionState, path: Path) -> None:
         level_fits_dict[key] = _fit_result_data_to_dict(result)
     session_data["level_fits"] = level_fits_dict
 
+    # Serialize IRF data (keyed by "particle_id,channel")
+    irf_data_dict: Dict[str, Dict[str, Any]] = {}
+    for (pid, ch), irf in state.irf_data.items():
+        key = _tuple_key_to_str((pid, ch))
+        irf_data_dict[key] = _irf_data_to_dict(irf)
+    session_data["irf_data"] = irf_data_dict
+
+    # Serialize level IRF data (keyed by "particle_id,channel,level_index")
+    level_irf_data_dict: Dict[str, Dict[str, Any]] = {}
+    for (pid, ch, lvl_idx), irf in state.level_irf_data.items():
+        key = _tuple_key_to_str((pid, ch, lvl_idx))
+        level_irf_data_dict[key] = _irf_data_to_dict(irf)
+    session_data["level_irf_data"] = level_irf_data_dict
+
     # Serialize selections
     session_data["selected"] = [_selection_to_dict(s) for s in state.selected]
     session_data["current_selection"] = (
@@ -373,6 +397,20 @@ def load_session(path: Path) -> Dict[str, Any]:
         level_fits[(pid, ch, lvl_idx)] = _dict_to_fit_result_data(fit_data)
     result["level_fits"] = level_fits
 
+    # Deserialize IRF data
+    irf_data: Dict[Tuple[int, int], IRFData] = {}
+    for key, irf_dict in data.get("irf_data", {}).items():
+        pid, ch = _str_to_tuple_key(key, (int, int))
+        irf_data[(pid, ch)] = _dict_to_irf_data(irf_dict)
+    result["irf_data"] = irf_data
+
+    # Deserialize level IRF data
+    level_irf_data: Dict[Tuple[int, int, int], IRFData] = {}
+    for key, irf_dict in data.get("level_irf_data", {}).items():
+        pid, ch, lvl_idx = _str_to_tuple_key(key, (int, int, int))
+        level_irf_data[(pid, ch, lvl_idx)] = _dict_to_irf_data(irf_dict)
+    result["level_irf_data"] = level_irf_data
+
     # Deserialize selections
     result["selected"] = [
         _dict_to_selection(s) for s in data.get("selected", [])
@@ -424,6 +462,14 @@ def apply_session_to_state(
     # Apply level fits
     state.level_fits.clear()
     state.level_fits.update(session_data["level_fits"])
+
+    # Apply IRF data
+    state.irf_data.clear()
+    state.irf_data.update(session_data.get("irf_data", {}))
+
+    # Apply level IRF data
+    state.level_irf_data.clear()
+    state.level_irf_data.update(session_data.get("level_irf_data", {}))
 
     # Apply selections
     state.selected = session_data["selected"]

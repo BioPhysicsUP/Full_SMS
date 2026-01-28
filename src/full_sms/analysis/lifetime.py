@@ -959,3 +959,117 @@ def simulate_irf(
     t_ns = t_channels * channelwidth
 
     return irf, t_ns
+
+
+def compute_convolved_fit_curve(
+    t_ns: NDArray[np.float64],
+    counts: NDArray[np.int64],
+    channelwidth: float,
+    tau: Tuple[float, ...],
+    amplitude: Tuple[float, ...],
+    shift_ns: float,
+    background: float,
+    fit_start_index: int,
+    fit_end_index: int,
+    irf_fwhm_ns: Optional[float] = None,
+    irf_array: Optional[NDArray[np.float64]] = None,
+) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Compute the full convolved fit curve from fit parameters.
+
+    This function recomputes the fit curve and residuals from stored fit
+    parameters. It can be used both for UI display and for export, ensuring
+    consistency between them.
+
+    Either `irf_fwhm_ns` (for simulated IRF) or `irf_array` (for loaded IRF)
+    must be provided, but not both.
+
+    Args:
+        t_ns: Time axis in nanoseconds.
+        counts: Photon counts per channel.
+        channelwidth: TCSPC channel width in nanoseconds.
+        tau: Tuple of lifetime values in nanoseconds.
+        amplitude: Tuple of relative amplitudes.
+        shift_ns: IRF shift in nanoseconds.
+        background: Background value used in fit.
+        fit_start_index: Start index of fitting range.
+        fit_end_index: End index of fitting range.
+        irf_fwhm_ns: IRF FWHM in nanoseconds (for simulated IRF).
+        irf_array: Raw IRF array (for loaded IRF).
+
+    Returns:
+        Tuple of (fitted_curve, residuals) arrays.
+
+    Raises:
+        ValueError: If neither or both IRF parameters are provided.
+    """
+    if irf_fwhm_ns is None and irf_array is None:
+        raise ValueError("Either irf_fwhm_ns or irf_array must be provided")
+    if irf_fwhm_ns is not None and irf_array is not None:
+        raise ValueError("Only one of irf_fwhm_ns or irf_array should be provided")
+
+    n_channels = len(t_ns)
+    measured = counts.astype(np.float64)
+
+    # Get or generate IRF
+    if irf_fwhm_ns is not None:
+        # Generate simulated IRF from FWHM
+        irf, _ = simulate_irf(channelwidth, irf_fwhm_ns, measured)
+    else:
+        irf = irf_array
+
+    # Process IRF: subtract background and normalize
+    irf_bg = estimate_irf_background(irf)
+    irf_processed = irf - irf_bg
+    irf_max = irf_processed.max()
+    if irf_max > 0:
+        irf_processed = irf_processed / irf_max
+
+    # Convert shift from nanoseconds to channels
+    shift_channels = shift_ns / channelwidth
+
+    # Build time axis in channel units for model (relative to start)
+    t_channels = np.arange(n_channels) * channelwidth
+
+    # Build multi-exponential model
+    model = np.zeros(n_channels, dtype=np.float64)
+    for tau_val, amp_val in zip(tau, amplitude):
+        if tau_val > 0:
+            model += amp_val * np.exp(-t_channels / tau_val)
+
+    # Apply IRF shift and convolve
+    irf_shifted = colorshift(irf_processed, shift_channels)
+    convd = convolve(irf_shifted, model, mode="full")[:n_channels]
+
+    # Normalize to match the fit range intensity
+    # Use the same normalization as the fitting algorithm
+    measured_in_range = measured[fit_start_index:fit_end_index]
+    measured_bg_sub = measured_in_range - background
+    measured_bg_sub[measured_bg_sub <= 0] = 0
+    meas_sum = np.sum(measured_bg_sub)
+
+    if meas_sum <= 0:
+        # Return empty arrays if no signal
+        return np.zeros(n_channels), np.zeros(fit_end_index - fit_start_index)
+
+    # Normalize convolved curve within fit range
+    convd_in_range = convd[fit_start_index:fit_end_index]
+    convd_sum = convd_in_range.sum()
+    if convd_sum > 0:
+        # Scale full curve to match measured intensity
+        bg_norm = background / meas_sum
+        convd_normalized = convd / convd_sum
+        full_curve = (convd_normalized + bg_norm) * meas_sum
+    else:
+        full_curve = np.zeros(n_channels)
+
+    # Calculate residuals for the fit range
+    fitted_in_range = full_curve[fit_start_index:fit_end_index]
+    residuals_raw = fitted_in_range - measured_in_range
+    weights = np.sqrt(np.abs(fitted_in_range))
+    weights[weights == 0] = 1.0
+    residuals = residuals_raw / weights
+
+    # Remove infinite residuals
+    residuals[~np.isfinite(residuals)] = 0.0
+
+    return full_curve, residuals

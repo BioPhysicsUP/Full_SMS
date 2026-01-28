@@ -591,7 +591,7 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 ---
 
-### Task 7.5: Export decay plots with fit curves and IRF `[NEXT]`
+### Task 7.5: Export decay plots with fit curves and IRF `[DONE]` (2026-01-27)
 **Objective**: Include fitted curves and IRF in exported decay plots
 
 **Actions**:
@@ -611,11 +611,30 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 
 **Verification**: Exported decay plots show fitted curves and IRF when selected
 
-**Technical Notes**:
-- Currently, only `FitResultData` (scalars) is stored in session, not `FitResult` (with arrays)
-- Need to also store/retrieve IRF data for convolution
-- The visualization code already does this successfully - adapt that approach
-- Ensure fit curve matches what's shown in the Lifetime tab
+**Implementation Notes**:
+- Created shared `compute_convolved_fit_curve()` function in `analysis/lifetime.py`
+  - Takes FitResultData parameters + decay histogram + IRF (either FWHM or array)
+  - Returns (fitted_curve, residuals) arrays
+  - Used by both UI (decay_plot.py) and export (plot_exporters.py) for consistency
+- Added `IRFData` dataclass in `models/fit.py`:
+  - For simulated IRF: stores only `fwhm_ns` (efficient storage)
+  - For loaded IRF: stores full `time_ns` and `counts` arrays
+  - Includes `to_dict()`/`from_dict()` for JSON serialization
+- Added IRF storage to `SessionState`:
+  - `irf_data` dict for particle-level fits
+  - `level_irf_data` dict for level-specific fits
+  - Getter/setter methods for easy access
+- Updated `decay_plot.py` to use shared function instead of duplicate code
+- Updated `plot_exporters.py::export_decay_plot()`:
+  - Now accepts `FitResultData` + `IRFData` parameters
+  - Computes fit curve using shared function when FitResultData provided
+  - Displays IRF (simulated regenerated from FWHM, loaded from stored array)
+- Updated `app.py` to store IRFData when fit completes:
+  - Tracks IRF config (simulated, FWHM) when fit task is submitted
+  - Stores appropriate IRFData after fit completion
+- Updated session persistence (`io/session.py`):
+  - Saves/loads `irf_data` and `level_irf_data` to/from JSON sessions
+- Updated `export_tab.py` to retrieve IRFData from session and pass to export
 
 ---
 
@@ -629,8 +648,8 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 | 4. Intensity Tab | 6 | 5 | 1 | 0 |
 | 5. Lifetime Tab | 5 | 5 | 0 | 0 |
 | 6. Grouping Tab | 2 | 2 | 0 | 0 |
-| 7. Export Tab | 5 | 4 | 0 | 1 |
-| **Total** | **25** | **23** | **1** | **1** |
+| 7. Export Tab | 5 | 5 | 0 | 0 |
+| **Total** | **25** | **24** | **1** | **0** |
 
 ---
 
@@ -645,4 +664,4 @@ This document tracks UI and behavioral improvements for the DearPyGui implementa
 ---
 
 *Created: 2026-01-07*
-*Last Updated: 2026-01-26 (Task 7.4 completed)*
+*Last Updated: 2026-01-27 (Task 7.5 completed - All tasks complete!)*

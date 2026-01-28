@@ -36,7 +36,7 @@ from full_sms.ui.dialogs import (
     FittingParameters,
     SettingsDialog,
 )
-from full_sms.models.fit import FitResultData
+from full_sms.models.fit import FitResultData, IRFData
 from full_sms.ui.keyboard import KeyboardShortcuts, ShortcutHandler
 from full_sms.ui.layout import MainLayout
 from full_sms.ui.theme import APP_VERSION, create_plot_theme, create_theme
@@ -109,6 +109,13 @@ class Application:
         # Key: (particle_id, channel_id, level_index) -> (t_array, irf_array)
         self._irf_cache: dict[
             tuple[int, int, int | None], tuple[np.ndarray, np.ndarray]
+        ] = {}
+
+        # Cache for IRF configuration (is_simulated, fwhm) used when submitting fits
+        # Key: (particle_id, channel_id, level_index) -> (is_simulated, fwhm_ns or None)
+        # This allows us to store IRFData in session when fit completes
+        self._irf_config_cache: dict[
+            tuple[int, int, int | None], tuple[bool, float | None]
         ] = {}
 
         # NOTE: Selected level cache is now stored in session.ui_state.selected_level_indices
@@ -596,6 +603,7 @@ class Application:
             self._session.level_fits.clear()
             self._fit_cache.clear()
             self._irf_cache.clear()
+            self._irf_config_cache.clear()
             self._session.ui_state.selected_level_indices.clear()
             self._session.selected.clear()
             self._session.current_selection = None
@@ -1223,9 +1231,17 @@ class Application:
         cache_key = (selection.particle_id, selection.channel, None)
         if "irf" in task_params:
             self._irf_cache[cache_key] = (t, task_params["irf"])
+            # Track IRF config for session storage
+            # Simulated IRF: store (True, fwhm)
+            if params.use_simulated_irf:
+                self._irf_config_cache[cache_key] = (True, params.simulated_irf_fwhm)
+            else:
+                # Loaded IRF would go here - not currently implemented
+                self._irf_config_cache.pop(cache_key, None)
         else:
             # Clear any stale IRF cache for this fit
             self._irf_cache.pop(cache_key, None)
+            self._irf_config_cache.pop(cache_key, None)
 
         future = self._pool.submit(run_fit_task, task_params)
         self._pending_futures.append(future)
@@ -1274,9 +1290,16 @@ class Application:
         cache_key = (selection.particle_id, selection.channel, level_index)
         if "irf" in task_params:
             self._irf_cache[cache_key] = (t, task_params["irf"])
+            # Track IRF config for session storage
+            if params.use_simulated_irf:
+                self._irf_config_cache[cache_key] = (True, params.simulated_irf_fwhm)
+            else:
+                # Loaded IRF would go here - not currently implemented
+                self._irf_config_cache.pop(cache_key, None)
         else:
             # Clear any stale IRF cache for this fit
             self._irf_cache.pop(cache_key, None)
+            self._irf_config_cache.pop(cache_key, None)
 
         future = self._pool.submit(run_fit_task, task_params)
         self._pending_futures.append(future)
@@ -1703,6 +1726,26 @@ class Application:
                 f"Level {level_id} fit complete for {particle_id}/{channel_id}: "
                 f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}{fwhm_log}"
             )
+
+        # Store IRFData in session for export
+        cache_key = (particle_id, channel_id, level_id)
+        if cache_key in self._irf_config_cache:
+            is_simulated, original_fwhm = self._irf_config_cache[cache_key]
+            if is_simulated:
+                # Use fitted FWHM if available, otherwise original FWHM
+                fwhm_to_store = fit_result.fitted_irf_fwhm or original_fwhm
+                if fwhm_to_store is not None:
+                    irf_data_to_store = IRFData.from_simulated(fwhm_to_store)
+                    if level_id is None:
+                        self._session.set_irf(particle_id, channel_id, irf_data_to_store)
+                    else:
+                        self._session.set_level_irf(
+                            particle_id, channel_id, level_id, irf_data_to_store
+                        )
+                    logger.debug(
+                        f"Stored IRFData (simulated, fwhm={fwhm_to_store:.3f} ns) "
+                        f"for {particle_id}/{channel_id}/{level_id}"
+                    )
 
         # Update the lifetime tab display (only if this is for the current selection)
         current_sel = self._session.current_selection

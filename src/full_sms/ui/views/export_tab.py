@@ -773,23 +773,20 @@ class ExportTab:
                     include_fit = options.get("decay_include_fit", True)
                     include_irf = options.get("decay_include_irf", True)
 
-                    # Note: fit_result is FitResultData (serializable), not FitResult (with arrays)
-                    # The plot exporter needs FitResult with fitted_curve and residuals arrays
-                    # For now, we skip the fit in exported plots (would need to recompute)
-                    # TODO: Recompute fitted curve from FitResultData parameters
-
-                    # TODO: Get IRF data from session state when available
-                    # For now, IRF export is not implemented
-                    irf_t = None
-                    irf_counts = None
+                    # Get IRF data from session state for this particle/channel
+                    irf_data = None
+                    if self._session_state is not None:
+                        irf_data = self._session_state.get_irf(particle.id, channel)
 
                     path = export_decay_plot(
                         t_ns=t_ns,
                         counts=counts,
                         output_path=self._output_dir / f"{prefix}_decay",
-                        fit_result=None,  # Skip fit for now - need FitResult, not FitResultData
-                        irf_t=irf_t if include_irf else None,
-                        irf_counts=irf_counts if include_irf else None,
+                        channelwidth=particle.channelwidth,
+                        fit_data=fit_result if include_fit else None,
+                        irf_data=irf_data if (include_fit or include_irf) else None,
+                        show_fit=include_fit,
+                        show_irf=include_irf,
                         fmt=plot_fmt,
                         title=f"Particle {particle.id} - Channel {channel} Decay",
                         dpi=dpi,

@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from full_sms.models.fit import FitResult, FitResultData
+from full_sms.models.fit import FitResult, FitResultData, IRFData
 from full_sms.models.group import ClusteringResult
 from full_sms.models.level import LevelData
 from full_sms.models.particle import ParticleData
@@ -155,6 +155,8 @@ class SessionState:
         clustering_results: Dict mapping (particle_id, channel) to ClusteringResult.
         particle_fits: Dict mapping (particle_id, channel) to FitResultData for full decay fits.
         level_fits: Dict mapping (particle_id, channel, level_index) to FitResultData.
+        irf_data: Dict mapping (particle_id, channel) to IRFData for particle-level fits.
+        level_irf_data: Dict mapping (particle_id, channel, level_index) to IRFData for level fits.
         export_directory: Directory to export data to (defaults to input file's directory).
         ui_state: UI-related state.
         processing: Background processing state.
@@ -170,6 +172,8 @@ class SessionState:
     )
     particle_fits: Dict[tuple[int, int], FitResultData] = field(default_factory=dict)
     level_fits: Dict[tuple[int, int, int], FitResultData] = field(default_factory=dict)
+    irf_data: Dict[tuple[int, int], IRFData] = field(default_factory=dict)
+    level_irf_data: Dict[tuple[int, int, int], IRFData] = field(default_factory=dict)
     export_directory: Optional[Path] = None
     ui_state: UIState = field(default_factory=UIState)
     processing: ProcessingState = field(default_factory=ProcessingState)
@@ -400,6 +404,56 @@ class SessionState:
                 result[level_idx] = fit_data
         return result
 
+    def get_irf(self, particle_id: int, channel: int) -> Optional[IRFData]:
+        """Get IRF data for a particle/channel fit.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+
+        Returns:
+            IRFData if available, None otherwise.
+        """
+        return self.irf_data.get((particle_id, channel))
+
+    def set_irf(self, particle_id: int, channel: int, irf: IRFData) -> None:
+        """Set IRF data for a particle/channel fit.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+            irf: The IRFData to store.
+        """
+        self.irf_data[(particle_id, channel)] = irf
+
+    def get_level_irf(
+        self, particle_id: int, channel: int, level_index: int
+    ) -> Optional[IRFData]:
+        """Get IRF data for a level-specific fit.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+            level_index: The level index.
+
+        Returns:
+            IRFData if available, None otherwise.
+        """
+        return self.level_irf_data.get((particle_id, channel, level_index))
+
+    def set_level_irf(
+        self, particle_id: int, channel: int, level_index: int, irf: IRFData
+    ) -> None:
+        """Set IRF data for a level-specific fit.
+
+        Args:
+            particle_id: The particle ID.
+            channel: The channel number (1 or 2).
+            level_index: The level index.
+            irf: The IRFData to store.
+        """
+        self.level_irf_data[(particle_id, channel, level_index)] = irf
+
     def select(self, particle_id: int, channel: int = 1) -> None:
         """Select a particle/channel as the current selection.
 
@@ -464,6 +518,8 @@ class SessionState:
         self.clustering_results.clear()
         self.particle_fits.clear()
         self.level_fits.clear()
+        self.irf_data.clear()
+        self.level_irf_data.clear()
 
     def reset(self) -> None:
         """Reset the session to initial empty state."""
@@ -475,5 +531,7 @@ class SessionState:
         self.clustering_results.clear()
         self.particle_fits.clear()
         self.level_fits.clear()
+        self.irf_data.clear()
+        self.level_irf_data.clear()
         self.ui_state = UIState()
         self.processing = ProcessingState()

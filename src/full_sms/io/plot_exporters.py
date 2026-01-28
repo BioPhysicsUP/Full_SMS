@@ -9,12 +9,14 @@ from __future__ import annotations
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from numpy.typing import NDArray
 
 from full_sms.analysis.histograms import bin_photons
+from full_sms.analysis.lifetime import compute_convolved_fit_curve
+from full_sms.models.fit import FitResultData, IRFData
 
 if TYPE_CHECKING:
     from full_sms.models.fit import FitResult
@@ -235,11 +237,16 @@ def export_decay_plot(
     t_ns: NDArray[np.float64],
     counts: NDArray[np.int64],
     output_path: Path,
+    channelwidth: float = 0.1,
     fit_result: FitResult | None = None,
+    fit_data: FitResultData | None = None,
+    irf_data: IRFData | None = None,
     irf_t: NDArray[np.float64] | None = None,
     irf_counts: NDArray[np.float64] | None = None,
     log_scale: bool = True,
     show_residuals: bool = True,
+    show_fit: bool = True,
+    show_irf: bool = True,
     fmt: PlotFormat = PlotFormat.PNG,
     title: str = "",
     figsize: tuple[float, float] = (10, 8),
@@ -250,15 +257,25 @@ def export_decay_plot(
     Creates a publication-quality decay plot with optional fit curve,
     IRF, and residuals panel.
 
+    For fit curve export, provide either:
+    - `fit_result`: A full FitResult with pre-computed arrays (backwards compatible)
+    - `fit_data` + `irf_data`: FitResultData (scalars only) + IRFData, and the
+      fit curve will be recomputed using the shared computation function.
+
     Args:
         t_ns: Time array in nanoseconds.
         counts: Photon counts array.
         output_path: Path to output file (without extension).
-        fit_result: Optional FitResult for overlay.
-        irf_t: Optional IRF time array.
-        irf_counts: Optional IRF counts array.
+        channelwidth: TCSPC channel width in nanoseconds (required for fit_data).
+        fit_result: Optional FitResult for overlay (legacy, has pre-computed curve).
+        fit_data: Optional FitResultData for overlay (curve will be computed).
+        irf_data: Optional IRFData for computing fit curve and/or displaying IRF.
+        irf_t: Optional IRF time array (legacy, for direct display).
+        irf_counts: Optional IRF counts array (legacy, for direct display).
         log_scale: Whether to use logarithmic y-axis.
-        show_residuals: Whether to show residuals subplot (if fit_result provided).
+        show_residuals: Whether to show residuals subplot (if fit provided).
+        show_fit: Whether to show the fit curve (if fit data provided).
+        show_irf: Whether to show the IRF (if IRF data provided).
         fmt: Export format (PNG, PDF, or SVG).
         title: Optional plot title.
         figsize: Figure size in inches (width, height).
@@ -269,9 +286,77 @@ def export_decay_plot(
     """
     plt = _get_matplotlib()
 
+    # Compute fit curve from FitResultData if provided (and no FitResult)
+    fitted_curve: Optional[NDArray[np.float64]] = None
+    residuals: Optional[NDArray[np.float64]] = None
+    fit_start_index: int = 0
+    fit_end_index: int = 0
+    chi_squared: float = 0.0
+    durbin_watson: float = 0.0
+    average_lifetime: float = 0.0
+
+    has_fit = False
+
+    if fit_result is not None and show_fit:
+        # Use legacy FitResult with pre-computed arrays
+        has_fit = True
+        fitted_curve = fit_result.fitted_curve
+        residuals = fit_result.residuals
+        fit_start_index = fit_result.fit_start_index
+        fit_end_index = fit_result.fit_end_index
+        chi_squared = fit_result.chi_squared
+        durbin_watson = fit_result.durbin_watson
+        average_lifetime = fit_result.average_lifetime
+
+    elif fit_data is not None and irf_data is not None and show_fit:
+        # Compute fit curve from FitResultData + IRFData
+        has_fit = True
+        fit_start_index = fit_data.fit_start_index
+        fit_end_index = fit_data.fit_end_index
+        chi_squared = fit_data.chi_squared
+        durbin_watson = fit_data.durbin_watson
+        average_lifetime = fit_data.average_lifetime
+
+        try:
+            # Determine IRF parameters
+            irf_fwhm_ns: Optional[float] = None
+            irf_array: Optional[NDArray[np.float64]] = None
+
+            if irf_data.is_simulated:
+                # Use fitted FWHM if available, otherwise use stored FWHM
+                if fit_data.fitted_irf_fwhm is not None:
+                    irf_fwhm_ns = fit_data.fitted_irf_fwhm
+                else:
+                    irf_fwhm_ns = irf_data.fwhm_ns
+            else:
+                # Use loaded IRF array
+                irf_array = irf_data.get_irf_array()
+
+            # Compute the fit curve
+            full_curve, computed_residuals = compute_convolved_fit_curve(
+                t_ns=t_ns,
+                counts=counts,
+                channelwidth=channelwidth,
+                tau=fit_data.tau,
+                amplitude=fit_data.amplitude,
+                shift_ns=fit_data.shift,
+                background=fit_data.background,
+                fit_start_index=fit_start_index,
+                fit_end_index=fit_end_index,
+                irf_fwhm_ns=irf_fwhm_ns,
+                irf_array=irf_array,
+            )
+
+            # Extract the fit range portion of the curve
+            fitted_curve = full_curve[fit_start_index:fit_end_index]
+            residuals = computed_residuals
+
+        except Exception as e:
+            logger.warning(f"Failed to compute fit curve for export: {e}")
+            has_fit = False
+
     # Determine subplot layout
-    has_fit = fit_result is not None
-    show_resid = show_residuals and has_fit
+    show_resid = show_residuals and has_fit and residuals is not None
 
     if show_resid:
         fig, (ax_decay, ax_resid) = plt.subplots(
@@ -295,23 +380,60 @@ def export_decay_plot(
     )
 
     # Plot fit curve
-    if has_fit:
-        fit_t = t_ns[fit_result.fit_start_index:fit_result.fit_end_index + 1]
+    if has_fit and fitted_curve is not None:
+        fit_t = t_ns[fit_start_index:fit_start_index + len(fitted_curve)]
         ax_decay.plot(
             fit_t,
-            fit_result.fitted_curve,
+            fitted_curve,
             color="#d62728",
             linewidth=1.5,
-            label=f"Fit (τ={fit_result.average_lifetime:.2f} ns)",
+            label=f"Fit (τ={average_lifetime:.2f} ns)",
         )
 
+    # Determine IRF display data
+    display_irf_t: Optional[NDArray[np.float64]] = None
+    display_irf_counts: Optional[NDArray[np.float64]] = None
+
+    if show_irf:
+        if irf_t is not None and irf_counts is not None:
+            # Use legacy direct IRF arrays
+            display_irf_t = irf_t
+            display_irf_counts = irf_counts
+        elif irf_data is not None and not irf_data.is_simulated:
+            # Use loaded IRF from IRFData
+            # Note: Loaded IRF may have different time axis than decay data.
+            # We use the decay histogram time axis (t_ns) for proper alignment.
+            if irf_data.counts is not None and len(irf_data.counts) == len(t_ns):
+                # IRF has same length as decay - use decay time axis with shift
+                shift_ns = fit_data.shift if fit_data else 0.0
+                display_irf_t = t_ns + shift_ns
+                display_irf_counts = np.array(irf_data.counts)
+            elif irf_data.time_ns is not None and irf_data.counts is not None:
+                # Fallback: use IRF's own time axis with shift
+                shift_ns = fit_data.shift if fit_data else 0.0
+                display_irf_t = np.array(irf_data.time_ns) + shift_ns
+                display_irf_counts = np.array(irf_data.counts)
+        elif irf_data is not None and irf_data.is_simulated and fit_data is not None:
+            # Generate simulated IRF for display
+            from full_sms.analysis.lifetime import simulate_irf
+            fwhm = fit_data.fitted_irf_fwhm if fit_data.fitted_irf_fwhm else irf_data.fwhm_ns
+            if fwhm is not None:
+                sim_irf, _ = simulate_irf(channelwidth, fwhm, counts.astype(np.float64))
+                # Use decay histogram time axis (t_ns) for proper alignment,
+                # since simulate_irf returns time starting from 0 but decay
+                # histogram may start at a non-zero offset
+                shift_ns = fit_data.shift if fit_data else 0.0
+                display_irf_t = t_ns + shift_ns
+                display_irf_counts = sim_irf
+
     # Plot IRF
-    if irf_t is not None and irf_counts is not None:
+    if display_irf_t is not None and display_irf_counts is not None:
         # Normalize IRF to peak of data for visibility
-        irf_scale = np.max(counts) / np.max(irf_counts) if np.max(irf_counts) > 0 else 1
+        irf_max = np.max(display_irf_counts)
+        irf_scale = np.max(counts) / irf_max if irf_max > 0 else 1
         ax_decay.plot(
-            irf_t,
-            irf_counts * irf_scale,
+            display_irf_t,
+            display_irf_counts * irf_scale,
             color="#1f77b4",
             linewidth=1.0,
             linestyle="--",
@@ -339,13 +461,12 @@ def export_decay_plot(
     ax_decay.spines["right"].set_visible(False)
 
     # Plot residuals
-    if show_resid and ax_resid is not None:
-        resid_t = t_ns[fit_result.fit_start_index:fit_result.fit_end_index + 1]
-        resid_t = resid_t[:len(fit_result.residuals)]  # Match lengths
+    if show_resid and ax_resid is not None and residuals is not None:
+        resid_t = t_ns[fit_start_index:fit_start_index + len(residuals)]
 
         ax_resid.scatter(
             resid_t,
-            fit_result.residuals[:len(resid_t)],
+            residuals,
             s=2,
             alpha=0.5,
             color="#333333",
@@ -362,7 +483,7 @@ def export_decay_plot(
         ax_resid.spines["right"].set_visible(False)
 
         # Add fit statistics as text
-        stats_text = f"χ² = {fit_result.chi_squared:.3f}  DW = {fit_result.durbin_watson:.3f}"
+        stats_text = f"χ² = {chi_squared:.3f}  DW = {durbin_watson:.3f}"
         ax_resid.text(
             0.02, 0.95,
             stats_text,

@@ -2,35 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Active Work: UI Improvements
-
-The improvement plan is tracked in `ui_improvements_plan.md`. When asked to continue:
-
-1. Read `ui_improvements_plan.md`
-2. Find the task marked `[NEXT]`
-3. Plan the task, summarize the changes, and **ask the user for the go-ahead**
-4. Complete that task
-   - Change `[NEXT]` to `[DONE]` with today's date
-   - Change the following `[TODO]` to `[NEXT]`
-   - Update the Progress Summary table
-5. **Ask the user to test the changes** and provide feedback
-6. Update the plan document and commit your changes with a message referencing the task
-
-### User Testing Protocol
-
-After completing each task:
-- Ask the user to run the application (`uv run python -m full_sms.app`)
-- Request they test the specific functionality that was changed
-- Wait for feedback before proceeding to the next task
-- If feedback indicates issues, address them before marking the task complete
-
----
-
 ## Project Overview
 
 Full SMS is a DearPyGui-based GUI application for single-molecule spectroscopy (SMS) data analysis, developed by the Biophysics Group at the University of Pretoria. It analyzes fluorescence measurements from HDF5 files, performing change point analysis, hierarchical clustering, lifetime fitting, and correlation functions.
 
-Online docs: https://up-biophysics-sms.readthedocs.io/en/latest/index.html
+**Online docs:** https://up-biophysics-sms.readthedocs.io/en/latest/index.html
+
+**Status:** The application is fully functional. The PyQt5-to-DearPyGui rewrite (42 tasks) and UI improvements (25 tasks) have been completed.
 
 ## Tooling & Commands
 
@@ -68,7 +46,7 @@ src/full_sms/
 │   ├── particle.py         # ParticleData, ChannelData, SpectraData, RasterScanData
 │   ├── level.py            # LevelData (change point result)
 │   ├── group.py            # GroupData, ClusteringResult, ClusteringStep
-│   ├── fit.py              # FitResult (lifetime fitting result)
+│   ├── fit.py              # FitResult, FitResultData, IRFData
 │   └── session.py          # SessionState, FileMetadata, UIState
 ├── io/                     # File I/O operations
 │   ├── hdf5_reader.py      # Load HDF5 files → ParticleData
@@ -144,6 +122,8 @@ HDF5 File
 | `LevelData` | models/level.py | Brightness level from change point analysis |
 | `ClusteringResult` | models/group.py | Hierarchical clustering with BIC optimization |
 | `FitResult` | models/fit.py | Lifetime decay fit (1-3 exponentials) |
+| `FitResultData` | models/fit.py | Serializable fit parameters for persistence |
+| `IRFData` | models/fit.py | Instrument response function (simulated or loaded) |
 | `SessionState` | models/session.py | Complete application state |
 | `AnalysisPool` | workers/pool.py | ProcessPoolExecutor wrapper |
 | `MainLayout` | ui/layout.py | 2-column layout manager |
@@ -168,7 +148,7 @@ HDF5 File
 |--------|-----------|--------------|
 | `change_point.py` | Watkins & Yang weighted likelihood | `find_change_points()` |
 | `clustering.py` | AHCA with BIC optimization | `cluster_levels()` |
-| `lifetime.py` | Multi-exponential IRF convolution | `fit_decay()` |
+| `lifetime.py` | Multi-exponential IRF convolution | `fit_decay()`, `compute_convolved_fit_curve()` |
 | `correlation.py` | Auto/cross-correlation g(2) | `calculate_g2()` |
 | `histograms.py` | Photon binning utilities | `bin_photons()`, `build_decay_histogram()` |
 
@@ -178,6 +158,14 @@ Platform-specific JSON storage via `config.py`:
 - macOS: `~/Library/Application Support/Full SMS/settings.json`
 - Windows: `%APPDATA%\Full SMS\settings.json`
 - Linux: `~/.config/full_sms/settings.json`
+
+### Session Save/Load
+
+Sessions are saved as `.smsa` files (JSON format) containing:
+- File metadata and particle data references
+- All analysis results (levels, groups, fits, correlations)
+- UI state (selections, tab, zoom levels)
+- Export settings and IRF data
 
 ## Key Dependencies
 
@@ -205,5 +193,7 @@ tests/
 ## Reference Materials
 
 - `old/` - Original PyQt5 implementation (archived, do not modify)
+- `old/full_context.md` - Documentation of the old PyQt5 architecture
 - `rewrite_python_dearpygui_plan.md` - Completed rewrite plan (42 tasks)
+- `ui_improvements_plan.md` - Completed UI improvements plan (25 tasks)
 - `rewrite_options/` - Architecture decision documents

@@ -3,10 +3,114 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
+
+
+@dataclass(frozen=True)
+class IRFData:
+    """IRF data for session storage and export.
+
+    Stores either simulated IRF parameters (just FWHM) or loaded IRF data
+    (full array). This allows efficient storage while preserving all
+    information needed to reconstruct the IRF for export.
+
+    Attributes:
+        is_simulated: Whether the IRF was simulated (True) or loaded (False).
+        fwhm_ns: IRF FWHM in nanoseconds (only for simulated IRF).
+        time_ns: Time axis in nanoseconds (only for loaded IRF).
+        counts: IRF counts array (only for loaded IRF).
+    """
+
+    is_simulated: bool
+    fwhm_ns: Optional[float] = None
+    time_ns: Optional[Tuple[float, ...]] = None
+    counts: Optional[Tuple[float, ...]] = None
+
+    def __post_init__(self) -> None:
+        """Validate IRF data consistency."""
+        if self.is_simulated:
+            if self.fwhm_ns is None:
+                raise ValueError("Simulated IRF requires fwhm_ns")
+            if self.time_ns is not None or self.counts is not None:
+                raise ValueError("Simulated IRF should not have time_ns or counts")
+        else:
+            if self.fwhm_ns is not None:
+                raise ValueError("Loaded IRF should not have fwhm_ns")
+            if self.time_ns is None or self.counts is None:
+                raise ValueError("Loaded IRF requires time_ns and counts")
+            if len(self.time_ns) != len(self.counts):
+                raise ValueError("time_ns and counts must have same length")
+
+    @classmethod
+    def from_simulated(cls, fwhm_ns: float) -> "IRFData":
+        """Create IRFData for a simulated IRF.
+
+        Args:
+            fwhm_ns: IRF FWHM in nanoseconds.
+
+        Returns:
+            IRFData instance for simulated IRF.
+        """
+        return cls(is_simulated=True, fwhm_ns=fwhm_ns)
+
+    @classmethod
+    def from_loaded(
+        cls,
+        time_ns: NDArray[np.float64] | List[float],
+        counts: NDArray[np.float64] | List[float],
+    ) -> "IRFData":
+        """Create IRFData for a loaded IRF.
+
+        Args:
+            time_ns: Time axis in nanoseconds.
+            counts: IRF counts array.
+
+        Returns:
+            IRFData instance for loaded IRF.
+        """
+        # Convert to tuples for immutability
+        time_tuple = tuple(float(t) for t in time_ns)
+        counts_tuple = tuple(float(c) for c in counts)
+        return cls(is_simulated=False, time_ns=time_tuple, counts=counts_tuple)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to a JSON-serializable dictionary."""
+        result: dict[str, Any] = {"is_simulated": self.is_simulated}
+        if self.is_simulated:
+            result["fwhm_ns"] = self.fwhm_ns
+        else:
+            result["time_ns"] = list(self.time_ns) if self.time_ns else None
+            result["counts"] = list(self.counts) if self.counts else None
+        return result
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "IRFData":
+        """Create from a dictionary (e.g., loaded from JSON).
+
+        Args:
+            data: Dictionary with IRF data.
+
+        Returns:
+            A new IRFData instance.
+        """
+        is_simulated = data["is_simulated"]
+        if is_simulated:
+            return cls.from_simulated(data["fwhm_ns"])
+        else:
+            return cls.from_loaded(data["time_ns"], data["counts"])
+
+    def get_irf_array(self) -> Optional[NDArray[np.float64]]:
+        """Get the IRF counts array (only for loaded IRF).
+
+        Returns:
+            IRF counts as numpy array, or None for simulated IRF.
+        """
+        if self.is_simulated or self.counts is None:
+            return None
+        return np.array(self.counts, dtype=np.float64)
 
 
 @dataclass(frozen=True)

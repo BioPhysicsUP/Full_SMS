@@ -13,9 +13,9 @@ from typing import Optional
 import dearpygui.dearpygui as dpg
 import numpy as np
 from numpy.typing import NDArray
-from scipy.signal import convolve
 
 from full_sms.analysis.histograms import build_decay_histogram
+from full_sms.analysis.lifetime import compute_convolved_fit_curve
 from full_sms.models.fit import FitResult
 from full_sms.ui.theme import COLORS
 
@@ -587,40 +587,6 @@ class DecayPlot:
         """Clear the stored raw IRF data."""
         self._raw_irf = None
 
-    def _colorshift(
-        self, irf: NDArray[np.float64], shift: float
-    ) -> NDArray[np.float64]:
-        """Shift IRF with periodic wrapping (same as lifetime.colorshift).
-
-        Args:
-            irf: Instrument response function.
-            shift: Amount to shift in channels (can be non-integer).
-
-        Returns:
-            Shifted IRF.
-        """
-        irf = irf.flatten()
-        irf_length = len(irf)
-        t = np.arange(irf_length)
-
-        # Calculate indices for interpolation
-        new_index_left = np.fmod(
-            np.fmod(t - np.floor(shift), irf_length) + irf_length, irf_length
-        ).astype(int)
-        new_index_right = np.fmod(
-            np.fmod(t - np.ceil(shift), irf_length) + irf_length, irf_length
-        ).astype(int)
-
-        # Interpolate between integer shifts
-        integer_left_shift = irf[new_index_left]
-        integer_right_shift = irf[new_index_right]
-
-        irs = (1 - shift + np.floor(shift)) * integer_left_shift + (
-            shift - np.floor(shift)
-        ) * integer_right_shift
-
-        return irs
-
     def set_fit(self, fit_result: FitResult) -> None:
         """Set the fit result and display the fit curve.
 
@@ -749,8 +715,8 @@ class DecayPlot:
     ) -> Optional[NDArray[np.float64]]:
         """Compute the full convolved fit curve for the entire data range.
 
-        This replicates the convolution computation from the fitting algorithm
-        but produces the curve for the full time range, not just the fit range.
+        Uses the shared compute_convolved_fit_curve function from lifetime module
+        to ensure consistency between UI display and export.
 
         Args:
             fit_result: The fit result with parameters.
@@ -761,62 +727,26 @@ class DecayPlot:
         if self._raw_irf is None or self._t is None or self._counts is None:
             return None
 
-        # Get fit parameters
-        taus = list(fit_result.tau)
-        amps = list(fit_result.amplitude)
-        shift_ns = fit_result.shift
-        background = fit_result.background
-        fit_start = fit_result.fit_start_index
-        fit_end = fit_result.fit_end_index
-
-        # Convert shift from nanoseconds to channels
-        shift_channels = shift_ns / self._channelwidth
-
-        # Prepare IRF (subtract background and normalize)
-        irf = self._raw_irf.copy()
-        # Estimate IRF background from first 20 channels
-        irf_bg = np.mean(irf[:20]) if len(irf) >= 20 else 0
-        irf_processed = irf - irf_bg
-        irf_max = irf_processed.max()
-        if irf_max > 0:
-            irf_processed = irf_processed / irf_max
-
-        # Build time axis in channel units for model (relative to start)
-        n_channels = len(self._t)
-        t_channels = np.arange(n_channels) * self._channelwidth
-
-        # Build multi-exponential model
-        model = np.zeros(n_channels, dtype=np.float64)
-        for tau_val, amp_val in zip(taus, amps):
-            if tau_val > 0:
-                model += amp_val * np.exp(-t_channels / tau_val)
-
-        # Apply IRF shift and convolve
-        irf_shifted = self._colorshift(irf_processed, shift_channels)
-        convd = convolve(irf_shifted, model, mode="full")[:n_channels]
-
-        # Normalize to match the fit range intensity
-        # Use the same normalization as the fitting algorithm
-        measured_in_range = self._counts[fit_start:fit_end].astype(np.float64)
-        measured_bg_sub = measured_in_range - background
-        measured_bg_sub[measured_bg_sub <= 0] = 0
-        meas_sum = np.sum(measured_bg_sub)
-
-        if meas_sum <= 0:
+        try:
+            full_curve, _ = compute_convolved_fit_curve(
+                t_ns=self._t,
+                counts=self._counts,
+                channelwidth=self._channelwidth,
+                tau=fit_result.tau,
+                amplitude=fit_result.amplitude,
+                shift_ns=fit_result.shift,
+                background=fit_result.background,
+                fit_start_index=fit_result.fit_start_index,
+                fit_end_index=fit_result.fit_end_index,
+                irf_array=self._raw_irf,
+            )
+            # Check if we got a valid curve
+            if np.sum(full_curve) <= 0:
+                return None
+            return full_curve
+        except (ValueError, Exception) as e:
+            logger.warning(f"Failed to compute convolved curve: {e}")
             return None
-
-        # Normalize convolved curve within fit range
-        convd_in_range = convd[fit_start:fit_end]
-        convd_sum = convd_in_range.sum()
-        if convd_sum > 0:
-            # Scale full curve to match measured intensity
-            bg_norm = background / meas_sum
-            convd_normalized = convd / convd_sum
-            full_curve = (convd_normalized + bg_norm) * meas_sum
-        else:
-            return None
-
-        return full_curve
 
     def clear_fit(self) -> None:
         """Clear the fit curve overlay."""
