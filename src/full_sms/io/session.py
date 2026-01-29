@@ -9,6 +9,7 @@ The raw photon data is NOT stored - it's reloaded from the HDF5 file.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -25,7 +26,10 @@ from full_sms.models.session import (
 )
 
 # Current session format version
-SESSION_VERSION = "1.0"
+SESSION_VERSION = "1.1"
+
+# Supported session versions for loading
+_SUPPORTED_VERSIONS = frozenset({"1.0", "1.1"})
 
 
 class SessionSerializationError(Exception):
@@ -232,16 +236,26 @@ def save_session(state: SessionState, path: Path) -> None:
     if state.file_metadata is None:
         raise SessionSerializationError("Cannot save session without loaded file")
 
+    # Compute relative path from session file to HDF5 file
+    h5_path = state.file_metadata.path
+    try:
+        rel_path = os.path.relpath(h5_path, path.parent)
+        stored_path = rel_path
+    except ValueError:
+        # Different drives on Windows - fall back to absolute
+        stored_path = str(h5_path)
+
     # Build the session data structure
     session_data: Dict[str, Any] = {
         "version": SESSION_VERSION,
         "file_metadata": {
-            "path": str(state.file_metadata.path),
+            "path": stored_path,
             "filename": state.file_metadata.filename,
             "num_particles": int(state.file_metadata.num_particles),
             "has_irf": bool(state.file_metadata.has_irf),
             "has_spectra": bool(state.file_metadata.has_spectra),
             "has_raster": bool(state.file_metadata.has_raster),
+            "analysis_uuid": state.file_metadata.analysis_uuid,
         },
     }
 
@@ -346,26 +360,33 @@ def load_session(path: Path) -> Dict[str, Any]:
 
     # Version check
     version = data.get("version", "unknown")
-    if version != SESSION_VERSION:
-        # For now, only support current version
-        # Future: add migration logic here
+    if version not in _SUPPORTED_VERSIONS:
         raise SessionSerializationError(
-            f"Unsupported session version: {version} (expected {SESSION_VERSION})"
+            f"Unsupported session version: {version} "
+            f"(supported: {', '.join(sorted(_SUPPORTED_VERSIONS))})"
         )
 
     # Validate required fields
     if "file_metadata" not in data:
         raise SessionSerializationError("Session file missing file_metadata")
 
+    # Resolve HDF5 path - may be relative (v1.1+) or absolute (v1.0)
+    stored_path = data["file_metadata"]["path"]
+    h5_path = Path(stored_path)
+    if not h5_path.is_absolute():
+        # Relative path: resolve against session file's parent directory
+        h5_path = (path.parent / h5_path).resolve()
+
     result: Dict[str, Any] = {
         "version": version,
         "file_metadata": {
-            "path": Path(data["file_metadata"]["path"]),
+            "path": h5_path,
             "filename": data["file_metadata"]["filename"],
             "num_particles": data["file_metadata"]["num_particles"],
             "has_irf": data["file_metadata"].get("has_irf", False),
             "has_spectra": data["file_metadata"].get("has_spectra", False),
             "has_raster": data["file_metadata"].get("has_raster", False),
+            "analysis_uuid": data["file_metadata"].get("analysis_uuid"),
         },
     }
 
@@ -480,3 +501,30 @@ def apply_session_to_state(
 
     # Apply export directory
     state.export_directory = session_data.get("export_directory")
+
+
+def scan_sessions_for_uuid(directory: Path, target_uuid: str) -> List[Path]:
+    """Scan a directory for session files matching a given analysis UUID.
+
+    Args:
+        directory: Directory to search for .smsa files.
+        target_uuid: The analysis UUID to match.
+
+    Returns:
+        List of paths to session files with a matching analysis_uuid.
+    """
+    matches: List[Path] = []
+    if not directory.is_dir():
+        return matches
+
+    for smsa_path in directory.glob("*.smsa"):
+        try:
+            with open(smsa_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            file_uuid = data.get("file_metadata", {}).get("analysis_uuid")
+            if file_uuid == target_uuid:
+                matches.append(smsa_path)
+        except (json.JSONDecodeError, OSError, KeyError):
+            continue
+
+    return matches

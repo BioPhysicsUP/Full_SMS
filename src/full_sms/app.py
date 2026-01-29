@@ -34,6 +34,7 @@ from full_sms.ui.dialogs import (
     FitTarget,
     FittingDialog,
     FittingParameters,
+    SessionFoundDialog,
     SettingsDialog,
 )
 from full_sms.models.fit import FitResultData, IRFData
@@ -53,11 +54,12 @@ from full_sms.workers.tasks import (
     run_cpa_task,
     run_fit_task,
 )
-from full_sms.io.hdf5_reader import load_h5_file
+from full_sms.io.hdf5_reader import ensure_analysis_uuid, load_h5_file
 from full_sms.io.session import (
     apply_session_to_state,
     load_session,
     save_session,
+    scan_sessions_for_uuid,
     SessionSerializationError,
 )
 
@@ -117,6 +119,12 @@ class Application:
         self._irf_config_cache: dict[
             tuple[int, int, int | None], tuple[bool, float | None]
         ] = {}
+
+        # Deferred actions to run on the next frame
+        self._deferred_actions: list[callable] = []
+
+        # Path to the currently active session file (set on load or save)
+        self._current_session_path: Path | None = None
 
         # NOTE: Selected level cache is now stored in session.ui_state.selected_level_indices
 
@@ -258,6 +266,13 @@ class Application:
                     shortcut="Cmd+S" if sys.platform == "darwin" else "Ctrl+S",
                     enabled=False,  # Disabled until data is loaded
                     tag="menu_save_session",
+                )
+                dpg.add_menu_item(
+                    label="Save Session As...",
+                    callback=self._on_save_session_as,
+                    shortcut="Cmd+Shift+S" if sys.platform == "darwin" else "Ctrl+Shift+S",
+                    enabled=False,
+                    tag="menu_save_session_as",
                 )
                 dpg.add_separator()
                 dpg.add_menu_item(
@@ -527,13 +542,24 @@ class Application:
             self._file_dialogs.show_load_session_dialog()
 
     def _on_save_session(self) -> None:
-        """Handle Save Session menu action."""
+        """Handle Save Session menu action.
+
+        If a session path is known (from a previous save or load), saves
+        directly to that path. Otherwise falls through to Save As.
+        """
         logger.info("Save Session triggered")
+        if self._current_session_path is not None:
+            self._on_save_session_path_selected(self._current_session_path)
+        else:
+            self._on_save_session_as()
+
+    def _on_save_session_as(self) -> None:
+        """Handle Save Session As menu action."""
+        logger.info("Save Session As triggered")
         if self._file_dialogs:
-            # Generate default filename from current file
             default_name = None
             if self._session.file_metadata:
-                default_name = self._session.file_metadata.path.stem + "_analysis"
+                default_name = self._session.file_metadata.path.stem
             self._file_dialogs.show_save_session_dialog(default_filename=default_name)
 
     def _on_close_file(self) -> None:
@@ -545,6 +571,7 @@ class Application:
         """Close the currently open file and reset state."""
         # Clear session state
         self._session = SessionState()
+        self._current_session_path = None
 
         # Clear UI
         if self._layout:
@@ -568,6 +595,8 @@ class Application:
         """
         if dpg.does_item_exist("menu_save_session"):
             dpg.configure_item("menu_save_session", enabled=has_file)
+        if dpg.does_item_exist("menu_save_session_as"):
+            dpg.configure_item("menu_save_session_as", enabled=has_file)
         if dpg.does_item_exist("menu_close_file"):
             dpg.configure_item("menu_close_file", enabled=has_file)
         if dpg.does_item_exist("menu_analysis"):
@@ -584,17 +613,53 @@ class Application:
     def _on_h5_file_selected(self, path: Path) -> None:
         """Handle HDF5 file selection from dialog.
 
+        Checks for an analysis UUID on the file and scans for matching
+        session files. If matches are found, shows a dialog to let the
+        user choose whether to load an existing session.
+
         Args:
             path: Path to the selected HDF5 file.
         """
         logger.info(f"Loading HDF5 file: {path}")
         self.set_status(f"Loading {path.name}...")
 
+        # Ensure the file has an analysis UUID
+        analysis_uuid = ensure_analysis_uuid(path)
+
+        # Check for matching session files
+        if analysis_uuid is not None:
+            matches = scan_sessions_for_uuid(path.parent, analysis_uuid)
+            if matches:
+                logger.info(
+                    f"Found {len(matches)} matching session(s) for {path.name}"
+                )
+                dialog = SessionFoundDialog(
+                    session_paths=matches,
+                    on_load=self._on_load_session_file_selected,
+                    on_skip=lambda: self._load_h5_file_direct(path, analysis_uuid),
+                )
+                # Defer to next frame so the file dialog modal is fully gone
+                self._deferred_actions.append(dialog.show)
+                return
+
+        self._load_h5_file_direct(path, analysis_uuid)
+
+    def _load_h5_file_direct(
+        self, path: Path, analysis_uuid: str | None = None
+    ) -> None:
+        """Load an HDF5 file directly without checking for sessions.
+
+        Args:
+            path: Path to the HDF5 file.
+            analysis_uuid: The analysis UUID for the file, if available.
+        """
         try:
             # Load the file
             metadata, particles = load_h5_file(path)
+            metadata.analysis_uuid = analysis_uuid
 
             # Update session state
+            self._current_session_path = None
             self._session.file_metadata = metadata
             self._session.particles = particles
             self._session.levels.clear()
@@ -656,6 +721,7 @@ class Application:
 
         try:
             save_session(self._session, path)
+            self._current_session_path = path
 
             self.set_status(f"Session saved to {path.name}")
             if self._layout:
@@ -705,6 +771,9 @@ class Application:
 
             # Load the HDF5 file first
             metadata, particles = load_h5_file(h5_path)
+            metadata.analysis_uuid = session_data["file_metadata"].get(
+                "analysis_uuid"
+            )
 
             # Reset session and apply loaded data
             self._session = SessionState()
@@ -713,6 +782,9 @@ class Application:
 
             # Apply session data (levels, clustering, fits, UI state)
             apply_session_to_state(session_data, self._session)
+
+            # Remember the session path for subsequent saves
+            self._current_session_path = path
 
             # Update file dialogs with current path
             if self._file_dialogs:
@@ -1453,6 +1525,13 @@ class Application:
 
     def _on_frame(self) -> None:
         """Called every frame - use for async operations and updates."""
+        # Run deferred actions
+        if self._deferred_actions:
+            actions = self._deferred_actions[:]
+            self._deferred_actions.clear()
+            for action in actions:
+                action()
+
         # Check for completed futures
         self._check_pending_futures()
 

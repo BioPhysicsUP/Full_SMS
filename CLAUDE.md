@@ -182,13 +182,57 @@ Sessions are saved as `.smsa` files (JSON format) containing:
 
 ```
 tests/
-├── conftest.py              # Pytest fixtures
-├── test_analysis/           # Algorithm tests
-├── test_models/             # Data model tests
+├── conftest.py              # Pytest fixtures (make_clustering_result helper)
+├── test_analysis/           # Algorithm tests (change point, clustering, lifetime, correlation, histograms)
+├── test_models/             # Data model tests (particle, level, group, fit, session)
 ├── test_io/                 # I/O tests
+│   ├── test_hdf5_reader.py  # HDF5 file loading
+│   ├── test_session.py      # Session save/load round-trip
+│   ├── test_exporters.py    # Data export (CSV, Parquet, Excel, JSON)
+│   └── test_plot_exporters.py # Plot export (PNG, PDF, SVG)
 ├── test_workers/            # Worker pool tests
-└── test_ui/                 # UI tests
+│   ├── test_pool.py         # AnalysisPool (submit, map, error handling, concurrency)
+│   └── test_tasks.py        # Picklable task functions
+├── test_ui/                 # UI tests (decay_plot, lifetime_tab)
+├── test_config.py           # Settings persistence
+└── test_utils/              # Platform utilities
 ```
+
+**Test count:** 577 tests
+
+### Running Tests
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_io/test_exporters.py
+
+# Run specific test class
+uv run pytest tests/test_workers/test_pool.py::TestAnalysisPoolConcurrency
+
+# Run with verbose output
+uv run pytest -v
+
+# Run with coverage report
+uv run pytest --cov=full_sms --cov-report=html
+```
+
+### Test Coverage Notes
+
+**Well-tested modules:**
+- `analysis/` - Excellent coverage with synthetic data generation
+- `models/` - Complete coverage including immutability validation
+- `io/session.py` - Excellent round-trip testing
+- `io/exporters.py` - All formats (CSV, Parquet, Excel, JSON)
+- `io/plot_exporters.py` - All plot types and formats
+- `workers/pool.py` - Error handling, concurrency, memory isolation
+
+**Optional dependencies for tests:**
+- `pyarrow` - Required for Parquet export tests
+- `openpyxl` - Required for Excel export tests
+- Tests skip gracefully if these are not installed
 
 ## Reference Materials
 

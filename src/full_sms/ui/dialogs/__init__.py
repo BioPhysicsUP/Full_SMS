@@ -11,6 +11,9 @@ from full_sms.ui.dialogs.fitting_dialog import (
     FittingDialogTags,
     FittingParameters,
 )
+from full_sms.ui.dialogs.session_found_dialog import (
+    SessionFoundDialog,
+)
 from full_sms.ui.dialogs.settings_dialog import (
     SettingsDialog,
     SettingsDialogTags,
@@ -24,6 +27,7 @@ __all__ = [
     "FittingDialog",
     "FittingDialogTags",
     "FittingParameters",
+    "SessionFoundDialog",
     "SettingsDialog",
     "SettingsDialogTags",
 ]

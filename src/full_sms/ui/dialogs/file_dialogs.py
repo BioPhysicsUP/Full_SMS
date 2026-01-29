@@ -265,7 +265,7 @@ class FileDialogs:
 
         # Generate default filename from current file if available
         if default_filename is None and self._current_file_path is not None:
-            default_filename = self._current_file_path.stem + "_analysis"
+            default_filename = self._current_file_path.stem
 
         def file_selected(sender, app_data):
             """Handle file selection."""

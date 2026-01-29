@@ -26,6 +26,7 @@ from full_sms.io.session import (
     apply_session_to_state,
     load_session,
     save_session,
+    scan_sessions_for_uuid,
 )
 from conftest import make_clustering_result
 from full_sms.models import ChannelData, ClusteringResult, ClusteringStep, FitResultData, GroupData, LevelData, ParticleData
@@ -912,3 +913,269 @@ class TestApplySessionToState:
 
         assert state.ui_state.bin_size_ms == 2.5
         assert state.ui_state.confidence == ConfidenceLevel.CONF_69
+
+
+class TestUUIDRoundTrip:
+    """Tests for analysis_uuid in session save/load."""
+
+    @pytest.fixture
+    def sample_channel(self) -> ChannelData:
+        """Create a sample channel."""
+        return ChannelData(
+            abstimes=np.array([0, 100_000_000], dtype=np.uint64),
+            microtimes=np.array([1.5, 2.3], dtype=np.float64),
+        )
+
+    def test_uuid_roundtrip(self, sample_channel: ChannelData, tmp_path: Path) -> None:
+        """analysis_uuid is preserved through save/load."""
+        state = SessionState()
+        state.file_metadata = FileMetadata(
+            path=tmp_path / "test.h5",
+            filename="test.h5",
+            num_particles=1,
+            analysis_uuid="abc-123-def",
+        )
+        state.particles = [
+            ParticleData(
+                id=1, name="Particle 1", tcspc_card="SPC-150",
+                channelwidth=0.012, channel1=sample_channel,
+            )
+        ]
+
+        session_path = tmp_path / "test.smsa"
+        save_session(state, session_path)
+        loaded = load_session(session_path)
+
+        assert loaded["file_metadata"]["analysis_uuid"] == "abc-123-def"
+
+    def test_uuid_none_roundtrip(self, sample_channel: ChannelData, tmp_path: Path) -> None:
+        """None analysis_uuid is preserved through save/load."""
+        state = SessionState()
+        state.file_metadata = FileMetadata(
+            path=tmp_path / "test.h5",
+            filename="test.h5",
+            num_particles=1,
+        )
+        state.particles = [
+            ParticleData(
+                id=1, name="Particle 1", tcspc_card="SPC-150",
+                channelwidth=0.012, channel1=sample_channel,
+            )
+        ]
+
+        session_path = tmp_path / "test.smsa"
+        save_session(state, session_path)
+        loaded = load_session(session_path)
+
+        assert loaded["file_metadata"]["analysis_uuid"] is None
+
+
+class TestRelativePathRoundTrip:
+    """Tests for relative path storage in sessions."""
+
+    @pytest.fixture
+    def sample_channel(self) -> ChannelData:
+        """Create a sample channel."""
+        return ChannelData(
+            abstimes=np.array([0, 100_000_000], dtype=np.uint64),
+            microtimes=np.array([1.5, 2.3], dtype=np.float64),
+        )
+
+    def test_relative_path_same_directory(self, sample_channel: ChannelData, tmp_path: Path) -> None:
+        """HDF5 path in same dir is stored as relative and resolves correctly."""
+        h5_path = tmp_path / "data.h5"
+        h5_path.touch()
+
+        state = SessionState()
+        state.file_metadata = FileMetadata(
+            path=h5_path, filename="data.h5", num_particles=1,
+        )
+        state.particles = [
+            ParticleData(
+                id=1, name="Particle 1", tcspc_card="SPC-150",
+                channelwidth=0.012, channel1=sample_channel,
+            )
+        ]
+
+        session_path = tmp_path / "data.smsa"
+        save_session(state, session_path)
+
+        # Check raw JSON - path should be relative
+        with open(session_path, "r") as f:
+            raw = json.load(f)
+        assert raw["file_metadata"]["path"] == "data.h5"
+
+        # Load and verify resolved path
+        loaded = load_session(session_path)
+        assert loaded["file_metadata"]["path"] == h5_path.resolve()
+
+    def test_relative_path_subdirectory(self, sample_channel: ChannelData, tmp_path: Path) -> None:
+        """HDF5 path in subdirectory resolves correctly."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        h5_path = data_dir / "experiment.h5"
+        h5_path.touch()
+
+        state = SessionState()
+        state.file_metadata = FileMetadata(
+            path=h5_path, filename="experiment.h5", num_particles=1,
+        )
+        state.particles = [
+            ParticleData(
+                id=1, name="Particle 1", tcspc_card="SPC-150",
+                channelwidth=0.012, channel1=sample_channel,
+            )
+        ]
+
+        session_path = tmp_path / "session.smsa"
+        save_session(state, session_path)
+        loaded = load_session(session_path)
+
+        assert loaded["file_metadata"]["path"] == h5_path.resolve()
+
+
+class TestBackwardCompatV10:
+    """Tests for backward compatibility with v1.0 session files."""
+
+    def test_loads_v10_absolute_path(self, tmp_path: Path) -> None:
+        """v1.0 sessions with absolute paths load correctly."""
+        data = {
+            "version": "1.0",
+            "file_metadata": {
+                "path": "/absolute/path/to/test.h5",
+                "filename": "test.h5",
+                "num_particles": 1,
+            },
+            "levels": {},
+            "clustering_results": {},
+            "particle_fits": {},
+            "level_fits": {},
+            "selected": [],
+            "current_selection": None,
+            "ui_state": {
+                "bin_size_ms": 10.0,
+                "confidence": 0.95,
+                "active_tab": "intensity",
+                "show_levels": True,
+                "show_groups": True,
+                "log_scale_decay": True,
+            },
+        }
+        session_path = tmp_path / "old.smsa"
+        with open(session_path, "w") as f:
+            json.dump(data, f)
+
+        loaded = load_session(session_path)
+
+        assert loaded["file_metadata"]["path"] == Path("/absolute/path/to/test.h5")
+        assert loaded["file_metadata"]["analysis_uuid"] is None
+
+    def test_rejects_unsupported_version(self, tmp_path: Path) -> None:
+        """Unsupported versions are rejected."""
+        data = {
+            "version": "0.5",
+            "file_metadata": {"path": "/test.h5", "filename": "test.h5", "num_particles": 1},
+        }
+        session_path = tmp_path / "bad.smsa"
+        with open(session_path, "w") as f:
+            json.dump(data, f)
+
+        with pytest.raises(SessionSerializationError, match="Unsupported session version"):
+            load_session(session_path)
+
+
+class TestScanSessionsForUUID:
+    """Tests for scan_sessions_for_uuid function."""
+
+    def test_finds_matching_session(self, tmp_path: Path) -> None:
+        """Finds session files with matching UUID."""
+        target_uuid = "test-uuid-123"
+        data = {
+            "version": "1.1",
+            "file_metadata": {
+                "path": "test.h5",
+                "filename": "test.h5",
+                "num_particles": 1,
+                "analysis_uuid": target_uuid,
+            },
+        }
+        session_path = tmp_path / "test.smsa"
+        with open(session_path, "w") as f:
+            json.dump(data, f)
+
+        matches = scan_sessions_for_uuid(tmp_path, target_uuid)
+        assert len(matches) == 1
+        assert matches[0] == session_path
+
+    def test_no_matches(self, tmp_path: Path) -> None:
+        """Returns empty list when no sessions match."""
+        data = {
+            "version": "1.1",
+            "file_metadata": {
+                "path": "test.h5",
+                "filename": "test.h5",
+                "num_particles": 1,
+                "analysis_uuid": "other-uuid",
+            },
+        }
+        session_path = tmp_path / "test.smsa"
+        with open(session_path, "w") as f:
+            json.dump(data, f)
+
+        matches = scan_sessions_for_uuid(tmp_path, "target-uuid")
+        assert len(matches) == 0
+
+    def test_skips_corrupt_files(self, tmp_path: Path) -> None:
+        """Silently skips corrupt session files."""
+        # Write a corrupt file
+        corrupt_path = tmp_path / "corrupt.smsa"
+        with open(corrupt_path, "w") as f:
+            f.write("not valid json {")
+
+        # Write a valid file
+        target_uuid = "good-uuid"
+        data = {
+            "version": "1.1",
+            "file_metadata": {
+                "path": "test.h5",
+                "filename": "test.h5",
+                "num_particles": 1,
+                "analysis_uuid": target_uuid,
+            },
+        }
+        good_path = tmp_path / "good.smsa"
+        with open(good_path, "w") as f:
+            json.dump(data, f)
+
+        matches = scan_sessions_for_uuid(tmp_path, target_uuid)
+        assert len(matches) == 1
+        assert matches[0] == good_path
+
+    def test_empty_directory(self, tmp_path: Path) -> None:
+        """Returns empty list for directory with no smsa files."""
+        matches = scan_sessions_for_uuid(tmp_path, "any-uuid")
+        assert len(matches) == 0
+
+    def test_nonexistent_directory(self, tmp_path: Path) -> None:
+        """Returns empty list for nonexistent directory."""
+        matches = scan_sessions_for_uuid(tmp_path / "nope", "any-uuid")
+        assert len(matches) == 0
+
+    def test_multiple_matches(self, tmp_path: Path) -> None:
+        """Finds multiple matching session files."""
+        target_uuid = "shared-uuid"
+        for name in ["a.smsa", "b.smsa"]:
+            data = {
+                "version": "1.1",
+                "file_metadata": {
+                    "path": "test.h5",
+                    "filename": "test.h5",
+                    "num_particles": 1,
+                    "analysis_uuid": target_uuid,
+                },
+            }
+            with open(tmp_path / name, "w") as f:
+                json.dump(data, f)
+
+        matches = scan_sessions_for_uuid(tmp_path, target_uuid)
+        assert len(matches) == 2

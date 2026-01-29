@@ -51,6 +51,7 @@ class FileMetadata:
     has_irf: bool = False
     has_spectra: bool = False
     has_raster: bool = False
+    analysis_uuid: Optional[str] = None
 
 
 @dataclass

@@ -7,6 +7,7 @@ in the format produced by the UP Biophysics SMS acquisition software.
 from __future__ import annotations
 
 import re
+import uuid
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -264,6 +265,46 @@ def _read_raster_scan_data(particle_group: h5py.Group) -> Optional[RasterScanDat
         )
     except (KeyError, ValueError, TypeError):
         return None
+
+
+def ensure_analysis_uuid(path: Path | str) -> Optional[str]:
+    """Ensure an HDF5 file has an analysis_uuid attribute.
+
+    If the attribute exists, return it. If missing, generate a new UUID,
+    write it to the file, and return it. If the file is read-only, return
+    the existing UUID or None if none exists.
+
+    Args:
+        path: Path to the HDF5 file.
+
+    Returns:
+        The analysis UUID string, or None if the file is read-only and
+        has no existing UUID.
+    """
+    path = Path(path)
+
+    # Try read-write first to create UUID if missing
+    try:
+        with h5py.File(path, "a") as h5file:
+            existing = h5file.attrs.get("analysis_uuid")
+            if existing is not None:
+                return str(existing)
+            new_uuid = str(uuid.uuid4())
+            h5file.attrs["analysis_uuid"] = new_uuid
+            return new_uuid
+    except (OSError, PermissionError):
+        pass
+
+    # Fall back to read-only to check for existing UUID
+    try:
+        with h5py.File(path, "r") as h5file:
+            existing = h5file.attrs.get("analysis_uuid")
+            if existing is not None:
+                return str(existing)
+    except (OSError, PermissionError):
+        pass
+
+    return None
 
 
 def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:

@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from full_sms.io.hdf5_reader import (
+    ensure_analysis_uuid,
     load_h5_file,
     load_irf,
     _get_file_version,
@@ -472,3 +473,77 @@ class TestLoadIrf:
 
         result = load_irf(filepath)
         assert result is None
+
+
+class TestEnsureAnalysisUUID:
+    """Tests for ensure_analysis_uuid function."""
+
+    def test_creates_uuid_when_missing(self, tmp_path: Path) -> None:
+        """Should create a new UUID when file has none."""
+        filepath = tmp_path / "test.h5"
+        with h5py.File(filepath, "w") as f:
+            f.attrs["# Particles"] = 0
+
+        result = ensure_analysis_uuid(filepath)
+
+        assert result is not None
+        assert len(result) == 36  # UUID format: 8-4-4-4-12
+
+        # Verify it was written to the file
+        with h5py.File(filepath, "r") as f:
+            assert f.attrs["analysis_uuid"] == result
+
+    def test_returns_existing_uuid(self, tmp_path: Path) -> None:
+        """Should return existing UUID without modifying it."""
+        filepath = tmp_path / "test.h5"
+        existing_uuid = "existing-uuid-value"
+        with h5py.File(filepath, "w") as f:
+            f.attrs["# Particles"] = 0
+            f.attrs["analysis_uuid"] = existing_uuid
+
+        result = ensure_analysis_uuid(filepath)
+
+        assert result == existing_uuid
+
+    def test_handles_readonly_file(self, tmp_path: Path) -> None:
+        """Should return existing UUID from read-only file."""
+        filepath = tmp_path / "test.h5"
+        existing_uuid = "readonly-uuid"
+        with h5py.File(filepath, "w") as f:
+            f.attrs["# Particles"] = 0
+            f.attrs["analysis_uuid"] = existing_uuid
+
+        # Make file read-only
+        import os
+        os.chmod(filepath, 0o444)
+        try:
+            result = ensure_analysis_uuid(filepath)
+            assert result == existing_uuid
+        finally:
+            os.chmod(filepath, 0o644)
+
+    def test_returns_none_for_readonly_without_uuid(self, tmp_path: Path) -> None:
+        """Should return None for read-only file with no UUID."""
+        filepath = tmp_path / "test.h5"
+        with h5py.File(filepath, "w") as f:
+            f.attrs["# Particles"] = 0
+
+        # Make file read-only
+        import os
+        os.chmod(filepath, 0o444)
+        try:
+            result = ensure_analysis_uuid(filepath)
+            assert result is None
+        finally:
+            os.chmod(filepath, 0o644)
+
+    def test_idempotent(self, tmp_path: Path) -> None:
+        """Calling twice returns the same UUID."""
+        filepath = tmp_path / "test.h5"
+        with h5py.File(filepath, "w") as f:
+            f.attrs["# Particles"] = 0
+
+        first = ensure_analysis_uuid(filepath)
+        second = ensure_analysis_uuid(filepath)
+
+        assert first == second
