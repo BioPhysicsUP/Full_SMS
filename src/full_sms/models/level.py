@@ -11,7 +11,7 @@ from numpy.typing import NDArray
 class LevelData:
     """A single intensity level detected by change point analysis.
 
-    A level represents a period of constant intensity within a particle's
+    A level represents a period of constant intensity within a measurement's
     photon trace. Levels are the output of change point analysis (CPA).
 
     Attributes:

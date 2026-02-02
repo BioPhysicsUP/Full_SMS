@@ -16,7 +16,7 @@ from full_sms.io.plot_exporters import (
 from full_sms.models.fit import FitResult, FitResultData, IRFData
 from full_sms.models.group import ClusteringResult, ClusteringStep, GroupData
 from full_sms.models.level import LevelData
-from full_sms.models.particle import ChannelData, ParticleData
+from full_sms.models.measurement import ChannelData, MeasurementData
 
 # Skip all tests if matplotlib is not available
 pytest.importorskip("matplotlib")
@@ -213,7 +213,7 @@ def sample_correlation_data() -> tuple[np.ndarray, np.ndarray]:
 
 @pytest.fixture
 def sample_channel() -> ChannelData:
-    """Create a sample channel for particle testing."""
+    """Create a sample channel for measurement testing."""
     return ChannelData(
         abstimes=np.linspace(0, 1_000_000_000, 1000, dtype=np.uint64),
         microtimes=np.random.rand(1000).astype(np.float64) * 50,  # 0-50 ns
@@ -221,11 +221,11 @@ def sample_channel() -> ChannelData:
 
 
 @pytest.fixture
-def sample_particle(sample_channel: ChannelData) -> ParticleData:
-    """Create a sample particle for testing."""
-    return ParticleData(
+def sample_measurement(sample_channel: ChannelData) -> MeasurementData:
+    """Create a sample measurement for testing."""
+    return MeasurementData(
         id=1,
-        name="Test Particle",
+        name="Test Measurement",
         tcspc_card="SPC-150",
         channelwidth=0.1,
         channel1=sample_channel,
@@ -351,7 +351,7 @@ class TestExportIntensityPlot:
         result = export_intensity_plot(
             sample_abstimes,
             output_path,
-            title="Test Particle - Channel 1",
+            title="Test Measurement - Channel 1",
             fmt=PlotFormat.PNG,
         )
 
@@ -887,13 +887,13 @@ class TestExportAllPlots:
     """Tests for export_all_plots function."""
 
     def test_exports_intensity_plot(
-        self, sample_particle: ParticleData, tmp_path: Path
+        self, sample_measurement: MeasurementData, tmp_path: Path
     ) -> None:
         """export_all_plots exports intensity plot."""
         output_dir = tmp_path / "plots"
 
         files = export_all_plots(
-            sample_particle,
+            sample_measurement,
             channel=1,
             output_dir=output_dir,
             fmt=PlotFormat.PNG,
@@ -904,13 +904,13 @@ class TestExportAllPlots:
         assert len(intensity_files) == 1
 
     def test_exports_decay_plot_when_microtimes_present(
-        self, sample_particle: ParticleData, tmp_path: Path
+        self, sample_measurement: MeasurementData, tmp_path: Path
     ) -> None:
         """export_all_plots exports decay plot when microtimes are available."""
         output_dir = tmp_path / "plots"
 
         files = export_all_plots(
-            sample_particle,
+            sample_measurement,
             channel=1,
             output_dir=output_dir,
             fmt=PlotFormat.PNG,
@@ -921,7 +921,7 @@ class TestExportAllPlots:
 
     def test_exports_bic_plot_when_clustering_provided(
         self,
-        sample_particle: ParticleData,
+        sample_measurement: MeasurementData,
         sample_clustering_result: ClusteringResult,
         tmp_path: Path,
     ) -> None:
@@ -929,7 +929,7 @@ class TestExportAllPlots:
         output_dir = tmp_path / "plots"
 
         files = export_all_plots(
-            sample_particle,
+            sample_measurement,
             channel=1,
             output_dir=output_dir,
             clustering_result=sample_clustering_result,
@@ -941,7 +941,7 @@ class TestExportAllPlots:
 
     def test_exports_correlation_plot_when_data_provided(
         self,
-        sample_particle: ParticleData,
+        sample_measurement: MeasurementData,
         sample_correlation_data: tuple[np.ndarray, np.ndarray],
         tmp_path: Path,
     ) -> None:
@@ -950,7 +950,7 @@ class TestExportAllPlots:
         output_dir = tmp_path / "plots"
 
         files = export_all_plots(
-            sample_particle,
+            sample_measurement,
             channel=1,
             output_dir=output_dir,
             correlation_tau=tau,
@@ -963,12 +963,12 @@ class TestExportAllPlots:
 
     def test_handles_missing_channel_data(self, tmp_path: Path) -> None:
         """export_all_plots handles missing channel data gracefully."""
-        # Create particle with only channel 1
+        # Create measurement with only channel 1
         channel = ChannelData(
             abstimes=np.linspace(0, 1_000_000_000, 100, dtype=np.uint64),
             microtimes=np.random.rand(100).astype(np.float64),
         )
-        particle = ParticleData(
+        measurement = MeasurementData(
             id=1,
             name="Test",
             tcspc_card="SPC-150",
@@ -981,7 +981,7 @@ class TestExportAllPlots:
 
         # Request channel 2 which doesn't exist
         files = export_all_plots(
-            particle,
+            measurement,
             channel=2,
             output_dir=output_dir,
             fmt=PlotFormat.PNG,
@@ -991,13 +991,13 @@ class TestExportAllPlots:
         assert files == []
 
     def test_respects_format_parameter(
-        self, sample_particle: ParticleData, tmp_path: Path
+        self, sample_measurement: MeasurementData, tmp_path: Path
     ) -> None:
         """export_all_plots respects format parameter."""
         output_dir = tmp_path / "plots"
 
         files = export_all_plots(
-            sample_particle,
+            sample_measurement,
             channel=1,
             output_dir=output_dir,
             fmt=PlotFormat.PDF,
@@ -1009,7 +1009,7 @@ class TestExportAllPlots:
 
     def test_with_levels_overlay(
         self,
-        sample_particle: ParticleData,
+        sample_measurement: MeasurementData,
         sample_levels: list[LevelData],
         tmp_path: Path,
     ) -> None:
@@ -1017,7 +1017,7 @@ class TestExportAllPlots:
         output_dir = tmp_path / "plots"
 
         files = export_all_plots(
-            sample_particle,
+            sample_measurement,
             channel=1,
             output_dir=output_dir,
             levels=sample_levels,
@@ -1032,10 +1032,10 @@ class TestExportAllPlots:
         tmp_path: Path,
     ) -> None:
         """export_all_plots includes fit curve in decay plot."""
-        # Create a particle with specific microtime distribution
-        particle = ParticleData(
+        # Create a measurement with specific microtime distribution
+        measurement = MeasurementData(
             id=1,
-            name="Test Particle",
+            name="Test Measurement",
             tcspc_card="SPC-150",
             channelwidth=0.1,
             channel1=sample_channel,
@@ -1046,7 +1046,7 @@ class TestExportAllPlots:
         from full_sms.analysis.histograms import build_decay_histogram
         t_ns, counts = build_decay_histogram(
             sample_channel.microtimes.astype(np.float64),
-            particle.channelwidth,
+            measurement.channelwidth,
         )
 
         fit_start = 10
@@ -1075,7 +1075,7 @@ class TestExportAllPlots:
         output_dir = tmp_path / "plots"
 
         files = export_all_plots(
-            particle,
+            measurement,
             channel=1,
             output_dir=output_dir,
             fit_result=fit_result,
@@ -1086,21 +1086,21 @@ class TestExportAllPlots:
         assert len(decay_files) == 1
 
     def test_custom_dpi(
-        self, sample_particle: ParticleData, tmp_path: Path
+        self, sample_measurement: MeasurementData, tmp_path: Path
     ) -> None:
         """export_all_plots respects DPI parameter."""
         output_low = tmp_path / "plots_low"
         output_high = tmp_path / "plots_high"
 
         files_low = export_all_plots(
-            sample_particle,
+            sample_measurement,
             channel=1,
             output_dir=output_low,
             dpi=72,
             fmt=PlotFormat.PNG,
         )
         files_high = export_all_plots(
-            sample_particle,
+            sample_measurement,
             channel=1,
             output_dir=output_high,
             dpi=300,

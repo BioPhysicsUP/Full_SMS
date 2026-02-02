@@ -43,13 +43,13 @@ src/full_sms/
 │   ├── correlation.py      # Auto/cross-correlation (g2)
 │   └── histograms.py       # Binning utilities
 ├── models/                 # Immutable data models (frozen dataclasses)
-│   ├── particle.py         # ParticleData, ChannelData, SpectraData, RasterScanData
+│   ├── measurement.py      # MeasurementData, ChannelData, SpectraData, RasterScanData
 │   ├── level.py            # LevelData (change point result)
 │   ├── group.py            # GroupData, ClusteringResult, ClusteringStep
 │   ├── fit.py              # FitResult, FitResultData, IRFData
 │   └── session.py          # SessionState, FileMetadata, UIState
 ├── io/                     # File I/O operations
-│   ├── hdf5_reader.py      # Load HDF5 files → ParticleData
+│   ├── hdf5_reader.py      # Load HDF5 files → MeasurementData
 │   ├── session.py          # Save/load analysis sessions (JSON)
 │   ├── exporters.py        # CSV/HDF5 data export
 │   └── plot_exporters.py   # PNG/PDF plot export
@@ -59,7 +59,7 @@ src/full_sms/
 │   ├── keyboard.py         # Cross-platform keyboard shortcuts
 │   ├── dialogs/            # File, fitting, settings dialogs
 │   ├── views/              # Tab views (7 tabs)
-│   ├── widgets/            # ParticleTree, StatusBar
+│   ├── widgets/            # MeasurementTree, StatusBar
 │   └── plots/              # Plot implementations
 ├── workers/                # Parallel processing
 │   ├── pool.py             # AnalysisPool (ProcessPoolExecutor)
@@ -79,7 +79,7 @@ src/full_sms/
 ┌─────────────────────────────────────────┐
 │  Menu Bar (File, Edit, View, Help)      │
 ├──────────────┬──────────────────────────┤
-│  Particle    │  Tab Bar (7 tabs)        │
+│  Measurement │  Tab Bar (7 tabs)        │
 │  Tree        │  ┌────────────────────┐  │
 │  Sidebar     │  │ Content Area       │  │
 │  (180px)     │  │ (Plot + Controls)  │  │
@@ -95,7 +95,7 @@ src/full_sms/
 ```
 HDF5 File
     ↓
-[hdf5_reader.py] → ParticleData + ChannelData
+[hdf5_reader.py] → MeasurementData + ChannelData
     ↓
     ├→ [change_point.py] → LevelData[] (async worker)
     │   ↓
@@ -117,8 +117,8 @@ HDF5 File
 | Class | Location | Purpose |
 |-------|----------|---------|
 | `Application` | app.py | Main orchestrator, event handling |
-| `ParticleData` | models/particle.py | Single molecule measurement data |
-| `ChannelData` | models/particle.py | TCSPC channel (abstimes, microtimes) |
+| `MeasurementData` | models/measurement.py | Single molecule measurement data |
+| `ChannelData` | models/measurement.py | TCSPC channel (abstimes, microtimes) |
 | `LevelData` | models/level.py | Brightness level from change point analysis |
 | `ClusteringResult` | models/group.py | Hierarchical clustering with BIC optimization |
 | `FitResult` | models/fit.py | Lifetime decay fit (1-3 exponentials) |
@@ -162,7 +162,7 @@ Platform-specific JSON storage via `config.py`:
 ### Session Save/Load
 
 Sessions are saved as `.smsa` files (JSON format) containing:
-- File metadata and particle data references
+- File metadata and measurement data references
 - All analysis results (levels, groups, fits, correlations)
 - UI state (selections, tab, zoom levels)
 - Export settings and IRF data
@@ -184,7 +184,7 @@ Sessions are saved as `.smsa` files (JSON format) containing:
 tests/
 ├── conftest.py              # Pytest fixtures (make_clustering_result helper)
 ├── test_analysis/           # Algorithm tests (change point, clustering, lifetime, correlation, histograms)
-├── test_models/             # Data model tests (particle, level, group, fit, session)
+├── test_models/             # Data model tests (measurement, level, group, fit, session)
 ├── test_io/                 # I/O tests
 │   ├── test_hdf5_reader.py  # HDF5 file loading
 │   ├── test_session.py      # Session save/load round-trip

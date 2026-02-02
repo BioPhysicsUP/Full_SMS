@@ -15,7 +15,7 @@ import h5py
 import numpy as np
 from numpy.typing import NDArray
 
-from full_sms.models.particle import ChannelData, ParticleData, RasterScanData, SpectraData
+from full_sms.models.measurement import ChannelData, MeasurementData, RasterScanData, SpectraData
 from full_sms.models.session import FileMetadata
 
 
@@ -34,10 +34,10 @@ def _get_file_version(h5file: h5py.File) -> str:
     return "1.0"
 
 
-def _get_particle_names(h5file: h5py.File) -> List[str]:
-    """Get sorted particle group names from the file.
+def _get_measurement_names(h5file: h5py.File) -> List[str]:
+    """Get sorted measurement group names from the file.
 
-    Particles are named "Particle 1", "Particle 2", etc.
+    Measurements are named "Particle 1", "Particle 2", etc. in the HDF5 format.
     This function returns them in natural numeric order.
     """
     all_keys = list(h5file.keys())
@@ -51,24 +51,24 @@ def _get_particle_names(h5file: h5py.File) -> List[str]:
     return sorted(part_keys, key=extract_number)
 
 
-def _get_description(particle_group: h5py.Group, version: str) -> str:
-    """Get particle description, handling version differences."""
+def _get_description(measurement_group: h5py.Group, version: str) -> str:
+    """Get measurement description, handling version differences."""
     if version in _OLD_VERSIONS_DESCRIPTION_TYPO:
         # Old versions had a typo in the attribute name
-        return str(particle_group.attrs.get("Discription", ""))
-    return str(particle_group.attrs.get("Description", ""))
+        return str(measurement_group.attrs.get("Discription", ""))
+    return str(measurement_group.attrs.get("Description", ""))
 
 
 def _get_tcspc_card(
-    particle_group: h5py.Group, version: str, is_secondary: bool = False
+    measurement_group: h5py.Group, version: str, is_secondary: bool = False
 ) -> str:
     """Get TCSPC card identifier."""
     if version in _OLD_VERSIONS_NO_DUAL_CHANNEL:
         return "unknown"
 
     dataset_name = "Absolute Times 2 (ns)" if is_secondary else "Absolute Times (ns)"
-    if dataset_name in particle_group:
-        dataset = particle_group[dataset_name]
+    if dataset_name in measurement_group:
+        dataset = measurement_group[dataset_name]
         if "bh Card" in dataset.attrs:
             return str(dataset.attrs["bh Card"])
     return "unknown"
@@ -115,12 +115,12 @@ def _determine_channelwidth(microtimes: NDArray[np.float64]) -> float:
 
 
 def _read_channel_data(
-    particle_group: h5py.Group, version: str, is_secondary: bool = False
+    measurement_group: h5py.Group, version: str, is_secondary: bool = False
 ) -> Optional[ChannelData]:
-    """Read channel data (abstimes and microtimes) from a particle group.
+    """Read channel data (abstimes and microtimes) from a measurement group.
 
     Args:
-        particle_group: The HDF5 group for the particle.
+        measurement_group: The HDF5 group for the measurement.
         version: File format version string.
         is_secondary: Whether to read the secondary channel (channel 2).
 
@@ -141,14 +141,14 @@ def _read_channel_data(
             microtimes_name = "Micro Times (ns)"
 
     # Check if datasets exist
-    if abstimes_name not in particle_group:
+    if abstimes_name not in measurement_group:
         return None
-    if microtimes_name not in particle_group:
+    if microtimes_name not in measurement_group:
         return None
 
     # Read the data
-    abstimes = np.array(particle_group[abstimes_name], dtype=np.uint64)
-    microtimes = np.array(particle_group[microtimes_name], dtype=np.float64)
+    abstimes = np.array(measurement_group[abstimes_name], dtype=np.uint64)
+    microtimes = np.array(measurement_group[microtimes_name], dtype=np.float64)
 
     # Convert old format (seconds) to nanoseconds
     if version in _OLD_VERSIONS_MICROTIMES_SECONDS:
@@ -157,26 +157,26 @@ def _read_channel_data(
     return ChannelData(abstimes=abstimes, microtimes=microtimes)
 
 
-def _has_spectra(particle_group: h5py.Group) -> bool:
-    """Check if particle has spectra data."""
-    return "Spectra (counts\\s)" in particle_group
+def _has_spectra(measurement_group: h5py.Group) -> bool:
+    """Check if measurement has spectra data."""
+    return "Spectra (counts\\s)" in measurement_group
 
 
-def _read_spectra_data(particle_group: h5py.Group) -> Optional[SpectraData]:
-    """Read spectral data from a particle group if present.
+def _read_spectra_data(measurement_group: h5py.Group) -> Optional[SpectraData]:
+    """Read spectral data from a measurement group if present.
 
     Args:
-        particle_group: The HDF5 group for the particle.
+        measurement_group: The HDF5 group for the measurement.
 
     Returns:
         SpectraData if spectra is present, None otherwise.
     """
     dataset_name = "Spectra (counts\\s)"
-    if dataset_name not in particle_group:
+    if dataset_name not in measurement_group:
         return None
 
     try:
-        spectra_dataset = particle_group[dataset_name]
+        spectra_dataset = measurement_group[dataset_name]
 
         # Read the spectra data array
         data = np.array(spectra_dataset, dtype=np.float64)
@@ -202,22 +202,22 @@ def _read_spectra_data(particle_group: h5py.Group) -> Optional[SpectraData]:
         return None
 
 
-def _has_raster_scan(particle_group: h5py.Group) -> bool:
-    """Check if particle has raster scan data."""
-    return "Raster Scan" in particle_group
+def _has_raster_scan(measurement_group: h5py.Group) -> bool:
+    """Check if measurement has raster scan data."""
+    return "Raster Scan" in measurement_group
 
 
-def _read_raster_scan_coord(particle_group: h5py.Group) -> Optional[Tuple[float, float]]:
-    """Read the raster scan coordinate where the particle was measured.
+def _read_raster_scan_coord(measurement_group: h5py.Group) -> Optional[Tuple[float, float]]:
+    """Read the raster scan coordinate where the measurement was taken.
 
     Args:
-        particle_group: The HDF5 group for the particle.
+        measurement_group: The HDF5 group for the measurement.
 
     Returns:
         Tuple of (x, y) in micrometers, or None if not available.
     """
     try:
-        coord = particle_group.attrs.get("RS Coord. (um)")
+        coord = measurement_group.attrs.get("RS Coord. (um)")
         if coord is not None and len(coord) >= 2:
             # File stores (y, x), so swap to return (x, y)
             return (float(coord[1]), float(coord[0]))
@@ -226,20 +226,20 @@ def _read_raster_scan_coord(particle_group: h5py.Group) -> Optional[Tuple[float,
     return None
 
 
-def _read_raster_scan_data(particle_group: h5py.Group) -> Optional[RasterScanData]:
-    """Read raster scan data from a particle group if present.
+def _read_raster_scan_data(measurement_group: h5py.Group) -> Optional[RasterScanData]:
+    """Read raster scan data from a measurement group if present.
 
     Args:
-        particle_group: The HDF5 group for the particle.
+        measurement_group: The HDF5 group for the measurement.
 
     Returns:
         RasterScanData if raster scan is present, None otherwise.
     """
-    if "Raster Scan" not in particle_group:
+    if "Raster Scan" not in measurement_group:
         return None
 
     try:
-        rs_dataset = particle_group["Raster Scan"]
+        rs_dataset = measurement_group["Raster Scan"]
 
         # Read the raster scan image data
         data = np.array(rs_dataset, dtype=np.float64)
@@ -307,8 +307,8 @@ def ensure_analysis_uuid(path: Path | str) -> Optional[str]:
     return None
 
 
-def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
-    """Load an HDF5 file and return metadata and particle data.
+def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[MeasurementData]]:
+    """Load an HDF5 file and return metadata and measurement data.
 
     This function reads single-molecule spectroscopy data from an HDF5 file
     in the format produced by the UP Biophysics SMS acquisition software.
@@ -317,7 +317,7 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
         path: Path to the HDF5 file.
 
     Returns:
-        A tuple of (FileMetadata, list of ParticleData).
+        A tuple of (FileMetadata, list of MeasurementData).
 
     Raises:
         FileNotFoundError: If the file doesn't exist.
@@ -327,7 +327,7 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
 
-    particles: List[ParticleData] = []
+    measurements: List[MeasurementData] = []
     has_spectra = False
     has_raster = False
 
@@ -339,54 +339,54 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
             )
 
         version = _get_file_version(h5file)
-        num_particles = int(h5file.attrs["# Particles"])
-        particle_names = _get_particle_names(h5file)
+        num_measurements = int(h5file.attrs["# Particles"])
+        measurement_names = _get_measurement_names(h5file)
 
-        # Validate particle count
-        if len(particle_names) != num_particles:
+        # Validate measurement count
+        if len(measurement_names) != num_measurements:
             # Some files have mismatched counts; use actual number of groups
-            num_particles = len(particle_names)
+            num_measurements = len(measurement_names)
 
-        for idx, part_name in enumerate(particle_names):
-            if part_name not in h5file:
+        for idx, meas_name in enumerate(measurement_names):
+            if meas_name not in h5file:
                 continue
 
-            particle_group = h5file[part_name]
+            measurement_group = h5file[meas_name]
 
             # Read primary channel
-            channel1 = _read_channel_data(particle_group, version, is_secondary=False)
+            channel1 = _read_channel_data(measurement_group, version, is_secondary=False)
             if channel1 is None:
-                # Skip particles without valid channel data
+                # Skip measurements without valid channel data
                 continue
 
             # Read secondary channel if available
             channel2 = None
             if version not in _OLD_VERSIONS_NO_DUAL_CHANNEL:
                 channel2 = _read_channel_data(
-                    particle_group, version, is_secondary=True
+                    measurement_group, version, is_secondary=True
                 )
 
             # Get metadata
-            description = _get_description(particle_group, version)
-            tcspc_card = _get_tcspc_card(particle_group, version)
+            description = _get_description(measurement_group, version)
+            tcspc_card = _get_tcspc_card(measurement_group, version)
             channelwidth = _determine_channelwidth(channel1.microtimes)
 
             # Track file-level features and load optional data
             spectra_data = None
-            if _has_spectra(particle_group):
+            if _has_spectra(measurement_group):
                 has_spectra = True
-                spectra_data = _read_spectra_data(particle_group)
+                spectra_data = _read_spectra_data(measurement_group)
 
             raster_scan_data = None
             raster_scan_coord = None
-            if _has_raster_scan(particle_group):
+            if _has_raster_scan(measurement_group):
                 has_raster = True
-                raster_scan_data = _read_raster_scan_data(particle_group)
-                raster_scan_coord = _read_raster_scan_coord(particle_group)
+                raster_scan_data = _read_raster_scan_data(measurement_group)
+                raster_scan_coord = _read_raster_scan_coord(measurement_group)
 
-            particle = ParticleData(
-                id=idx + 1,  # 1-based particle IDs
-                name=part_name,
+            measurement = MeasurementData(
+                id=idx + 1,  # 1-based measurement IDs
+                name=meas_name.replace("Particle", "Measurement"),
                 tcspc_card=tcspc_card,
                 channelwidth=channelwidth,
                 channel1=channel1,
@@ -396,18 +396,18 @@ def load_h5_file(path: Path | str) -> Tuple[FileMetadata, List[ParticleData]]:
                 raster_scan=raster_scan_data,
                 raster_scan_coord=raster_scan_coord,
             )
-            particles.append(particle)
+            measurements.append(measurement)
 
     metadata = FileMetadata(
         path=path,
         filename=path.name,
-        num_particles=len(particles),
+        num_measurements=len(measurements),
         has_irf=False,  # IRF is loaded separately
         has_spectra=has_spectra,
         has_raster=has_raster,
     )
 
-    return metadata, particles
+    return metadata, measurements
 
 
 def load_irf(path: Path | str) -> Optional[Tuple[NDArray[np.float64], NDArray[np.float64]]]:
@@ -430,14 +430,14 @@ def load_irf(path: Path | str) -> Optional[Tuple[NDArray[np.float64], NDArray[np
     # Try loading as HDF5 first
     try:
         with h5py.File(path, "r") as h5file:
-            # IRF files typically have a single particle
-            particle_names = _get_particle_names(h5file)
-            if not particle_names:
+            # IRF files typically have a single measurement
+            measurement_names = _get_measurement_names(h5file)
+            if not measurement_names:
                 return None
 
             version = _get_file_version(h5file)
-            particle_group = h5file[particle_names[0]]
-            channel = _read_channel_data(particle_group, version, is_secondary=False)
+            measurement_group = h5file[measurement_names[0]]
+            channel = _read_channel_data(measurement_group, version, is_secondary=False)
 
             if channel is None:
                 return None

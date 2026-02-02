@@ -399,7 +399,7 @@ class IntensityPlot:
         # Remove existing level overlays
         self._remove_level_series()
 
-        # Clear any selected level highlighting (from previous particle)
+        # Clear any selected level highlighting (from previous measurement)
         self.clear_selected_level()
 
         if not self._levels:

@@ -183,7 +183,7 @@ class LifetimeTab:
             ):
                 # No data placeholder (shown when no data loaded)
                 dpg.add_text(
-                    "Load an HDF5 file and select a particle to view decay histogram.",
+                    "Load an HDF5 file and select a measurement to view decay histogram.",
                     tag=self._tags.no_data_text,
                     color=(128, 128, 128),
                 )
@@ -530,7 +530,7 @@ class LifetimeTab:
         logger.debug("Lifetime tab cleared")
 
     def enable_fit_button(self) -> None:
-        """Enable the Fit button (allows fitting without displaying particle data)."""
+        """Enable the Fit button (allows fitting without displaying measurement data)."""
         if dpg.does_item_exist(self._tags.fit_button):
             dpg.configure_item(self._tags.fit_button, enabled=True)
 

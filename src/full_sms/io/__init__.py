@@ -2,7 +2,7 @@
 
 from full_sms.io.exporters import (
     ExportFormat,
-    export_all_particle_data,
+    export_all_measurement_data,
     export_batch,
     export_fit_results,
     export_groups,
@@ -19,7 +19,7 @@ from full_sms.io.session import (
 
 __all__ = [
     "ExportFormat",
-    "export_all_particle_data",
+    "export_all_measurement_data",
     "export_batch",
     "export_fit_results",
     "export_groups",

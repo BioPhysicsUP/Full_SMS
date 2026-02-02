@@ -33,7 +33,7 @@ class TestRunCPATask:
         params = {
             "abstimes": abstimes,
             "confidence": 0.95,
-            "particle_id": "test_particle",
+            "measurement_id": "test_particle",
             "channel_id": 0,
         }
 
@@ -44,7 +44,7 @@ class TestRunCPATask:
         assert "levels" in result
         assert "num_change_points" in result
         assert "confidence_regions" in result
-        assert result["particle_id"] == "test_particle"
+        assert result["measurement_id"] == "test_particle"
         assert result["channel_id"] == 0
 
         # Should detect at least one change point (the intensity change)
@@ -80,7 +80,7 @@ class TestRunCPATask:
         params = {
             "abstimes": abstimes,
             "confidence": 0.95,
-            "particle_id": 42,
+            "measurement_id": 42,
         }
 
         with AnalysisPool(max_workers=1) as pool:
@@ -89,7 +89,7 @@ class TestRunCPATask:
 
         assert task_result.success is True
         result = task_result.value
-        assert result["particle_id"] == 42
+        assert result["measurement_id"] == 42
         assert "levels" in result
 
 
@@ -132,7 +132,7 @@ class TestRunClusteringTask:
         params = {
             "levels": levels,
             "use_lifetime": False,
-            "particle_id": "test",
+            "measurement_id": "test",
             "channel_id": 1,
         }
 
@@ -143,7 +143,7 @@ class TestRunClusteringTask:
         assert "optimal_step_index" in result
         assert "selected_step_index" in result
         assert "num_original_levels" in result
-        assert result["particle_id"] == "test"
+        assert result["measurement_id"] == "test"
         assert result["channel_id"] == 1
         assert result["num_original_levels"] == 3
 
@@ -207,7 +207,7 @@ class TestRunClusteringTask:
             },
         ]
 
-        params = {"levels": levels, "particle_id": 123}
+        params = {"levels": levels, "measurement_id": 123}
 
         with AnalysisPool(max_workers=1) as pool:
             future = pool.submit(run_clustering_task, params)
@@ -215,7 +215,7 @@ class TestRunClusteringTask:
 
         assert task_result.success is True
         result = task_result.value
-        assert result["particle_id"] == 123
+        assert result["measurement_id"] == 123
         assert "steps" in result
 
 
@@ -251,7 +251,7 @@ class TestRunFitTask:
             "tau_init": 2.0,
             "autostart": "Close to max",
             "autoend": True,
-            "particle_id": "decay_test",
+            "measurement_id": "decay_test",
             "level_id": 0,
         }
 
@@ -267,7 +267,7 @@ class TestRunFitTask:
         assert "fitted_curve" in result
         assert "num_exponentials" in result
         assert "average_lifetime" in result
-        assert result["particle_id"] == "decay_test"
+        assert result["measurement_id"] == "decay_test"
         assert result["level_id"] == 0
         assert result["error"] is None
 
@@ -282,14 +282,14 @@ class TestRunFitTask:
             "t": np.array([]),
             "counts": np.array([]),
             "channelwidth": 0.05,
-            "particle_id": "error_test",
+            "measurement_id": "error_test",
         }
 
         result = run_fit_task(params)
 
         # Should have error field populated
         assert result["error"] is not None
-        assert result["particle_id"] == "error_test"
+        assert result["measurement_id"] == "error_test"
 
     def test_fit_submitted_to_pool(self):
         """Test run_fit_task works when submitted to AnalysisPool."""
@@ -306,7 +306,7 @@ class TestRunFitTask:
             "num_exponentials": 1,
             "autostart": "Close to max",
             "autoend": True,
-            "particle_id": 99,
+            "measurement_id": 99,
         }
 
         with AnalysisPool(max_workers=1) as pool:
@@ -315,7 +315,7 @@ class TestRunFitTask:
 
         assert task_result.success is True
         result = task_result.value
-        assert result["particle_id"] == 99
+        assert result["measurement_id"] == 99
         assert result["error"] is None
         assert len(result["tau"]) == 1
 
@@ -342,7 +342,7 @@ class TestRunCorrelationTask:
             "microtimes2": microtimes2,
             "window_ns": 200.0,
             "binsize_ns": 1.0,
-            "particle_id": "g2_test",
+            "measurement_id": "g2_test",
         }
 
         result = run_correlation_task(params)
@@ -356,7 +356,7 @@ class TestRunCorrelationTask:
         assert "num_photons_ch1" in result
         assert "num_photons_ch2" in result
         assert "num_events" in result
-        assert result["particle_id"] == "g2_test"
+        assert result["measurement_id"] == "g2_test"
 
         # tau should span from -window to +window
         assert len(result["tau"]) == int(2 * 200.0 / 1.0)
@@ -400,7 +400,7 @@ class TestRunCorrelationTask:
             "microtimes2": microtimes2,
             "window_ns": 100.0,
             "binsize_ns": 2.0,
-            "particle_id": 77,
+            "measurement_id": 77,
         }
 
         with AnalysisPool(max_workers=1) as pool:
@@ -409,7 +409,7 @@ class TestRunCorrelationTask:
 
         assert task_result.success is True
         result = task_result.value
-        assert result["particle_id"] == 77
+        assert result["measurement_id"] == 77
         assert "g2" in result
 
 
@@ -453,10 +453,10 @@ class TestBatchProcessing:
     """Tests for batch processing multiple tasks."""
 
     def test_batch_cpa_with_map(self):
-        """Test processing multiple particles with map_with_progress."""
+        """Test processing multiple measurements with map_with_progress."""
         np.random.seed(42)
 
-        # Create params for multiple particles
+        # Create params for multiple measurements
         param_list = []
         for i in range(4):
             abstimes = np.sort(np.random.uniform(0, 1e9, 300))
@@ -464,7 +464,7 @@ class TestBatchProcessing:
                 {
                     "abstimes": abstimes,
                     "confidence": 0.95,
-                    "particle_id": i,
+                    "measurement_id": i,
                 }
             )
 
@@ -482,7 +482,7 @@ class TestBatchProcessing:
         assert len(results) == 4
         for i, result in enumerate(results):
             assert result.success is True
-            assert result.value["particle_id"] == i
+            assert result.value["measurement_id"] == i
 
         # Progress callback should have been called 4 times
         assert len(progress_calls) == 4
@@ -506,7 +506,7 @@ class TestBatchProcessing:
                 "num_exponentials": 1,
                 "autostart": "Close to max",
                 "autoend": True,
-                "particle_id": 0,
+                "measurement_id": 0,
             }
         )
 
@@ -516,7 +516,7 @@ class TestBatchProcessing:
                 "t": np.array([]),
                 "counts": np.array([]),
                 "channelwidth": channelwidth,
-                "particle_id": 1,
+                "measurement_id": 1,
             }
         )
 
@@ -529,7 +529,7 @@ class TestBatchProcessing:
                 "num_exponentials": 1,
                 "autostart": "Close to max",
                 "autoend": True,
-                "particle_id": 2,
+                "measurement_id": 2,
             }
         )
 
@@ -541,14 +541,14 @@ class TestBatchProcessing:
         # First should succeed
         assert results[0].success is True
         assert results[0].value["error"] is None
-        assert results[0].value["particle_id"] == 0
+        assert results[0].value["measurement_id"] == 0
 
         # Second should succeed but have error in result dict
         assert results[1].success is True  # Task itself didn't crash
         assert results[1].value["error"] is not None  # But fitting failed
-        assert results[1].value["particle_id"] == 1
+        assert results[1].value["measurement_id"] == 1
 
         # Third should succeed
         assert results[2].success is True
         assert results[2].value["error"] is None
-        assert results[2].value["particle_id"] == 2
+        assert results[2].value["measurement_id"] == 2

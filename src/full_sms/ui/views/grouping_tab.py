@@ -331,7 +331,7 @@ class GroupingTab:
                 callback=self._on_global_grouping_changed,
             )
             with dpg.tooltip(dpg.last_item()):
-                dpg.add_text("Group all selected particles together\nas a single dataset")
+                dpg.add_text("Group all selected measurements together\nas a single dataset")
 
             # Spacer
             dpg.add_spacer(width=30)
@@ -906,9 +906,9 @@ class GroupingTab:
         """Enable/disable group buttons based on application state.
 
         Args:
-            has_current: Whether there is a currently viewed particle with levels.
-            has_selected: Whether there are batch-selected particles with levels.
-            has_any: Whether there are any particles with levels loaded.
+            has_current: Whether there is a currently viewed measurement with levels.
+            has_selected: Whether there are batch-selected measurements with levels.
+            has_any: Whether there are any measurements with levels loaded.
         """
         if dpg.does_item_exist(self._tags.group_button):
             dpg.configure_item(self._tags.group_button, enabled=has_current)

@@ -29,7 +29,7 @@ from full_sms.io.session import (
     scan_sessions_for_uuid,
 )
 from conftest import make_clustering_result
-from full_sms.models import ChannelData, ClusteringResult, ClusteringStep, FitResultData, GroupData, LevelData, ParticleData
+from full_sms.models import ChannelData, ClusteringResult, ClusteringStep, FitResultData, GroupData, LevelData, MeasurementData
 from full_sms.models.session import (
     ActiveTab,
     ChannelSelection,
@@ -319,7 +319,7 @@ class TestSelectionSerialization:
 
     def test_selection_roundtrip(self) -> None:
         """ChannelSelection roundtrips correctly."""
-        sel = ChannelSelection(particle_id=5, channel=2)
+        sel = ChannelSelection(measurement_id=5, channel=2)
 
         d = _selection_to_dict(sel)
         restored = _dict_to_selection(d)
@@ -341,9 +341,9 @@ class TestSaveSession:
     @pytest.fixture
     def sample_state(self, sample_channel: ChannelData) -> SessionState:
         """Create a sample session state with analysis results."""
-        particle = ParticleData(
+        measurement = MeasurementData(
             id=1,
-            name="Particle 1",
+            name="Measurement 1",
             tcspc_card="SPC-150",
             channelwidth=0.012,
             channel1=sample_channel,
@@ -353,10 +353,10 @@ class TestSaveSession:
         state.file_metadata = FileMetadata(
             path=Path("/path/to/test.h5"),
             filename="test.h5",
-            num_particles=1,
+            num_measurements=1,
             has_irf=True,
         )
-        state.particles = [particle]
+        state.measurements = [measurement]
         state.select(1)
 
         # Add a level
@@ -467,7 +467,7 @@ class TestLoadSession:
             "file_metadata": {
                 "path": "/path/to/test.h5",
                 "filename": "test.h5",
-                "num_particles": 2,
+                "num_measurements": 2,
                 "has_irf": True,
                 "has_spectra": False,
                 "has_raster": False,
@@ -486,10 +486,10 @@ class TestLoadSession:
                 ]
             },
             "clustering_results": {},
-            "particle_fits": {},
+            "measurement_fits": {},
             "level_fits": {},
-            "selected": [{"particle_id": 1, "channel": 1}],
-            "current_selection": {"particle_id": 1, "channel": 1},
+            "selected": [{"measurement_id": 1, "channel": 1}],
+            "current_selection": {"measurement_id": 1, "channel": 1},
             "ui_state": {
                 "bin_size_ms": 5.0,
                 "confidence": 0.95,
@@ -542,7 +542,7 @@ class TestLoadSession:
 
         assert len(result["selected"]) == 1
         assert isinstance(result["selected"][0], ChannelSelection)
-        assert result["current_selection"].particle_id == 1
+        assert result["current_selection"].measurement_id == 1
 
     def test_load_parses_ui_state(self, sample_session_file: Path) -> None:
         """load_session parses UI state."""
@@ -598,16 +598,16 @@ class TestRoundTrip:
     @pytest.fixture
     def complex_state(self, sample_channel: ChannelData) -> SessionState:
         """Create a complex session state for round-trip testing."""
-        particle1 = ParticleData(
+        measurement1 = MeasurementData(
             id=1,
-            name="Particle 1",
+            name="Measurement 1",
             tcspc_card="SPC-150",
             channelwidth=0.012,
             channel1=sample_channel,
         )
-        particle2 = ParticleData(
+        measurement2 = MeasurementData(
             id=2,
-            name="Particle 2",
+            name="Measurement 2",
             tcspc_card="SPC-150",
             channelwidth=0.012,
             channel1=sample_channel,
@@ -618,13 +618,13 @@ class TestRoundTrip:
         state.file_metadata = FileMetadata(
             path=Path("/data/experiment.h5"),
             filename="experiment.h5",
-            num_particles=2,
+            num_measurements=2,
             has_irf=True,
             has_spectra=True,
         )
-        state.particles = [particle1, particle2]
+        state.measurements = [measurement1, measurement2]
 
-        # Add levels for particle 1
+        # Add levels for measurement 1
         level1 = LevelData(
             start_index=0,
             end_index=1,
@@ -645,17 +645,17 @@ class TestRoundTrip:
         )
         state.set_levels(1, 1, [level1, level2])
 
-        # Add levels for particle 2 channel 2
+        # Add levels for measurement 2 channel 2
         state.set_levels(2, 2, [level1])
 
-        # Add clustering for particle 1
+        # Add clustering for measurement 1
         clustering = make_clustering_result(
             num_steps=2, num_original_levels=2, optimal_step_index=1, selected_step_index=1
         )
         state.set_clustering(1, 1, clustering)
 
-        # Add particle fit result
-        particle_fit = FitResultData(
+        # Add measurement fit result
+        measurement_fit = FitResultData(
             tau=(4.5,),
             tau_std=(0.2,),
             amplitude=(1.0,),
@@ -672,7 +672,7 @@ class TestRoundTrip:
             average_lifetime=4.5,
             level_index=None,
         )
-        state.set_particle_fit(1, 1, particle_fit)
+        state.set_measurement_fit(1, 1, measurement_fit)
 
         # Add level fit result
         level_fit = FitResultData(
@@ -725,7 +725,7 @@ class TestRoundTrip:
         save_session(complex_state, session_path)
         loaded = load_session(session_path)
 
-        # Check particle 1 levels
+        # Check measurement 1 levels
         original_levels = complex_state.levels[(1, 1)]
         loaded_levels = loaded["levels"][(1, 1)]
 
@@ -736,7 +736,7 @@ class TestRoundTrip:
             assert orig.intensity_cps == load.intensity_cps
             assert orig.group_id == load.group_id
 
-        # Check particle 2 channel 2 levels
+        # Check measurement 2 channel 2 levels
         assert (2, 2) in loaded["levels"]
         assert len(loaded["levels"][(2, 2)]) == 1
 
@@ -762,14 +762,14 @@ class TestRoundTrip:
         save_session(complex_state, session_path)
         loaded = load_session(session_path)
 
-        # Check particle fit
-        original_particle_fit = complex_state.particle_fits[(1, 1)]
-        loaded_particle_fit = loaded["particle_fits"][(1, 1)]
+        # Check measurement fit
+        original_measurement_fit = complex_state.measurement_fits[(1, 1)]
+        loaded_measurement_fit = loaded["measurement_fits"][(1, 1)]
 
-        assert loaded_particle_fit.tau == original_particle_fit.tau
-        assert loaded_particle_fit.chi_squared == original_particle_fit.chi_squared
-        assert loaded_particle_fit.dw_bounds == original_particle_fit.dw_bounds
-        assert loaded_particle_fit.level_index is None
+        assert loaded_measurement_fit.tau == original_measurement_fit.tau
+        assert loaded_measurement_fit.chi_squared == original_measurement_fit.chi_squared
+        assert loaded_measurement_fit.dw_bounds == original_measurement_fit.dw_bounds
+        assert loaded_measurement_fit.level_index is None
 
         # Check level fit
         original_level_fit = complex_state.level_fits[(1, 1, 0)]
@@ -787,7 +787,7 @@ class TestRoundTrip:
         loaded = load_session(session_path)
 
         assert len(loaded["selected"]) == len(complex_state.selected)
-        assert loaded["current_selection"].particle_id == complex_state.current_selection.particle_id
+        assert loaded["current_selection"].measurement_id == complex_state.current_selection.measurement_id
         assert loaded["current_selection"].channel == complex_state.current_selection.channel
 
     def test_roundtrip_preserves_ui_state(self, complex_state: SessionState, tmp_path: Path) -> None:
@@ -816,15 +816,15 @@ class TestApplySessionToState:
 
     def test_apply_sets_levels(self, sample_channel: ChannelData) -> None:
         """apply_session_to_state sets levels."""
-        particle = ParticleData(
+        measurement = MeasurementData(
             id=1,
-            name="Particle 1",
+            name="Measurement 1",
             tcspc_card="SPC-150",
             channelwidth=0.012,
             channel1=sample_channel,
         )
         state = SessionState()
-        state.particles = [particle]
+        state.measurements = [measurement]
 
         level = LevelData(
             start_index=0,
@@ -837,7 +837,7 @@ class TestApplySessionToState:
         session_data = {
             "levels": {(1, 1): [level]},
             "clustering_results": {},
-            "particle_fits": {},
+            "measurement_fits": {},
             "level_fits": {},
             "selected": [],
             "current_selection": None,
@@ -850,15 +850,15 @@ class TestApplySessionToState:
 
     def test_apply_clears_existing_analysis(self, sample_channel: ChannelData) -> None:
         """apply_session_to_state clears existing analysis results."""
-        particle = ParticleData(
+        measurement = MeasurementData(
             id=1,
-            name="Particle 1",
+            name="Measurement 1",
             tcspc_card="SPC-150",
             channelwidth=0.012,
             channel1=sample_channel,
         )
         state = SessionState()
-        state.particles = [particle]
+        state.measurements = [measurement]
 
         # Add existing analysis
         old_level = LevelData(
@@ -875,7 +875,7 @@ class TestApplySessionToState:
         session_data = {
             "levels": {},
             "clustering_results": {},
-            "particle_fits": {},
+            "measurement_fits": {},
             "level_fits": {},
             "selected": [],
             "current_selection": None,
@@ -888,21 +888,21 @@ class TestApplySessionToState:
 
     def test_apply_sets_ui_state(self, sample_channel: ChannelData) -> None:
         """apply_session_to_state sets UI state."""
-        particle = ParticleData(
+        measurement = MeasurementData(
             id=1,
-            name="Particle 1",
+            name="Measurement 1",
             tcspc_card="SPC-150",
             channelwidth=0.012,
             channel1=sample_channel,
         )
         state = SessionState()
-        state.particles = [particle]
+        state.measurements = [measurement]
 
         new_ui = UIState(bin_size_ms=2.5, confidence=ConfidenceLevel.CONF_69)
         session_data = {
             "levels": {},
             "clustering_results": {},
-            "particle_fits": {},
+            "measurement_fits": {},
             "level_fits": {},
             "selected": [],
             "current_selection": None,
@@ -932,12 +932,12 @@ class TestUUIDRoundTrip:
         state.file_metadata = FileMetadata(
             path=tmp_path / "test.h5",
             filename="test.h5",
-            num_particles=1,
+            num_measurements=1,
             analysis_uuid="abc-123-def",
         )
-        state.particles = [
-            ParticleData(
-                id=1, name="Particle 1", tcspc_card="SPC-150",
+        state.measurements = [
+            MeasurementData(
+                id=1, name="Measurement 1", tcspc_card="SPC-150",
                 channelwidth=0.012, channel1=sample_channel,
             )
         ]
@@ -954,11 +954,11 @@ class TestUUIDRoundTrip:
         state.file_metadata = FileMetadata(
             path=tmp_path / "test.h5",
             filename="test.h5",
-            num_particles=1,
+            num_measurements=1,
         )
-        state.particles = [
-            ParticleData(
-                id=1, name="Particle 1", tcspc_card="SPC-150",
+        state.measurements = [
+            MeasurementData(
+                id=1, name="Measurement 1", tcspc_card="SPC-150",
                 channelwidth=0.012, channel1=sample_channel,
             )
         ]
@@ -988,11 +988,11 @@ class TestRelativePathRoundTrip:
 
         state = SessionState()
         state.file_metadata = FileMetadata(
-            path=h5_path, filename="data.h5", num_particles=1,
+            path=h5_path, filename="data.h5", num_measurements=1,
         )
-        state.particles = [
-            ParticleData(
-                id=1, name="Particle 1", tcspc_card="SPC-150",
+        state.measurements = [
+            MeasurementData(
+                id=1, name="Measurement 1", tcspc_card="SPC-150",
                 channelwidth=0.012, channel1=sample_channel,
             )
         ]
@@ -1018,11 +1018,11 @@ class TestRelativePathRoundTrip:
 
         state = SessionState()
         state.file_metadata = FileMetadata(
-            path=h5_path, filename="experiment.h5", num_particles=1,
+            path=h5_path, filename="experiment.h5", num_measurements=1,
         )
-        state.particles = [
-            ParticleData(
-                id=1, name="Particle 1", tcspc_card="SPC-150",
+        state.measurements = [
+            MeasurementData(
+                id=1, name="Measurement 1", tcspc_card="SPC-150",
                 channelwidth=0.012, channel1=sample_channel,
             )
         ]
@@ -1044,11 +1044,11 @@ class TestBackwardCompatV10:
             "file_metadata": {
                 "path": "/absolute/path/to/test.h5",
                 "filename": "test.h5",
-                "num_particles": 1,
+                "num_measurements": 1,
             },
             "levels": {},
             "clustering_results": {},
-            "particle_fits": {},
+            "measurement_fits": {},
             "level_fits": {},
             "selected": [],
             "current_selection": None,
@@ -1074,7 +1074,7 @@ class TestBackwardCompatV10:
         """Unsupported versions are rejected."""
         data = {
             "version": "0.5",
-            "file_metadata": {"path": "/test.h5", "filename": "test.h5", "num_particles": 1},
+            "file_metadata": {"path": "/test.h5", "filename": "test.h5", "num_measurements": 1},
         }
         session_path = tmp_path / "bad.smsa"
         with open(session_path, "w") as f:
@@ -1095,7 +1095,7 @@ class TestScanSessionsForUUID:
             "file_metadata": {
                 "path": "test.h5",
                 "filename": "test.h5",
-                "num_particles": 1,
+                "num_measurements": 1,
                 "analysis_uuid": target_uuid,
             },
         }
@@ -1114,7 +1114,7 @@ class TestScanSessionsForUUID:
             "file_metadata": {
                 "path": "test.h5",
                 "filename": "test.h5",
-                "num_particles": 1,
+                "num_measurements": 1,
                 "analysis_uuid": "other-uuid",
             },
         }
@@ -1139,7 +1139,7 @@ class TestScanSessionsForUUID:
             "file_metadata": {
                 "path": "test.h5",
                 "filename": "test.h5",
-                "num_particles": 1,
+                "num_measurements": 1,
                 "analysis_uuid": target_uuid,
             },
         }
@@ -1170,7 +1170,7 @@ class TestScanSessionsForUUID:
                 "file_metadata": {
                     "path": "test.h5",
                     "filename": "test.h5",
-                    "num_particles": 1,
+                    "num_measurements": 1,
                     "analysis_uuid": target_uuid,
                 },
             }

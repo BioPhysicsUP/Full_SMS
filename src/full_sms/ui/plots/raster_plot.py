@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import dearpygui.dearpygui as dpg
 import numpy as np
 
-from full_sms.models.particle import RasterScanData
+from full_sms.models.measurement import RasterScanData
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class RasterPlotTags:
     y_axis: str = "raster_plot_y_axis"
     heat_series: str = "raster_plot_heat_series"
     colormap_scale: str = "raster_plot_colormap_scale"
-    particle_marker: str = "raster_plot_particle_marker"
+    measurement_marker: str = "raster_plot_measurement_marker"
 
 
 RASTER_PLOT_TAGS = RasterPlotTags()
@@ -63,7 +63,7 @@ class RasterPlot:
         # Display state
         self._colormap: int = dpg.mvPlotColormap_Plasma
 
-        # Particle marker position
+        # Measurement marker position
         self._marker_position: tuple[float, float] | None = None
 
         # Generate unique tags
@@ -74,7 +74,7 @@ class RasterPlot:
             y_axis=f"{tag_prefix}raster_plot_y_axis",
             heat_series=f"{tag_prefix}raster_plot_heat_series",
             colormap_scale=f"{tag_prefix}raster_plot_colormap_scale",
-            particle_marker=f"{tag_prefix}raster_plot_particle_marker",
+            measurement_marker=f"{tag_prefix}raster_plot_measurement_marker",
         )
 
     @property
@@ -129,13 +129,13 @@ class RasterPlot:
                     format="",  # Don't show values on hover
                 )
 
-                # Add particle position marker (scatter series with single point)
+                # Add measurement position marker (scatter series with single point)
                 # Use a crosshair marker for visibility
                 dpg.add_scatter_series(
                     [],
                     [],
                     parent=self._tags.y_axis,
-                    tag=self._tags.particle_marker,
+                    tag=self._tags.measurement_marker,
                 )
 
             # Add colormap scale
@@ -149,7 +149,7 @@ class RasterPlot:
                 label="Intensity",
             )
 
-        # Style the particle marker to be more visible
+        # Style the measurement marker to be more visible
         # Create a theme for the marker with bright green color, larger size, and thick lines
         with dpg.theme() as marker_theme:
             with dpg.theme_component(dpg.mvScatterSeries):
@@ -170,7 +170,7 @@ class RasterPlot:
                 )
 
         # Bind the theme to the marker
-        dpg.bind_item_theme(self._tags.particle_marker, marker_theme)
+        dpg.bind_item_theme(self._tags.measurement_marker, marker_theme)
 
         # Bind colormap to the plot
         dpg.bind_colormap(self._tags.plot, self._colormap)
@@ -274,8 +274,8 @@ class RasterPlot:
                 max_scale=1,
             )
 
-        # Clear the particle marker
-        self.clear_particle_marker()
+        # Clear the measurement marker
+        self.clear_measurement_marker()
 
         logger.debug("Raster plot cleared")
 
@@ -322,8 +322,8 @@ class RasterPlot:
             return None
         return (self._raster_data.intensity_min, self._raster_data.intensity_max)
 
-    def set_particle_marker(self, x: float, y: float) -> None:
-        """Set the particle position marker on the raster scan.
+    def set_measurement_marker(self, x: float, y: float) -> None:
+        """Set the measurement position marker on the raster scan.
 
         Args:
             x: X coordinate in micrometers.
@@ -335,24 +335,24 @@ class RasterPlot:
         if self._raster_data:
             raster = self._raster_data
 
-        if dpg.does_item_exist(self._tags.particle_marker):
+        if dpg.does_item_exist(self._tags.measurement_marker):
             dpg.configure_item(
-                self._tags.particle_marker,
+                self._tags.measurement_marker,
                 x=[x],
                 y=[y],
             )
 
-        logger.debug(f"Particle marker set at ({x:.2f}, {y:.2f}) um")
+        logger.debug(f"Measurement marker set at ({x:.2f}, {y:.2f}) um")
 
-    def clear_particle_marker(self) -> None:
-        """Clear the particle position marker."""
+    def clear_measurement_marker(self) -> None:
+        """Clear the measurement position marker."""
         self._marker_position = None
 
-        if dpg.does_item_exist(self._tags.particle_marker):
+        if dpg.does_item_exist(self._tags.measurement_marker):
             dpg.configure_item(
-                self._tags.particle_marker,
+                self._tags.measurement_marker,
                 x=[],
                 y=[],
             )
 
-        logger.debug("Particle marker cleared")
+        logger.debug("Measurement marker cleared")

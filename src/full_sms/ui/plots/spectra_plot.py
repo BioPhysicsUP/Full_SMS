@@ -13,7 +13,7 @@ import dearpygui.dearpygui as dpg
 import numpy as np
 from numpy.typing import NDArray
 
-from full_sms.models.particle import SpectraData
+from full_sms.models.measurement import SpectraData
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 """Main application layout for Full SMS.
 
-Provides the two-column layout with particle tree sidebar, tab navigation,
+Provides the two-column layout with measurement tree sidebar, tab navigation,
 and status bar.
 """
 
@@ -13,7 +13,7 @@ import dearpygui.dearpygui as dpg
 
 from full_sms.analysis.correlation import CorrelationResult
 from full_sms.models.group import ClusteringResult
-from full_sms.models.particle import ParticleData, RasterScanData, SpectraData
+from full_sms.models.measurement import MeasurementData, RasterScanData, SpectraData
 from full_sms.models.session import ActiveTab, ChannelSelection, ProcessingState, SessionState
 from full_sms.ui.views.correlation_tab import CorrelationTab
 from full_sms.ui.views.export_tab import ExportTab
@@ -22,7 +22,7 @@ from full_sms.ui.views.intensity_tab import IntensityTab
 from full_sms.ui.views.lifetime_tab import LifetimeTab
 from full_sms.ui.views.raster_tab import RasterTab
 from full_sms.ui.views.spectra_tab import SpectraTab
-from full_sms.ui.widgets.particle_tree import ParticleTree
+from full_sms.ui.widgets.measurement_tree import MeasurementTree
 from full_sms.ui.widgets.status_bar import StatusBar
 
 
@@ -43,7 +43,7 @@ class LayoutTags:
     status_bar: str = "status_bar_container"
 
     # Sidebar elements
-    particle_tree_placeholder: str = "particle_tree_placeholder"
+    measurement_tree_placeholder: str = "measurement_tree_placeholder"
     sidebar_controls: str = "sidebar_controls"
 
     # Tab contents (each tab has its own container)
@@ -80,7 +80,7 @@ class MainLayout:
     """Main application layout manager.
 
     Creates and manages the two-column layout with:
-    - Left sidebar for particle tree and controls
+    - Left sidebar for measurement tree and controls
     - Right content area with tab navigation
     - Bottom status bar with progress indicator
     """
@@ -96,7 +96,7 @@ class MainLayout:
         self._on_tab_change: Callable[[ActiveTab], None] | None = None
         self._on_selection_change: Callable[[ChannelSelection | None], None] | None = None
         self._on_batch_change: Callable[[list[ChannelSelection]], None] | None = None
-        self._particle_tree: ParticleTree | None = None
+        self._measurement_tree: MeasurementTree | None = None
         self._status_bar: StatusBar | None = None
         self._intensity_tab: IntensityTab | None = None
         self._lifetime_tab: LifetimeTab | None = None
@@ -135,30 +135,30 @@ class MainLayout:
         self._is_built = True
 
     def _build_sidebar(self) -> None:
-        """Build the left sidebar with particle tree."""
+        """Build the left sidebar with measurement tree."""
         with dpg.child_window(
             tag=LAYOUT_TAGS.sidebar,
             width=SIDEBAR_WIDTH,
             border=True,
         ):
             # Header
-            dpg.add_text("Particles", color=(180, 180, 180))
+            dpg.add_text("Measurements", color=(180, 180, 180))
             dpg.add_separator()
 
-            # Particle tree container
+            # Measurement tree container
             with dpg.child_window(
-                tag=LAYOUT_TAGS.particle_tree_placeholder,
+                tag=LAYOUT_TAGS.measurement_tree_placeholder,
                 autosize_x=True,
                 height=-60,  # Leave room for controls at bottom
                 border=False,
             ):
-                # Build the particle tree widget
-                self._particle_tree = ParticleTree(
-                    parent=LAYOUT_TAGS.particle_tree_placeholder,
-                    on_selection_changed=self._on_particle_selection_changed,
-                    on_batch_changed=self._on_particle_batch_changed,
+                # Build the measurement tree widget
+                self._measurement_tree = MeasurementTree(
+                    parent=LAYOUT_TAGS.measurement_tree_placeholder,
+                    on_selection_changed=self._on_measurement_selection_changed,
+                    on_batch_changed=self._on_measurement_batch_changed,
                 )
-                self._particle_tree.build()
+                self._measurement_tree.build()
 
             # Bottom controls
             dpg.add_separator()
@@ -180,7 +180,7 @@ class MainLayout:
                     )
                 # Selection info
                 dpg.add_text(
-                    "0 particles selected",
+                    "0 measurements selected",
                     color=(128, 128, 128),
                     tag="sidebar_selection_info",
                 )
@@ -482,7 +482,7 @@ class MainLayout:
         """Update the selection info text.
 
         Args:
-            count: Number of selected items (particle/channel combinations).
+            count: Number of selected items (measurement/channel combinations).
         """
         if dpg.does_item_exist("sidebar_selection_info"):
             text = f"{count} item{'s' if count != 1 else ''} selected"
@@ -511,18 +511,18 @@ class MainLayout:
         """
         return TAB_TAG_MAP.get(tab, LAYOUT_TAGS.tab_intensity)
 
-    # Particle tree methods
+    # Measurement tree methods
 
-    def set_particles(self, particles: list[ParticleData]) -> None:
-        """Set particles to display in the tree.
+    def set_measurements(self, measurements: list[MeasurementData]) -> None:
+        """Set measurements to display in the tree.
 
         Args:
-            particles: List of particles to display.
+            measurements: List of measurements to display.
         """
-        if self._particle_tree:
-            self._particle_tree.set_particles(particles)
-            # Enable controls if there are particles
-            self.enable_sidebar_controls(len(particles) > 0)
+        if self._measurement_tree:
+            self._measurement_tree.set_measurements(measurements)
+            # Enable controls if there are measurements
+            self.enable_sidebar_controls(len(measurements) > 0)
 
     def set_on_selection_change(
         self, callback: Callable[[ChannelSelection | None], None]
@@ -544,10 +544,10 @@ class MainLayout:
         """
         self._on_batch_change = callback
 
-    def _on_particle_selection_changed(
+    def _on_measurement_selection_changed(
         self, selection: ChannelSelection | None
     ) -> None:
-        """Internal callback for particle tree selection changes.
+        """Internal callback for measurement tree selection changes.
 
         Args:
             selection: The new current selection, or None.
@@ -555,10 +555,10 @@ class MainLayout:
         if self._on_selection_change:
             self._on_selection_change(selection)
 
-    def _on_particle_batch_changed(
+    def _on_measurement_batch_changed(
         self, selections: list[ChannelSelection]
     ) -> None:
-        """Internal callback for particle tree batch selection changes.
+        """Internal callback for measurement tree batch selection changes.
 
         Args:
             selections: List of all selected items.
@@ -569,52 +569,52 @@ class MainLayout:
 
     def _on_select_all_clicked(self) -> None:
         """Handle Select All button click."""
-        if self._particle_tree:
-            self._particle_tree.select_all()
+        if self._measurement_tree:
+            self._measurement_tree.select_all()
 
     def _on_clear_selection_clicked(self) -> None:
         """Handle Clear button click."""
-        if self._particle_tree:
-            self._particle_tree.clear_selection()
+        if self._measurement_tree:
+            self._measurement_tree.clear_selection()
 
-    def select_particle(self, particle_id: int, channel: int = 1) -> None:
-        """Programmatically select a particle/channel.
+    def select_measurement(self, measurement_id: int, channel: int = 1) -> None:
+        """Programmatically select a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (default 1).
         """
-        if self._particle_tree:
-            self._particle_tree.select(particle_id, channel)
+        if self._measurement_tree:
+            self._measurement_tree.select(measurement_id, channel)
 
     def clear_selection(self) -> None:
-        """Clear all particle selections."""
-        if self._particle_tree:
-            self._particle_tree.clear_selection()
+        """Clear all measurement selections."""
+        if self._measurement_tree:
+            self._measurement_tree.clear_selection()
 
-    def select_all(self) -> None:
-        """Select all particles for batch operations."""
-        if self._particle_tree:
-            self._particle_tree.select_all()
+    def select_all_measurements(self) -> None:
+        """Select all measurements for batch operations."""
+        if self._measurement_tree:
+            self._measurement_tree.select_all()
 
     @property
     def current_selection(self) -> ChannelSelection | None:
         """Get the current selection."""
-        if self._particle_tree:
-            return self._particle_tree.current_selection
+        if self._measurement_tree:
+            return self._measurement_tree.current_selection
         return None
 
     @property
     def batch_selection(self) -> list[ChannelSelection]:
         """Get all selected items for batch operations."""
-        if self._particle_tree:
-            return self._particle_tree.batch_selection
+        if self._measurement_tree:
+            return self._measurement_tree.batch_selection
         return []
 
     @property
-    def particle_tree(self) -> ParticleTree | None:
-        """Get the particle tree widget instance."""
-        return self._particle_tree
+    def measurement_tree(self) -> MeasurementTree | None:
+        """Get the measurement tree widget instance."""
+        return self._measurement_tree
 
     # Intensity tab methods
 
@@ -624,7 +624,7 @@ class MainLayout:
         return self._intensity_tab
 
     def set_intensity_data(self, abstimes) -> None:
-        """Set intensity trace data for the current particle.
+        """Set intensity trace data for the current measurement.
 
         Args:
             abstimes: Absolute photon arrival times in nanoseconds.
@@ -654,7 +654,7 @@ class MainLayout:
         return self._lifetime_tab
 
     def set_lifetime_data(self, microtimes, channelwidth: float) -> None:
-        """Set decay histogram data for the current particle.
+        """Set decay histogram data for the current measurement.
 
         Args:
             microtimes: TCSPC microtime values in nanoseconds.
@@ -770,7 +770,7 @@ class MainLayout:
         return self._spectra_tab
 
     def set_spectra_data(self, spectra: SpectraData) -> None:
-        """Set spectra data for the current particle.
+        """Set spectra data for the current measurement.
 
         Args:
             spectra: The SpectraData object containing the spectral time series.
@@ -779,7 +779,7 @@ class MainLayout:
             self._spectra_tab.set_data(spectra)
 
     def set_spectra_unavailable(self) -> None:
-        """Indicate that the current particle has no spectra data."""
+        """Indicate that the current measurement has no spectra data."""
         if self._spectra_tab:
             self._spectra_tab.set_no_spectra()
 
@@ -792,7 +792,7 @@ class MainLayout:
         """Set whether the loaded file has any spectra data.
 
         Args:
-            has_spectra: Whether any particles in the file have spectra.
+            has_spectra: Whether any measurements in the file have spectra.
         """
         if self._spectra_tab:
             self._spectra_tab.set_file_has_spectra(has_spectra)
@@ -805,7 +805,7 @@ class MainLayout:
         return self._raster_tab
 
     def set_raster_data(self, raster: RasterScanData) -> None:
-        """Set raster scan data for the current particle.
+        """Set raster scan data for the current measurement.
 
         Args:
             raster: The RasterScanData object containing the 2D scan image.
@@ -814,7 +814,7 @@ class MainLayout:
             self._raster_tab.set_data(raster)
 
     def set_raster_unavailable(self) -> None:
-        """Indicate that the current particle has no raster scan data."""
+        """Indicate that the current measurement has no raster scan data."""
         if self._raster_tab:
             self._raster_tab.set_no_raster()
 
@@ -823,26 +823,26 @@ class MainLayout:
         if self._raster_tab:
             self._raster_tab.clear()
 
-    def set_raster_particle_marker(self, x: float, y: float) -> None:
-        """Set the particle position marker on the raster scan.
+    def set_raster_measurement_marker(self, x: float, y: float) -> None:
+        """Set the measurement position marker on the raster scan.
 
         Args:
             x: X coordinate in micrometers.
             y: Y coordinate in micrometers.
         """
         if self._raster_tab:
-            self._raster_tab.set_particle_marker(x, y)
+            self._raster_tab.set_measurement_marker(x, y)
 
-    def clear_raster_particle_marker(self) -> None:
-        """Clear the particle position marker from the raster scan."""
+    def clear_raster_measurement_marker(self) -> None:
+        """Clear the measurement position marker from the raster scan."""
         if self._raster_tab:
-            self._raster_tab.clear_particle_marker()
+            self._raster_tab.clear_measurement_marker()
 
     def set_file_has_raster(self, has_raster: bool) -> None:
         """Set whether the loaded file has any raster scan data.
 
         Args:
-            has_raster: Whether any particles in the file have raster scans.
+            has_raster: Whether any measurements in the file have raster scans.
         """
         if self._raster_tab:
             self._raster_tab.set_file_has_raster(has_raster)
@@ -875,7 +875,7 @@ class MainLayout:
             )
 
     def set_correlation_single_channel(self) -> None:
-        """Indicate that the current particle has only one TCSPC channel."""
+        """Indicate that the current measurement has only one TCSPC channel."""
         if self._correlation_tab:
             self._correlation_tab.set_single_channel()
 
@@ -922,7 +922,7 @@ class MainLayout:
         """Set the current selection for the export tab.
 
         Args:
-            selection: The current particle/channel selection.
+            selection: The current measurement/channel selection.
         """
         if self._export_tab:
             self._export_tab.set_current_selection(selection)
@@ -931,7 +931,7 @@ class MainLayout:
         """Set the batch selection for the export tab.
 
         Args:
-            selections: List of selected particle/channels.
+            selections: List of selected measurement/channels.
         """
         if self._export_tab:
             self._export_tab.set_batch_selection(selections)
@@ -976,9 +976,9 @@ class MainLayout:
 
         Called when closing a file.
         """
-        # Clear particle tree
-        if self._particle_tree:
-            self._particle_tree.clear()
+        # Clear measurement tree
+        if self._measurement_tree:
+            self._measurement_tree.clear()
 
         # Clear each tab
         self.clear_intensity_data()
@@ -999,10 +999,10 @@ class MainLayout:
         self.set_active_tab(ActiveTab.INTENSITY)
 
     def set_current_selection(self, selection: ChannelSelection | None) -> None:
-        """Set the current selection in the particle tree.
+        """Set the current selection in the measurement tree.
 
         Args:
             selection: The selection to make current, or None to clear.
         """
-        if self._particle_tree and selection:
-            self._particle_tree.select(selection.particle_id, selection.channel)
+        if self._measurement_tree and selection:
+            self._measurement_tree.select(selection.measurement_id, selection.channel)

@@ -56,7 +56,7 @@ class AnalysisPool:
         pool = AnalysisPool()
 
         # Single task
-        future = pool.submit(analyze_particle, particle_data)
+        future = pool.submit(analyze_measurement, measurement_data)
         result = future.result()
 
         # Batch with progress
@@ -64,8 +64,8 @@ class AnalysisPool:
             print(f"{completed}/{total}")
 
         results = pool.map_with_progress(
-            analyze_particle,
-            particle_list,
+            analyze_measurement,
+            measurement_list,
             on_progress
         )
 

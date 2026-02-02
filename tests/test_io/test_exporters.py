@@ -18,7 +18,7 @@ from full_sms.io.exporters import (
 from full_sms.models.fit import FitResult, FitResultData
 from full_sms.models.group import GroupData
 from full_sms.models.level import LevelData
-from full_sms.models.particle import ChannelData, ParticleData
+from full_sms.models.measurement import ChannelData, MeasurementData
 from full_sms.models.session import FileMetadata, SessionState
 
 
@@ -237,7 +237,7 @@ class TestExportIntensityTrace:
             output_path,
             bin_size_ms=10.0,
             fmt=ExportFormat.JSON,
-            particle_name="Test Particle",
+            measurement_name="Test Measurement",
         )
 
         assert result.suffix == ".json"
@@ -251,7 +251,7 @@ class TestExportIntensityTrace:
         assert "data" in data
         assert data["metadata"]["type"] == "intensity_trace"
         assert data["metadata"]["bin_size_ms"] == 10.0
-        assert data["metadata"]["particle_name"] == "Test Particle"
+        assert data["metadata"]["measurement_name"] == "Test Measurement"
         assert "time_ms" in data["data"]
         assert "counts" in data["data"]
         assert "intensity_cps" in data["data"]
@@ -480,14 +480,14 @@ class TestExportLevels:
             sample_levels,
             output_path,
             fmt=ExportFormat.JSON,
-            particle_name="Test Particle",
+            measurement_name="Test Measurement",
         )
 
         with open(result, "r") as f:
             data = json.load(f)
 
         assert data["metadata"]["type"] == "levels"
-        assert data["metadata"]["particle_name"] == "Test Particle"
+        assert data["metadata"]["measurement_name"] == "Test Measurement"
         assert data["metadata"]["num_levels"] == 3
         assert len(data["levels"]) == 3
         assert data["levels"][0]["num_photons"] == 100
@@ -576,14 +576,14 @@ class TestExportGroups:
             sample_groups,
             output_path,
             fmt=ExportFormat.JSON,
-            particle_name="Test Particle",
+            measurement_name="Test Measurement",
         )
 
         with open(result, "r") as f:
             data = json.load(f)
 
         assert data["metadata"]["type"] == "groups"
-        assert data["metadata"]["particle_name"] == "Test Particle"
+        assert data["metadata"]["measurement_name"] == "Test Measurement"
         assert data["metadata"]["num_groups"] == 2
         assert len(data["groups"]) == 2
         assert data["groups"][0]["level_indices"] == [0, 2]
@@ -644,7 +644,7 @@ class TestExportFitResults:
             rows = list(reader)
 
         assert len(rows) == 1
-        assert rows[0]["particle_id"] == "1"
+        assert rows[0]["measurement_id"] == "1"
         assert rows[0]["channel"] == "1"
         assert rows[0]["level_or_group_id"] == "0"
         assert rows[0]["num_exponentials"] == "1"
@@ -775,16 +775,16 @@ class TestExportBatch:
     @pytest.fixture
     def sample_state(self, sample_channel: ChannelData) -> SessionState:
         """Create a sample session state."""
-        particle1 = ParticleData(
+        measurement1 = MeasurementData(
             id=1,
-            name="Particle 1",
+            name="Measurement 1",
             tcspc_card="SPC-150",
             channelwidth=0.012,
             channel1=sample_channel,
         )
-        particle2 = ParticleData(
+        measurement2 = MeasurementData(
             id=2,
-            name="Particle 2",
+            name="Measurement 2",
             tcspc_card="SPC-150",
             channelwidth=0.012,
             channel1=sample_channel,
@@ -795,12 +795,12 @@ class TestExportBatch:
         state.file_metadata = FileMetadata(
             path=Path("/path/to/test.h5"),
             filename="test.h5",
-            num_particles=2,
+            num_measurements=2,
             has_irf=True,
         )
-        state.particles = [particle1, particle2]
+        state.measurements = [measurement1, measurement2]
 
-        # Add levels for particle 1
+        # Add levels for measurement 1
         level = LevelData(
             start_index=0,
             end_index=49,
@@ -813,10 +813,10 @@ class TestExportBatch:
 
         return state
 
-    def test_batch_export_multiple_particles(
+    def test_batch_export_multiple_measurements(
         self, sample_state: SessionState, tmp_path: Path
     ) -> None:
-        """Export data for multiple particles."""
+        """Export data for multiple measurements."""
         selections = [(1, 1), (2, 1)]
         output_dir = tmp_path / "export"
 
@@ -831,7 +831,7 @@ class TestExportBatch:
             export_fits=False,
         )
 
-        # Should have intensity for both particles, levels for particle 1
+        # Should have intensity for both measurements, levels for measurement 1
         assert len(files) >= 2
         assert output_dir.exists()
 
@@ -855,7 +855,7 @@ class TestExportBatch:
             progress_callback=track_progress,
         )
 
-        # Should have been called for each particle and final
+        # Should have been called for each measurement and final
         assert len(progress_calls) >= 2
         # Last call should be 1.0
         assert progress_calls[-1][0] == 1.0
@@ -864,7 +864,7 @@ class TestExportBatch:
         self, sample_state: SessionState, tmp_path: Path
     ) -> None:
         """Batch export skips missing data gracefully."""
-        # Request export for non-existent particle
+        # Request export for non-existent measurement
         selections = [(1, 1), (99, 1)]  # 99 doesn't exist
         output_dir = tmp_path / "export"
 
@@ -876,7 +876,7 @@ class TestExportBatch:
             fmt=ExportFormat.CSV,
         )
 
-        # Should have files only for existing particle
+        # Should have files only for existing measurement
         assert len(files) >= 1
 
     def test_empty_selections(

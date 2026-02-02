@@ -209,12 +209,12 @@ def _dict_to_ui_state(data: Dict[str, Any]) -> UIState:
 
 def _selection_to_dict(sel: ChannelSelection) -> Dict[str, Any]:
     """Convert a ChannelSelection to a serializable dict."""
-    return {"particle_id": int(sel.particle_id), "channel": int(sel.channel)}
+    return {"measurement_id": int(sel.measurement_id), "channel": int(sel.channel)}
 
 
 def _dict_to_selection(data: Dict[str, Any]) -> ChannelSelection:
     """Convert a dict back to a ChannelSelection."""
-    return ChannelSelection(particle_id=data["particle_id"], channel=data["channel"])
+    return ChannelSelection(measurement_id=data["measurement_id"], channel=data["channel"])
 
 
 def save_session(state: SessionState, path: Path) -> None:
@@ -251,7 +251,7 @@ def save_session(state: SessionState, path: Path) -> None:
         "file_metadata": {
             "path": stored_path,
             "filename": state.file_metadata.filename,
-            "num_particles": int(state.file_metadata.num_particles),
+            "num_measurements": int(state.file_metadata.num_measurements),
             "has_irf": bool(state.file_metadata.has_irf),
             "has_spectra": bool(state.file_metadata.has_spectra),
             "has_raster": bool(state.file_metadata.has_raster),
@@ -259,7 +259,7 @@ def save_session(state: SessionState, path: Path) -> None:
         },
     }
 
-    # Serialize levels (keyed by "particle_id,channel")
+    # Serialize levels (keyed by "measurement_id,channel")
     levels_dict: Dict[str, List[Dict[str, Any]]] = {}
     for (pid, ch), level_list in state.levels.items():
         key = _tuple_key_to_str((pid, ch))
@@ -273,28 +273,28 @@ def save_session(state: SessionState, path: Path) -> None:
         clustering_dict[key] = _clustering_to_dict(result)
     session_data["clustering_results"] = clustering_dict
 
-    # Serialize particle fits (keyed by "particle_id,channel")
-    particle_fits_dict: Dict[str, Dict[str, Any]] = {}
-    for (pid, ch), result in state.particle_fits.items():
+    # Serialize measurement fits (keyed by "measurement_id,channel")
+    measurement_fits_dict: Dict[str, Dict[str, Any]] = {}
+    for (pid, ch), result in state.measurement_fits.items():
         key = _tuple_key_to_str((pid, ch))
-        particle_fits_dict[key] = _fit_result_data_to_dict(result)
-    session_data["particle_fits"] = particle_fits_dict
+        measurement_fits_dict[key] = _fit_result_data_to_dict(result)
+    session_data["measurement_fits"] = measurement_fits_dict
 
-    # Serialize level fits (keyed by "particle_id,channel,level_index")
+    # Serialize level fits (keyed by "measurement_id,channel,level_index")
     level_fits_dict: Dict[str, Dict[str, Any]] = {}
     for (pid, ch, lvl_idx), result in state.level_fits.items():
         key = _tuple_key_to_str((pid, ch, lvl_idx))
         level_fits_dict[key] = _fit_result_data_to_dict(result)
     session_data["level_fits"] = level_fits_dict
 
-    # Serialize IRF data (keyed by "particle_id,channel")
+    # Serialize IRF data (keyed by "measurement_id,channel")
     irf_data_dict: Dict[str, Dict[str, Any]] = {}
     for (pid, ch), irf in state.irf_data.items():
         key = _tuple_key_to_str((pid, ch))
         irf_data_dict[key] = _irf_data_to_dict(irf)
     session_data["irf_data"] = irf_data_dict
 
-    # Serialize level IRF data (keyed by "particle_id,channel,level_index")
+    # Serialize level IRF data (keyed by "measurement_id,channel,level_index")
     level_irf_data_dict: Dict[str, Dict[str, Any]] = {}
     for (pid, ch, lvl_idx), irf in state.level_irf_data.items():
         key = _tuple_key_to_str((pid, ch, lvl_idx))
@@ -334,10 +334,10 @@ def load_session(path: Path) -> Dict[str, Any]:
     The returned dictionary contains:
     - "version": Session format version string
     - "file_metadata": Dict with path, filename, and feature flags
-    - "levels": Dict mapping (particle_id, channel) to list of LevelData
-    - "clustering_results": Dict mapping (particle_id, channel) to ClusteringResult
-    - "particle_fits": Dict mapping (particle_id, channel) to FitResultData
-    - "level_fits": Dict mapping (particle_id, channel, level_index) to FitResultData
+    - "levels": Dict mapping (measurement_id, channel) to list of LevelData
+    - "clustering_results": Dict mapping (measurement_id, channel) to ClusteringResult
+    - "measurement_fits": Dict mapping (measurement_id, channel) to FitResultData
+    - "level_fits": Dict mapping (measurement_id, channel, level_index) to FitResultData
     - "selected": List of ChannelSelection
     - "current_selection": Optional ChannelSelection
     - "ui_state": UIState
@@ -382,7 +382,7 @@ def load_session(path: Path) -> Dict[str, Any]:
         "file_metadata": {
             "path": h5_path,
             "filename": data["file_metadata"]["filename"],
-            "num_particles": data["file_metadata"]["num_particles"],
+            "num_measurements": data["file_metadata"]["num_measurements"],
             "has_irf": data["file_metadata"].get("has_irf", False),
             "has_spectra": data["file_metadata"].get("has_spectra", False),
             "has_raster": data["file_metadata"].get("has_raster", False),
@@ -404,12 +404,12 @@ def load_session(path: Path) -> Dict[str, Any]:
         clustering[(pid, ch)] = _dict_to_clustering(clust_data)
     result["clustering_results"] = clustering
 
-    # Deserialize particle fits
-    particle_fits: Dict[Tuple[int, int], FitResultData] = {}
-    for key, fit_data in data.get("particle_fits", {}).items():
+    # Deserialize measurement fits
+    measurement_fits: Dict[Tuple[int, int], FitResultData] = {}
+    for key, fit_data in data.get("measurement_fits", {}).items():
         pid, ch = _str_to_tuple_key(key, (int, int))
-        particle_fits[(pid, ch)] = _dict_to_fit_result_data(fit_data)
-    result["particle_fits"] = particle_fits
+        measurement_fits[(pid, ch)] = _dict_to_fit_result_data(fit_data)
+    result["measurement_fits"] = measurement_fits
 
     # Deserialize level fits
     level_fits: Dict[Tuple[int, int, int], FitResultData] = {}
@@ -466,7 +466,7 @@ def apply_session_to_state(
 
     Args:
         session_data: Data returned from load_session().
-        state: SessionState to update (should already have particles loaded).
+        state: SessionState to update (should already have measurements loaded).
     """
     # Apply levels
     state.levels.clear()
@@ -476,9 +476,9 @@ def apply_session_to_state(
     state.clustering_results.clear()
     state.clustering_results.update(session_data["clustering_results"])
 
-    # Apply particle fits
-    state.particle_fits.clear()
-    state.particle_fits.update(session_data["particle_fits"])
+    # Apply measurement fits
+    state.measurement_fits.clear()
+    state.measurement_fits.update(session_data["measurement_fits"])
 
     # Apply level fits
     state.level_fits.clear()

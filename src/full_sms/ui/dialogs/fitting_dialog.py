@@ -31,15 +31,15 @@ class NumExponentials(Enum):
 
 
 class FitTarget(Enum):
-    """What to fit - particle full decay or individual levels."""
+    """What to fit - measurement full decay or individual levels."""
 
-    PARTICLE = "Particle (full decay)"
+    MEASUREMENT = "Measurement (full decay)"
     SELECTED_LEVEL = "Selected Level"
     ALL_LEVELS = "All Levels"
 
 
 class FitScope(Enum):
-    """Which particles to fit."""
+    """Which measurements to fit."""
 
     CURRENT = "Current"
     SELECTED = "Selected"
@@ -51,8 +51,8 @@ class FittingParameters:
     """Parameters for lifetime fitting.
 
     Attributes:
-        fit_target: What to fit - particle full decay or levels.
-        fit_scope: Which particles to fit (current, selected, all).
+        fit_target: What to fit - measurement full decay or levels.
+        fit_scope: Which measurements to fit (current, selected, all).
         selected_level_index: Index of selected level (for SELECTED_LEVEL target).
         num_exponentials: Number of exponential components (1, 2, or 3).
         tau_init: Initial guess for tau values in nanoseconds.
@@ -75,7 +75,7 @@ class FittingParameters:
         background_value: Manual background value.
     """
 
-    fit_target: FitTarget = FitTarget.PARTICLE
+    fit_target: FitTarget = FitTarget.MEASUREMENT
     fit_scope: FitScope = FitScope.CURRENT
     selected_level_index: Optional[int] = None
     num_exponentials: int = 1
@@ -267,7 +267,7 @@ class FittingDialog:
         """Set the level state for fit target options.
 
         Args:
-            has_levels: True if the current particle has resolved levels.
+            has_levels: True if the current measurement has resolved levels.
             selected_level_index: Index of currently selected level, or None.
         """
         self._has_levels = has_levels
@@ -298,8 +298,8 @@ class FittingDialog:
             # Fit target selection
             dpg.add_text("Fit Target")
             dpg.add_combo(
-                items=[FitTarget.PARTICLE.value],  # Options set dynamically in show()
-                default_value=FitTarget.PARTICLE.value,
+                items=[FitTarget.MEASUREMENT.value],  # Options set dynamically in show()
+                default_value=FitTarget.MEASUREMENT.value,
                 tag=self._tags.fit_target_combo,
                 callback=self._on_fit_target_changed,
                 width=220,
@@ -596,7 +596,7 @@ class FittingDialog:
             return
 
         # Build list of available options
-        options = [FitTarget.PARTICLE.value]
+        options = [FitTarget.MEASUREMENT.value]
 
         if self._has_selected_level:
             options.append(FitTarget.SELECTED_LEVEL.value)
@@ -610,7 +610,7 @@ class FittingDialog:
         # Ensure current value is valid
         current_value = dpg.get_value(self._tags.fit_target_combo)
         if current_value not in options:
-            dpg.set_value(self._tags.fit_target_combo, FitTarget.PARTICLE.value)
+            dpg.set_value(self._tags.fit_target_combo, FitTarget.MEASUREMENT.value)
 
         # Update scope enabled state based on current target
         self._on_fit_target_changed(
@@ -692,7 +692,7 @@ class FittingDialog:
         """Collect parameters from dialog fields."""
         # Get fit target
         fit_target_str = dpg.get_value(self._tags.fit_target_combo)
-        fit_target = FitTarget.PARTICLE
+        fit_target = FitTarget.MEASUREMENT
         for target in FitTarget:
             if target.value == fit_target_str:
                 fit_target = target

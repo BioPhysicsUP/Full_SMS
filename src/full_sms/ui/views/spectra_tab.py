@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import dearpygui.dearpygui as dpg
 
-from full_sms.models.particle import SpectraData
+from full_sms.models.measurement import SpectraData
 from full_sms.ui.plots.spectra_plot import SpectraPlot
 
 logger = logging.getLogger(__name__)
@@ -127,14 +127,14 @@ class SpectraTab:
             ):
                 # No data placeholder (shown when no file loaded)
                 dpg.add_text(
-                    "Load an HDF5 file and select a particle to view spectra.",
+                    "Load an HDF5 file and select a measurement to view spectra.",
                     tag=self._tags.no_data_text,
                     color=(128, 128, 128),
                 )
 
-                # No spectra placeholder (shown when particle has no spectra)
+                # No spectra placeholder (shown when measurement has no spectra)
                 dpg.add_text(
-                    "This particle does not have spectral data.",
+                    "This measurement does not have spectral data.",
                     tag=self._tags.no_spectra_text,
                     color=(180, 140, 100),
                     show=False,
@@ -233,7 +233,7 @@ class SpectraTab:
         )
 
     def set_no_spectra(self) -> None:
-        """Set the tab to show that the current particle has no spectra."""
+        """Set the tab to show that the current measurement has no spectra."""
         self._spectra_data = None
 
         if self._spectra_plot:
@@ -342,6 +342,6 @@ class SpectraTab:
         vs. the no-data-loaded message.
 
         Args:
-            has_spectra: Whether any particles in the file have spectra.
+            has_spectra: Whether any measurements in the file have spectra.
         """
         self._has_spectra_in_file = has_spectra

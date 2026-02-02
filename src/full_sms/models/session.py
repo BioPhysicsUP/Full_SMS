@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 from full_sms.models.fit import FitResult, FitResultData, IRFData
 from full_sms.models.group import ClusteringResult
 from full_sms.models.level import LevelData
-from full_sms.models.particle import ParticleData
+from full_sms.models.measurement import MeasurementData
 
 
 class ConfidenceLevel(Enum):
@@ -39,7 +39,7 @@ class FileMetadata:
     Attributes:
         path: Path to the HDF5 file.
         filename: Name of the file (without path).
-        num_particles: Number of particles in the file.
+        num_measurements: Number of measurements in the file.
         has_irf: Whether the file contains an IRF.
         has_spectra: Whether the file contains spectra data.
         has_raster: Whether the file contains raster scan data.
@@ -47,7 +47,7 @@ class FileMetadata:
 
     path: Path
     filename: str
-    num_particles: int
+    num_measurements: int
     has_irf: bool = False
     has_spectra: bool = False
     has_raster: bool = False
@@ -56,14 +56,14 @@ class FileMetadata:
 
 @dataclass
 class ChannelSelection:
-    """Selection of a specific particle and channel.
+    """Selection of a specific measurement and channel.
 
     Attributes:
-        particle_id: ID of the selected particle.
+        measurement_id: ID of the selected measurement.
         channel: Channel number (1 or 2).
     """
 
-    particle_id: int
+    measurement_id: int
     channel: int = 1
 
     def __post_init__(self) -> None:
@@ -83,9 +83,9 @@ class UIState:
         show_levels: Whether to show levels on intensity plot.
         show_groups: Whether to show group colors on intensity plot.
         log_scale_decay: Whether to use log scale for decay plot.
-        selected_level_indices: Dict mapping (particle_id, channel) to selected level index.
+        selected_level_indices: Dict mapping (measurement_id, channel) to selected level index.
         use_lifetime_grouping: Whether to use lifetime in grouping analysis.
-        global_grouping: Whether to apply grouping globally across all particles.
+        global_grouping: Whether to apply grouping globally across all measurements.
         export_bin_size_ms: Custom bin size for export (when not syncing with intensity tab).
         export_use_intensity_bin_size: Whether to sync export bin size with intensity tab.
     """
@@ -149,29 +149,29 @@ class SessionState:
 
     Attributes:
         file_metadata: Metadata about the loaded file.
-        particles: List of all particles from the file.
-        selected: List of currently selected particle/channel combinations.
-        current_selection: The primary (most recently selected) particle/channel.
-        levels: Dict mapping (particle_id, channel) to list of LevelData.
-        clustering_results: Dict mapping (particle_id, channel) to ClusteringResult.
-        particle_fits: Dict mapping (particle_id, channel) to FitResultData for full decay fits.
-        level_fits: Dict mapping (particle_id, channel, level_index) to FitResultData.
-        irf_data: Dict mapping (particle_id, channel) to IRFData for particle-level fits.
-        level_irf_data: Dict mapping (particle_id, channel, level_index) to IRFData for level fits.
+        measurements: List of all measurements from the file.
+        selected: List of currently selected measurement/channel combinations.
+        current_selection: The primary (most recently selected) measurement/channel.
+        levels: Dict mapping (measurement_id, channel) to list of LevelData.
+        clustering_results: Dict mapping (measurement_id, channel) to ClusteringResult.
+        measurement_fits: Dict mapping (measurement_id, channel) to FitResultData for full decay fits.
+        level_fits: Dict mapping (measurement_id, channel, level_index) to FitResultData.
+        irf_data: Dict mapping (measurement_id, channel) to IRFData for measurement-level fits.
+        level_irf_data: Dict mapping (measurement_id, channel, level_index) to IRFData for level fits.
         export_directory: Directory to export data to (defaults to input file's directory).
         ui_state: UI-related state.
         processing: Background processing state.
     """
 
     file_metadata: Optional[FileMetadata] = None
-    particles: List[ParticleData] = field(default_factory=list)
+    measurements: List[MeasurementData] = field(default_factory=list)
     selected: List[ChannelSelection] = field(default_factory=list)
     current_selection: Optional[ChannelSelection] = None
     levels: Dict[tuple[int, int], List[LevelData]] = field(default_factory=dict)
     clustering_results: Dict[tuple[int, int], ClusteringResult] = field(
         default_factory=dict
     )
-    particle_fits: Dict[tuple[int, int], FitResultData] = field(default_factory=dict)
+    measurement_fits: Dict[tuple[int, int], FitResultData] = field(default_factory=dict)
     level_fits: Dict[tuple[int, int, int], FitResultData] = field(default_factory=dict)
     irf_data: Dict[tuple[int, int], IRFData] = field(default_factory=dict)
     level_irf_data: Dict[tuple[int, int, int], IRFData] = field(default_factory=dict)
@@ -185,55 +185,55 @@ class SessionState:
         return self.file_metadata is not None
 
     @property
-    def num_particles(self) -> int:
-        """Number of particles in the current session."""
-        return len(self.particles)
+    def num_measurements(self) -> int:
+        """Number of measurements in the current session."""
+        return len(self.measurements)
 
     @property
     def has_selection(self) -> bool:
-        """Whether any particle/channel is selected."""
+        """Whether any measurement/channel is selected."""
         return self.current_selection is not None
 
-    def get_particle(self, particle_id: int) -> Optional[ParticleData]:
-        """Get a particle by ID.
+    def get_measurement(self, measurement_id: int) -> Optional[MeasurementData]:
+        """Get a measurement by ID.
 
         Args:
-            particle_id: The particle ID to look up.
+            measurement_id: The measurement ID to look up.
 
         Returns:
-            The ParticleData if found, None otherwise.
+            The MeasurementData if found, None otherwise.
         """
-        for particle in self.particles:
-            if particle.id == particle_id:
-                return particle
+        for measurement in self.measurements:
+            if measurement.id == measurement_id:
+                return measurement
         return None
 
-    def get_current_particle(self) -> Optional[ParticleData]:
-        """Get the currently selected particle.
+    def get_current_measurement(self) -> Optional[MeasurementData]:
+        """Get the currently selected measurement.
 
         Returns:
-            The currently selected ParticleData, or None if no selection.
+            The currently selected MeasurementData, or None if no selection.
         """
         if self.current_selection is None:
             return None
-        return self.get_particle(self.current_selection.particle_id)
+        return self.get_measurement(self.current_selection.measurement_id)
 
     def get_levels(
-        self, particle_id: int, channel: int = 1
+        self, measurement_id: int, channel: int = 1
     ) -> Optional[List[LevelData]]:
-        """Get levels for a particle/channel.
+        """Get levels for a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
 
         Returns:
             List of LevelData if change point analysis has been run, None otherwise.
         """
-        return self.levels.get((particle_id, channel))
+        return self.levels.get((measurement_id, channel))
 
     def get_current_levels(self) -> Optional[List[LevelData]]:
-        """Get levels for the currently selected particle/channel.
+        """Get levels for the currently selected measurement/channel.
 
         Returns:
             List of LevelData if available, None otherwise.
@@ -241,37 +241,37 @@ class SessionState:
         if self.current_selection is None:
             return None
         return self.get_levels(
-            self.current_selection.particle_id, self.current_selection.channel
+            self.current_selection.measurement_id, self.current_selection.channel
         )
 
     def set_levels(
-        self, particle_id: int, channel: int, levels: List[LevelData]
+        self, measurement_id: int, channel: int, levels: List[LevelData]
     ) -> None:
-        """Set levels for a particle/channel.
+        """Set levels for a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             levels: List of LevelData from change point analysis.
         """
-        self.levels[(particle_id, channel)] = levels
+        self.levels[(measurement_id, channel)] = levels
 
     def get_clustering(
-        self, particle_id: int, channel: int = 1
+        self, measurement_id: int, channel: int = 1
     ) -> Optional[ClusteringResult]:
-        """Get clustering result for a particle/channel.
+        """Get clustering result for a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
 
         Returns:
             ClusteringResult if clustering has been run, None otherwise.
         """
-        return self.clustering_results.get((particle_id, channel))
+        return self.clustering_results.get((measurement_id, channel))
 
     def get_current_clustering(self) -> Optional[ClusteringResult]:
-        """Get clustering result for the currently selected particle/channel.
+        """Get clustering result for the currently selected measurement/channel.
 
         Returns:
             ClusteringResult if available, None otherwise.
@@ -279,43 +279,43 @@ class SessionState:
         if self.current_selection is None:
             return None
         return self.get_clustering(
-            self.current_selection.particle_id, self.current_selection.channel
+            self.current_selection.measurement_id, self.current_selection.channel
         )
 
     def set_clustering(
-        self, particle_id: int, channel: int, result: ClusteringResult
+        self, measurement_id: int, channel: int, result: ClusteringResult
     ) -> None:
-        """Set clustering result for a particle/channel.
+        """Set clustering result for a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             result: The ClusteringResult from AHCA.
         """
-        self.clustering_results[(particle_id, channel)] = result
+        self.clustering_results[(measurement_id, channel)] = result
 
     def get_groups(
-        self, particle_id: int, channel: int = 1
+        self, measurement_id: int, channel: int = 1
     ) -> Optional[List["GroupData"]]:
-        """Get groups for a particle/channel.
+        """Get groups for a measurement/channel.
 
         This is a convenience method that returns the groups from the
         clustering result.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
 
         Returns:
             List of GroupData if clustering has been run, None otherwise.
         """
-        result = self.get_clustering(particle_id, channel)
+        result = self.get_clustering(measurement_id, channel)
         if result is None:
             return None
         return list(result.groups)
 
     def get_current_groups(self) -> Optional[List["GroupData"]]:
-        """Get groups for the currently selected particle/channel.
+        """Get groups for the currently selected measurement/channel.
 
         Returns:
             List of GroupData if available, None otherwise.
@@ -323,56 +323,56 @@ class SessionState:
         if self.current_selection is None:
             return None
         return self.get_groups(
-            self.current_selection.particle_id, self.current_selection.channel
+            self.current_selection.measurement_id, self.current_selection.channel
         )
 
-    def get_particle_fit(
-        self, particle_id: int, channel: int
+    def get_measurement_fit(
+        self, measurement_id: int, channel: int
     ) -> Optional[FitResultData]:
-        """Get particle (full decay) fit result.
+        """Get measurement (full decay) fit result.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
 
         Returns:
             FitResultData if fitting has been run, None otherwise.
         """
-        return self.particle_fits.get((particle_id, channel))
+        return self.measurement_fits.get((measurement_id, channel))
 
-    def set_particle_fit(
+    def set_measurement_fit(
         self,
-        particle_id: int,
+        measurement_id: int,
         channel: int,
         result: FitResultData,
     ) -> None:
-        """Set particle (full decay) fit result.
+        """Set measurement (full decay) fit result.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             result: The FitResultData from lifetime fitting.
         """
-        self.particle_fits[(particle_id, channel)] = result
+        self.measurement_fits[(measurement_id, channel)] = result
 
     def get_level_fit(
-        self, particle_id: int, channel: int, level_index: int
+        self, measurement_id: int, channel: int, level_index: int
     ) -> Optional[FitResultData]:
         """Get level-specific fit result.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             level_index: The level index.
 
         Returns:
             FitResultData if fitting has been run, None otherwise.
         """
-        return self.level_fits.get((particle_id, channel, level_index))
+        return self.level_fits.get((measurement_id, channel, level_index))
 
     def set_level_fit(
         self,
-        particle_id: int,
+        measurement_id: int,
         channel: int,
         level_index: int,
         result: FitResultData,
@@ -380,89 +380,89 @@ class SessionState:
         """Set level-specific fit result.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             level_index: The level index.
             result: The FitResultData from lifetime fitting.
         """
-        self.level_fits[(particle_id, channel, level_index)] = result
+        self.level_fits[(measurement_id, channel, level_index)] = result
 
     def get_all_level_fits(
-        self, particle_id: int, channel: int
+        self, measurement_id: int, channel: int
     ) -> Dict[int, FitResultData]:
-        """Get all level fits for a particle/channel.
+        """Get all level fits for a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
 
         Returns:
             Dict mapping level_index to FitResultData.
         """
         result = {}
-        for (pid, ch, level_idx), fit_data in self.level_fits.items():
-            if pid == particle_id and ch == channel:
+        for (mid, ch, level_idx), fit_data in self.level_fits.items():
+            if mid == measurement_id and ch == channel:
                 result[level_idx] = fit_data
         return result
 
-    def get_irf(self, particle_id: int, channel: int) -> Optional[IRFData]:
-        """Get IRF data for a particle/channel fit.
+    def get_irf(self, measurement_id: int, channel: int) -> Optional[IRFData]:
+        """Get IRF data for a measurement/channel fit.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
 
         Returns:
             IRFData if available, None otherwise.
         """
-        return self.irf_data.get((particle_id, channel))
+        return self.irf_data.get((measurement_id, channel))
 
-    def set_irf(self, particle_id: int, channel: int, irf: IRFData) -> None:
-        """Set IRF data for a particle/channel fit.
+    def set_irf(self, measurement_id: int, channel: int, irf: IRFData) -> None:
+        """Set IRF data for a measurement/channel fit.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             irf: The IRFData to store.
         """
-        self.irf_data[(particle_id, channel)] = irf
+        self.irf_data[(measurement_id, channel)] = irf
 
     def get_level_irf(
-        self, particle_id: int, channel: int, level_index: int
+        self, measurement_id: int, channel: int, level_index: int
     ) -> Optional[IRFData]:
         """Get IRF data for a level-specific fit.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             level_index: The level index.
 
         Returns:
             IRFData if available, None otherwise.
         """
-        return self.level_irf_data.get((particle_id, channel, level_index))
+        return self.level_irf_data.get((measurement_id, channel, level_index))
 
     def set_level_irf(
-        self, particle_id: int, channel: int, level_index: int, irf: IRFData
+        self, measurement_id: int, channel: int, level_index: int, irf: IRFData
     ) -> None:
         """Set IRF data for a level-specific fit.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             level_index: The level index.
             irf: The IRFData to store.
         """
-        self.level_irf_data[(particle_id, channel, level_index)] = irf
+        self.level_irf_data[(measurement_id, channel, level_index)] = irf
 
-    def select(self, particle_id: int, channel: int = 1) -> None:
-        """Select a particle/channel as the current selection.
+    def select(self, measurement_id: int, channel: int = 1) -> None:
+        """Select a measurement/channel as the current selection.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
         """
-        selection = ChannelSelection(particle_id=particle_id, channel=channel)
+        selection = ChannelSelection(measurement_id=measurement_id, channel=channel)
         self.current_selection = selection
         if selection not in self.selected:
             self.selected.append(selection)
@@ -473,51 +473,51 @@ class SessionState:
         self.current_selection = None
 
     def get_selected_level_index(
-        self, particle_id: int, channel: int = 1
+        self, measurement_id: int, channel: int = 1
     ) -> Optional[int]:
-        """Get the selected level index for a particle/channel.
+        """Get the selected level index for a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
 
         Returns:
             The selected level index, or None if no level is selected.
         """
-        return self.ui_state.selected_level_indices.get((particle_id, channel))
+        return self.ui_state.selected_level_indices.get((measurement_id, channel))
 
     def set_selected_level_index(
-        self, particle_id: int, channel: int, level_index: Optional[int]
+        self, measurement_id: int, channel: int, level_index: Optional[int]
     ) -> None:
-        """Set the selected level index for a particle/channel.
+        """Set the selected level index for a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
             level_index: The level index to select, or None to clear selection.
         """
         if level_index is None:
-            self.ui_state.selected_level_indices.pop((particle_id, channel), None)
+            self.ui_state.selected_level_indices.pop((measurement_id, channel), None)
         else:
-            self.ui_state.selected_level_indices[(particle_id, channel)] = level_index
+            self.ui_state.selected_level_indices[(measurement_id, channel)] = level_index
 
     def get_current_selected_level_index(self) -> Optional[int]:
         """Get the selected level index for the current selection.
 
         Returns:
-            The selected level index for the current particle/channel, or None.
+            The selected level index for the current measurement/channel, or None.
         """
         if self.current_selection is None:
             return None
         return self.get_selected_level_index(
-            self.current_selection.particle_id, self.current_selection.channel
+            self.current_selection.measurement_id, self.current_selection.channel
         )
 
     def clear_analysis(self) -> None:
-        """Clear all analysis results while keeping particles."""
+        """Clear all analysis results while keeping measurements."""
         self.levels.clear()
         self.clustering_results.clear()
-        self.particle_fits.clear()
+        self.measurement_fits.clear()
         self.level_fits.clear()
         self.irf_data.clear()
         self.level_irf_data.clear()
@@ -525,12 +525,12 @@ class SessionState:
     def reset(self) -> None:
         """Reset the session to initial empty state."""
         self.file_metadata = None
-        self.particles.clear()
+        self.measurements.clear()
         self.selected.clear()
         self.current_selection = None
         self.levels.clear()
         self.clustering_results.clear()
-        self.particle_fits.clear()
+        self.measurement_fits.clear()
         self.level_fits.clear()
         self.irf_data.clear()
         self.level_irf_data.clear()

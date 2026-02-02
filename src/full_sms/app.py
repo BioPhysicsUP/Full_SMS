@@ -64,7 +64,7 @@ from full_sms.io.session import (
 )
 
 if TYPE_CHECKING:
-    from full_sms.models.particle import ParticleData
+    from full_sms.models.measurement import MeasurementData
 
 # Configure logging
 logging.basicConfig(
@@ -104,17 +104,17 @@ class Application:
         self._fitting_params = FittingParameters()
 
         # Cache for full FitResult objects (for display, not persisted)
-        # Key: (particle_id, channel_id, level_index) where level_index is None for particle fits
+        # Key: (measurement_id, channel_id, level_index) where level_index is None for measurement fits
         self._fit_cache: dict[tuple[int, int, int | None], FitResult] = {}
 
         # Cache for IRF data used in fits (for display, not persisted)
-        # Key: (particle_id, channel_id, level_index) -> (t_array, irf_array)
+        # Key: (measurement_id, channel_id, level_index) -> (t_array, irf_array)
         self._irf_cache: dict[
             tuple[int, int, int | None], tuple[np.ndarray, np.ndarray]
         ] = {}
 
         # Cache for IRF configuration (is_simulated, fwhm) used when submitting fits
-        # Key: (particle_id, channel_id, level_index) -> (is_simulated, fwhm_ns or None)
+        # Key: (measurement_id, channel_id, level_index) -> (is_simulated, fwhm_ns or None)
         # This allows us to store IRFData in session when fit completes
         self._irf_config_cache: dict[
             tuple[int, int, int | None], tuple[bool, float | None]
@@ -392,12 +392,12 @@ class Application:
             self._layout.set_active_tab(ActiveTab.EXPORT)
 
     def _on_resolve_current_shortcut(self) -> None:
-        """Handle Cmd/Ctrl+R shortcut to resolve current particle."""
+        """Handle Cmd/Ctrl+R shortcut to resolve current measurement."""
         logger.info("Resolve current shortcut triggered")
         if self._session.current_selection:
             self._on_resolve("current")
         else:
-            self.set_status("Select a particle to resolve")
+            self.set_status("Select a measurement to resolve")
 
     def _on_next_tab(self) -> None:
         """Handle Ctrl+Tab shortcut to navigate to next tab."""
@@ -428,7 +428,7 @@ class Application:
         logger.debug(f"Tab changed to: {tab.value}")
 
     def _on_selection_changed(self, selection: ChannelSelection | None) -> None:
-        """Handle current selection change from particle tree.
+        """Handle current selection change from measurement tree.
 
         Args:
             selection: The new current selection, or None if cleared.
@@ -439,16 +439,16 @@ class Application:
             if selection not in self._session.selected:
                 self._session.selected.append(selection)
             logger.debug(
-                f"Selection changed: Particle {selection.particle_id}, "
+                f"Selection changed: Measurement {selection.measurement_id}, "
                 f"Channel {selection.channel}"
             )
 
-            # Get the particle and channel data
-            particle = self._session.get_particle(selection.particle_id)
-            if particle:
+            # Get the measurement and channel data
+            measurement = self._session.get_measurement(selection.measurement_id)
+            if measurement:
                 # Get the appropriate channel data
                 channel = (
-                    particle.channel1 if selection.channel == 1 else particle.channel2
+                    measurement.channel1 if selection.channel == 1 else measurement.channel2
                 )
                 if channel:
                     # Update intensity tab with photon timing data
@@ -456,7 +456,7 @@ class Application:
 
                     # Update lifetime tab with microtime data
                     self._layout.set_lifetime_data(
-                        channel.microtimes, particle.channelwidth
+                        channel.microtimes, measurement.channelwidth
                     )
 
                     # Also pass abstimes to lifetime tab for intensity plot
@@ -467,18 +467,18 @@ class Application:
                         self._layout.grouping_tab.set_intensity_data(channel.abstimes)
 
                 # Update spectra tab
-                if particle.has_spectra and particle.spectra is not None:
-                    self._layout.set_spectra_data(particle.spectra)
+                if measurement.has_spectra and measurement.spectra is not None:
+                    self._layout.set_spectra_data(measurement.spectra)
                 else:
                     self._layout.set_spectra_unavailable()
 
                 # Update raster tab
-                if particle.has_raster_scan and particle.raster_scan is not None:
-                    self._layout.set_raster_data(particle.raster_scan)
-                    # Show particle position marker if coordinate is available
-                    if particle.raster_scan_coord is not None:
-                        x, y = particle.raster_scan_coord
-                        self._layout.set_raster_particle_marker(x, y)
+                if measurement.has_raster_scan and measurement.raster_scan is not None:
+                    self._layout.set_raster_data(measurement.raster_scan)
+                    # Show measurement position marker if coordinate is available
+                    if measurement.raster_scan_coord is not None:
+                        x, y = measurement.raster_scan_coord
+                        self._layout.set_raster_measurement_marker(x, y)
                 else:
                     self._layout.set_raster_unavailable()
 
@@ -491,7 +491,7 @@ class Application:
             # Update grouping tab with clustering results if they exist
             self._update_grouping_display()
 
-            # Update correlation tab for dual-channel particles
+            # Update correlation tab for dual-channel measurements
             self._update_correlation_display()
         else:
             logger.debug("Selection cleared")
@@ -512,7 +512,7 @@ class Application:
             self._layout.export_tab.set_current_selection(selection)
 
     def _on_batch_changed(self, selections: list[ChannelSelection]) -> None:
-        """Handle batch selection change from particle tree.
+        """Handle batch selection change from measurement tree.
 
         Args:
             selections: List of all selected items.
@@ -655,16 +655,16 @@ class Application:
         """
         try:
             # Load the file
-            metadata, particles = load_h5_file(path)
+            metadata, measurements = load_h5_file(path)
             metadata.analysis_uuid = analysis_uuid
 
             # Update session state
             self._current_session_path = None
             self._session.file_metadata = metadata
-            self._session.particles = particles
+            self._session.measurements = measurements
             self._session.levels.clear()
             self._session.clustering_results.clear()
-            self._session.particle_fits.clear()
+            self._session.measurement_fits.clear()
             self._session.level_fits.clear()
             self._fit_cache.clear()
             self._irf_cache.clear()
@@ -684,13 +684,13 @@ class Application:
             self._update_menu_states_for_file(has_file=True)
 
             # Show success
-            self.set_status(f"Loaded {path.name}: {len(particles)} particles")
+            self.set_status(f"Loaded {path.name}: {len(measurements)} measurements")
             if self._layout:
                 self._layout.show_success(
-                    f"Loaded {len(particles)} particle(s) from {path.name}"
+                    f"Loaded {len(measurements)} measurement(s) from {path.name}"
                 )
 
-            logger.info(f"Successfully loaded {len(particles)} particles from {path}")
+            logger.info(f"Successfully loaded {len(measurements)} measurements from {path}")
 
         except FileNotFoundError as e:
             logger.error(f"File not found: {e}")
@@ -770,7 +770,7 @@ class Application:
                 )
 
             # Load the HDF5 file first
-            metadata, particles = load_h5_file(h5_path)
+            metadata, measurements = load_h5_file(h5_path)
             metadata.analysis_uuid = session_data["file_metadata"].get(
                 "analysis_uuid"
             )
@@ -778,7 +778,7 @@ class Application:
             # Reset session and apply loaded data
             self._session = SessionState()
             self._session.file_metadata = metadata
-            self._session.particles = particles
+            self._session.measurements = measurements
 
             # Apply session data (levels, clustering, fits, UI state)
             apply_session_to_state(session_data, self._session)
@@ -800,12 +800,12 @@ class Application:
             self.set_status(f"Session loaded from {path.name}")
             if self._layout:
                 self._layout.show_success(
-                    f"Loaded session with {len(particles)} particles"
+                    f"Loaded session with {len(measurements)} measurements"
                 )
 
             logger.info(
                 f"Successfully loaded session from {path} "
-                f"({len(particles)} particles)"
+                f"({len(measurements)} measurements)"
             )
 
         except FileNotFoundError as e:
@@ -831,10 +831,10 @@ class Application:
         if not self._layout:
             return
 
-        # Set up particle tree
-        if self._session.particles:
-            self._layout.set_particles(self._session.particles)
-            # Enable Fit button on lifetime tab (allows "Fit All" without selecting a particle)
+        # Set up measurement tree
+        if self._session.measurements:
+            self._layout.set_measurements(self._session.measurements)
+            # Enable Fit button on lifetime tab (allows "Fit All" without selecting a measurement)
             if self._layout.lifetime_tab:
                 self._layout.lifetime_tab.enable_fit_button()
 
@@ -948,7 +948,7 @@ class Application:
             use_lifetime = self._layout.grouping_tab.use_lifetime
             global_grouping = self._layout.grouping_tab.global_grouping
 
-        # Determine which particles to group
+        # Determine which measurements to group
         targets: list[ChannelSelection] = []
 
         if mode == "current":
@@ -957,32 +957,32 @@ class Application:
         elif mode == "selected":
             targets = list(self._session.selected)
         elif mode == "all":
-            # Create selections for all particles that have levels
-            for particle in self._session.particles:
+            # Create selections for all measurements that have levels
+            for measurement in self._session.measurements:
                 # Channel 1
-                if self._session.get_levels(particle.id, 1):
-                    targets.append(ChannelSelection(particle.id, 1))
+                if self._session.get_levels(measurement.id, 1):
+                    targets.append(ChannelSelection(measurement.id, 1))
                 # Channel 2 if dual channel and has levels
-                if particle.channel2 is not None and self._session.get_levels(particle.id, 2):
-                    targets.append(ChannelSelection(particle.id, 2))
+                if measurement.channel2 is not None and self._session.get_levels(measurement.id, 2):
+                    targets.append(ChannelSelection(measurement.id, 2))
 
         # Filter to only targets with levels
         targets = [
             t for t in targets
-            if self._session.get_levels(t.particle_id, t.channel) is not None
+            if self._session.get_levels(t.measurement_id, t.channel) is not None
         ]
 
         if not targets:
-            logger.warning("No particles with levels to group")
+            logger.warning("No measurements with levels to group")
             if self._layout:
-                self._layout.set_status("No particles with levels to group")
+                self._layout.set_status("No measurements with levels to group")
             return
 
         # Start processing
         self._grouping_mode = mode
         self._session.processing.start(
             "Clustering",
-            f"Grouping {len(targets)} particle(s)...",
+            f"Grouping {len(targets)} measurement(s)...",
         )
 
         # Disable group buttons
@@ -1001,9 +1001,9 @@ class Application:
         """Submit clustering tasks to the worker pool.
 
         Args:
-            targets: List of particle/channel selections to analyze.
+            targets: List of measurement/channel selections to analyze.
             use_lifetime: Whether to use lifetime in clustering.
-            global_grouping: Whether to group all particles together.
+            global_grouping: Whether to group all measurements together.
         """
         if not self._pool:
             logger.error("Worker pool not initialized")
@@ -1013,7 +1013,7 @@ class Application:
             # Combine all levels from all targets into a single clustering task
             all_levels: list[dict] = []
             for selection in targets:
-                levels = self._session.get_levels(selection.particle_id, selection.channel)
+                levels = self._session.get_levels(selection.measurement_id, selection.channel)
                 if levels:
                     for level in levels:
                         all_levels.append({
@@ -1031,7 +1031,7 @@ class Application:
                 params = {
                     "levels": all_levels,
                     "use_lifetime": use_lifetime,
-                    "particle_id": "global",  # Special marker for global grouping
+                    "measurement_id": "global",  # Special marker for global grouping
                     "channel_id": 0,
                 }
                 future = self._pool.submit(run_clustering_task, params)
@@ -1041,7 +1041,7 @@ class Application:
         else:
             # Submit individual clustering tasks for each target
             for selection in targets:
-                levels = self._session.get_levels(selection.particle_id, selection.channel)
+                levels = self._session.get_levels(selection.measurement_id, selection.channel)
                 if not levels:
                     continue
 
@@ -1063,7 +1063,7 @@ class Application:
                 params = {
                     "levels": level_dicts,
                     "use_lifetime": use_lifetime,
-                    "particle_id": selection.particle_id,
+                    "measurement_id": selection.measurement_id,
                     "channel_id": selection.channel,
                 }
 
@@ -1082,11 +1082,11 @@ class Application:
         """Handle fit request from lifetime tab's Fit button."""
         logger.info("Fit requested from tab")
 
-        # Check if ANY particle has levels (not just the current one)
-        # This allows level-based fitting even when no particle is selected
+        # Check if ANY measurement has levels (not just the current one)
+        # This allows level-based fitting even when no measurement is selected
         has_levels = len(self._session.levels) > 0
 
-        # Get selected level index from lifetime tab (if a particle is selected)
+        # Get selected level index from lifetime tab (if a measurement is selected)
         selected_level_index = None
         if self._session.current_selection:
             # Get selected level index from lifetime tab
@@ -1113,14 +1113,14 @@ class Application:
         if not self._session.current_selection:
             return
 
-        particle_id = self._session.current_selection.particle_id
+        measurement_id = self._session.current_selection.measurement_id
         channel_id = self._session.current_selection.channel
 
-        # Save the selected level for this particle/channel in session state
-        self._session.set_selected_level_index(particle_id, channel_id, level_index)
+        # Save the selected level for this measurement/channel in session state
+        self._session.set_selected_level_index(measurement_id, channel_id, level_index)
 
-        # Look up cached fit for this level (or particle if level_index is None)
-        cache_key = (particle_id, channel_id, level_index)
+        # Look up cached fit for this level (or measurement if level_index is None)
+        cache_key = (measurement_id, channel_id, level_index)
         fit_result = self._fit_cache.get(cache_key)
 
         if fit_result and self._layout and self._layout.lifetime_tab:
@@ -1143,7 +1143,7 @@ class Application:
                 )
 
             logger.debug(
-                f"Restored cached fit for particle {particle_id}, "
+                f"Restored cached fit for measurement {measurement_id}, "
                 f"channel {channel_id}, level {level_index}"
             )
 
@@ -1161,45 +1161,45 @@ class Application:
         # Store parameters for next time
         self._fitting_params = params
 
-        # Determine which particles to fit based on scope
+        # Determine which measurements to fit based on scope
         selections_to_fit = self._get_selections_for_scope(params.fit_scope)
         if not selections_to_fit:
-            logger.warning("No particles to fit")
+            logger.warning("No measurements to fit")
             if self._layout:
-                self._layout.set_status("No particles to fit")
+                self._layout.set_status("No measurements to fit")
             return
 
         # Submit fit tasks based on target
         tasks_submitted = 0
 
         for selection in selections_to_fit:
-            particle = self._session.get_particle(selection.particle_id)
-            if particle is None:
+            measurement = self._session.get_measurement(selection.measurement_id)
+            if measurement is None:
                 continue
 
             channel_data = (
-                particle.channel1 if selection.channel == 1 else particle.channel2
+                measurement.channel1 if selection.channel == 1 else measurement.channel2
             )
             if channel_data is None:
                 continue
 
-            if params.fit_target == FitTarget.PARTICLE:
-                # Fit full particle decay
-                self._submit_particle_fit_task(
-                    particle, channel_data, selection, params
+            if params.fit_target == FitTarget.MEASUREMENT:
+                # Fit full measurement decay
+                self._submit_measurement_fit_task(
+                    measurement, channel_data, selection, params
                 )
                 tasks_submitted += 1
 
             elif params.fit_target == FitTarget.SELECTED_LEVEL:
-                # Fit only the selected level (only for current particle)
+                # Fit only the selected level (only for current measurement)
                 if params.selected_level_index is not None:
                     levels = self._session.get_levels(
-                        selection.particle_id, selection.channel
+                        selection.measurement_id, selection.channel
                     )
                     if levels and params.selected_level_index < len(levels):
                         level = levels[params.selected_level_index]
                         self._submit_level_fit_task(
-                            particle,
+                            measurement,
                             channel_data,
                             selection,
                             params,
@@ -1209,14 +1209,14 @@ class Application:
                         tasks_submitted += 1
 
             elif params.fit_target == FitTarget.ALL_LEVELS:
-                # Fit all levels for this particle
+                # Fit all levels for this measurement
                 levels = self._session.get_levels(
-                    selection.particle_id, selection.channel
+                    selection.measurement_id, selection.channel
                 )
                 if levels:
                     for level_idx, level in enumerate(levels):
                         self._submit_level_fit_task(
-                            particle,
+                            measurement,
                             channel_data,
                             selection,
                             params,
@@ -1257,32 +1257,32 @@ class Application:
             return list(self._session.selected)
 
         elif scope == FitScope.ALL:
-            # Create selections for all particles (channel 1 by default)
+            # Create selections for all measurements (channel 1 by default)
             selections = []
-            for particle in self._session.particles:
+            for measurement in self._session.measurements:
                 selections.append(
-                    ChannelSelection(particle_id=particle.id, channel=1)
+                    ChannelSelection(measurement_id=measurement.id, channel=1)
                 )
                 # Add channel 2 if dual channel
-                if particle.has_dual_channel:
+                if measurement.has_dual_channel:
                     selections.append(
-                        ChannelSelection(particle_id=particle.id, channel=2)
+                        ChannelSelection(measurement_id=measurement.id, channel=2)
                     )
             return selections
 
         return []
 
-    def _submit_particle_fit_task(
+    def _submit_measurement_fit_task(
         self,
-        particle,
+        measurement,
         channel_data,
         selection: ChannelSelection,
         params: FittingParameters,
     ) -> None:
-        """Submit a fit task for full particle decay.
+        """Submit a fit task for full measurement decay.
 
         Args:
-            particle: The particle data.
+            measurement: The measurement data.
             channel_data: The channel data with microtimes.
             selection: The current selection.
             params: Fitting parameters.
@@ -1290,17 +1290,17 @@ class Application:
         from full_sms.analysis.histograms import build_decay_histogram
 
         t, counts = build_decay_histogram(
-            channel_data.microtimes, particle.channelwidth
+            channel_data.microtimes, measurement.channelwidth
         )
 
         task_params = self._build_fit_task_params(
-            t, counts, particle, selection, params
+            t, counts, measurement, selection, params
         )
-        # Mark as particle fit (no level)
+        # Mark as measurement fit (no level)
         task_params["level_id"] = None
 
         # Cache the IRF data for display if present
-        cache_key = (selection.particle_id, selection.channel, None)
+        cache_key = (selection.measurement_id, selection.channel, None)
         if "irf" in task_params:
             self._irf_cache[cache_key] = (t, task_params["irf"])
             # Track IRF config for session storage
@@ -1320,7 +1320,7 @@ class Application:
 
     def _submit_level_fit_task(
         self,
-        particle,
+        measurement,
         channel_data,
         selection: ChannelSelection,
         params: FittingParameters,
@@ -1330,7 +1330,7 @@ class Application:
         """Submit a fit task for a specific level.
 
         Args:
-            particle: The particle data.
+            measurement: The measurement data.
             channel_data: The channel data with microtimes.
             selection: The current selection.
             params: Fitting parameters.
@@ -1350,16 +1350,16 @@ class Application:
             )
             return
 
-        t, counts = build_decay_histogram(level_microtimes, particle.channelwidth)
+        t, counts = build_decay_histogram(level_microtimes, measurement.channelwidth)
 
         task_params = self._build_fit_task_params(
-            t, counts, particle, selection, params
+            t, counts, measurement, selection, params
         )
         # Mark as level fit
         task_params["level_id"] = level_index
 
         # Cache the IRF data for display if present
-        cache_key = (selection.particle_id, selection.channel, level_index)
+        cache_key = (selection.measurement_id, selection.channel, level_index)
         if "irf" in task_params:
             self._irf_cache[cache_key] = (t, task_params["irf"])
             # Track IRF config for session storage
@@ -1380,7 +1380,7 @@ class Application:
         self,
         t,
         counts,
-        particle,
+        measurement,
         selection: ChannelSelection,
         params: FittingParameters,
     ) -> dict:
@@ -1389,7 +1389,7 @@ class Application:
         Args:
             t: Time array for decay histogram.
             counts: Counts array for decay histogram.
-            particle: The particle data.
+            measurement: The measurement data.
             selection: The channel selection.
             params: Fitting parameters.
 
@@ -1399,7 +1399,7 @@ class Application:
         task_params = {
             "t": t,
             "counts": counts,
-            "channelwidth": particle.channelwidth,
+            "channelwidth": measurement.channelwidth,
             "num_exponentials": params.num_exponentials,
             "tau_init": params.get_tau_init_for_fit(),
             "tau_bounds": (params.tau_min, params.tau_max),
@@ -1407,7 +1407,7 @@ class Application:
             "shift_bounds": (params.shift_min, params.shift_max),
             "autostart": params.start_mode.value,
             "autoend": params.auto_end,
-            "particle_id": selection.particle_id,
+            "measurement_id": selection.measurement_id,
             "channel_id": selection.channel,
         }
 
@@ -1434,7 +1434,7 @@ class Application:
                 from full_sms.analysis.lifetime import simulate_irf
 
                 irf, _ = simulate_irf(
-                    channelwidth=particle.channelwidth,
+                    channelwidth=measurement.channelwidth,
                     fwhm=params.simulated_irf_fwhm,
                     measured=counts.astype(np.float64),
                 )
@@ -1444,7 +1444,7 @@ class Application:
                 from full_sms.analysis.lifetime import simulate_irf
 
                 irf, _ = simulate_irf(
-                    channelwidth=particle.channelwidth,
+                    channelwidth=measurement.channelwidth,
                     fwhm=params.simulated_irf_fwhm,
                     measured=counts.astype(np.float64),
                 )
@@ -1587,29 +1587,29 @@ class Application:
             return
 
         data = result.value
-        particle_id = data.get("particle_id")
+        measurement_id = data.get("measurement_id")
         channel_id = data.get("channel_id", 1)
 
         # Check if this is a CPA result (has "levels" key but not "steps")
         if "levels" in data and "steps" not in data:
-            self._handle_cpa_result(particle_id, channel_id, data)
+            self._handle_cpa_result(measurement_id, channel_id, data)
         # Check if this is a clustering result (has "steps" key)
         elif "steps" in data:
-            self._handle_clustering_result(particle_id, channel_id, data)
+            self._handle_clustering_result(measurement_id, channel_id, data)
         # Check if this is a fit result (has "tau" key but not "g2")
         elif "tau" in data and "g2" not in data:
-            self._handle_fit_result(particle_id, channel_id, data)
+            self._handle_fit_result(measurement_id, channel_id, data)
         # Check if this is a correlation result (has "g2" key)
         elif "g2" in data:
-            self._handle_correlation_result(particle_id, data)
+            self._handle_correlation_result(measurement_id, data)
 
     def _handle_cpa_result(
-        self, particle_id: int, channel_id: int, data: dict
+        self, measurement_id: int, channel_id: int, data: dict
     ) -> None:
         """Handle completed CPA result.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel_id: The channel ID.
             data: The result data containing levels.
         """
@@ -1628,10 +1628,10 @@ class Application:
             levels.append(level)
 
         # Store in session state
-        self._session.set_levels(particle_id, channel_id, levels)
+        self._session.set_levels(measurement_id, channel_id, levels)
 
         logger.info(
-            f"CPA complete for particle {particle_id}, channel {channel_id}: "
+            f"CPA complete for measurement {measurement_id}, channel {channel_id}: "
             f"{len(levels)} levels detected"
         )
 
@@ -1645,16 +1645,16 @@ class Application:
         if total > 0:
             self._session.processing.update(
                 completed / total,
-                f"Resolved {completed}/{total} particles...",
+                f"Resolved {completed}/{total} measurements...",
             )
 
     def _handle_clustering_result(
-        self, particle_id: int | str, channel_id: int, data: dict
+        self, measurement_id: int | str, channel_id: int, data: dict
     ) -> None:
         """Handle completed clustering result.
 
         Args:
-            particle_id: The particle ID (or "global" for global grouping).
+            measurement_id: The measurement ID (or "global" for global grouping).
             channel_id: The channel ID.
             data: The result data containing clustering steps.
         """
@@ -1662,7 +1662,7 @@ class Application:
 
         # Check for null result (not enough levels to cluster)
         if data.get("result") is None and "steps" not in data:
-            logger.warning(f"Clustering returned null for {particle_id}, {channel_id}")
+            logger.warning(f"Clustering returned null for {measurement_id}, {channel_id}")
             return
 
         # Convert step dicts back to ClusteringStep objects
@@ -1695,11 +1695,11 @@ class Application:
         )
 
         # Store in session state (if not global grouping)
-        if particle_id != "global":
-            self._session.set_clustering(particle_id, channel_id, result)
+        if measurement_id != "global":
+            self._session.set_clustering(measurement_id, channel_id, result)
 
             # Update levels with their group_id assignments
-            levels = self._session.get_levels(particle_id, channel_id)
+            levels = self._session.get_levels(measurement_id, channel_id)
             if levels and len(result.steps) > 0:
                 # Get the selected clustering step
                 selected_step = result.steps[result.selected_step_index]
@@ -1719,11 +1719,11 @@ class Application:
                     )
                     updated_levels.append(updated_level)
                 # Update session state with levels that have group_id
-                self._session.levels[(particle_id, channel_id)] = updated_levels
+                self._session.levels[(measurement_id, channel_id)] = updated_levels
                 logger.debug(f"Updated {len(updated_levels)} levels with group assignments")
 
         logger.info(
-            f"Clustering complete for particle {particle_id}, channel {channel_id}: "
+            f"Clustering complete for measurement {measurement_id}, channel {channel_id}: "
             f"{result.num_groups} groups (optimal), {len(steps)} steps"
         )
 
@@ -1737,16 +1737,16 @@ class Application:
         if total > 0:
             self._session.processing.update(
                 completed / total,
-                f"Grouped {completed}/{total} particles...",
+                f"Grouped {completed}/{total} measurements...",
             )
 
     def _handle_fit_result(
-        self, particle_id: int, channel_id: int, data: dict
+        self, measurement_id: int, channel_id: int, data: dict
     ) -> None:
         """Handle completed fit result.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel_id: The channel ID.
             data: The result data containing fit parameters.
         """
@@ -1758,7 +1758,7 @@ class Application:
                 self._layout.show_error(f"Fit failed: {data['error']}")
             return
 
-        # Get level_id to determine if this is a particle or level fit
+        # Get level_id to determine if this is a measurement or level fit
         level_id = data.get("level_id")
 
         # Convert to FitResult (for display)
@@ -1785,29 +1785,29 @@ class Application:
         fit_data = FitResultData.from_fit_result(fit_result, level_index=level_id)
 
         # Cache the full FitResult for display
-        self._fit_cache[(particle_id, channel_id, level_id)] = fit_result
+        self._fit_cache[(measurement_id, channel_id, level_id)] = fit_result
 
         # Store in session
         fwhm_log = ""
         if fit_result.fitted_irf_fwhm is not None:
             fwhm_log = f", fwhm={fit_result.fitted_irf_fwhm:.3f}"
         if level_id is None:
-            # Particle (full decay) fit
-            self._session.set_particle_fit(particle_id, channel_id, fit_data)
+            # Measurement (full decay) fit
+            self._session.set_measurement_fit(measurement_id, channel_id, fit_data)
             logger.info(
-                f"Particle fit complete for {particle_id}/{channel_id}: "
+                f"Measurement fit complete for {measurement_id}/{channel_id}: "
                 f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}{fwhm_log}"
             )
         else:
             # Level-specific fit
-            self._session.set_level_fit(particle_id, channel_id, level_id, fit_data)
+            self._session.set_level_fit(measurement_id, channel_id, level_id, fit_data)
             logger.info(
-                f"Level {level_id} fit complete for {particle_id}/{channel_id}: "
+                f"Level {level_id} fit complete for {measurement_id}/{channel_id}: "
                 f"tau={fit_result.tau}, chi2={fit_result.chi_squared:.3f}{fwhm_log}"
             )
 
         # Store IRFData in session for export
-        cache_key = (particle_id, channel_id, level_id)
+        cache_key = (measurement_id, channel_id, level_id)
         if cache_key in self._irf_config_cache:
             is_simulated, original_fwhm = self._irf_config_cache[cache_key]
             if is_simulated:
@@ -1816,14 +1816,14 @@ class Application:
                 if fwhm_to_store is not None:
                     irf_data_to_store = IRFData.from_simulated(fwhm_to_store)
                     if level_id is None:
-                        self._session.set_irf(particle_id, channel_id, irf_data_to_store)
+                        self._session.set_irf(measurement_id, channel_id, irf_data_to_store)
                     else:
                         self._session.set_level_irf(
-                            particle_id, channel_id, level_id, irf_data_to_store
+                            measurement_id, channel_id, level_id, irf_data_to_store
                         )
                     logger.debug(
                         f"Stored IRFData (simulated, fwhm={fwhm_to_store:.3f} ns) "
-                        f"for {particle_id}/{channel_id}/{level_id}"
+                        f"for {measurement_id}/{channel_id}/{level_id}"
                     )
 
         # Update the lifetime tab display (only if this is for the current selection)
@@ -1832,14 +1832,14 @@ class Application:
             self._layout
             and self._layout.lifetime_tab
             and current_sel
-            and current_sel.particle_id == particle_id
+            and current_sel.measurement_id == measurement_id
             and current_sel.channel == channel_id
         ):
-            # Only update display for particle fits or the currently selected level
+            # Only update display for measurement fits or the currently selected level
             selected_level = self._layout.lifetime_tab.selected_level_index
             if level_id is None or level_id == selected_level:
                 # Set IRF first (so it's available for fit curve computation)
-                cache_key = (particle_id, channel_id, level_id)
+                cache_key = (measurement_id, channel_id, level_id)
                 if cache_key in self._irf_cache:
                     t_irf, irf_data = self._irf_cache[cache_key]
 
@@ -1847,16 +1847,16 @@ class Application:
                     if fit_result.fitted_irf_fwhm is not None:
                         from full_sms.analysis.lifetime import simulate_irf
 
-                        # Get channelwidth from current particle
-                        particle = self._session.get_particle(particle_id)
-                        if particle:
+                        # Get channelwidth from current measurement
+                        measurement = self._session.get_measurement(measurement_id)
+                        if measurement:
                             ch_data = (
-                                particle.channel1
+                                measurement.channel1
                                 if channel_id == 1
-                                else particle.channel2
+                                else measurement.channel2
                             )
                             if ch_data:
-                                channelwidth = particle.channelwidth
+                                channelwidth = measurement.channelwidth
                                 # Get histogram for simulate_irf
                                 from full_sms.analysis.histograms import (
                                     build_decay_histogram,
@@ -1865,7 +1865,7 @@ class Application:
                                 if level_id is not None:
                                     # Level-specific histogram
                                     cpa_result = self._session.get_cpa_result(
-                                        particle_id, channel_id
+                                        measurement_id, channel_id
                                     )
                                     if cpa_result and level_id < len(cpa_result.levels):
                                         level = cpa_result.levels[level_id]
@@ -1925,11 +1925,11 @@ class Application:
                 f"Fit complete{level_info}: tau = {tau_str} ns, chi2 = {fit_result.chi_squared:.3f}{fwhm_info}"
             )
 
-    def _handle_correlation_result(self, particle_id: int, data: dict) -> None:
+    def _handle_correlation_result(self, measurement_id: int, data: dict) -> None:
         """Handle completed correlation result.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             data: The result data containing g2 correlation values.
         """
         from full_sms.analysis.correlation import CorrelationResult
@@ -1946,7 +1946,7 @@ class Application:
         )
 
         logger.info(
-            f"Correlation complete for particle {particle_id}: "
+            f"Correlation complete for measurement {measurement_id}: "
             f"{result.num_events} events, window={result.window_ns}ns"
         )
 
@@ -1999,12 +1999,12 @@ class Application:
             if updated_result:
                 # Update the session state with the new selected step
                 self._session.set_clustering(
-                    self._session.current_selection.particle_id,
+                    self._session.current_selection.measurement_id,
                     self._session.current_selection.channel,
                     updated_result,
                 )
                 logger.debug(
-                    f"Session updated: particle {self._session.current_selection.particle_id} "
+                    f"Session updated: measurement {self._session.current_selection.measurement_id} "
                     f"now has {num_groups} groups selected"
                 )
 
@@ -2040,20 +2040,20 @@ class Application:
 
         # Check if we have a current selection
         if not self._session.current_selection:
-            logger.warning("No particle selected for correlation")
+            logger.warning("No measurement selected for correlation")
             if self._layout:
-                self._layout.set_status("Select a particle for correlation")
+                self._layout.set_status("Select a measurement for correlation")
             return
 
         selection = self._session.current_selection
-        particle = self._session.get_particle(selection.particle_id)
-        if particle is None:
-            logger.warning(f"Particle {selection.particle_id} not found")
+        measurement = self._session.get_measurement(selection.measurement_id)
+        if measurement is None:
+            logger.warning(f"Measurement {selection.measurement_id} not found")
             return
 
         # Check for dual channel
-        if not particle.has_dual_channel:
-            logger.warning("Particle does not have dual channels")
+        if not measurement.has_dual_channel:
+            logger.warning("Measurement does not have dual channels")
             if self._layout:
                 self._layout.set_status("Correlation requires dual-channel data")
             return
@@ -2067,11 +2067,11 @@ class Application:
             self._layout.correlation_tab.enable_correlate_button(False)
 
         # Submit correlation task
-        self._submit_correlation_task(particle, window_ns, binsize_ns, difftime_ns)
+        self._submit_correlation_task(measurement, window_ns, binsize_ns, difftime_ns)
 
     def _submit_correlation_task(
         self,
-        particle,
+        measurement,
         window_ns: float,
         binsize_ns: float,
         difftime_ns: float,
@@ -2079,7 +2079,7 @@ class Application:
         """Submit a correlation task to the worker pool.
 
         Args:
-            particle: The particle with dual-channel data.
+            measurement: The measurement with dual-channel data.
             window_ns: Correlation window in nanoseconds.
             binsize_ns: Histogram bin size in nanoseconds.
             difftime_ns: Channel time offset in nanoseconds.
@@ -2089,20 +2089,20 @@ class Application:
             return
 
         params = {
-            "abstimes1": particle.channel1.abstimes.astype(np.float64),
-            "abstimes2": particle.channel2.abstimes.astype(np.float64),
-            "microtimes1": particle.channel1.microtimes,
-            "microtimes2": particle.channel2.microtimes,
+            "abstimes1": measurement.channel1.abstimes.astype(np.float64),
+            "abstimes2": measurement.channel2.abstimes.astype(np.float64),
+            "microtimes1": measurement.channel1.microtimes,
+            "microtimes2": measurement.channel2.microtimes,
             "window_ns": window_ns,
             "binsize_ns": binsize_ns,
             "difftime_ns": difftime_ns,
-            "particle_id": particle.id,
+            "measurement_id": measurement.id,
         }
 
         future = self._pool.submit(run_correlation_task, params)
         self._pending_futures.append(future)
 
-        logger.info(f"Submitted correlation task for particle {particle.id}")
+        logger.info(f"Submitted correlation task for measurement {measurement.id}")
 
     def _finish_correlation(self) -> None:
         """Finish the correlation operation and update the UI."""
@@ -2189,12 +2189,12 @@ class Application:
             if levels:
                 # Ensure intensity data is set on the grouping tab's intensity plot
                 # (needed because the plot may have been hidden when data was first set)
-                particle = self._session.get_current_particle()
-                if particle:
+                measurement = self._session.get_current_measurement()
+                if measurement:
                     channel = (
-                        particle.channel1
+                        measurement.channel1
                         if self._session.current_selection.channel == 1
-                        else particle.channel2
+                        else measurement.channel2
                     )
                     if channel:
                         self._layout.grouping_tab.set_intensity_data(channel.abstimes)
@@ -2244,17 +2244,17 @@ class Application:
             levels = self._session.get_current_levels()
             has_current = levels is not None and len(levels) > 0
 
-        # Check if any selected particles have levels
+        # Check if any selected measurements have levels
         has_selected = any(
-            self._session.get_levels(s.particle_id, s.channel) is not None
+            self._session.get_levels(s.measurement_id, s.channel) is not None
             for s in self._session.selected
         )
 
-        # Check if any particles have levels
+        # Check if any measurements have levels
         has_any = any(
             self._session.get_levels(p.id, 1) is not None
             or (p.channel2 is not None and self._session.get_levels(p.id, 2) is not None)
-            for p in self._session.particles
+            for p in self._session.measurements
         )
 
         self._layout.grouping_tab.set_group_buttons_state(
@@ -2294,7 +2294,7 @@ class Application:
             logger.warning("Already processing, ignoring resolve request")
             return
 
-        # Determine which particles to resolve
+        # Determine which measurements to resolve
         targets: list[ChannelSelection] = []
 
         if mode == "current":
@@ -2303,25 +2303,25 @@ class Application:
         elif mode == "selected":
             targets = list(self._session.selected)
         elif mode == "all":
-            # Create selections for all particles
-            for particle in self._session.particles:
+            # Create selections for all measurements
+            for measurement in self._session.measurements:
                 # Channel 1
-                targets.append(ChannelSelection(particle.id, 1))
+                targets.append(ChannelSelection(measurement.id, 1))
                 # Channel 2 if dual channel
-                if particle.channel2 is not None:
-                    targets.append(ChannelSelection(particle.id, 2))
+                if measurement.channel2 is not None:
+                    targets.append(ChannelSelection(measurement.id, 2))
 
         if not targets:
-            logger.warning("No particles to resolve")
+            logger.warning("No measurements to resolve")
             if self._layout:
-                self._layout.set_status("No particles selected for analysis")
+                self._layout.set_status("No measurements selected for analysis")
             return
 
         # Start processing
         self._resolve_mode = mode
         self._session.processing.start(
             "Change point analysis",
-            f"Resolving {len(targets)} particle(s)...",
+            f"Resolving {len(targets)} measurement(s)...",
         )
 
         # Disable resolve buttons
@@ -2337,7 +2337,7 @@ class Application:
         """Submit CPA tasks to the worker pool.
 
         Args:
-            targets: List of particle/channel selections to analyze.
+            targets: List of measurement/channel selections to analyze.
             confidence: The confidence level.
         """
         if not self._pool:
@@ -2345,21 +2345,21 @@ class Application:
             return
 
         for selection in targets:
-            particle = self._session.get_particle(selection.particle_id)
-            if particle is None:
-                logger.warning(f"Particle {selection.particle_id} not found")
+            measurement = self._session.get_measurement(selection.measurement_id)
+            if measurement is None:
+                logger.warning(f"Measurement {selection.measurement_id} not found")
                 continue
 
             # Get abstimes for the selected channel
             if selection.channel == 1:
-                channel_data = particle.channel1
+                channel_data = measurement.channel1
             else:
-                channel_data = particle.channel2
+                channel_data = measurement.channel2
 
             if channel_data is None:
                 logger.warning(
-                    f"No channel {selection.channel} data for particle "
-                    f"{selection.particle_id}"
+                    f"No channel {selection.channel} data for measurement "
+                    f"{selection.measurement_id}"
                 )
                 continue
 
@@ -2367,7 +2367,7 @@ class Application:
             params = {
                 "abstimes": channel_data.abstimes.astype(np.float64),
                 "confidence": confidence.value,
-                "particle_id": selection.particle_id,
+                "measurement_id": selection.measurement_id,
                 "channel_id": selection.channel,
             }
 
@@ -2394,7 +2394,7 @@ class Application:
         if levels:
             self._layout.intensity_tab.set_levels(levels)
         else:
-            # Clear levels when switching to a particle without levels
+            # Clear levels when switching to a measurement without levels
             self._layout.intensity_tab.clear_levels()
 
     def _update_lifetime_display(self) -> None:
@@ -2405,7 +2405,7 @@ class Application:
         if not self._session.current_selection:
             return
 
-        particle_id = self._session.current_selection.particle_id
+        measurement_id = self._session.current_selection.measurement_id
         channel_id = self._session.current_selection.channel
 
         # Get levels for current selection
@@ -2413,12 +2413,12 @@ class Application:
         if levels:
             self._layout.set_lifetime_levels(levels)
         else:
-            # Clear levels when switching to a particle without levels
+            # Clear levels when switching to a measurement without levels
             self._layout.clear_lifetime_levels()
 
-        # Restore previously selected level for this particle (if any)
+        # Restore previously selected level for this measurement (if any)
         # This happens after set_levels which resets to "all data" view
-        cached_level_index = self._session.get_selected_level_index(particle_id, channel_id)
+        cached_level_index = self._session.get_selected_level_index(measurement_id, channel_id)
 
         if cached_level_index is not None and levels:
             # Restore the previously selected level
@@ -2427,12 +2427,12 @@ class Application:
                 self._layout.lifetime_tab.select_level(cached_level_index)
                 logger.debug(
                     f"Restored level selection {cached_level_index} for "
-                    f"particle {particle_id}, channel {channel_id}"
+                    f"measurement {measurement_id}, channel {channel_id}"
                 )
                 return  # select_level will trigger callback to restore fit
 
         # If no cached level or not valid, restore fit for "all data" (level_index=None)
-        cache_key = (particle_id, channel_id, None)
+        cache_key = (measurement_id, channel_id, None)
         fit_result = self._fit_cache.get(cache_key)
 
         if fit_result:
@@ -2454,7 +2454,7 @@ class Application:
                 )
 
             logger.debug(
-                f"Restored cached fit for particle {particle_id}, channel {channel_id}"
+                f"Restored cached fit for measurement {measurement_id}, channel {channel_id}"
             )
         else:
             # Clear any stale fit/IRF display
@@ -2470,22 +2470,22 @@ class Application:
             self._layout.clear_correlation_data()
             return
 
-        # Get the current particle
-        particle = self._session.get_particle(
-            self._session.current_selection.particle_id
+        # Get the current measurement
+        measurement = self._session.get_measurement(
+            self._session.current_selection.measurement_id
         )
-        if particle is None:
+        if measurement is None:
             self._layout.clear_correlation_data()
             return
 
-        # Check if this particle has dual channels
-        if particle.has_dual_channel and particle.channel2 is not None:
+        # Check if this measurement has dual channels
+        if measurement.has_dual_channel and measurement.channel2 is not None:
             # Set dual-channel data
             self._layout.set_correlation_data(
-                particle.channel1.abstimes,
-                particle.channel2.abstimes,
-                particle.channel1.microtimes,
-                particle.channel2.microtimes,
+                measurement.channel1.abstimes,
+                measurement.channel2.abstimes,
+                measurement.channel1.microtimes,
+                measurement.channel2.microtimes,
             )
         else:
             # Single channel - show message
@@ -2498,10 +2498,10 @@ class Application:
 
         has_current = self._session.current_selection is not None
         has_selected = len(self._session.selected) > 0
-        has_any = len(self._session.particles) > 0
+        has_any = len(self._session.measurements) > 0
 
         # Enable buttons based on availability, not on whether data is currently displayed
-        # This allows "Resolve All" even without selecting a particle first
+        # This allows "Resolve All" even without selecting a measurement first
         self._layout.intensity_tab.set_resolve_buttons_state(
             has_current=has_current,
             has_selected=has_selected,

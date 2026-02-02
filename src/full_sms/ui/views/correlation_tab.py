@@ -55,7 +55,7 @@ class CorrelationTab:
     """Correlation analysis tab view.
 
     Contains the g2 correlation plot and controls for analysis parameters.
-    Only enabled for particles with dual TCSPC channels.
+    Only enabled for measurements with dual TCSPC channels.
     """
 
     def __init__(
@@ -128,7 +128,7 @@ class CorrelationTab:
 
     @property
     def is_dual_channel(self) -> bool:
-        """Whether current particle has dual channels."""
+        """Whether current measurement has dual channels."""
         return self._is_dual_channel
 
     @property
@@ -168,14 +168,14 @@ class CorrelationTab:
             ):
                 # No data placeholder (shown when no file loaded)
                 dpg.add_text(
-                    "Load an HDF5 file and select a particle to view correlation.",
+                    "Load an HDF5 file and select a measurement to view correlation.",
                     tag=self._tags.no_data_text,
                     color=(128, 128, 128),
                 )
 
-                # Single channel placeholder (shown when particle has only one channel)
+                # Single channel placeholder (shown when measurement has only one channel)
                 dpg.add_text(
-                    "This particle has only one TCSPC channel.\n"
+                    "This measurement has only one TCSPC channel.\n"
                     "Correlation analysis requires dual-channel data.",
                     tag=self._tags.single_channel_text,
                     color=(180, 140, 100),
@@ -396,7 +396,7 @@ class CorrelationTab:
         )
 
     def set_single_channel(self) -> None:
-        """Indicate that the current particle has only one channel."""
+        """Indicate that the current measurement has only one channel."""
         self._abstimes1 = None
         self._abstimes2 = None
         self._microtimes1 = None

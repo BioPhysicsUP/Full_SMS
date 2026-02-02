@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import dearpygui.dearpygui as dpg
 
-from full_sms.models.particle import RasterScanData
+from full_sms.models.measurement import RasterScanData
 from full_sms.ui.plots.raster_plot import RasterPlot
 
 logger = logging.getLogger(__name__)
@@ -127,14 +127,14 @@ class RasterTab:
             ):
                 # No data placeholder (shown when no file loaded)
                 dpg.add_text(
-                    "Load an HDF5 file and select a particle to view raster scan.",
+                    "Load an HDF5 file and select a measurement to view raster scan.",
                     tag=self._tags.no_data_text,
                     color=(128, 128, 128),
                 )
 
-                # No raster scan placeholder (shown when particle has no raster)
+                # No raster scan placeholder (shown when measurement has no raster)
                 dpg.add_text(
-                    "This particle does not have raster scan data.",
+                    "This measurement does not have raster scan data.",
                     tag=self._tags.no_raster_text,
                     color=(180, 140, 100),
                     show=False,
@@ -232,7 +232,7 @@ class RasterTab:
         )
 
     def set_no_raster(self) -> None:
-        """Set the tab to show that the current particle has no raster scan."""
+        """Set the tab to show that the current measurement has no raster scan."""
         self._raster_data = None
 
         if self._raster_plot:
@@ -340,21 +340,21 @@ class RasterTab:
         vs. the no-data-loaded message.
 
         Args:
-            has_raster: Whether any particles in the file have raster scans.
+            has_raster: Whether any measurements in the file have raster scans.
         """
         self._has_raster_in_file = has_raster
 
-    def set_particle_marker(self, x: float, y: float) -> None:
-        """Set the particle position marker on the raster scan.
+    def set_measurement_marker(self, x: float, y: float) -> None:
+        """Set the measurement position marker on the raster scan.
 
         Args:
             x: X coordinate in micrometers.
             y: Y coordinate in micrometers.
         """
         if self._raster_plot:
-            self._raster_plot.set_particle_marker(x, y)
+            self._raster_plot.set_measurement_marker(x, y)
 
-    def clear_particle_marker(self) -> None:
-        """Clear the particle position marker."""
+    def clear_measurement_marker(self) -> None:
+        """Clear the measurement position marker."""
         if self._raster_plot:
-            self._raster_plot.clear_particle_marker()
+            self._raster_plot.clear_measurement_marker()

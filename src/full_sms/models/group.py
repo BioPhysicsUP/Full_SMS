@@ -16,7 +16,7 @@ class GroupData:
 
     Attributes:
         group_id: Unique identifier for this group within the clustering result.
-        level_indices: Indices of levels (in the particle's level list) that belong to this group.
+        level_indices: Indices of levels (in the measurement's level list) that belong to this group.
         total_photons: Sum of photons across all levels in this group.
         total_dwell_time_s: Sum of dwell times (in seconds) across all levels.
         intensity_cps: Average intensity in counts per second (total_photons / total_dwell_time_s).

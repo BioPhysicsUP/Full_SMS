@@ -43,7 +43,7 @@ def run_cpa_task(params: dict[str, Any]) -> dict[str, Any]:
             - min_photons (int, optional): Minimum photons per segment (default 20).
             - min_boundary_offset (int, optional): Minimum edge distance (default 7).
             - end_time_ns (float, optional): Analysis end time in nanoseconds.
-            - particle_id (Any, optional): Identifier to include in result.
+            - measurement_id (Any, optional): Identifier to include in result.
             - channel_id (Any, optional): Channel identifier to include in result.
 
     Returns:
@@ -52,7 +52,7 @@ def run_cpa_task(params: dict[str, Any]) -> dict[str, Any]:
             - levels (list[dict]): List of level data dictionaries.
             - num_change_points (int): Number of detected change points.
             - confidence_regions (list[tuple[int, int]]): Confidence regions.
-            - particle_id: Original particle_id if provided.
+            - measurement_id: Original measurement_id if provided.
             - channel_id: Original channel_id if provided.
     """
     from full_sms.analysis import find_change_points
@@ -79,7 +79,7 @@ def run_cpa_task(params: dict[str, Any]) -> dict[str, Any]:
         "levels": [_level_to_dict(level) for level in result.levels],
         "num_change_points": result.num_change_points,
         "confidence_regions": result.confidence_regions,
-        "particle_id": params.get("particle_id"),
+        "measurement_id": params.get("measurement_id"),
         "channel_id": params.get("channel_id"),
     }
 
@@ -93,7 +93,7 @@ def run_clustering_task(params: dict[str, Any]) -> dict[str, Any]:
                 Each dict should have: start_index, end_index, start_time_ns,
                 end_time_ns, num_photons, dwell_time_s, intensity_cps.
             - use_lifetime (bool, optional): Include lifetime in clustering (default False).
-            - particle_id (Any, optional): Identifier to include in result.
+            - measurement_id (Any, optional): Identifier to include in result.
             - channel_id (Any, optional): Channel identifier to include in result.
 
     Returns:
@@ -102,7 +102,7 @@ def run_clustering_task(params: dict[str, Any]) -> dict[str, Any]:
             - optimal_step_index (int): Index of optimal BIC step.
             - selected_step_index (int): Currently selected step index.
             - num_original_levels (int): Number of input levels.
-            - particle_id: Original particle_id if provided.
+            - measurement_id: Original measurement_id if provided.
             - channel_id: Original channel_id if provided.
             Returns None if clustering not possible (e.g., < 1 level).
     """
@@ -121,7 +121,7 @@ def run_clustering_task(params: dict[str, Any]) -> dict[str, Any]:
     if result is None:
         return {
             "result": None,
-            "particle_id": params.get("particle_id"),
+            "measurement_id": params.get("measurement_id"),
             "channel_id": params.get("channel_id"),
         }
 
@@ -131,7 +131,7 @@ def run_clustering_task(params: dict[str, Any]) -> dict[str, Any]:
         "optimal_step_index": result.optimal_step_index,
         "selected_step_index": result.selected_step_index,
         "num_original_levels": result.num_original_levels,
-        "particle_id": params.get("particle_id"),
+        "measurement_id": params.get("measurement_id"),
         "channel_id": params.get("channel_id"),
     }
 
@@ -161,7 +161,7 @@ def run_fit_task(params: dict[str, Any]) -> dict[str, Any]:
             - fit_irf_fwhm (bool, optional): Fit IRF FWHM (default False).
             - irf_fwhm_init (float, optional): Initial FWHM guess in nanoseconds.
             - irf_fwhm_bounds (tuple[float, float], optional): FWHM bounds.
-            - particle_id (Any, optional): Identifier to include in result.
+            - measurement_id (Any, optional): Identifier to include in result.
             - channel_id (Any, optional): Channel identifier to include in result.
             - level_id (Any, optional): Level identifier to include in result.
             - group_id (Any, optional): Group identifier to include in result.
@@ -186,7 +186,7 @@ def run_fit_task(params: dict[str, Any]) -> dict[str, Any]:
             - average_lifetime (float): Amplitude-weighted average lifetime.
             - fitted_irf_fwhm (float or None): Fitted IRF FWHM if fit_irf_fwhm=True.
             - fitted_irf_fwhm_std (float or None): Standard error of fitted FWHM.
-            - particle_id, channel_id, level_id, group_id: Original identifiers.
+            - measurement_id, channel_id, level_id, group_id: Original identifiers.
             - error (str or None): Error message if fitting failed.
     """
     from full_sms.analysis import fit_decay
@@ -230,7 +230,7 @@ def run_fit_task(params: dict[str, Any]) -> dict[str, Any]:
 
     # Build result dict with identifiers
     result_dict: dict[str, Any] = {
-        "particle_id": params.get("particle_id"),
+        "measurement_id": params.get("measurement_id"),
         "channel_id": params.get("channel_id"),
         "level_id": params.get("level_id"),
         "group_id": params.get("group_id"),
@@ -303,7 +303,7 @@ def run_correlation_task(params: dict[str, Any]) -> dict[str, Any]:
             - window_ns (float, optional): Correlation window (default 500 ns).
             - binsize_ns (float, optional): Histogram bin size (default 0.5 ns).
             - difftime_ns (float, optional): Channel offset (default 0).
-            - particle_id (Any, optional): Identifier to include in result.
+            - measurement_id (Any, optional): Identifier to include in result.
 
     Returns:
         Dictionary containing:
@@ -315,7 +315,7 @@ def run_correlation_task(params: dict[str, Any]) -> dict[str, Any]:
             - num_photons_ch1 (int): Photons in channel 1.
             - num_photons_ch2 (int): Photons in channel 2.
             - num_events (int): Total correlation events.
-            - particle_id: Original particle_id if provided.
+            - measurement_id: Original measurement_id if provided.
     """
     from full_sms.analysis import calculate_g2
 
@@ -349,7 +349,7 @@ def run_correlation_task(params: dict[str, Any]) -> dict[str, Any]:
         "num_photons_ch1": result.num_photons_ch1,
         "num_photons_ch2": result.num_photons_ch2,
         "num_events": result.num_events,
-        "particle_id": params.get("particle_id"),
+        "measurement_id": params.get("measurement_id"),
     }
 
 

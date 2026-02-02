@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from full_sms.models.fit import FitResult
     from full_sms.models.group import ClusteringResult, GroupData
     from full_sms.models.level import LevelData
-    from full_sms.models.particle import ParticleData
+    from full_sms.models.measurement import MeasurementData
     from full_sms.models.session import SessionState
 
 
@@ -54,7 +54,7 @@ def export_intensity_trace(
     output_path: Path,
     bin_size_ms: float = 10.0,
     fmt: ExportFormat = ExportFormat.CSV,
-    particle_name: str = "",
+    measurement_name: str = "",
 ) -> Path:
     """Export binned intensity trace to a file.
 
@@ -63,7 +63,7 @@ def export_intensity_trace(
         output_path: Path to output file (without extension).
         bin_size_ms: Bin size in milliseconds.
         fmt: Export format.
-        particle_name: Optional particle name for metadata.
+        measurement_name: Optional measurement name for metadata.
 
     Returns:
         Path to the exported file.
@@ -87,7 +87,7 @@ def export_intensity_trace(
         _export_intensity_excel(output_file, times_ms, counts, intensity_cps)
     elif fmt == ExportFormat.JSON:
         _export_intensity_json(
-            output_file, times_ms, counts, intensity_cps, bin_size_ms, particle_name
+            output_file, times_ms, counts, intensity_cps, bin_size_ms, measurement_name
         )
     else:
         raise ValueError(f"Unsupported format: {fmt}")
@@ -163,14 +163,14 @@ def _export_intensity_json(
     counts: NDArray[np.int64],
     intensity_cps: NDArray[np.float64],
     bin_size_ms: float,
-    particle_name: str,
+    measurement_name: str,
 ) -> None:
     """Export intensity trace to JSON format."""
     data = {
         "metadata": {
             "type": "intensity_trace",
             "bin_size_ms": bin_size_ms,
-            "particle_name": particle_name,
+            "measurement_name": measurement_name,
             "num_bins": len(times_ms),
         },
         "data": {
@@ -187,7 +187,7 @@ def export_levels(
     levels: list[LevelData],
     output_path: Path,
     fmt: ExportFormat = ExportFormat.CSV,
-    particle_name: str = "",
+    measurement_name: str = "",
     level_fits: dict[int, "FitResultData"] | None = None,
 ) -> Path:
     """Export detected levels to a file.
@@ -196,7 +196,7 @@ def export_levels(
         levels: List of LevelData from change point analysis.
         output_path: Path to output file (without extension).
         fmt: Export format.
-        particle_name: Optional particle name for metadata.
+        measurement_name: Optional measurement name for metadata.
         level_fits: Optional dict mapping level_index to FitResultData for that level.
 
     Returns:
@@ -212,7 +212,7 @@ def export_levels(
     elif fmt == ExportFormat.EXCEL:
         _export_levels_excel(output_file, levels, level_fits)
     elif fmt == ExportFormat.JSON:
-        _export_levels_json(output_file, levels, particle_name, level_fits)
+        _export_levels_json(output_file, levels, measurement_name, level_fits)
     else:
         raise ValueError(f"Unsupported format: {fmt}")
 
@@ -409,12 +409,12 @@ def _export_levels_excel(path: Path, levels: list[LevelData], level_fits: dict[i
     wb.save(path)
 
 
-def _export_levels_json(path: Path, levels: list[LevelData], particle_name: str, level_fits: dict[int, "FitResultData"] | None = None) -> None:
+def _export_levels_json(path: Path, levels: list[LevelData], measurement_name: str, level_fits: dict[int, "FitResultData"] | None = None) -> None:
     """Export levels to JSON format."""
     data = {
         "metadata": {
             "type": "levels",
-            "particle_name": particle_name,
+            "measurement_name": measurement_name,
             "num_levels": len(levels),
         },
         "levels": [
@@ -438,7 +438,7 @@ def export_groups(
     groups: list[GroupData],
     output_path: Path,
     fmt: ExportFormat = ExportFormat.CSV,
-    particle_name: str = "",
+    measurement_name: str = "",
 ) -> Path:
     """Export clustered groups to a file.
 
@@ -446,7 +446,7 @@ def export_groups(
         groups: List of GroupData from clustering.
         output_path: Path to output file (without extension).
         fmt: Export format.
-        particle_name: Optional particle name for metadata.
+        measurement_name: Optional measurement name for metadata.
 
     Returns:
         Path to the exported file.
@@ -461,7 +461,7 @@ def export_groups(
     elif fmt == ExportFormat.EXCEL:
         _export_groups_excel(output_file, groups)
     elif fmt == ExportFormat.JSON:
-        _export_groups_json(output_file, groups, particle_name)
+        _export_groups_json(output_file, groups, measurement_name)
     else:
         raise ValueError(f"Unsupported format: {fmt}")
 
@@ -547,12 +547,12 @@ def _export_groups_excel(path: Path, groups: list[GroupData]) -> None:
     wb.save(path)
 
 
-def _export_groups_json(path: Path, groups: list[GroupData], particle_name: str) -> None:
+def _export_groups_json(path: Path, groups: list[GroupData], measurement_name: str) -> None:
     """Export groups to JSON format."""
     data = {
         "metadata": {
             "type": "groups",
-            "particle_name": particle_name,
+            "measurement_name": measurement_name,
             "num_groups": len(groups),
         },
         "groups": [
@@ -579,7 +579,7 @@ def export_fit_results(
     """Export lifetime fit results to a file.
 
     Args:
-        fit_results: Dict mapping (particle_id, channel, level_or_group_id) to FitResult.
+        fit_results: Dict mapping (measurement_id, channel, level_or_group_id) to FitResult.
         output_path: Path to output file (without extension).
         fmt: Export format.
 
@@ -611,7 +611,7 @@ def _export_fit_results_csv(
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "particle_id",
+            "measurement_id",
             "channel",
             "level_or_group_id",
             "num_exponentials",
@@ -630,9 +630,9 @@ def _export_fit_results_csv(
             "shift",
             "background",
         ])
-        for (pid, ch, level_id), fit in fit_results.items():
+        for (mid, ch, level_id), fit in fit_results.items():
             row = [
-                pid,
+                mid,
                 ch,
                 level_id,
                 fit.num_exponentials,
@@ -665,7 +665,7 @@ def _export_fit_results_parquet(
         raise ImportError("pyarrow is required for Parquet export. Install with: pip install pyarrow")
 
     data: dict[str, list] = {
-        "particle_id": [],
+        "measurement_id": [],
         "channel": [],
         "level_or_group_id": [],
         "num_exponentials": [],
@@ -682,8 +682,8 @@ def _export_fit_results_parquet(
         "background": [],
     }
 
-    for (pid, ch, level_id), fit in fit_results.items():
-        data["particle_id"].append(pid)
+    for (mid, ch, level_id), fit in fit_results.items():
+        data["measurement_id"].append(mid)
         data["channel"].append(ch)
         data["level_or_group_id"].append(level_id)
         data["num_exponentials"].append(fit.num_exponentials)
@@ -718,7 +718,7 @@ def _export_fit_results_excel(
 
     # Header
     ws.append([
-        "particle_id",
+        "measurement_id",
         "channel",
         "level_or_group_id",
         "num_exponentials",
@@ -739,9 +739,9 @@ def _export_fit_results_excel(
     ])
 
     # Data
-    for (pid, ch, level_id), fit in fit_results.items():
+    for (mid, ch, level_id), fit in fit_results.items():
         ws.append([
-            pid,
+            mid,
             ch,
             level_id,
             fit.num_exponentials,
@@ -769,9 +769,9 @@ def _export_fit_results_json(
 ) -> None:
     """Export fit results to JSON format."""
     results = []
-    for (pid, ch, level_id), fit in fit_results.items():
+    for (mid, ch, level_id), fit in fit_results.items():
         results.append({
-            "particle_id": pid,
+            "measurement_id": mid,
             "channel": ch,
             "level_or_group_id": level_id,
             "num_exponentials": fit.num_exponentials,
@@ -797,9 +797,9 @@ def _export_fit_results_json(
         json.dump(data, f, indent=2)
 
 
-def export_all_particle_data(
+def export_all_measurement_data(
     state: SessionState,
-    particle_id: int,
+    measurement_id: int,
     channel: int,
     output_dir: Path,
     fmt: ExportFormat = ExportFormat.CSV,
@@ -809,11 +809,11 @@ def export_all_particle_data(
     export_fits: bool = True,
     bin_size_ms: float = 10.0,
 ) -> list[Path]:
-    """Export all analysis data for a single particle.
+    """Export all analysis data for a single measurement.
 
     Args:
         state: The session state containing all data.
-        particle_id: The particle ID to export.
+        measurement_id: The measurement ID to export.
         channel: The channel number (1 or 2).
         output_dir: Directory to export files to.
         fmt: Export format.
@@ -827,34 +827,34 @@ def export_all_particle_data(
         List of paths to exported files.
     """
     exported_files: list[Path] = []
-    particle = state.get_particle(particle_id)
+    measurement = state.get_measurement(measurement_id)
 
-    if particle is None:
-        logger.warning(f"Particle {particle_id} not found")
+    if measurement is None:
+        logger.warning(f"Measurement {measurement_id} not found")
         return exported_files
 
-    prefix = f"particle_{particle_id}_ch{channel}"
+    prefix = f"measurement_{measurement_id}_ch{channel}"
 
     # Export intensity trace
     if export_intensity:
-        channel_data = particle.channel1 if channel == 1 else particle.channel2
+        channel_data = measurement.channel1 if channel == 1 else measurement.channel2
         if channel_data is not None:
             path = export_intensity_trace(
                 channel_data.abstimes,
                 output_dir / f"{prefix}_intensity",
                 bin_size_ms=bin_size_ms,
                 fmt=fmt,
-                particle_name=particle.name,
+                measurement_name=measurement.name,
             )
             exported_files.append(path)
 
     # Export levels
     if export_levels:
-        levels_data = state.get_levels(particle_id, channel)
+        levels_data = state.get_levels(measurement_id, channel)
         if levels_data:
             # Get level-specific fit results if available
             level_fits_dict = {}
-            all_level_fits = state.get_all_level_fits(particle_id, channel)
+            all_level_fits = state.get_all_level_fits(measurement_id, channel)
             if all_level_fits:
                 for level_index, fit_data in all_level_fits.items():
                     level_fits_dict[level_index] = fit_data
@@ -864,37 +864,37 @@ def export_all_particle_data(
                 levels_data,
                 output_dir / f"{prefix}_levels",
                 fmt=fmt,
-                particle_name=particle.name,
+                measurement_name=measurement.name,
                 level_fits=level_fits_dict if level_fits_dict else None,
             )
             exported_files.append(path)
 
     # Export groups
     if export_groups:
-        groups_data = state.get_groups(particle_id, channel)
+        groups_data = state.get_groups(measurement_id, channel)
         if groups_data:
             from full_sms.io.exporters import export_groups as _export_groups
             path = _export_groups(
                 groups_data,
                 output_dir / f"{prefix}_groups",
                 fmt=fmt,
-                particle_name=particle.name,
+                measurement_name=measurement.name,
             )
             exported_files.append(path)
 
-    # Export fit results for this particle
+    # Export fit results for this measurement
     # Note: Fit export requires FitResult (with arrays), but we now store FitResultData (scalars).
     # TODO: Update export_fit_results to work with FitResultData or reconstruct arrays on demand.
     if export_fits:
-        # Combine particle fits and level fits for this particle/channel
+        # Combine measurement fits and level fits for this measurement/channel
         all_fits = {}
-        particle_fit = state.particle_fits.get((particle_id, channel))
-        if particle_fit:
-            # Use -1 as level_id for particle fits
-            all_fits[(particle_id, channel, -1)] = particle_fit
-        for (pid, ch, lvl_idx), fit in state.level_fits.items():
-            if pid == particle_id and ch == channel:
-                all_fits[(pid, ch, lvl_idx)] = fit
+        measurement_fit = state.measurement_fits.get((measurement_id, channel))
+        if measurement_fit:
+            # Use -1 as level_id for measurement fits
+            all_fits[(measurement_id, channel, -1)] = measurement_fit
+        for (mid, ch, lvl_idx), fit in state.level_fits.items():
+            if mid == measurement_id and ch == channel:
+                all_fits[(mid, ch, lvl_idx)] = fit
         # Note: export_fit_results expects FitResult, but we have FitResultData now
         # This export functionality needs to be updated in a future task
         if all_fits:
@@ -915,11 +915,11 @@ def export_batch(
     bin_size_ms: float = 10.0,
     progress_callback: callable | None = None,
 ) -> list[Path]:
-    """Export data for multiple particles.
+    """Export data for multiple measurements.
 
     Args:
         state: The session state containing all data.
-        selections: List of (particle_id, channel) tuples to export.
+        selections: List of (measurement_id, channel) tuples to export.
         output_dir: Directory to export files to.
         fmt: Export format.
         export_intensity: Whether to export intensity traces.
@@ -935,14 +935,14 @@ def export_batch(
     all_files: list[Path] = []
     total = len(selections)
 
-    for idx, (particle_id, channel) in enumerate(selections):
+    for idx, (measurement_id, channel) in enumerate(selections):
         if progress_callback:
             progress = (idx + 1) / total
-            progress_callback(progress, f"Exporting particle {particle_id}...")
+            progress_callback(progress, f"Exporting measurement {measurement_id}...")
 
-        files = export_all_particle_data(
+        files = export_all_measurement_data(
             state=state,
-            particle_id=particle_id,
+            measurement_id=measurement_id,
             channel=channel,
             output_dir=output_dir,
             fmt=fmt,

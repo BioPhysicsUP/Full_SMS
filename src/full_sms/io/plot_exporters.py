@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from full_sms.models.fit import FitResult
     from full_sms.models.group import ClusteringResult, GroupData
     from full_sms.models.level import LevelData
-    from full_sms.models.particle import ParticleData
+    from full_sms.models.measurement import MeasurementData
 
 
 logger = logging.getLogger(__name__)
@@ -691,7 +691,7 @@ def export_correlation_plot(
 
 
 def export_all_plots(
-    particle: ParticleData,
+    measurement: MeasurementData,
     channel: int,
     output_dir: Path,
     levels: list[LevelData] | None = None,
@@ -703,10 +703,10 @@ def export_all_plots(
     fmt: PlotFormat = PlotFormat.PNG,
     dpi: int = 150,
 ) -> list[Path]:
-    """Export all available plots for a particle.
+    """Export all available plots for a measurement.
 
     Args:
-        particle: The particle data.
+        measurement: The measurement data.
         channel: Channel number (1 or 2).
         output_dir: Directory to save plots.
         levels: Optional levels from CPA.
@@ -722,12 +722,12 @@ def export_all_plots(
         List of paths to exported files.
     """
     exported: list[Path] = []
-    prefix = f"particle_{particle.id}_ch{channel}"
+    prefix = f"measurement_{measurement.id}_ch{channel}"
 
     # Get channel data
-    channel_data = particle.channel1 if channel == 1 else particle.channel2
+    channel_data = measurement.channel1 if channel == 1 else measurement.channel2
     if channel_data is None:
-        logger.warning(f"No channel {channel} data for particle {particle.id}")
+        logger.warning(f"No channel {channel} data for measurement {measurement.id}")
         return exported
 
     # Get groups from clustering result
@@ -742,7 +742,7 @@ def export_all_plots(
             levels=levels,
             groups=groups,
             fmt=fmt,
-            title=f"Particle {particle.id} - Channel {channel}",
+            title=f"Measurement {measurement.id} - Channel {channel}",
             dpi=dpi,
         )
         exported.append(path)
@@ -756,7 +756,7 @@ def export_all_plots(
 
             t_ns, counts = build_decay_histogram(
                 channel_data.microtimes.astype(np.float64),
-                particle.channelwidth,
+                measurement.channelwidth,
             )
 
             if len(t_ns) > 0:
@@ -766,7 +766,7 @@ def export_all_plots(
                     output_path=output_dir / f"{prefix}_decay",
                     fit_result=fit_result,
                     fmt=fmt,
-                    title=f"Particle {particle.id} - Channel {channel} Decay",
+                    title=f"Measurement {measurement.id} - Channel {channel} Decay",
                     dpi=dpi,
                 )
                 exported.append(path)
@@ -780,7 +780,7 @@ def export_all_plots(
                 clustering_result=clustering_result,
                 output_path=output_dir / f"{prefix}_bic",
                 fmt=fmt,
-                title=f"Particle {particle.id} - BIC Optimization",
+                title=f"Measurement {measurement.id} - BIC Optimization",
                 dpi=dpi,
             )
             exported.append(path)
@@ -795,7 +795,7 @@ def export_all_plots(
                 g2=correlation_g2,
                 output_path=output_dir / f"{prefix}_correlation",
                 fmt=fmt,
-                title=f"Particle {particle.id} - g²(τ)",
+                title=f"Measurement {measurement.id} - g²(τ)",
                 dpi=dpi,
             )
             exported.append(path)

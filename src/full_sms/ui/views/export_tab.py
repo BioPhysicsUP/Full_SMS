@@ -638,34 +638,34 @@ class ExportTab:
         """Handle export current button click."""
         logger.info("Export current button clicked")
         if self._current_selection is None:
-            logger.warning("No particle selected for export")
-            self._set_status("No particle selected", error=True)
+            logger.warning("No measurement selected for export")
+            self._set_status("No measurement selected", error=True)
             return
 
-        selections = [(self._current_selection.particle_id, self._current_selection.channel)]
+        selections = [(self._current_selection.measurement_id, self._current_selection.channel)]
         logger.info(f"Exporting current selection: {selections}")
         self._do_export(selections)
 
     def _on_export_selected(self) -> None:
         """Handle export selected button click."""
         if not self._batch_selection:
-            self._set_status("No particles selected", error=True)
+            self._set_status("No measurements selected", error=True)
             return
 
-        selections = [(s.particle_id, s.channel) for s in self._batch_selection]
+        selections = [(s.measurement_id, s.channel) for s in self._batch_selection]
         self._do_export(selections)
 
     def _on_export_all(self) -> None:
         """Handle export all button click."""
-        if self._session_state is None or not self._session_state.particles:
-            self._set_status("No particles to export", error=True)
+        if self._session_state is None or not self._session_state.measurements:
+            self._set_status("No measurements to export", error=True)
             return
 
         selections = []
-        for particle in self._session_state.particles:
-            selections.append((particle.id, 1))
-            if particle.has_dual_channel:
-                selections.append((particle.id, 2))
+        for measurement in self._session_state.measurements:
+            selections.append((measurement.id, 1))
+            if measurement.has_dual_channel:
+                selections.append((measurement.id, 2))
 
         self._do_export(selections)
 
@@ -673,7 +673,7 @@ class ExportTab:
         """Perform the export operation.
 
         Args:
-            selections: List of (particle_id, channel) tuples to export.
+            selections: List of (measurement_id, channel) tuples to export.
         """
         logger.info(f"_do_export called with {len(selections)} selections")
         fmt = self._get_selected_format()
@@ -681,7 +681,7 @@ class ExportTab:
         options = self._get_export_options()
         logger.debug(f"Export options: {options}")
 
-        self._set_status(f"Exporting {len(selections)} particle(s)...")
+        self._set_status(f"Exporting {len(selections)} measurement(s)...")
 
         if self._on_export:
             logger.info("Using export callback")
@@ -691,9 +691,9 @@ class ExportTab:
             logger.info("No export callback, using direct export")
             self._do_export_sync(selections, fmt, plot_fmt, options)
 
-    def _export_plots_for_particle(
+    def _export_plots_for_measurement(
         self,
-        particle,
+        measurement,
         channel: int,
         levels,
         clustering,
@@ -701,10 +701,10 @@ class ExportTab:
         plot_fmt: PlotFormat,
         options: dict,
     ) -> list[Path]:
-        """Export plots for a single particle with customization options.
+        """Export plots for a single measurement with customization options.
 
         Args:
-            particle: ParticleData instance.
+            measurement: MeasurementData instance.
             channel: Channel number (1 or 2).
             levels: Optional levels from CPA.
             clustering: Optional clustering result.
@@ -723,14 +723,14 @@ class ExportTab:
         from full_sms.analysis.histograms import build_decay_histogram
 
         exported: list[Path] = []
-        prefix = f"particle_{particle.id}_ch{channel}"
+        prefix = f"measurement_{measurement.id}_ch{channel}"
         bin_size_ms = options.get("bin_size_ms", 10.0)
         dpi = options.get("plot_dpi", 150)
 
         # Get channel data
-        channel_data = particle.channel1 if channel == 1 else particle.channel2
+        channel_data = measurement.channel1 if channel == 1 else measurement.channel2
         if channel_data is None:
-            logger.warning(f"No channel {channel} data for particle {particle.id}")
+            logger.warning(f"No channel {channel} data for measurement {measurement.id}")
             return exported
 
         # Export intensity plot
@@ -752,7 +752,7 @@ class ExportTab:
                     show_levels=show_levels,
                     show_groups=show_groups,
                     fmt=plot_fmt,
-                    title=f"Particle {particle.id} - Channel {channel}",
+                    title=f"Measurement {measurement.id} - Channel {channel}",
                     dpi=dpi,
                 )
                 exported.append(path)
@@ -765,7 +765,7 @@ class ExportTab:
                 # Build decay histogram
                 t_ns, counts = build_decay_histogram(
                     channel_data.microtimes.astype(np.float64),
-                    particle.channelwidth,
+                    measurement.channelwidth,
                 )
 
                 if len(t_ns) > 0:
@@ -773,22 +773,22 @@ class ExportTab:
                     include_fit = options.get("decay_include_fit", True)
                     include_irf = options.get("decay_include_irf", True)
 
-                    # Get IRF data from session state for this particle/channel
+                    # Get IRF data from session state for this measurement/channel
                     irf_data = None
                     if self._session_state is not None:
-                        irf_data = self._session_state.get_irf(particle.id, channel)
+                        irf_data = self._session_state.get_irf(measurement.id, channel)
 
                     path = export_decay_plot(
                         t_ns=t_ns,
                         counts=counts,
                         output_path=self._output_dir / f"{prefix}_decay",
-                        channelwidth=particle.channelwidth,
+                        channelwidth=measurement.channelwidth,
                         fit_data=fit_result if include_fit else None,
                         irf_data=irf_data if (include_fit or include_irf) else None,
                         show_fit=include_fit,
                         show_irf=include_irf,
                         fmt=plot_fmt,
-                        title=f"Particle {particle.id} - Channel {channel} Decay",
+                        title=f"Measurement {measurement.id} - Channel {channel} Decay",
                         dpi=dpi,
                     )
                     exported.append(path)
@@ -802,7 +802,7 @@ class ExportTab:
                     clustering_result=clustering,
                     output_path=self._output_dir / f"{prefix}_bic",
                     fmt=plot_fmt,
-                    title=f"Particle {particle.id} - BIC Optimization",
+                    title=f"Measurement {measurement.id} - BIC Optimization",
                     dpi=dpi,
                 )
                 exported.append(path)
@@ -824,7 +824,7 @@ class ExportTab:
         """Perform synchronous export (fallback when no callback is set).
 
         Args:
-            selections: List of (particle_id, channel) tuples.
+            selections: List of (measurement_id, channel) tuples.
             fmt: Export format for data.
             plot_fmt: Export format for plots.
             options: Export options dict.
@@ -874,20 +874,20 @@ class ExportTab:
             ])
 
             if any_plot_export:
-                for particle_id, channel in selections:
-                    particle = self._session_state.get_particle(particle_id)
-                    if particle is None:
+                for measurement_id, channel in selections:
+                    measurement = self._session_state.get_measurement(measurement_id)
+                    if measurement is None:
                         continue
 
-                    levels = self._session_state.get_levels(particle_id, channel)
-                    clustering = self._session_state.get_clustering(particle_id, channel)
+                    levels = self._session_state.get_levels(measurement_id, channel)
+                    clustering = self._session_state.get_clustering(measurement_id, channel)
 
-                    # Get fit result for the whole particle
-                    fit_result = self._session_state.get_particle_fit(particle_id, channel)
+                    # Get fit result for the whole measurement
+                    fit_result = self._session_state.get_measurement_fit(measurement_id, channel)
 
                     # Export individual plots with customization options
-                    plot_files = self._export_plots_for_particle(
-                        particle=particle,
+                    plot_files = self._export_plots_for_measurement(
+                        measurement=measurement,
                         channel=channel,
                         levels=levels,
                         clustering=clustering,
@@ -979,7 +979,7 @@ class ExportTab:
         self._update_ui_state()
 
     def set_current_selection(self, selection: ChannelSelection | None) -> None:
-        """Set the current particle selection.
+        """Set the current measurement selection.
 
         Args:
             selection: The current selection, or None.
@@ -992,7 +992,7 @@ class ExportTab:
         """Set the batch selection.
 
         Args:
-            selections: List of selected particle/channels.
+            selections: List of selected measurement/channels.
         """
         self._batch_selection = selections
         self._update_button_states()
@@ -1011,7 +1011,7 @@ class ExportTab:
         """Update export button enabled states."""
         has_current = self._current_selection is not None
         has_batch = len(self._batch_selection) > 0
-        has_any = self._has_data and self._session_state is not None and len(self._session_state.particles) > 0
+        has_any = self._has_data and self._session_state is not None and len(self._session_state.measurements) > 0
 
         logger.debug(f"Updating export button states: has_current={has_current}, has_batch={has_batch}, has_any={has_any}")
 

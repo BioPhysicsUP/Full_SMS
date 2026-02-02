@@ -12,14 +12,14 @@ from full_sms.io.hdf5_reader import (
     load_h5_file,
     load_irf,
     _get_file_version,
-    _get_particle_names,
+    _get_measurement_names,
     _get_description,
     _determine_channelwidth,
     _read_channel_data,
     _has_spectra,
     _has_raster_scan,
 )
-from full_sms.models.particle import ChannelData, ParticleData
+from full_sms.models.measurement import ChannelData, MeasurementData
 from full_sms.models.session import FileMetadata
 
 
@@ -46,11 +46,11 @@ class TestGetFileVersion:
             assert _get_file_version(f) == "1.0"
 
 
-class TestGetParticleNames:
-    """Tests for _get_particle_names."""
+class TestGetMeasurementNames:
+    """Tests for _get_measurement_names."""
 
-    def test_returns_sorted_particle_names(self, tmp_path: Path) -> None:
-        """Should return particle names in natural numeric order."""
+    def test_returns_sorted_measurement_names(self, tmp_path: Path) -> None:
+        """Should return measurement names in natural numeric order."""
         filepath = tmp_path / "test.h5"
         with h5py.File(filepath, "w") as f:
             f.attrs["# Particles"] = 3
@@ -60,17 +60,17 @@ class TestGetParticleNames:
             f.create_group("Other Group")  # Should be ignored
 
         with h5py.File(filepath, "r") as f:
-            names = _get_particle_names(f)
+            names = _get_measurement_names(f)
             assert names == ["Particle 1", "Particle 2", "Particle 10"]
 
-    def test_returns_empty_list_when_no_particles(self, tmp_path: Path) -> None:
-        """Should return empty list when no particle groups exist."""
+    def test_returns_empty_list_when_no_measurements(self, tmp_path: Path) -> None:
+        """Should return empty list when no measurement groups exist."""
         filepath = tmp_path / "test.h5"
         with h5py.File(filepath, "w") as f:
             f.attrs["# Particles"] = 0
 
         with h5py.File(filepath, "r") as f:
-            names = _get_particle_names(f)
+            names = _get_measurement_names(f)
             assert names == []
 
 
@@ -82,22 +82,22 @@ class TestGetDescription:
         filepath = tmp_path / "test.h5"
         with h5py.File(filepath, "w") as f:
             grp = f.create_group("Particle 1")
-            grp.attrs["Description"] = "Test particle"
+            grp.attrs["Description"] = "Test measurement"
 
         with h5py.File(filepath, "r") as f:
             desc = _get_description(f["Particle 1"], "1.07")
-            assert desc == "Test particle"
+            assert desc == "Test measurement"
 
     def test_reads_description_old_format_typo(self, tmp_path: Path) -> None:
         """Should read Discription (typo) for old versions."""
         filepath = tmp_path / "test.h5"
         with h5py.File(filepath, "w") as f:
             grp = f.create_group("Particle 1")
-            grp.attrs["Discription"] = "Old format particle"
+            grp.attrs["Discription"] = "Old format measurement"
 
         with h5py.File(filepath, "r") as f:
             desc = _get_description(f["Particle 1"], "1.0")
-            assert desc == "Old format particle"
+            assert desc == "Old format measurement"
 
     def test_returns_empty_when_missing(self, tmp_path: Path) -> None:
         """Should return empty string when attribute is missing."""
@@ -251,8 +251,8 @@ class TestHasRasterScan:
 class TestLoadH5File:
     """Tests for load_h5_file."""
 
-    def test_loads_single_particle_file(self, tmp_path: Path) -> None:
-        """Should load a file with a single particle."""
+    def test_loads_single_measurement_file(self, tmp_path: Path) -> None:
+        """Should load a file with a single measurement."""
         filepath = tmp_path / "single.h5"
         abstimes = np.array([0, 1000000, 2000000], dtype=np.uint64)
         microtimes = np.array([0.5, 1.2, 0.8], dtype=np.float64)
@@ -266,26 +266,26 @@ class TestLoadH5File:
             ds.attrs["bh Card"] = "SPC-150"
             grp.create_dataset("Micro Times (ns)", data=microtimes)
 
-        metadata, particles = load_h5_file(filepath)
+        metadata, measurements = load_h5_file(filepath)
 
         assert isinstance(metadata, FileMetadata)
-        assert metadata.num_particles == 1
+        assert metadata.num_measurements == 1
         assert metadata.filename == "single.h5"
         assert metadata.has_spectra is False
         assert metadata.has_raster is False
 
-        assert len(particles) == 1
-        p = particles[0]
+        assert len(measurements) == 1
+        p = measurements[0]
         assert p.id == 1
-        assert p.name == "Particle 1"
+        assert p.name == "Measurement 1"
         assert p.description == "Test"
         assert p.tcspc_card == "SPC-150"
         np.testing.assert_array_equal(p.channel1.abstimes, abstimes)
         np.testing.assert_array_equal(p.channel1.microtimes, microtimes)
         assert p.channel2 is None
 
-    def test_loads_multi_particle_file(self, tmp_path: Path) -> None:
-        """Should load a file with multiple particles."""
+    def test_loads_multi_measurement_file(self, tmp_path: Path) -> None:
+        """Should load a file with multiple measurements."""
         filepath = tmp_path / "multi.h5"
 
         with h5py.File(filepath, "w") as f:
@@ -300,18 +300,18 @@ class TestLoadH5File:
                 grp.create_dataset("Absolute Times (ns)", data=abstimes)
                 grp.create_dataset("Micro Times (ns)", data=microtimes)
 
-        metadata, particles = load_h5_file(filepath)
+        metadata, measurements = load_h5_file(filepath)
 
-        assert metadata.num_particles == 3
-        assert len(particles) == 3
+        assert metadata.num_measurements == 3
+        assert len(measurements) == 3
 
-        for i, p in enumerate(particles, 1):
+        for i, p in enumerate(measurements, 1):
             assert p.id == i
-            assert p.name == f"Particle {i}"
+            assert p.name == f"Measurement {i}"
             assert p.description == f"Particle {i} description"
 
-    def test_loads_dual_channel_particle(self, tmp_path: Path) -> None:
-        """Should load particle with dual TCSPC channels."""
+    def test_loads_dual_channel_measurement(self, tmp_path: Path) -> None:
+        """Should load measurement with dual TCSPC channels."""
         filepath = tmp_path / "dual.h5"
         abstimes1 = np.array([0, 1000, 2000], dtype=np.uint64)
         microtimes1 = np.array([0.5, 1.2, 0.8], dtype=np.float64)
@@ -327,10 +327,10 @@ class TestLoadH5File:
             grp.create_dataset("Absolute Times 2 (ns)", data=abstimes2)
             grp.create_dataset("Micro Times 2 (ns)", data=microtimes2)
 
-        metadata, particles = load_h5_file(filepath)
+        metadata, measurements = load_h5_file(filepath)
 
-        assert len(particles) == 1
-        p = particles[0]
+        assert len(measurements) == 1
+        p = measurements[0]
         assert p.has_dual_channel is True
         np.testing.assert_array_equal(p.channel1.abstimes, abstimes1)
         np.testing.assert_array_equal(p.channel2.abstimes, abstimes2)
@@ -352,7 +352,7 @@ class TestLoadH5File:
             grp.create_dataset("Spectra (counts\\s)", data=np.zeros((10, 100)))
             grp.create_group("Raster Scan")
 
-        metadata, particles = load_h5_file(filepath)
+        metadata, measurements = load_h5_file(filepath)
 
         assert metadata.has_spectra is True
         assert metadata.has_raster is True
@@ -386,24 +386,24 @@ class TestLoadH5File:
             grp.create_dataset("Absolute Times (ns)", data=abstimes)
             grp.create_dataset("Micro Times (s)", data=microtimes_seconds)
 
-        metadata, particles = load_h5_file(filepath)
+        metadata, measurements = load_h5_file(filepath)
 
-        assert len(particles) == 1
-        p = particles[0]
+        assert len(measurements) == 1
+        p = measurements[0]
         assert p.description == "Old format"
         # Microtimes should be converted to nanoseconds
         expected_ns = microtimes_seconds * 1e9
         np.testing.assert_array_almost_equal(p.channel1.microtimes, expected_ns)
 
-    def test_skips_particles_without_channel_data(self, tmp_path: Path) -> None:
-        """Should skip particles that don't have channel data."""
+    def test_skips_measurements_without_channel_data(self, tmp_path: Path) -> None:
+        """Should skip measurements that don't have channel data."""
         filepath = tmp_path / "partial.h5"
 
         with h5py.File(filepath, "w") as f:
             f.attrs["# Particles"] = 2
             f.attrs["Version"] = "1.07"
 
-            # Particle 1 has data
+            # Measurement 1 has data
             grp1 = f.create_group("Particle 1")
             grp1.create_dataset(
                 "Absolute Times (ns)", data=np.array([0, 1000], dtype=np.uint64)
@@ -412,14 +412,14 @@ class TestLoadH5File:
                 "Micro Times (ns)", data=np.array([0.5, 1.2], dtype=np.float64)
             )
 
-            # Particle 2 is empty
+            # Measurement 2 is empty
             f.create_group("Particle 2")
 
-        metadata, particles = load_h5_file(filepath)
+        metadata, measurements = load_h5_file(filepath)
 
-        assert metadata.num_particles == 1
-        assert len(particles) == 1
-        assert particles[0].name == "Particle 1"
+        assert metadata.num_measurements == 1
+        assert len(measurements) == 1
+        assert measurements[0].name == "Measurement 1"
 
 
 class TestLoadIrf:

@@ -1,9 +1,9 @@
-"""Data models for particles, channels, levels, groups, fit results, and session state."""
+"""Data models for measurements, channels, levels, groups, fit results, and session state."""
 
 from full_sms.models.fit import FitResult, FitResultData
 from full_sms.models.group import ClusteringResult, ClusteringStep, GroupData
 from full_sms.models.level import LevelData
-from full_sms.models.particle import ChannelData, ParticleData
+from full_sms.models.measurement import ChannelData, MeasurementData
 from full_sms.models.session import (
     ActiveTab,
     ChannelSelection,
@@ -26,7 +26,7 @@ __all__ = [
     "FitResultData",
     "GroupData",
     "LevelData",
-    "ParticleData",
+    "MeasurementData",
     "ProcessingState",
     "SessionState",
     "UIState",

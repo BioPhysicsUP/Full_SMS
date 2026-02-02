@@ -1,4 +1,4 @@
-"""Data models for particles and channels."""
+"""Data models for measurements and channels."""
 
 from dataclasses import dataclass, field
 from typing import Optional
@@ -88,7 +88,7 @@ class SpectraData:
 class RasterScanData:
     """Raster scan image data.
 
-    A raster scan is a 2D intensity scan used to visualize particles
+    A raster scan is a 2D intensity scan used to visualize measurements
     before measurement. The scan produces a 2D image where each pixel
     represents photon counts at that position.
 
@@ -190,23 +190,23 @@ class ChannelData:
 
 
 @dataclass
-class ParticleData:
-    """Data for a single particle measurement.
+class MeasurementData:
+    """Data for a single molecule measurement.
 
-    A particle represents a single molecule measurement from an HDF5 file.
+    A measurement represents a single molecule measurement from an HDF5 file.
     It may have one or two TCSPC channels (for single or dual detector setups).
 
     Attributes:
-        id: Unique identifier (typically the particle number from the file).
-        name: Display name (e.g., "Particle 1").
+        id: Unique identifier (typically the measurement number from the file).
+        name: Display name (e.g., "Measurement 1").
         description: Optional description from the HDF5 file metadata.
         tcspc_card: TCSPC card identifier.
         channelwidth: TCSPC histogram channel width in nanoseconds.
         channel1: Primary TCSPC channel data.
         channel2: Optional secondary TCSPC channel data (for dual detector setups).
-        spectra: Optional spectral data if recorded for this particle.
+        spectra: Optional spectral data if recorded for this measurement.
         raster_scan: Optional raster scan image data.
-        raster_scan_coord: Optional (x, y) coordinate in um where the particle was measured.
+        raster_scan_coord: Optional (x, y) coordinate in um where the measurement was taken.
     """
 
     id: int
@@ -235,7 +235,7 @@ class ParticleData:
 
     @property
     def has_dual_channel(self) -> bool:
-        """Whether this particle has dual TCSPC channels."""
+        """Whether this measurement has dual TCSPC channels."""
         return self.channel2 is not None
 
     @property
@@ -250,10 +250,10 @@ class ParticleData:
 
     @property
     def has_spectra(self) -> bool:
-        """Whether this particle has spectral data."""
+        """Whether this measurement has spectral data."""
         return self.spectra is not None
 
     @property
     def has_raster_scan(self) -> bool:
-        """Whether this particle has raster scan data."""
+        """Whether this measurement has raster scan data."""
         return self.raster_scan is not None

@@ -1,7 +1,7 @@
-"""Particle tree widget for hierarchical particle/channel selection.
+"""Measurement tree widget for hierarchical measurement/channel selection.
 
 Provides a tree view with:
-- Tree nodes for each particle
+- Tree nodes for each measurement
 - Nested selectables for SPAD channels
 - Checkboxes for batch selection
 - Visual indicator for current selection
@@ -15,21 +15,21 @@ from typing import Callable
 
 import dearpygui.dearpygui as dpg
 
-from full_sms.models.particle import ParticleData
+from full_sms.models.measurement import MeasurementData
 from full_sms.models.session import ChannelSelection
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ParticleTreeTags:
-    """Tags for particle tree elements."""
+class MeasurementTreeTags:
+    """Tags for measurement tree elements."""
 
-    container: str = "particle_tree_container"
-    tree_group: str = "particle_tree_group"
+    container: str = "measurement_tree_container"
+    tree_group: str = "measurement_tree_group"
 
 
-TREE_TAGS = ParticleTreeTags()
+TREE_TAGS = MeasurementTreeTags()
 
 
 # Colors for selection state
@@ -40,11 +40,11 @@ COLOR_CHANNEL = (160, 160, 160, 255)
 COLOR_CHANNEL_SELECTED = (100, 180, 255, 255)
 
 
-class ParticleTree:
-    """Hierarchical particle/channel selection widget.
+class MeasurementTree:
+    """Hierarchical measurement/channel selection widget.
 
-    Displays particles in a tree structure with expandable nodes.
-    Each particle can have one or two channels (SPAD detectors).
+    Displays measurements in a tree structure with expandable nodes.
+    Each measurement can have one or two channels (SPAD detectors).
     Supports single selection (current) and multi-selection (batch).
     """
 
@@ -54,7 +54,7 @@ class ParticleTree:
         on_selection_changed: Callable[[ChannelSelection | None], None] | None = None,
         on_batch_changed: Callable[[list[ChannelSelection]], None] | None = None,
     ) -> None:
-        """Initialize the particle tree.
+        """Initialize the measurement tree.
 
         Args:
             parent: The parent container to build the tree in.
@@ -65,19 +65,19 @@ class ParticleTree:
         self._on_selection_changed = on_selection_changed
         self._on_batch_changed = on_batch_changed
 
-        self._particles: list[ParticleData] = []
+        self._measurements: list[MeasurementData] = []
         self._current_selection: ChannelSelection | None = None
-        self._batch_selection: set[tuple[int, int]] = set()  # (particle_id, channel)
+        self._batch_selection: set[tuple[int, int]] = set()  # (measurement_id, channel)
 
         # Track UI element tags for updates
-        self._particle_nodes: dict[int, str] = {}  # particle_id -> tree node tag
-        self._channel_items: dict[tuple[int, int], str] = {}  # (pid, ch) -> selectable tag
-        self._checkbox_items: dict[tuple[int, int], str] = {}  # (pid, ch) -> checkbox tag
+        self._measurement_nodes: dict[int, str] = {}  # measurement_id -> tree node tag
+        self._channel_items: dict[tuple[int, int], str] = {}  # (mid, ch) -> selectable tag
+        self._checkbox_items: dict[tuple[int, int], str] = {}  # (mid, ch) -> checkbox tag
 
         self._is_built = False
 
     def build(self) -> None:
-        """Build the particle tree UI structure."""
+        """Build the measurement tree UI structure."""
         if self._is_built:
             return
 
@@ -93,12 +93,12 @@ class ParticleTree:
             dpg.add_text(
                 "No file loaded",
                 color=(128, 128, 128),
-                tag="particle_tree_empty_msg",
+                tag="measurement_tree_empty_msg",
             )
             dpg.add_text(
                 "File > Open H5",
                 color=(100, 100, 100),
-                tag="particle_tree_empty_hint",
+                tag="measurement_tree_empty_hint",
             )
 
             # Container for the actual tree (hidden initially)
@@ -107,18 +107,18 @@ class ParticleTree:
 
         self._is_built = True
 
-    def set_particles(self, particles: list[ParticleData]) -> None:
-        """Set the particles to display in the tree.
+    def set_measurements(self, measurements: list[MeasurementData]) -> None:
+        """Set the measurements to display in the tree.
 
         This rebuilds the entire tree structure.
 
         Args:
-            particles: List of particles to display.
+            measurements: List of measurements to display.
         """
-        self._particles = particles
+        self._measurements = measurements
         self._current_selection = None
         self._batch_selection.clear()
-        self._particle_nodes.clear()
+        self._measurement_nodes.clear()
         self._channel_items.clear()
         self._checkbox_items.clear()
 
@@ -126,71 +126,71 @@ class ParticleTree:
         if dpg.does_item_exist(TREE_TAGS.tree_group):
             dpg.delete_item(TREE_TAGS.tree_group, children_only=True)
 
-        if not particles:
+        if not measurements:
             # Show empty state
-            if dpg.does_item_exist("particle_tree_empty_msg"):
-                dpg.configure_item("particle_tree_empty_msg", show=True)
-            if dpg.does_item_exist("particle_tree_empty_hint"):
-                dpg.configure_item("particle_tree_empty_hint", show=True)
+            if dpg.does_item_exist("measurement_tree_empty_msg"):
+                dpg.configure_item("measurement_tree_empty_msg", show=True)
+            if dpg.does_item_exist("measurement_tree_empty_hint"):
+                dpg.configure_item("measurement_tree_empty_hint", show=True)
             if dpg.does_item_exist(TREE_TAGS.tree_group):
                 dpg.configure_item(TREE_TAGS.tree_group, show=False)
             return
 
         # Hide empty state, show tree
-        if dpg.does_item_exist("particle_tree_empty_msg"):
-            dpg.configure_item("particle_tree_empty_msg", show=False)
-        if dpg.does_item_exist("particle_tree_empty_hint"):
-            dpg.configure_item("particle_tree_empty_hint", show=False)
+        if dpg.does_item_exist("measurement_tree_empty_msg"):
+            dpg.configure_item("measurement_tree_empty_msg", show=False)
+        if dpg.does_item_exist("measurement_tree_empty_hint"):
+            dpg.configure_item("measurement_tree_empty_hint", show=False)
         if dpg.does_item_exist(TREE_TAGS.tree_group):
             dpg.configure_item(TREE_TAGS.tree_group, show=True)
 
-        # Build tree nodes for each particle
-        for particle in particles:
-            self._build_particle_node(particle)
+        # Build tree nodes for each measurement
+        for measurement in measurements:
+            self._build_measurement_node(measurement)
 
-        logger.info(f"Particle tree updated with {len(particles)} particles")
+        logger.info(f"Measurement tree updated with {len(measurements)} measurements")
 
-    def _build_particle_node(self, particle: ParticleData) -> None:
-        """Build a tree node for a single particle.
+    def _build_measurement_node(self, measurement: MeasurementData) -> None:
+        """Build a tree node for a single measurement.
 
-        For single-channel particles, creates a flat selectable item.
-        For dual-channel particles, creates a tree node with nested channels.
+        For single-channel measurements, creates a flat selectable item.
+        For dual-channel measurements, creates a tree node with nested channels.
 
         Args:
-            particle: The particle data to display.
+            measurement: The measurement data to display.
         """
-        # Single-channel particles: flat item without nesting
-        if not particle.has_dual_channel:
-            self._build_single_channel_item(particle)
+        # Single-channel measurements: flat item without nesting
+        if not measurement.has_dual_channel:
+            self._build_single_channel_item(measurement)
             return
 
-        # Dual-channel particles: tree node with nested channels
-        node_tag = f"particle_node_{particle.id}"
-        self._particle_nodes[particle.id] = node_tag
+        # Dual-channel measurements: tree node with nested channels
+        node_tag = f"measurement_node_{measurement.id}"
+        self._measurement_nodes[measurement.id] = node_tag
 
         with dpg.tree_node(
-            label=particle.name,
+            label=measurement.name,
             tag=node_tag,
             parent=TREE_TAGS.tree_group,
             default_open=False,
             selectable=False,
         ):
             # Channel 1 (always present)
-            self._build_channel_item(particle.id, 1)
+            self._build_channel_item(measurement.id, 1)
 
             # Channel 2
-            if particle.channel2 is not None:
-                self._build_channel_item(particle.id, 2)
+            if measurement.channel2 is not None:
+                self._build_channel_item(measurement.id, 2)
 
-    def _build_single_channel_item(self, particle: ParticleData) -> None:
-        """Build a flat item for a single-channel particle.
+    def _build_single_channel_item(self, measurement: MeasurementData) -> None:
+        """Build a flat item for a single-channel measurement.
 
         Args:
-            particle: The particle data to display.
+            measurement: The measurement data to display.
         """
-        key = (particle.id, 1)
-        selectable_tag = f"channel_sel_{particle.id}_1"
-        checkbox_tag = f"channel_chk_{particle.id}_1"
+        key = (measurement.id, 1)
+        selectable_tag = f"channel_sel_{measurement.id}_1"
+        checkbox_tag = f"channel_chk_{measurement.id}_1"
 
         self._channel_items[key] = selectable_tag
         self._checkbox_items[key] = checkbox_tag
@@ -204,25 +204,25 @@ class ParticleTree:
                 user_data=key,
             )
 
-            # Selectable label showing particle name directly
+            # Selectable label showing measurement name directly
             dpg.add_selectable(
-                label=particle.name,
+                label=measurement.name,
                 tag=selectable_tag,
                 default_value=False,
                 callback=self._on_selectable_clicked,
                 user_data=key,
             )
 
-    def _build_channel_item(self, particle_id: int, channel: int) -> None:
+    def _build_channel_item(self, measurement_id: int, channel: int) -> None:
         """Build a channel selection item.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (1 or 2).
         """
-        key = (particle_id, channel)
-        selectable_tag = f"channel_sel_{particle_id}_{channel}"
-        checkbox_tag = f"channel_chk_{particle_id}_{channel}"
+        key = (measurement_id, channel)
+        selectable_tag = f"channel_sel_{measurement_id}_{channel}"
+        checkbox_tag = f"channel_chk_{measurement_id}_{channel}"
 
         self._channel_items[key] = selectable_tag
         self._checkbox_items[key] = checkbox_tag
@@ -253,10 +253,10 @@ class ParticleTree:
         Args:
             sender: The selectable widget.
             app_data: Whether it's now selected (always True on click).
-            user_data: Tuple of (particle_id, channel).
+            user_data: Tuple of (measurement_id, channel).
         """
-        particle_id, channel = user_data
-        self._set_current_selection(particle_id, channel)
+        measurement_id, channel = user_data
+        self._set_current_selection(measurement_id, channel)
 
     def _on_checkbox_changed(
         self, sender: int, app_data: bool, user_data: tuple[int, int]
@@ -266,10 +266,10 @@ class ParticleTree:
         Args:
             sender: The checkbox widget.
             app_data: The new checked state.
-            user_data: Tuple of (particle_id, channel).
+            user_data: Tuple of (measurement_id, channel).
         """
-        particle_id, channel = user_data
-        key = (particle_id, channel)
+        measurement_id, channel = user_data
+        key = (measurement_id, channel)
 
         if app_data:
             self._batch_selection.add(key)
@@ -279,18 +279,18 @@ class ParticleTree:
         self._notify_batch_changed()
 
     def _set_current_selection(
-        self, particle_id: int, channel: int
+        self, measurement_id: int, channel: int
     ) -> None:
         """Set the current selection and update visuals.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number.
         """
         # Clear previous selection visual
         if self._current_selection is not None:
             old_key = (
-                self._current_selection.particle_id,
+                self._current_selection.measurement_id,
                 self._current_selection.channel,
             )
             if old_key in self._channel_items:
@@ -300,19 +300,19 @@ class ParticleTree:
 
         # Set new selection
         self._current_selection = ChannelSelection(
-            particle_id=particle_id, channel=channel
+            measurement_id=measurement_id, channel=channel
         )
 
         # Update visual
-        key = (particle_id, channel)
+        key = (measurement_id, channel)
         if key in self._channel_items:
             tag = self._channel_items[key]
             if dpg.does_item_exist(tag):
                 dpg.set_value(tag, True)
 
-        # Expand parent node if collapsed (only for dual-channel particles)
-        if particle_id in self._particle_nodes:
-            node_tag = self._particle_nodes[particle_id]
+        # Expand parent node if collapsed (only for dual-channel measurements)
+        if measurement_id in self._measurement_nodes:
+            node_tag = self._measurement_nodes[measurement_id]
             if dpg.does_item_exist(node_tag):
                 dpg.set_value(node_tag, True)
 
@@ -328,8 +328,8 @@ class ParticleTree:
         """Notify the batch selection changed callback."""
         if self._on_batch_changed:
             selections = [
-                ChannelSelection(particle_id=pid, channel=ch)
-                for pid, ch in sorted(self._batch_selection)
+                ChannelSelection(measurement_id=mid, channel=ch)
+                for mid, ch in sorted(self._batch_selection)
             ]
             self._on_batch_changed(selections)
 
@@ -342,8 +342,8 @@ class ParticleTree:
     def batch_selection(self) -> list[ChannelSelection]:
         """Get all selected items for batch operations."""
         return [
-            ChannelSelection(particle_id=pid, channel=ch)
-            for pid, ch in sorted(self._batch_selection)
+            ChannelSelection(measurement_id=mid, channel=ch)
+            for mid, ch in sorted(self._batch_selection)
         ]
 
     @property
@@ -351,27 +351,27 @@ class ParticleTree:
         """Get the number of items selected for batch operations."""
         return len(self._batch_selection)
 
-    def select(self, particle_id: int, channel: int = 1) -> None:
-        """Programmatically select a particle/channel.
+    def select(self, measurement_id: int, channel: int = 1) -> None:
+        """Programmatically select a measurement/channel.
 
         Args:
-            particle_id: The particle ID.
+            measurement_id: The measurement ID.
             channel: The channel number (default 1).
         """
-        self._set_current_selection(particle_id, channel)
+        self._set_current_selection(measurement_id, channel)
 
     def select_all(self) -> None:
-        """Select all particles/channels for batch operations."""
-        for particle in self._particles:
-            key1 = (particle.id, 1)
+        """Select all measurements/channels for batch operations."""
+        for measurement in self._measurements:
+            key1 = (measurement.id, 1)
             self._batch_selection.add(key1)
             if key1 in self._checkbox_items:
                 chk_tag = self._checkbox_items[key1]
                 if dpg.does_item_exist(chk_tag):
                     dpg.set_value(chk_tag, True)
 
-            if particle.has_dual_channel:
-                key2 = (particle.id, 2)
+            if measurement.has_dual_channel:
+                key2 = (measurement.id, 2)
                 self._batch_selection.add(key2)
                 if key2 in self._checkbox_items:
                     chk_tag = self._checkbox_items[key2]
@@ -386,7 +386,7 @@ class ParticleTree:
         # Clear current selection visual
         if self._current_selection is not None:
             old_key = (
-                self._current_selection.particle_id,
+                self._current_selection.measurement_id,
                 self._current_selection.channel,
             )
             if old_key in self._channel_items:
@@ -410,25 +410,25 @@ class ParticleTree:
         logger.debug("Cleared all selections")
 
     def expand_all(self) -> None:
-        """Expand all particle tree nodes."""
-        for node_tag in self._particle_nodes.values():
+        """Expand all measurement tree nodes."""
+        for node_tag in self._measurement_nodes.values():
             if dpg.does_item_exist(node_tag):
                 dpg.set_value(node_tag, True)
 
     def collapse_all(self) -> None:
-        """Collapse all particle tree nodes."""
-        for node_tag in self._particle_nodes.values():
+        """Collapse all measurement tree nodes."""
+        for node_tag in self._measurement_nodes.values():
             if dpg.does_item_exist(node_tag):
                 dpg.set_value(node_tag, False)
 
-    def get_particle_ids(self) -> list[int]:
-        """Get list of all particle IDs."""
-        return [p.id for p in self._particles]
+    def get_measurement_ids(self) -> list[int]:
+        """Get list of all measurement IDs."""
+        return [m.id for m in self._measurements]
 
     def clear(self) -> None:
         """Clear the tree and reset to empty state.
 
         Called when closing a file.
         """
-        self.set_particles([])
-        logger.debug("Particle tree cleared")
+        self.set_measurements([])
+        logger.debug("Measurement tree cleared")

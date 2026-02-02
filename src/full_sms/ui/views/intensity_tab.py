@@ -178,7 +178,7 @@ class IntensityTab:
             ):
                 # No data placeholder (shown when no data loaded)
                 dpg.add_text(
-                    "Load an HDF5 file and select a particle to view intensity trace.",
+                    "Load an HDF5 file and select a measurement to view intensity trace.",
                     tag=self._tags.no_data_text,
                     color=(128, 128, 128),
                 )
@@ -609,9 +609,9 @@ class IntensityTab:
         """Enable/disable resolve buttons based on application state.
 
         Args:
-            has_current: Whether there is a currently viewed particle.
-            has_selected: Whether there are batch-selected particles.
-            has_any: Whether there are any particles loaded.
+            has_current: Whether there is a currently viewed measurement.
+            has_selected: Whether there are batch-selected measurements.
+            has_any: Whether there are any measurements loaded.
         """
         if dpg.does_item_exist(self._tags.resolve_current_btn):
             dpg.configure_item(self._tags.resolve_current_btn, enabled=has_current)
