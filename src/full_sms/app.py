@@ -28,7 +28,11 @@ from full_sms.models.session import (
     SessionState,
 )
 from full_sms.config import Settings, get_settings, save_settings
+from full_sms.analysis.roi import auto_trim_roi, filter_levels_by_roi, get_default_roi, slice_by_roi
 from full_sms.ui.dialogs import (
+    AutoROIDialog,
+    AutoROIParameters,
+    AutoROIScope,
     FileDialogs,
     FitScope,
     FitTarget,
@@ -128,6 +132,9 @@ class Application:
 
         # NOTE: Selected level cache is now stored in session.ui_state.selected_level_indices
 
+        # Auto-ROI dialog
+        self._auto_roi_dialog: AutoROIDialog | None = None
+
         # Settings dialog
         self._settings_dialog: SettingsDialog | None = None
 
@@ -198,6 +205,9 @@ class Application:
             if self._layout.intensity_tab:
                 self._layout.intensity_tab.set_on_resolve(self._on_resolve_from_tab)
                 self._layout.intensity_tab.set_on_bin_size_changed(self._on_bin_size_changed)
+                self._layout.intensity_tab.set_on_roi_changed(self._on_roi_changed)
+                self._layout.intensity_tab.set_on_roi_reset(self._on_roi_reset)
+                self._layout.intensity_tab.set_on_auto_trim(self._on_auto_trim)
 
             # Set up lifetime tab callbacks
             if self._layout.lifetime_tab:
@@ -230,6 +240,11 @@ class Application:
             self._fitting_dialog = FittingDialog()
             self._fitting_dialog.build()
             self._fitting_dialog.set_on_fit(self._on_fit_dialog_accepted)
+
+            # Create auto-ROI dialog
+            self._auto_roi_dialog = AutoROIDialog()
+            self._auto_roi_dialog.build()
+            self._auto_roi_dialog.set_on_accept(self._on_auto_roi_accepted)
 
             # Create settings dialog
             self._settings_dialog = SettingsDialog()
@@ -329,6 +344,15 @@ class Application:
                     dpg.add_menu_item(
                         label="Resolve All",
                         callback=lambda: self._on_resolve("all"),
+                    )
+                    dpg.add_separator()
+                    dpg.add_menu_item(
+                        label="Reset ROI",
+                        callback=self._on_roi_reset,
+                    )
+                    dpg.add_menu_item(
+                        label="Auto-Trim ROI...",
+                        callback=self._on_auto_trim,
                     )
                 with dpg.menu(label="Grouping"):
                     dpg.add_menu_item(
@@ -481,6 +505,9 @@ class Application:
                         self._layout.set_raster_measurement_marker(x, y)
                 else:
                     self._layout.set_raster_unavailable()
+
+            # Restore ROI for this measurement
+            self._restore_roi_for_selection()
 
             # Update intensity display with levels if they exist
             self._update_intensity_display()
@@ -666,6 +693,7 @@ class Application:
             self._session.clustering_results.clear()
             self._session.measurement_fits.clear()
             self._session.level_fits.clear()
+            self._session.roi_regions.clear()
             self._fit_cache.clear()
             self._irf_cache.clear()
             self._irf_config_cache.clear()
@@ -913,6 +941,213 @@ class Application:
                 self._session.ui_state.bin_size_ms = settings.display.default_bin_size_ms
 
         self.set_status("Settings saved")
+
+    # -------------------------------------------------------------------------
+    # ROI Handlers
+    # -------------------------------------------------------------------------
+
+    def _on_roi_changed(self, start_s: float, end_s: float) -> None:
+        """Handle ROI change from intensity tab (drag interaction).
+
+        Args:
+            start_s: New ROI start in seconds.
+            end_s: New ROI end in seconds.
+        """
+        if not self._session.current_selection:
+            return
+
+        mid = self._session.current_selection.measurement_id
+        ch = self._session.current_selection.channel
+
+        # Store ROI
+        self._session.set_roi(mid, ch, (start_s, end_s))
+
+        # Invalidate measurement fit only (depends on ROI-sliced photons)
+        # Levels, clustering, and level fits are NOT invalidated —
+        # CPA runs on the full trace; ROI is a display/export filter.
+        self._session.measurement_fits.pop((mid, ch), None)
+        self._session.irf_data.pop((mid, ch), None)
+        self._fit_cache.pop((mid, ch, None), None)
+        self._irf_cache.pop((mid, ch, None), None)
+        self._irf_config_cache.pop((mid, ch, None), None)
+
+        # Refresh displays
+        self._update_intensity_display()
+        self._update_lifetime_display()
+        self._update_grouping_display()
+
+        logger.info(f"ROI changed for measurement {mid}, channel {ch}: {start_s:.2f}s - {end_s:.2f}s")
+
+    def _on_roi_reset(self) -> None:
+        """Handle ROI reset (from button or menu)."""
+        if not self._session.current_selection:
+            return
+
+        mid = self._session.current_selection.measurement_id
+        ch = self._session.current_selection.channel
+
+        # Clear ROI from session
+        self._session.clear_roi(mid, ch)
+
+        # Invalidate measurement fit only (depends on ROI-sliced photons)
+        self._session.measurement_fits.pop((mid, ch), None)
+        self._session.irf_data.pop((mid, ch), None)
+        self._fit_cache.pop((mid, ch, None), None)
+        self._irf_cache.pop((mid, ch, None), None)
+        self._irf_config_cache.pop((mid, ch, None), None)
+
+        # Set ROI to default (full trace) on the plot
+        measurement = self._session.get_measurement(mid)
+        if measurement:
+            channel_data = (
+                measurement.channel1 if ch == 1 else measurement.channel2
+            )
+            if channel_data and len(channel_data.abstimes) > 0:
+                default_roi = get_default_roi(channel_data.abstimes)
+                if self._layout and self._layout.intensity_tab:
+                    self._layout.intensity_tab.set_roi(default_roi[0], default_roi[1])
+
+        # Refresh displays
+        self._update_intensity_display()
+        self._update_lifetime_display()
+        self._update_grouping_display()
+
+        self.set_status("ROI reset to full trace")
+        logger.info(f"ROI reset for measurement {mid}, channel {ch}")
+
+    def _on_auto_trim(self) -> None:
+        """Handle Auto-Trim button/menu action — show the dialog."""
+        if self._auto_roi_dialog:
+            self._auto_roi_dialog.show()
+
+    def _on_auto_roi_accepted(self, params: AutoROIParameters) -> None:
+        """Handle auto-ROI dialog acceptance.
+
+        Args:
+            params: The auto-ROI parameters from the dialog.
+        """
+        logger.info(
+            f"Auto-ROI: threshold={params.threshold_cps}, "
+            f"duration={params.min_duration_s}, scope={params.scope.value}"
+        )
+
+        # Determine targets based on scope
+        targets: list[ChannelSelection] = []
+        if params.scope == AutoROIScope.CURRENT:
+            if self._session.current_selection:
+                targets = [self._session.current_selection]
+        elif params.scope == AutoROIScope.SELECTED:
+            targets = list(self._session.selected)
+        elif params.scope == AutoROIScope.ALL:
+            for measurement in self._session.measurements:
+                targets.append(ChannelSelection(measurement.id, 1))
+                if measurement.channel2 is not None:
+                    targets.append(ChannelSelection(measurement.id, 2))
+
+        trimmed_count = 0
+        for sel in targets:
+            levels = self._session.get_levels(sel.measurement_id, sel.channel)
+            if not levels:
+                continue
+
+            new_end = auto_trim_roi(levels, params.threshold_cps, params.min_duration_s)
+            if new_end is not None:
+                # Get current ROI start (or default)
+                existing_roi = self._session.get_roi(sel.measurement_id, sel.channel)
+                if existing_roi:
+                    start_s = existing_roi[0]
+                else:
+                    measurement = self._session.get_measurement(sel.measurement_id)
+                    if measurement:
+                        ch_data = (
+                            measurement.channel1 if sel.channel == 1 else measurement.channel2
+                        )
+                        if ch_data and len(ch_data.abstimes) > 0:
+                            start_s = float(ch_data.abstimes[0]) / 1e9
+                        else:
+                            continue
+                    else:
+                        continue
+
+                # Apply ROI
+                self._session.set_roi(sel.measurement_id, sel.channel, (start_s, new_end))
+                # Invalidate measurement fit only (ROI is a display/export filter)
+                self._session.measurement_fits.pop((sel.measurement_id, sel.channel), None)
+                self._session.irf_data.pop((sel.measurement_id, sel.channel), None)
+                self._fit_cache.pop((sel.measurement_id, sel.channel, None), None)
+                self._irf_cache.pop((sel.measurement_id, sel.channel, None), None)
+                self._irf_config_cache.pop((sel.measurement_id, sel.channel, None), None)
+                trimmed_count += 1
+
+        # Update the current display if current measurement was affected
+        if self._session.current_selection:
+            roi = self._session.get_current_roi()
+            if roi and self._layout and self._layout.intensity_tab:
+                self._layout.intensity_tab.set_roi(roi[0], roi[1])
+
+        self._update_intensity_display()
+        self._update_lifetime_display()
+        self._update_grouping_display()
+
+        if trimmed_count > 0:
+            self.set_status(f"Auto-trimmed ROI for {trimmed_count} measurement(s)")
+        else:
+            self.set_status("No bleaching detected")
+        logger.info(f"Auto-trim complete: {trimmed_count} measurements trimmed")
+
+    def _clear_fit_caches_for(self, measurement_id: int, channel: int) -> None:
+        """Clear fit and IRF caches for a specific measurement/channel.
+
+        Args:
+            measurement_id: The measurement ID.
+            channel: The channel number.
+        """
+        keys_to_remove = [
+            k for k in self._fit_cache
+            if k[0] == measurement_id and k[1] == channel
+        ]
+        for k in keys_to_remove:
+            del self._fit_cache[k]
+
+        irf_keys_to_remove = [
+            k for k in self._irf_cache
+            if k[0] == measurement_id and k[1] == channel
+        ]
+        for k in irf_keys_to_remove:
+            del self._irf_cache[k]
+
+        config_keys_to_remove = [
+            k for k in self._irf_config_cache
+            if k[0] == measurement_id and k[1] == channel
+        ]
+        for k in config_keys_to_remove:
+            del self._irf_config_cache[k]
+
+    def _restore_roi_for_selection(self) -> None:
+        """Restore ROI on the intensity plot for the current selection."""
+        if not self._layout or not self._layout.intensity_tab:
+            return
+        if not self._session.current_selection:
+            return
+
+        mid = self._session.current_selection.measurement_id
+        ch = self._session.current_selection.channel
+
+        roi = self._session.get_roi(mid, ch)
+        if roi:
+            self._layout.intensity_tab.set_roi(roi[0], roi[1])
+        else:
+            # Show default ROI (full trace)
+            measurement = self._session.get_measurement(mid)
+            if measurement:
+                channel_data = (
+                    measurement.channel1 if ch == 1 else measurement.channel2
+                )
+                if channel_data and len(channel_data.abstimes) > 0:
+                    default_roi = get_default_roi(channel_data.abstimes)
+                    self._layout.intensity_tab.set_roi(
+                        default_roi[0], default_roi[1]
+                    )
 
     # Menu callbacks - Analysis menu
 
@@ -1192,8 +1427,9 @@ class Application:
 
             elif params.fit_target == FitTarget.SELECTED_LEVEL:
                 # Fit only the selected level (only for current measurement)
+                # Use ROI-filtered levels so index matches what the UI shows
                 if params.selected_level_index is not None:
-                    levels = self._session.get_levels(
+                    levels = self._get_roi_filtered_levels(
                         selection.measurement_id, selection.channel
                     )
                     if levels and params.selected_level_index < len(levels):
@@ -1209,8 +1445,8 @@ class Application:
                         tasks_submitted += 1
 
             elif params.fit_target == FitTarget.ALL_LEVELS:
-                # Fit all levels for this measurement
-                levels = self._session.get_levels(
+                # Fit all ROI-visible levels for this measurement
+                levels = self._get_roi_filtered_levels(
                     selection.measurement_id, selection.channel
                 )
                 if levels:
@@ -1289,8 +1525,14 @@ class Application:
         """
         from full_sms.analysis.histograms import build_decay_histogram
 
+        # Slice by ROI if set
+        roi = self._session.get_roi(selection.measurement_id, selection.channel)
+        _, microtimes_for_fit = slice_by_roi(
+            channel_data.abstimes, channel_data.microtimes, roi
+        )
+
         t, counts = build_decay_histogram(
-            channel_data.microtimes, measurement.channelwidth
+            microtimes_for_fit, measurement.channelwidth
         )
 
         task_params = self._build_fit_task_params(
@@ -1339,7 +1581,8 @@ class Application:
         """
         from full_sms.analysis.histograms import build_decay_histogram
 
-        # Get microtimes for just this level
+        # Level indices are relative to the full channel array
+        # (CPA runs on the full trace, not ROI-sliced)
         level_microtimes = channel_data.microtimes[
             level.start_index : level.end_index + 1
         ]
@@ -2088,11 +2331,21 @@ class Application:
             logger.error("Worker pool not initialized")
             return
 
+        # Slice both channels by their respective ROIs
+        roi_ch1 = self._session.get_roi(measurement.id, 1)
+        abstimes1, microtimes1 = slice_by_roi(
+            measurement.channel1.abstimes, measurement.channel1.microtimes, roi_ch1
+        )
+        roi_ch2 = self._session.get_roi(measurement.id, 2)
+        abstimes2, microtimes2 = slice_by_roi(
+            measurement.channel2.abstimes, measurement.channel2.microtimes, roi_ch2
+        )
+
         params = {
-            "abstimes1": measurement.channel1.abstimes.astype(np.float64),
-            "abstimes2": measurement.channel2.abstimes.astype(np.float64),
-            "microtimes1": measurement.channel1.microtimes,
-            "microtimes2": measurement.channel2.microtimes,
+            "abstimes1": abstimes1.astype(np.float64),
+            "abstimes2": abstimes2.astype(np.float64),
+            "microtimes1": microtimes1,
+            "microtimes2": microtimes2,
             "window_ns": window_ns,
             "binsize_ns": binsize_ns,
             "difftime_ns": difftime_ns,
@@ -2170,23 +2423,32 @@ class Application:
             self._layout.grouping_tab.clear()
             return
 
+        mid = self._session.current_selection.measurement_id
+        ch = self._session.current_selection.channel
+
         # Get clustering result for current selection
         clustering = self._session.get_current_clustering()
-        levels = self._session.get_current_levels()
+        # Get clustering result for current selection
+        # Use unfiltered levels for group assignment mapping (clustering
+        # indices are relative to the full level list), then ROI-filter
+        # the result for display.
+        all_levels = self._session.get_current_levels()
 
         if clustering:
             self._layout.grouping_tab.set_clustering_result(clustering)
 
             # Also update the intensity tab's level display to show group colors
-            if levels and self._layout.intensity_tab:
-                # Update levels with group assignments from clustering
+            if all_levels and self._layout.intensity_tab:
+                # Apply group assignments on full list, then filter for display
                 updated_levels = self._apply_group_assignments_to_levels(
-                    levels, clustering
+                    all_levels, clustering
                 )
-                self._layout.intensity_tab.set_levels(updated_levels, color_by_group=True)
+                roi = self._session.get_roi(mid, ch)
+                visible_levels = filter_levels_by_roi(updated_levels, roi)
+                self._layout.intensity_tab.set_levels(visible_levels, color_by_group=True)
 
             # Update grouping tab intensity plot with levels and group bands
-            if levels:
+            if all_levels:
                 # Ensure intensity data is set on the grouping tab's intensity plot
                 # (needed because the plot may have been hidden when data was first set)
                 measurement = self._session.get_current_measurement()
@@ -2199,7 +2461,7 @@ class Application:
                     if channel:
                         self._layout.grouping_tab.set_intensity_data(channel.abstimes)
 
-                self._layout.grouping_tab.set_levels_with_groups(levels, clustering)
+                self._layout.grouping_tab.set_levels_with_groups(all_levels, clustering)
         else:
             # No clustering result - clear the grouping tab
             self._layout.grouping_tab.clear()
@@ -2363,6 +2625,7 @@ class Application:
                 )
                 continue
 
+            # CPA always runs on the full trace (ROI is a display/export filter)
             # Build task parameters
             params = {
                 "abstimes": channel_data.abstimes.astype(np.float64),
@@ -2381,6 +2644,24 @@ class Application:
 
         logger.info(f"Submitted {len(self._pending_futures)} CPA tasks")
 
+    def _get_roi_filtered_levels(self, mid: int, ch: int) -> list | None:
+        """Get levels filtered by the current ROI.
+
+        Levels that straddle the ROI boundary are excluded from display.
+
+        Args:
+            mid: Measurement ID.
+            ch: Channel number.
+
+        Returns:
+            Filtered list of LevelData, or None if no levels exist.
+        """
+        levels = self._session.get_levels(mid, ch)
+        if levels is None:
+            return None
+        roi = self._session.get_roi(mid, ch)
+        return filter_levels_by_roi(levels, roi)
+
     def _update_intensity_display(self) -> None:
         """Update the intensity tab display with current data."""
         if not self._layout or not self._layout.intensity_tab:
@@ -2389,8 +2670,11 @@ class Application:
         if not self._session.current_selection:
             return
 
-        # Get levels for current selection
-        levels = self._session.get_current_levels()
+        mid = self._session.current_selection.measurement_id
+        ch = self._session.current_selection.channel
+
+        # Get ROI-filtered levels for current selection
+        levels = self._get_roi_filtered_levels(mid, ch)
         if levels:
             self._layout.intensity_tab.set_levels(levels)
         else:
@@ -2408,8 +2692,8 @@ class Application:
         measurement_id = self._session.current_selection.measurement_id
         channel_id = self._session.current_selection.channel
 
-        # Get levels for current selection
-        levels = self._session.get_current_levels()
+        # Get ROI-filtered levels for current selection
+        levels = self._get_roi_filtered_levels(measurement_id, channel_id)
         if levels:
             self._layout.set_lifetime_levels(levels)
         else:

@@ -26,10 +26,10 @@ from full_sms.models.session import (
 )
 
 # Current session format version
-SESSION_VERSION = "1.1"
+SESSION_VERSION = "1.2"
 
 # Supported session versions for loading
-_SUPPORTED_VERSIONS = frozenset({"1.0", "1.1"})
+_SUPPORTED_VERSIONS = frozenset({"1.0", "1.1", "1.2"})
 
 
 class SessionSerializationError(Exception):
@@ -301,6 +301,13 @@ def save_session(state: SessionState, path: Path) -> None:
         level_irf_data_dict[key] = _irf_data_to_dict(irf)
     session_data["level_irf_data"] = level_irf_data_dict
 
+    # Serialize ROI regions (keyed by "measurement_id,channel")
+    roi_dict: Dict[str, List[float]] = {}
+    for (pid, ch), (start_s, end_s) in state.roi_regions.items():
+        key = _tuple_key_to_str((pid, ch))
+        roi_dict[key] = [float(start_s), float(end_s)]
+    session_data["roi_regions"] = roi_dict
+
     # Serialize selections
     session_data["selected"] = [_selection_to_dict(s) for s in state.selected]
     session_data["current_selection"] = (
@@ -432,6 +439,13 @@ def load_session(path: Path) -> Dict[str, Any]:
         level_irf_data[(pid, ch, lvl_idx)] = _dict_to_irf_data(irf_dict)
     result["level_irf_data"] = level_irf_data
 
+    # Deserialize ROI regions
+    roi_regions: Dict[Tuple[int, int], Tuple[float, float]] = {}
+    for key, roi_val in data.get("roi_regions", {}).items():
+        pid, ch = _str_to_tuple_key(key, (int, int))
+        roi_regions[(pid, ch)] = (float(roi_val[0]), float(roi_val[1]))
+    result["roi_regions"] = roi_regions
+
     # Deserialize selections
     result["selected"] = [
         _dict_to_selection(s) for s in data.get("selected", [])
@@ -491,6 +505,10 @@ def apply_session_to_state(
     # Apply level IRF data
     state.level_irf_data.clear()
     state.level_irf_data.update(session_data.get("level_irf_data", {}))
+
+    # Apply ROI regions
+    state.roi_regions.clear()
+    state.roi_regions.update(session_data.get("roi_regions", {}))
 
     # Apply selections
     state.selected = session_data["selected"]

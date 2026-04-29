@@ -59,6 +59,11 @@ class IntensityTabTags:
     resolve_current_btn: str = "intensity_tab_resolve_current"
     resolve_selected_btn: str = "intensity_tab_resolve_selected"
     resolve_all_btn: str = "intensity_tab_resolve_all"
+    # ROI controls
+    roi_group: str = "intensity_tab_roi_group"
+    roi_reset_btn: str = "intensity_tab_roi_reset"
+    roi_auto_trim_btn: str = "intensity_tab_roi_auto_trim"
+    roi_info_text: str = "intensity_tab_roi_info"
 
 
 INTENSITY_TAB_TAGS = IntensityTabTags()
@@ -102,6 +107,9 @@ class IntensityTab:
         # Callbacks
         self._on_bin_size_changed: Callable[[float], None] | None = None
         self._on_resolve: Callable[[str, ConfidenceLevel], None] | None = None
+        self._on_roi_changed: Callable[[float, float], None] | None = None
+        self._on_roi_reset: Callable[[], None] | None = None
+        self._on_auto_trim: Callable[[], None] | None = None
 
         # UI components
         self._intensity_plot: IntensityPlot | None = None
@@ -128,6 +136,10 @@ class IntensityTab:
             resolve_current_btn=f"{tag_prefix}intensity_tab_resolve_current",
             resolve_selected_btn=f"{tag_prefix}intensity_tab_resolve_selected",
             resolve_all_btn=f"{tag_prefix}intensity_tab_resolve_all",
+            roi_group=f"{tag_prefix}intensity_tab_roi_group",
+            roi_reset_btn=f"{tag_prefix}intensity_tab_roi_reset",
+            roi_auto_trim_btn=f"{tag_prefix}intensity_tab_roi_auto_trim",
+            roi_info_text=f"{tag_prefix}intensity_tab_roi_info",
         )
 
     @property
@@ -306,7 +318,35 @@ class IntensityTab:
                 enabled=False,
             )
 
-        # Third row: Info text (constrained width to prevent horizontal overflow)
+        # Third row: ROI controls
+        with dpg.group(horizontal=True, tag=self._tags.roi_group):
+            dpg.add_text("ROI:")
+
+            dpg.add_button(
+                label="Reset ROI",
+                tag=self._tags.roi_reset_btn,
+                callback=self._on_roi_reset_clicked,
+                enabled=False,
+            )
+
+            dpg.add_spacer(width=5)
+
+            dpg.add_button(
+                label="Auto-Trim...",
+                tag=self._tags.roi_auto_trim_btn,
+                callback=self._on_auto_trim_clicked,
+                enabled=False,
+            )
+
+            dpg.add_spacer(width=15)
+
+            dpg.add_text(
+                "",
+                tag=self._tags.roi_info_text,
+                color=(255, 165, 0),
+            )
+
+        # Fourth row: Info text (constrained width to prevent horizontal overflow)
         with dpg.group(horizontal=True):
             # Level info text
             dpg.add_text(
@@ -468,6 +508,11 @@ class IntensityTab:
         # Update plot
         if self._intensity_plot:
             self._intensity_plot.set_data(abstimes, self._bin_size_ms)
+            # Wire the plot's ROI callbacks:
+            # - drag: updates info text during drag (visual only)
+            # - committed: forwards to app callback on mouse release
+            self._intensity_plot.set_on_roi_drag(self._on_roi_plot_drag)
+            self._intensity_plot.set_on_roi_committed(self._on_roi_plot_committed)
 
         # Update histogram with the binned counts from the plot
         self._update_histogram()
@@ -485,6 +530,10 @@ class IntensityTab:
         if dpg.does_item_exist(self._tags.resolve_current_btn):
             dpg.configure_item(self._tags.resolve_current_btn, enabled=True)
 
+        # Enable ROI auto-trim button (data loaded)
+        if dpg.does_item_exist(self._tags.roi_auto_trim_btn):
+            dpg.configure_item(self._tags.roi_auto_trim_btn, enabled=True)
+
         # Update info text
         self._update_info_text()
 
@@ -500,6 +549,9 @@ class IntensityTab:
 
         if self._intensity_histogram:
             self._intensity_histogram.clear()
+
+        # Clear ROI
+        self.clear_roi()
 
         # Hide plot, show placeholder
         self._show_plot(False)
@@ -781,6 +833,123 @@ class IntensityTab:
         """
         # Histogram is always visible with subplots
         self._histogram_visible = visible
+
+    # -------------------------------------------------------------------------
+    # ROI Methods
+    # -------------------------------------------------------------------------
+
+    def set_on_roi_changed(self, callback: Callable[[float, float], None]) -> None:
+        """Set callback for ROI changes.
+
+        Args:
+            callback: Function called with (start_s, end_s) when ROI changes.
+        """
+        self._on_roi_changed = callback
+
+    def set_on_roi_reset(self, callback: Callable[[], None]) -> None:
+        """Set callback for ROI reset.
+
+        Args:
+            callback: Function called when Reset ROI is clicked.
+        """
+        self._on_roi_reset = callback
+
+    def set_on_auto_trim(self, callback: Callable[[], None]) -> None:
+        """Set callback for auto-trim button.
+
+        Args:
+            callback: Function called when Auto-Trim is clicked.
+        """
+        self._on_auto_trim = callback
+
+    def set_roi(self, start_s: float, end_s: float) -> None:
+        """Set the ROI on the plot and update info text.
+
+        Args:
+            start_s: ROI start time in seconds.
+            end_s: ROI end time in seconds.
+        """
+        if self._intensity_plot:
+            self._intensity_plot.set_roi(start_s, end_s)
+
+        # Update info text
+        duration = end_s - start_s
+        if dpg.does_item_exist(self._tags.roi_info_text):
+            dpg.set_value(
+                self._tags.roi_info_text,
+                f"{start_s:.2f}s – {end_s:.2f}s ({duration:.2f}s)",
+            )
+
+        # Enable ROI buttons
+        if dpg.does_item_exist(self._tags.roi_reset_btn):
+            dpg.configure_item(self._tags.roi_reset_btn, enabled=True)
+        if dpg.does_item_exist(self._tags.roi_auto_trim_btn):
+            dpg.configure_item(self._tags.roi_auto_trim_btn, enabled=True)
+
+    def clear_roi(self) -> None:
+        """Clear ROI from the plot and info text."""
+        if self._intensity_plot:
+            self._intensity_plot.clear_roi()
+
+        if dpg.does_item_exist(self._tags.roi_info_text):
+            dpg.set_value(self._tags.roi_info_text, "")
+
+        # Disable ROI buttons
+        if dpg.does_item_exist(self._tags.roi_reset_btn):
+            dpg.configure_item(self._tags.roi_reset_btn, enabled=False)
+        if dpg.does_item_exist(self._tags.roi_auto_trim_btn):
+            dpg.configure_item(self._tags.roi_auto_trim_btn, enabled=False)
+
+    def _on_roi_plot_drag(self, start_s: float, end_s: float) -> None:
+        """Handle ROI drag from plot (visual updates only).
+
+        Updates the info text during drag without triggering expensive
+        session updates or display refreshes.
+
+        Args:
+            start_s: Current ROI start in seconds.
+            end_s: Current ROI end in seconds.
+        """
+        duration = end_s - start_s
+        if dpg.does_item_exist(self._tags.roi_info_text):
+            dpg.set_value(
+                self._tags.roi_info_text,
+                f"{start_s:.2f}s – {end_s:.2f}s ({duration:.2f}s)",
+            )
+
+    def _on_roi_plot_committed(self, start_s: float, end_s: float) -> None:
+        """Handle ROI commit from plot (fires on mouse release).
+
+        Updates info text and forwards to app callback for session
+        update and display refresh.
+
+        Args:
+            start_s: Final ROI start in seconds.
+            end_s: Final ROI end in seconds.
+        """
+        # Update info text
+        duration = end_s - start_s
+        if dpg.does_item_exist(self._tags.roi_info_text):
+            dpg.set_value(
+                self._tags.roi_info_text,
+                f"{start_s:.2f}s – {end_s:.2f}s ({duration:.2f}s)",
+            )
+
+        # Forward to app callback
+        if self._on_roi_changed:
+            self._on_roi_changed(start_s, end_s)
+
+    def _on_roi_reset_clicked(self) -> None:
+        """Handle Reset ROI button click."""
+        logger.info("Reset ROI clicked")
+        if self._on_roi_reset:
+            self._on_roi_reset()
+
+    def _on_auto_trim_clicked(self) -> None:
+        """Handle Auto-Trim button click."""
+        logger.info("Auto-Trim clicked")
+        if self._on_auto_trim:
+            self._on_auto_trim()
 
     # -------------------------------------------------------------------------
     # Group Highlighting Methods

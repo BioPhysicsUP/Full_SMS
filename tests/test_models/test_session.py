@@ -518,11 +518,90 @@ class TestSessionState:
         assert state.get_level_fit(1, 1, 1) is None
         assert state.get_level_fit(999, 1, 0) is None
 
+    def test_get_set_roi(self, sample_measurement: MeasurementData) -> None:
+        """Can store and retrieve ROI for a measurement/channel."""
+        state = SessionState()
+        state.measurements = [sample_measurement]
+
+        # No ROI initially
+        assert state.get_roi(1, 1) is None
+
+        # Set ROI
+        state.set_roi(1, 1, (1.0, 5.0))
+        assert state.get_roi(1, 1) == (1.0, 5.0)
+
+        # Different channel returns None
+        assert state.get_roi(1, 2) is None
+
+    def test_get_current_roi(self, sample_measurement: MeasurementData) -> None:
+        """get_current_roi returns ROI for current selection."""
+        state = SessionState()
+        state.measurements = [sample_measurement]
+
+        # No selection
+        assert state.get_current_roi() is None
+
+        # With selection but no ROI
+        state.select(1)
+        assert state.get_current_roi() is None
+
+        # With ROI set
+        state.set_roi(1, 1, (2.0, 10.0))
+        assert state.get_current_roi() == (2.0, 10.0)
+
+    def test_clear_roi(self, sample_measurement: MeasurementData) -> None:
+        """clear_roi removes ROI for a measurement/channel."""
+        state = SessionState()
+        state.measurements = [sample_measurement]
+        state.set_roi(1, 1, (1.0, 5.0))
+
+        state.clear_roi(1, 1)
+
+        assert state.get_roi(1, 1) is None
+
+    def test_clear_roi_nonexistent(self, sample_measurement: MeasurementData) -> None:
+        """clear_roi for nonexistent ROI is a no-op."""
+        state = SessionState()
+        state.measurements = [sample_measurement]
+
+        # Should not raise
+        state.clear_roi(1, 1)
+
+    def test_clear_analysis_for(self, sample_measurement: MeasurementData, sample_level: LevelData) -> None:
+        """clear_analysis_for removes all analysis for one measurement/channel."""
+        state = SessionState()
+        state.measurements = [sample_measurement]
+        state.set_levels(1, 1, [sample_level])
+
+        fit = FitResultData(
+            tau=(5.0,), tau_std=(0.1,), amplitude=(1.0,), amplitude_std=(0.01,),
+            shift=0.5, shift_std=0.1, chi_squared=1.0, durbin_watson=2.0,
+            dw_bounds=(1.5, 2.5), fit_start_index=0, fit_end_index=100,
+            background=10.0, num_exponentials=1, average_lifetime=5.0, level_index=None,
+        )
+        state.set_measurement_fit(1, 1, fit)
+
+        level_fit = FitResultData(
+            tau=(3.0,), tau_std=(0.1,), amplitude=(1.0,), amplitude_std=(0.01,),
+            shift=0.3, shift_std=0.1, chi_squared=1.1, durbin_watson=1.9,
+            dw_bounds=(1.5, 2.5), fit_start_index=0, fit_end_index=50,
+            background=5.0, num_exponentials=1, average_lifetime=3.0, level_index=0,
+        )
+        state.set_level_fit(1, 1, 0, level_fit)
+
+        state.clear_analysis_for(1, 1)
+
+        assert state.get_levels(1, 1) is None
+        assert state.get_clustering(1, 1) is None
+        assert state.get_measurement_fit(1, 1) is None
+        assert state.get_level_fit(1, 1, 0) is None
+
     def test_clear_analysis(self, sample_measurement: MeasurementData, sample_level: LevelData) -> None:
         """clear_analysis() removes all analysis results."""
         state = SessionState()
         state.measurements = [sample_measurement]
         state.set_levels(1, 1, [sample_level])
+        state.set_roi(1, 1, (1.0, 5.0))
 
         state.clear_analysis()
 
@@ -530,6 +609,7 @@ class TestSessionState:
         assert state.clustering_results == {}
         assert state.measurement_fits == {}
         assert state.level_fits == {}
+        assert state.roi_regions == {}
         assert state.measurements == [sample_measurement]  # Measurements preserved
 
     def test_reset(self, sample_measurement: MeasurementData, sample_level: LevelData) -> None:
@@ -543,6 +623,7 @@ class TestSessionState:
         state.measurements = [sample_measurement]
         state.select(1)
         state.set_levels(1, 1, [sample_level])
+        state.set_roi(1, 1, (0.5, 2.0))
         state.ui_state.bin_size_ms = 5.0
         state.processing.start("Test")
 
@@ -553,6 +634,7 @@ class TestSessionState:
         assert state.selected == []
         assert state.current_selection is None
         assert state.levels == {}
+        assert state.roi_regions == {}
         assert state.ui_state.bin_size_ms == 10.0  # Default
         assert state.processing.is_busy is False
 

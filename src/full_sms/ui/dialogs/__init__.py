@@ -1,5 +1,10 @@
 """Modal dialogs: settings, fitting, file dialogs, etc."""
 
+from full_sms.ui.dialogs.auto_roi_dialog import (
+    AutoROIDialog,
+    AutoROIParameters,
+    AutoROIScope,
+)
 from full_sms.ui.dialogs.file_dialogs import (
     FileDialogs,
     FileDialogTags,
@@ -20,6 +25,9 @@ from full_sms.ui.dialogs.settings_dialog import (
 )
 
 __all__ = [
+    "AutoROIDialog",
+    "AutoROIParameters",
+    "AutoROIScope",
     "FileDialogs",
     "FileDialogTags",
     "FitScope",

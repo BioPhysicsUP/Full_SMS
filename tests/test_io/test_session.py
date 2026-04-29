@@ -1034,6 +1034,119 @@ class TestRelativePathRoundTrip:
         assert loaded["file_metadata"]["path"] == h5_path.resolve()
 
 
+class TestROIRoundTrip:
+    """Tests for ROI region serialization."""
+
+    @pytest.fixture
+    def sample_channel(self) -> ChannelData:
+        """Create a sample channel."""
+        return ChannelData(
+            abstimes=np.array([0, 100_000_000], dtype=np.uint64),
+            microtimes=np.array([1.5, 2.3], dtype=np.float64),
+        )
+
+    def test_roi_roundtrip(self, sample_channel: ChannelData, tmp_path: Path) -> None:
+        """ROI regions are preserved through save/load."""
+        state = SessionState()
+        state.file_metadata = FileMetadata(
+            path=tmp_path / "test.h5",
+            filename="test.h5",
+            num_measurements=1,
+        )
+        state.measurements = [
+            MeasurementData(
+                id=1, name="Measurement 1", tcspc_card="SPC-150",
+                channelwidth=0.012, channel1=sample_channel,
+            )
+        ]
+        state.set_roi(1, 1, (0.5, 3.5))
+
+        session_path = tmp_path / "test.smsa"
+        save_session(state, session_path)
+        loaded = load_session(session_path)
+
+        assert (1, 1) in loaded["roi_regions"]
+        assert loaded["roi_regions"][(1, 1)] == (0.5, 3.5)
+
+    def test_empty_roi_roundtrip(self, sample_channel: ChannelData, tmp_path: Path) -> None:
+        """Session with no ROI roundtrips as empty dict."""
+        state = SessionState()
+        state.file_metadata = FileMetadata(
+            path=tmp_path / "test.h5",
+            filename="test.h5",
+            num_measurements=1,
+        )
+        state.measurements = [
+            MeasurementData(
+                id=1, name="Measurement 1", tcspc_card="SPC-150",
+                channelwidth=0.012, channel1=sample_channel,
+            )
+        ]
+
+        session_path = tmp_path / "test.smsa"
+        save_session(state, session_path)
+        loaded = load_session(session_path)
+
+        assert loaded["roi_regions"] == {}
+
+    def test_backward_compat_v11_no_roi(self, tmp_path: Path) -> None:
+        """Loading a v1.1 session yields empty roi_regions."""
+        data = {
+            "version": "1.1",
+            "file_metadata": {
+                "path": "/path/to/test.h5",
+                "filename": "test.h5",
+                "num_measurements": 1,
+            },
+            "levels": {},
+            "clustering_results": {},
+            "measurement_fits": {},
+            "level_fits": {},
+            "selected": [],
+            "current_selection": None,
+            "ui_state": {
+                "bin_size_ms": 10.0,
+                "confidence": 0.95,
+                "active_tab": "intensity",
+                "show_levels": True,
+                "show_groups": True,
+                "log_scale_decay": True,
+            },
+        }
+        session_path = tmp_path / "old.smsa"
+        with open(session_path, "w") as f:
+            json.dump(data, f)
+
+        loaded = load_session(session_path)
+
+        assert loaded["roi_regions"] == {}
+
+    def test_apply_roi_to_state(self, sample_channel: ChannelData) -> None:
+        """apply_session_to_state sets roi_regions."""
+        state = SessionState()
+        state.measurements = [
+            MeasurementData(
+                id=1, name="Measurement 1", tcspc_card="SPC-150",
+                channelwidth=0.012, channel1=sample_channel,
+            )
+        ]
+
+        session_data = {
+            "levels": {},
+            "clustering_results": {},
+            "measurement_fits": {},
+            "level_fits": {},
+            "roi_regions": {(1, 1): (0.5, 3.5)},
+            "selected": [],
+            "current_selection": None,
+            "ui_state": UIState(),
+        }
+
+        apply_session_to_state(session_data, state)
+
+        assert state.get_roi(1, 1) == (0.5, 3.5)
+
+
 class TestBackwardCompatV10:
     """Tests for backward compatibility with v1.0 session files."""
 
@@ -1069,6 +1182,7 @@ class TestBackwardCompatV10:
 
         assert loaded["file_metadata"]["path"] == Path("/absolute/path/to/test.h5")
         assert loaded["file_metadata"]["analysis_uuid"] is None
+        assert loaded["roi_regions"] == {}
 
     def test_rejects_unsupported_version(self, tmp_path: Path) -> None:
         """Unsupported versions are rejected."""

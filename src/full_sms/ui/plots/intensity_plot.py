@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Callable, Sequence
 
 import dearpygui.dearpygui as dpg
 import numpy as np
@@ -80,6 +80,10 @@ class IntensityPlotTags:
     level_overlay_group: str = "intensity_plot_level_overlays"
     level_step_line: str = "intensity_plot_level_step_line"
     selected_level_band: str = "intensity_plot_selected_level_band"
+    roi_start_line: str = "intensity_plot_roi_start_line"
+    roi_end_line: str = "intensity_plot_roi_end_line"
+    roi_shade_left: str = "intensity_plot_roi_shade_left"
+    roi_shade_right: str = "intensity_plot_roi_shade_right"
 
 
 INTENSITY_PLOT_TAGS = IntensityPlotTags()
@@ -120,6 +124,17 @@ class IntensityPlot:
         self._color_by_group: bool = False
         self._highlighted_group_id: int | None = None  # Group ID to highlight
 
+        # ROI state
+        self._roi_start_s: float | None = None
+        self._roi_end_s: float | None = None
+        self._on_roi_committed: Callable[[float, float], None] | None = None
+        self._on_roi_drag_callback: Callable[[float, float], None] | None = None
+        self._roi_dragging: bool = False
+        self._roi_release_handler_tag: str | None = None
+
+        # Theme state
+        self._intensity_theme_applied: bool = False
+
         # Generate unique tags
         self._tags = IntensityPlotTags(
             container=f"{tag_prefix}intensity_plot_container",
@@ -130,6 +145,10 @@ class IntensityPlot:
             level_overlay_group=f"{tag_prefix}intensity_plot_level_overlays",
             level_step_line=f"{tag_prefix}intensity_plot_level_step_line",
             selected_level_band=f"{tag_prefix}intensity_plot_selected_level_band",
+            roi_start_line=f"{tag_prefix}intensity_plot_roi_start_line",
+            roi_end_line=f"{tag_prefix}intensity_plot_roi_end_line",
+            roi_shade_left=f"{tag_prefix}intensity_plot_roi_shade_left",
+            roi_shade_right=f"{tag_prefix}intensity_plot_roi_shade_right",
         )
 
         # Display options
@@ -263,6 +282,26 @@ class IntensityPlot:
             y=self._counts.tolist(),
         )
 
+        # Apply green theme to intensity series (once, after build is complete)
+        if not self._intensity_theme_applied:
+            self._apply_intensity_theme()
+            self._intensity_theme_applied = True
+
+    def _apply_intensity_theme(self) -> None:
+        """Apply a green theme to the intensity line series."""
+        if not dpg.does_item_exist(self._tags.series):
+            return
+
+        with dpg.theme() as theme:
+            with dpg.theme_component(dpg.mvLineSeries):
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_Line,
+                    (100, 200, 100, 255),  # Green
+                    category=dpg.mvThemeCat_Plots,
+                )
+
+        dpg.bind_item_theme(self._tags.series, theme)
+
     def _fit_axes(self) -> None:
         """Auto-fit the axes to show all data (allows zoom/pan)."""
         if not dpg.does_item_exist(self._tags.x_axis):
@@ -278,6 +317,7 @@ class IntensityPlot:
         self._counts = None
         self._update_series()
         self.clear_levels()
+        self.clear_roi()
         logger.debug("Intensity plot cleared")
 
     def set_axis_label_y(self, label: str) -> None:
@@ -525,7 +565,7 @@ class IntensityPlot:
             with dpg.theme_component(dpg.mvLineSeries):
                 dpg.add_theme_color(
                     dpg.mvPlotCol_Line,
-                    (255, 100, 100, 255),  # Red-orange, fully opaque
+                    (255, 50, 50, 255),  # Red
                     category=dpg.mvThemeCat_Plots,
                 )
                 dpg.add_theme_style(
@@ -631,11 +671,13 @@ class IntensityPlot:
 
         # Create X coordinates for the band (left edge, right edge)
         x_coords = [start_ms, end_ms]
-        # Y coordinates: Use 0 for bottom and a very large value for top
-        # This ensures the band always extends to the full plot height
-        # regardless of current axis limits or auto-fit timing
+        # Y coordinates: Use 0 for bottom and 2x data max for top
+        # This ensures the band covers the visible plot area without
+        # distorting the Y-axis auto-fit
+        count_range = self.get_count_range()
+        shade_y_max = count_range[1] * 2.0 if count_range else 1e4
         y1_coords = [0, 0]
-        y2_coords = [1e10, 1e10]  # Very large value to always reach plot top
+        y2_coords = [shade_y_max, shade_y_max]
 
         # Add shade series for the vertical band
         dpg.add_shade_series(
@@ -668,3 +710,255 @@ class IntensityPlot:
         """Clear any selected level highlighting."""
         if dpg.does_item_exist(self._tags.selected_level_band):
             dpg.delete_item(self._tags.selected_level_band)
+
+    # -------------------------------------------------------------------------
+    # ROI (Region of Interest) Methods
+    # -------------------------------------------------------------------------
+
+    @property
+    def roi_start_s(self) -> float | None:
+        """Get the ROI start time in seconds."""
+        return self._roi_start_s
+
+    @property
+    def roi_end_s(self) -> float | None:
+        """Get the ROI end time in seconds."""
+        return self._roi_end_s
+
+    def set_on_roi_committed(self, callback: Callable[[float, float], None]) -> None:
+        """Set callback for ROI commit (fires on mouse release after drag).
+
+        Args:
+            callback: Function called with (start_s, end_s) when ROI drag is released.
+        """
+        self._on_roi_committed = callback
+
+    def set_on_roi_drag(self, callback: Callable[[float, float], None]) -> None:
+        """Set callback for ROI drag (fires during drag for visual updates).
+
+        Args:
+            callback: Function called with (start_s, end_s) during drag.
+        """
+        self._on_roi_drag_callback = callback
+
+    def set_roi(self, start_s: float, end_s: float) -> None:
+        """Set the ROI and display drag lines with shading.
+
+        Args:
+            start_s: ROI start time in seconds.
+            end_s: ROI end time in seconds.
+        """
+        self._roi_start_s = start_s
+        self._roi_end_s = end_s
+
+        if not dpg.does_item_exist(self._tags.y_axis):
+            return
+
+        # Convert seconds to milliseconds for the plot
+        start_ms = start_s * 1000.0
+        end_ms = end_s * 1000.0
+
+        # Create or update start drag line
+        need_release_handler = False
+        if dpg.does_item_exist(self._tags.roi_start_line):
+            dpg.set_value(self._tags.roi_start_line, start_ms)
+        else:
+            dpg.add_drag_line(
+                label="ROI Start",
+                color=(255, 165, 0, 200),
+                default_value=start_ms,
+                parent=self._tags.plot,
+                tag=self._tags.roi_start_line,
+                callback=self._on_roi_drag,
+            )
+            self._apply_roi_line_theme(self._tags.roi_start_line)
+            need_release_handler = True
+
+        # Create or update end drag line
+        if dpg.does_item_exist(self._tags.roi_end_line):
+            dpg.set_value(self._tags.roi_end_line, end_ms)
+        else:
+            dpg.add_drag_line(
+                label="ROI End",
+                color=(255, 165, 0, 200),
+                default_value=end_ms,
+                parent=self._tags.plot,
+                tag=self._tags.roi_end_line,
+                callback=self._on_roi_drag,
+            )
+            self._apply_roi_line_theme(self._tags.roi_end_line)
+            need_release_handler = True
+
+        # Set up mouse release handler for drag-commit pattern
+        if need_release_handler and self._roi_release_handler_tag is None:
+            self._setup_roi_release_handler()
+
+        # Update shading
+        self._update_roi_shading(start_ms, end_ms)
+
+    def clear_roi(self) -> None:
+        """Remove ROI drag lines, shading, and release handler."""
+        self._roi_start_s = None
+        self._roi_end_s = None
+        self._roi_dragging = False
+
+        for tag in [
+            self._tags.roi_start_line,
+            self._tags.roi_end_line,
+            self._tags.roi_shade_left,
+            self._tags.roi_shade_right,
+        ]:
+            if dpg.does_item_exist(tag):
+                dpg.delete_item(tag)
+
+        # Clean up mouse release handler
+        if self._roi_release_handler_tag and dpg.does_item_exist(self._roi_release_handler_tag):
+            dpg.delete_item(self._roi_release_handler_tag)
+        self._roi_release_handler_tag = None
+
+    def _on_roi_drag(self, sender: int, app_data: float) -> None:
+        """Handle drag line movement.
+
+        Enforces start < end and updates shading. Only fires the drag
+        callback (for visual updates like info text). The expensive
+        session update fires on mouse release via _on_roi_mouse_release.
+
+        Args:
+            sender: The drag line widget that was moved.
+            app_data: The new position value in milliseconds.
+        """
+        if (
+            not dpg.does_item_exist(self._tags.roi_start_line)
+            or not dpg.does_item_exist(self._tags.roi_end_line)
+        ):
+            return
+
+        self._roi_dragging = True
+
+        start_ms = dpg.get_value(self._tags.roi_start_line)
+        end_ms = dpg.get_value(self._tags.roi_end_line)
+
+        # Enforce start < end
+        if start_ms >= end_ms:
+            if sender == dpg.get_item_alias(self._tags.roi_start_line) or sender == self._tags.roi_start_line:
+                # Start was dragged past end — clamp
+                start_ms = end_ms - 1.0
+                dpg.set_value(self._tags.roi_start_line, start_ms)
+            else:
+                end_ms = start_ms + 1.0
+                dpg.set_value(self._tags.roi_end_line, end_ms)
+
+        # Convert back to seconds
+        self._roi_start_s = start_ms / 1000.0
+        self._roi_end_s = end_ms / 1000.0
+
+        # Update shading
+        self._update_roi_shading(start_ms, end_ms)
+
+        # Fire drag callback (visual updates only, e.g. info text)
+        if self._on_roi_drag_callback:
+            self._on_roi_drag_callback(self._roi_start_s, self._roi_end_s)
+
+    def _setup_roi_release_handler(self) -> None:
+        """Set up a global mouse release handler for ROI drag commit."""
+        tag = f"{self._tag_prefix}roi_release_handler"
+        with dpg.handler_registry(tag=tag):
+            dpg.add_mouse_release_handler(
+                button=dpg.mvMouseButton_Left,
+                callback=self._on_roi_mouse_release,
+            )
+        self._roi_release_handler_tag = tag
+
+    def _on_roi_mouse_release(self, sender: int, app_data: int) -> None:
+        """Handle mouse release after ROI drag.
+
+        Fires the committed callback once when drag ends.
+        """
+        if not self._roi_dragging:
+            return
+        self._roi_dragging = False
+        if self._on_roi_committed and self._roi_start_s is not None and self._roi_end_s is not None:
+            self._on_roi_committed(self._roi_start_s, self._roi_end_s)
+
+    def _update_roi_shading(self, start_ms: float, end_ms: float) -> None:
+        """Update the excluded-region shading around the ROI.
+
+        Args:
+            start_ms: ROI start in milliseconds.
+            end_ms: ROI end in milliseconds.
+        """
+        if not dpg.does_item_exist(self._tags.y_axis):
+            return
+
+        # Get the data range for shade boundaries
+        time_range = self.get_time_range()
+        if time_range is None:
+            return
+
+        data_start_ms = time_range[0]
+        data_end_ms = time_range[1]
+
+        # Compute a reasonable shade ceiling from the actual data
+        count_range = self.get_count_range()
+        shade_y_max = count_range[1] * 2.0 if count_range else 1e4
+
+        # Left shade: data start to ROI start
+        if dpg.does_item_exist(self._tags.roi_shade_left):
+            dpg.delete_item(self._tags.roi_shade_left)
+        if start_ms > data_start_ms:
+            dpg.add_shade_series(
+                [data_start_ms, start_ms],
+                [0, 0],
+                y2=[shade_y_max, shade_y_max],
+                parent=self._tags.y_axis,
+                tag=self._tags.roi_shade_left,
+            )
+            self._apply_roi_shade_theme(self._tags.roi_shade_left)
+
+        # Right shade: ROI end to data end
+        if dpg.does_item_exist(self._tags.roi_shade_right):
+            dpg.delete_item(self._tags.roi_shade_right)
+        if end_ms < data_end_ms:
+            dpg.add_shade_series(
+                [end_ms, data_end_ms],
+                [0, 0],
+                y2=[shade_y_max, shade_y_max],
+                parent=self._tags.y_axis,
+                tag=self._tags.roi_shade_right,
+            )
+            self._apply_roi_shade_theme(self._tags.roi_shade_right)
+
+    def _apply_roi_line_theme(self, tag: str) -> None:
+        """Apply an orange theme to an ROI drag line."""
+        if not dpg.does_item_exist(tag):
+            return
+
+        with dpg.theme() as theme:
+            with dpg.theme_component(dpg.mvDragLine):
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_Line,
+                    (255, 165, 0, 200),  # Orange
+                    category=dpg.mvThemeCat_Plots,
+                )
+                dpg.add_theme_style(
+                    dpg.mvPlotStyleVar_LineWeight,
+                    1.5,
+                    category=dpg.mvThemeCat_Plots,
+                )
+
+        dpg.bind_item_theme(tag, theme)
+
+    def _apply_roi_shade_theme(self, tag: str) -> None:
+        """Apply a dark semi-transparent theme to ROI shade regions."""
+        if not dpg.does_item_exist(tag):
+            return
+
+        with dpg.theme() as theme:
+            with dpg.theme_component(dpg.mvShadeSeries):
+                dpg.add_theme_color(
+                    dpg.mvPlotCol_Fill,
+                    (0, 0, 0, 80),  # Dark, semi-transparent
+                    category=dpg.mvThemeCat_Plots,
+                )
+
+        dpg.bind_item_theme(tag, theme)

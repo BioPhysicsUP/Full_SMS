@@ -808,6 +808,7 @@ def export_all_measurement_data(
     export_groups: bool = True,
     export_fits: bool = True,
     bin_size_ms: float = 10.0,
+    roi: tuple[float, float] | None = None,
 ) -> list[Path]:
     """Export all analysis data for a single measurement.
 
@@ -822,6 +823,7 @@ def export_all_measurement_data(
         export_groups: Whether to export groups.
         export_fits: Whether to export fit results.
         bin_size_ms: Bin size for intensity trace.
+        roi: Optional ROI tuple (start_s, end_s) to filter levels.
 
     Returns:
         List of paths to exported files.
@@ -852,6 +854,10 @@ def export_all_measurement_data(
     if export_levels:
         levels_data = state.get_levels(measurement_id, channel)
         if levels_data:
+            # Filter levels by ROI if set
+            if roi is not None:
+                from full_sms.analysis.roi import filter_levels_by_roi
+                levels_data = filter_levels_by_roi(levels_data, roi)
             # Get level-specific fit results if available
             level_fits_dict = {}
             all_level_fits = state.get_all_level_fits(measurement_id, channel)
@@ -940,6 +946,9 @@ def export_batch(
             progress = (idx + 1) / total
             progress_callback(progress, f"Exporting measurement {measurement_id}...")
 
+        # Get ROI for this measurement/channel to filter levels
+        roi = state.get_roi(measurement_id, channel)
+
         files = export_all_measurement_data(
             state=state,
             measurement_id=measurement_id,
@@ -951,6 +960,7 @@ def export_batch(
             export_groups=export_groups,
             export_fits=export_fits,
             bin_size_ms=bin_size_ms,
+            roi=roi,
         )
         all_files.extend(files)
 

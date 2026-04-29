@@ -175,6 +175,9 @@ class SessionState:
     level_fits: Dict[tuple[int, int, int], FitResultData] = field(default_factory=dict)
     irf_data: Dict[tuple[int, int], IRFData] = field(default_factory=dict)
     level_irf_data: Dict[tuple[int, int, int], IRFData] = field(default_factory=dict)
+    roi_regions: Dict[tuple[int, int], tuple[float, float]] = field(
+        default_factory=dict
+    )
     export_directory: Optional[Path] = None
     ui_state: UIState = field(default_factory=UIState)
     processing: ProcessingState = field(default_factory=ProcessingState)
@@ -455,6 +458,84 @@ class SessionState:
         """
         self.level_irf_data[(measurement_id, channel, level_index)] = irf
 
+    def get_roi(
+        self, measurement_id: int, channel: int = 1
+    ) -> Optional[tuple[float, float]]:
+        """Get the ROI for a measurement/channel.
+
+        Args:
+            measurement_id: The measurement ID.
+            channel: The channel number (1 or 2).
+
+        Returns:
+            Tuple of (start_s, end_s) if an ROI is set, None otherwise.
+        """
+        return self.roi_regions.get((measurement_id, channel))
+
+    def get_current_roi(self) -> Optional[tuple[float, float]]:
+        """Get the ROI for the currently selected measurement/channel.
+
+        Returns:
+            Tuple of (start_s, end_s) if available, None otherwise.
+        """
+        if self.current_selection is None:
+            return None
+        return self.get_roi(
+            self.current_selection.measurement_id, self.current_selection.channel
+        )
+
+    def set_roi(
+        self, measurement_id: int, channel: int, roi: tuple[float, float]
+    ) -> None:
+        """Set the ROI for a measurement/channel.
+
+        Args:
+            measurement_id: The measurement ID.
+            channel: The channel number (1 or 2).
+            roi: Tuple of (start_s, end_s) defining the region of interest.
+        """
+        self.roi_regions[(measurement_id, channel)] = roi
+
+    def clear_roi(self, measurement_id: int, channel: int) -> None:
+        """Clear the ROI for a measurement/channel.
+
+        Args:
+            measurement_id: The measurement ID.
+            channel: The channel number (1 or 2).
+        """
+        self.roi_regions.pop((measurement_id, channel), None)
+
+    def clear_analysis_for(self, measurement_id: int, channel: int) -> None:
+        """Clear all analysis results for a specific measurement/channel.
+
+        Removes levels, clustering, measurement fits, level fits, IRF data,
+        and level IRF data for the given measurement and channel.
+
+        Args:
+            measurement_id: The measurement ID.
+            channel: The channel number (1 or 2).
+        """
+        key = (measurement_id, channel)
+        self.levels.pop(key, None)
+        self.clustering_results.pop(key, None)
+        self.measurement_fits.pop(key, None)
+        self.irf_data.pop(key, None)
+
+        # Clear level fits and level IRF data for this measurement/channel
+        level_fit_keys = [
+            k for k in self.level_fits if k[0] == measurement_id and k[1] == channel
+        ]
+        for k in level_fit_keys:
+            del self.level_fits[k]
+
+        level_irf_keys = [
+            k
+            for k in self.level_irf_data
+            if k[0] == measurement_id and k[1] == channel
+        ]
+        for k in level_irf_keys:
+            del self.level_irf_data[k]
+
     def select(self, measurement_id: int, channel: int = 1) -> None:
         """Select a measurement/channel as the current selection.
 
@@ -521,6 +602,7 @@ class SessionState:
         self.level_fits.clear()
         self.irf_data.clear()
         self.level_irf_data.clear()
+        self.roi_regions.clear()
 
     def reset(self) -> None:
         """Reset the session to initial empty state."""
@@ -534,5 +616,6 @@ class SessionState:
         self.level_fits.clear()
         self.irf_data.clear()
         self.level_irf_data.clear()
+        self.roi_regions.clear()
         self.ui_state = UIState()
         self.processing = ProcessingState()
